@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { submitLunchOrder } from "../actions";
+import {
+  cancelLunchOrder,
+  submitLunchOrder,
+  updateLunchOrder,
+} from "../actions";
 
 type Props = {
   params: Promise<{
@@ -12,8 +16,21 @@ type Props = {
   searchParams: Promise<{
     error?: string;
     ordered?: string;
+    updated?: string;
+    cancelled?: string;
+    edit?: string;
   }>;
 };
+
+type Related<T> = T | T[] | null;
+
+function getRelated<T>(value: Related<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
 
 function formatDeadline(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -63,6 +80,7 @@ export default async function LunchOrderPage({
       status,
       order_items (
         id,
+        menu_item_id,
         quantity,
         unit_price,
         menu_items (
@@ -75,12 +93,19 @@ export default async function LunchOrderPage({
     .neq("status", "cancelled")
     .maybeSingle();
 
-  const canOrder =
-    lunchDay.status === "open" &&
-    !existingOrder;
-
   const activeItems = lunchDay.menu_items.filter(
     (item) => item.is_active,
+  );
+
+  const isEditing =
+    query.edit === "1" &&
+    existingOrder?.status === "submitted";
+
+  const quantities = new Map(
+    existingOrder?.order_items.map((item) => [
+      item.menu_item_id,
+      item.quantity,
+    ]) ?? [],
   );
 
   return (
@@ -107,32 +132,82 @@ export default async function LunchOrderPage({
         </p>
       )}
 
-      {query.error && (
+      {query.updated && (
         <p className="mt-6 rounded border p-3">
-          Unable to submit order: {query.error}
+          Your order was updated successfully.
         </p>
       )}
 
-      {existingOrder ? (
+      {query.cancelled && (
+        <p className="mt-6 rounded border p-3">
+          Your order was cancelled. You may place a new order while
+          ordering remains open.
+        </p>
+      )}
+
+      {query.error && (
+        <p className="mt-6 rounded border p-3">
+          Unable to complete the request: {query.error}
+        </p>
+      )}
+
+      {existingOrder && !isEditing ? (
         <section className="mt-8">
           <h2 className="text-xl font-semibold">Your order</h2>
 
           <div className="mt-4 space-y-2">
-            {existingOrder.order_items.map((item) => (
-              <div key={item.id} className="rounded border p-3">
-                <p className="font-semibold">
-                  {item.menu_items?.[0]?.name ?? "Menu item"}
-                </p>
+            {existingOrder.order_items.map((item) => {
+              const menuItem = getRelated(item.menu_items);
 
-                <p>
-                  Quantity: {item.quantity} · $
-                  {Number(item.unit_price).toFixed(2)} each
-                </p>
-              </div>
-            ))}
+              return (
+                <div key={item.id} className="rounded border p-3">
+                  <p className="font-semibold">
+                    {menuItem?.name ?? "Menu item"}
+                  </p>
+
+                  <p>
+                    Quantity: {item.quantity} · $
+                    {Number(item.unit_price).toFixed(2)} each
+                  </p>
+                </div>
+              );
+            })}
           </div>
+
+          {existingOrder.status === "submitted" &&
+            lunchDay.status === "open" && (
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href={`/lunch/${lunchDay.id}?edit=1`}
+                  className="rounded border px-4 py-2"
+                >
+                  Edit order
+                </Link>
+
+                <form action={cancelLunchOrder}>
+                  <input
+                    type="hidden"
+                    name="lunchDayId"
+                    value={lunchDay.id}
+                  />
+
+                  <input
+                    type="hidden"
+                    name="orderId"
+                    value={existingOrder.id}
+                  />
+
+                  <button
+                    type="submit"
+                    className="rounded border px-4 py-2"
+                  >
+                    Cancel order
+                  </button>
+                </form>
+              </div>
+            )}
         </section>
-      ) : !canOrder ? (
+      ) : lunchDay.status !== "open" ? (
         <p className="mt-8">
           Ordering is closed for this lunch.
         </p>
@@ -141,14 +216,29 @@ export default async function LunchOrderPage({
           No menu items are currently available.
         </p>
       ) : (
-        <form action={submitLunchOrder} className="mt-8">
+        <form
+          action={isEditing ? updateLunchOrder : submitLunchOrder}
+          className="mt-8"
+        >
           <input
             type="hidden"
             name="lunchDayId"
             value={lunchDay.id}
           />
 
-          <div className="space-y-4">
+          {isEditing && existingOrder && (
+            <input
+              type="hidden"
+              name="orderId"
+              value={existingOrder.id}
+            />
+          )}
+
+          <h2 className="text-xl font-semibold">
+            {isEditing ? "Edit your order" : "Place your order"}
+          </h2>
+
+          <div className="mt-4 space-y-4">
             {activeItems.map((item) => (
               <div key={item.id} className="rounded border p-4">
                 <div className="flex justify-between gap-4">
@@ -178,7 +268,11 @@ export default async function LunchOrderPage({
                       type="number"
                       min="0"
                       step="1"
-                      defaultValue="0"
+                      defaultValue={
+                        isEditing
+                          ? quantities.get(item.id) ?? 0
+                          : 0
+                      }
                       className="w-20 rounded border p-2"
                     />
                   </div>
@@ -187,12 +281,23 @@ export default async function LunchOrderPage({
             ))}
           </div>
 
-          <button
-            type="submit"
-            className="mt-6 rounded border px-4 py-2"
-          >
-            Submit order
-          </button>
+          <div className="mt-6 flex gap-3">
+            <button
+              type="submit"
+              className="rounded border px-4 py-2"
+            >
+              {isEditing ? "Save changes" : "Submit order"}
+            </button>
+
+            {isEditing && (
+              <Link
+                href={`/lunch/${lunchDay.id}`}
+                className="rounded border px-4 py-2"
+              >
+                Cancel editing
+              </Link>
+            )}
+          </div>
         </form>
       )}
     </main>

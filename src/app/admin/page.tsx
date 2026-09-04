@@ -13,13 +13,21 @@ export default async function AdminPage() {
       </p>
 
       <p className="mt-4">
-        Manage lunch days, menus, and orders from here.
+        Manage lunch days, menus, and employee orders from here.
       </p>
 
-      <div className="mt-6">
-        <Link href="/admin/lunch-days" className="underline">
-          Manage lunch days
-        </Link>
+      <div className="mt-6 space-y-3">
+        <div>
+          <Link href="/admin/lunch-days" className="underline">
+            Manage lunch days
+          </Link>
+        </div>
+
+        <div>
+          <Link href="/admin/orders" className="underline">
+            View orders
+          </Link>
+        </div>
       </div>
     </main>
   );
