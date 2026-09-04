@@ -1,0 +1,117 @@
+begin;
+
+select plan(5);
+
+-- ------------------------------------------------------------
+-- Create two test users.
+-- The auth.users trigger automatically creates profiles.
+-- ------------------------------------------------------------
+
+insert into auth.users (id, email, raw_user_meta_data)
+values
+(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'user-a@test.local',
+  '{"full_name":"User A"}'
+),
+(
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'user-b@test.local',
+  '{"full_name":"User B"}'
+);
+
+-- Give User B an order so we can test isolation.
+insert into public.orders (
+  id,
+  profile_id,
+  lunch_day_id
+)
+values (
+  '30000000-0000-0000-0000-000000000002',
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  '10000000-0000-0000-0000-000000000001'
+);
+
+-- ------------------------------------------------------------
+-- Authenticate as User A
+-- ------------------------------------------------------------
+
+set local role authenticated;
+
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'role', 'authenticated'
+  )::text,
+  true
+);
+
+-- 1. User A can see only their own profile.
+select results_eq(
+  $$ select count(*) from public.profiles $$,
+  array[1::bigint],
+  'User can only see their own profile'
+);
+
+-- 2. User A cannot see User B's order.
+select results_eq(
+  $$ select count(*) from public.orders $$,
+  array[0::bigint],
+  'User cannot see another users orders'
+);
+
+-- 3. User A can create their own order.
+select lives_ok(
+  $$
+    insert into public.orders (
+      id,
+      profile_id,
+      lunch_day_id
+    )
+    values (
+      '30000000-0000-0000-0000-000000000001',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      '10000000-0000-0000-0000-000000000001'
+    )
+  $$,
+  'User can create their own order'
+);
+
+-- 4. Database replaces client-supplied pricing.
+select lives_ok(
+  $$
+    insert into public.order_items (
+      id,
+      order_id,
+      menu_item_id,
+      lunch_day_id,
+      quantity,
+      unit_price
+    )
+    values (
+      '40000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000001',
+      1,
+      0.01
+    )
+  $$,
+  'User can add a valid menu item'
+);
+
+-- 5. Confirm fake $0.01 price became actual $12.00 menu price.
+select results_eq(
+  $$
+    select unit_price
+    from public.order_items
+    where id = '40000000-0000-0000-0000-000000000001'
+  $$,
+  array[12.00::numeric],
+  'Database controls order item pricing'
+);
+
+select * from finish();
+
+rollback;
