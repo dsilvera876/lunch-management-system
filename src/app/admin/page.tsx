@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 
 export default async function AdminPage() {
@@ -12,8 +13,14 @@ export default async function AdminPage() {
       </p>
 
       <p className="mt-4">
-        Lunch and menu management will be added here in the next phase.
+        Manage lunch days, menus, and orders from here.
       </p>
+
+      <div className="mt-6">
+        <Link href="/admin/lunch-days" className="underline">
+          Manage lunch days
+        </Link>
+      </div>
     </main>
   );
 }
