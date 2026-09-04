@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { fulfillOrder } from "./actions";
 
 type Props = {
   searchParams: Promise<{
     lunchDay?: string;
     status?: string;
+    error?: string;
+    fulfilled?: string;
   }>;
 };
 
@@ -88,12 +91,17 @@ export default async function AdminOrdersPage({
     .order("created_at", { ascending: false });
 
   if (params.lunchDay) {
-    ordersQuery = ordersQuery.eq("lunch_day_id", params.lunchDay);
+    ordersQuery = ordersQuery.eq(
+      "lunch_day_id",
+      params.lunchDay,
+    );
   }
 
   if (
     params.status &&
-    ["submitted", "cancelled", "fulfilled"].includes(params.status)
+    ["submitted", "cancelled", "fulfilled"].includes(
+      params.status,
+    )
   ) {
     ordersQuery = ordersQuery.eq("status", params.status);
   }
@@ -155,6 +163,18 @@ export default async function AdminOrdersPage({
         </Link>
       </div>
 
+      {params.fulfilled && (
+        <p className="mt-4 rounded border p-3">
+          Order marked as fulfilled.
+        </p>
+      )}
+
+      {params.error && (
+        <p className="mt-4 rounded border p-3">
+          Unable to update order: {params.error}
+        </p>
+      )}
+
       <section className="mt-8">
         <h2 className="text-xl font-semibold">Filters</h2>
 
@@ -208,14 +228,19 @@ export default async function AdminOrdersPage({
             Apply filters
           </button>
 
-          <Link href="/admin/orders" className="px-2 py-2 underline">
+          <Link
+            href="/admin/orders"
+            className="px-2 py-2 underline"
+          >
             Clear
           </Link>
         </form>
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">Menu item totals</h2>
+        <h2 className="text-xl font-semibold">
+          Menu item totals
+        </h2>
 
         <p className="mt-1 text-sm">
           Cancelled orders are excluded from these totals.
@@ -237,7 +262,9 @@ export default async function AdminOrdersPage({
                 {summaryItems.map((item) => (
                   <tr key={item.name} className="border-b">
                     <td className="p-2">{item.name}</td>
-                    <td className="p-2">{item.quantity}</td>
+                    <td className="p-2">
+                      {item.quantity}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -246,7 +273,8 @@ export default async function AdminOrdersPage({
         )}
 
         <p className="mt-4 font-semibold">
-          Active order value: ${activeOrderValue.toFixed(2)}
+          Active order value: $
+          {activeOrderValue.toFixed(2)}
         </p>
       </section>
 
@@ -256,7 +284,9 @@ export default async function AdminOrdersPage({
         </h2>
 
         {orders.length === 0 ? (
-          <p className="mt-4">No orders match these filters.</p>
+          <p className="mt-4">
+            No orders match these filters.
+          </p>
         ) : (
           <div className="mt-4 space-y-4">
             {orders.map((order) => {
@@ -278,28 +308,53 @@ export default async function AdminOrdersPage({
                   <div className="flex flex-wrap justify-between gap-4">
                     <div>
                       <h3 className="font-semibold">
-                        {profile?.full_name ?? "Unnamed user"}
+                        {profile?.full_name ??
+                          "Unnamed user"}
                       </h3>
 
                       <p>
                         Lunch:{" "}
-                        {lunchDay?.lunch_date ?? "Unknown date"}
+                        {lunchDay?.lunch_date ??
+                          "Unknown date"}
                       </p>
 
                       <p>
                         Submitted:{" "}
-                        {formatCreatedAt(order.created_at)}
+                        {formatCreatedAt(
+                          order.created_at,
+                        )}
                       </p>
                     </div>
 
                     <div className="text-right">
                       <p>
-                        Status: <strong>{order.status}</strong>
+                        Status:{" "}
+                        <strong>{order.status}</strong>
                       </p>
 
                       <p className="mt-1 font-semibold">
                         Total: ${orderTotal.toFixed(2)}
                       </p>
+
+                      {order.status === "submitted" && (
+                        <form
+                          action={fulfillOrder}
+                          className="mt-3"
+                        >
+                          <input
+                            type="hidden"
+                            name="orderId"
+                            value={order.id}
+                          />
+
+                          <button
+                            type="submit"
+                            className="rounded border px-3 py-2"
+                          >
+                            Mark fulfilled
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </div>
 
@@ -309,41 +364,57 @@ export default async function AdminOrdersPage({
                         <tr className="border-b text-left">
                           <th className="p-2">Item</th>
                           <th className="p-2">Qty</th>
-                          <th className="p-2">Unit price</th>
-                          <th className="p-2">Subtotal</th>
+                          <th className="p-2">
+                            Unit price
+                          </th>
+                          <th className="p-2">
+                            Subtotal
+                          </th>
                         </tr>
                       </thead>
 
                       <tbody>
-                        {order.order_items.map((item) => {
-                          const menuItem = getRelated(
-                            item.menu_items,
-                          );
+                        {order.order_items.map(
+                          (item) => {
+                            const menuItem =
+                              getRelated(
+                                item.menu_items,
+                              );
 
-                          const subtotal =
-                            Number(item.unit_price) *
-                            item.quantity;
+                            const subtotal =
+                              Number(
+                                item.unit_price,
+                              ) * item.quantity;
 
-                          return (
-                            <tr key={item.id} className="border-b">
-                              <td className="p-2">
-                                {menuItem?.name ?? "Menu item"}
-                              </td>
-                              <td className="p-2">
-                                {item.quantity}
-                              </td>
-                              <td className="p-2">
-                                $
-                                {Number(
-                                  item.unit_price,
-                                ).toFixed(2)}
-                              </td>
-                              <td className="p-2">
-                                ${subtotal.toFixed(2)}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                            return (
+                              <tr
+                                key={item.id}
+                                className="border-b"
+                              >
+                                <td className="p-2">
+                                  {menuItem?.name ??
+                                    "Menu item"}
+                                </td>
+
+                                <td className="p-2">
+                                  {item.quantity}
+                                </td>
+
+                                <td className="p-2">
+                                  $
+                                  {Number(
+                                    item.unit_price,
+                                  ).toFixed(2)}
+                                </td>
+
+                                <td className="p-2">
+                                  $
+                                  {subtotal.toFixed(2)}
+                                </td>
+                              </tr>
+                            );
+                          },
+                        )}
                       </tbody>
                     </table>
                   </div>
