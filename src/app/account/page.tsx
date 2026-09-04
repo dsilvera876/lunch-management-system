@@ -1,27 +1,7 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
 
 export default async function AccountPage() {
-  const supabase = await createClient();
-
-  const { data: claimsData, error: claimsError } =
-    await supabase.auth.getClaims();
-
-  const userId = claimsData?.claims?.sub;
-
-  if (claimsError || !userId) {
-    redirect("/login");
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", userId)
-    .single();
-
-  if (profileError) {
-    throw new Error("Unable to load profile.");
-  }
+  const profile = await requireProfile();
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -31,9 +11,18 @@ export default async function AccountPage() {
         <p>
           <strong>Name:</strong> {profile.full_name ?? "Not provided"}
         </p>
+
         <p>
           <strong>Role:</strong> {profile.role}
         </p>
+
+        {profile.role === "admin" && (
+          <p>
+            <a href="/admin" className="underline">
+              Admin dashboard
+            </a>
+          </p>
+        )}
       </div>
 
       <form action="/auth/signout" method="post" className="mt-8">
