@@ -26,7 +26,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .single();
 
   if (profileError) {
-    throw new Error("Unable to load authenticated user profile.");
+    return null;
   }
 
   return profile as Profile;

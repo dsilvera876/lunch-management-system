@@ -11,7 +11,7 @@ export async function AppHeader() {
           Lunch Management
         </Link>
 
-        <nav className="flex items-center gap-4">
+        <nav aria-label="Main" className="flex items-center gap-4">
           {profile ? (
             <>
               <Link href="/lunch" className="underline">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { getJamaicaTodayDate } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminPage() {
@@ -30,7 +31,7 @@ export default async function AdminPage() {
     supabase
       .from("lunch_days")
       .select("id, lunch_date, status")
-      .gte("lunch_date", new Date().toISOString().slice(0, 10))
+      .gte("lunch_date", getJamaicaTodayDate())
       .order("lunch_date", { ascending: true })
       .limit(5),
   ]);
