@@ -16,7 +16,7 @@ EnvironmentFile=/etc/lunch-management/staging.env
 # Ensure production mode even if omitted from the env file.
 Environment=NODE_ENV=production
 
-# Bind only on localhost; Nginx terminates HTTPS and proxies inbound traffic.
+# Bind only on localhost; Apache terminates public HTTP/HTTPS and proxies inbound traffic.
 Environment=HOSTNAME=127.0.0.1
 Environment=PORT=3000
 
