@@ -1,0 +1,38 @@
+[Unit]
+Description=Lunch Management System (Staging)
+Documentation=file:///var/www/lunch-management-system/deploy/STAGING.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lunchapp
+Group=lunchapp
+WorkingDirectory=/var/www/lunch-management-system
+
+# Secrets and runtime configuration live outside the repository.
+EnvironmentFile=/etc/lunch-management/staging.env
+
+# Ensure production mode even if omitted from the env file.
+Environment=NODE_ENV=production
+
+# Bind only on localhost; Nginx terminates HTTPS and proxies inbound traffic.
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+
+# Use the Node.js installed on the server PATH (see deploy/STAGING.md).
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/lunch-management-system
+
+[Install]
+WantedBy=multi-user.target
