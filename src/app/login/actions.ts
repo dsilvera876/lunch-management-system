@@ -20,6 +20,10 @@ export async function login(formData: FormData) {
   });
 
   if (error) {
+    if (error.code === "email_not_confirmed") {
+      redirect("/login?error=unconfirmed");
+    }
+
     redirect("/login?error=credentials");
   }
 

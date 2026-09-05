@@ -21,9 +21,29 @@ export default async function LoginPage({ searchParams }: Props) {
         </p>
       )}
 
-      {params.error && (
+      {params.error === "confirmation" && (
+        <p className="mb-4 rounded border p-3">
+          Email confirmation link is invalid or has expired. Sign in after
+          confirming your email, or create a new account.
+        </p>
+      )}
+
+      {params.error === "unconfirmed" && (
+        <p className="mb-4 rounded border p-3">
+          Confirm your email before signing in. Check your inbox for the
+          confirmation link.
+        </p>
+      )}
+
+      {params.error === "credentials" && (
         <p className="mb-4 rounded border p-3">
           Unable to sign in. Check your email and password.
+        </p>
+      )}
+
+      {params.error === "invalid" && (
+        <p className="mb-4 rounded border p-3">
+          Enter a valid email and password.
         </p>
       )}
 
