@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fulfillOrder } from "./actions";
+import { FormSubmitButton } from "@/components/form-submit-button";
 
 type Props = {
   searchParams: Promise<{
@@ -347,12 +348,13 @@ export default async function AdminOrdersPage({
                             value={order.id}
                           />
 
-                          <button
-                            type="submit"
-                            className="rounded border px-3 py-2"
+                          <FormSubmitButton
+                            pendingText="Updating..."
+                            confirmMessage="Mark this order as fulfilled?"
+                            className="rounded border px-3 py-2 disabled:opacity-50"
                           >
                             Mark fulfilled
-                          </button>
+                          </FormSubmitButton>
                         </form>
                       )}
                     </div>

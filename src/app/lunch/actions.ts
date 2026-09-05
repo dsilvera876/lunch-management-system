@@ -32,6 +32,42 @@ function getItems(formData: FormData): OrderItemInput[] {
   return items;
 }
 
+function getOrderErrorCode(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("deadline")) {
+    return "deadline";
+  }
+
+  if (normalized.includes("ordering is not open")) {
+    return "closed";
+  }
+
+  if (
+    normalized.includes("menu item is invalid") ||
+    normalized.includes("inactive")
+  ) {
+    return "unavailable-item";
+  }
+
+  if (normalized.includes("only submitted orders")) {
+    return "locked";
+  }
+
+  if (
+    normalized.includes("not authorized") ||
+    normalized.includes("authentication required")
+  ) {
+    return "unauthorized";
+  }
+
+  if (normalized.includes("duplicate key")) {
+    return "duplicate";
+  }
+
+  return "generic";
+}
+
 export async function submitLunchOrder(formData: FormData) {
   await requireProfile();
 
@@ -55,9 +91,8 @@ export async function submitLunchOrder(formData: FormData) {
   });
 
   if (error) {
-    redirect(
-      `/lunch/${lunchDayId}?error=${encodeURIComponent(error.message)}`,
-    );
+    const errorCode = getOrderErrorCode(error.message);
+    redirect(`/lunch/${lunchDayId}?error=${errorCode}`);
   }
 
   revalidatePath("/lunch");
@@ -93,11 +128,8 @@ export async function updateLunchOrder(formData: FormData) {
   });
 
   if (error) {
-    redirect(
-      `/lunch/${lunchDayId}?error=${encodeURIComponent(
-        error.message,
-      )}&edit=1`,
-    );
+    const errorCode = getOrderErrorCode(error.message);
+    redirect(`/lunch/${lunchDayId}?error=${errorCode}&edit=1`);
   }
 
   revalidatePath("/lunch");
@@ -126,9 +158,8 @@ export async function cancelLunchOrder(formData: FormData) {
   });
 
   if (error) {
-    redirect(
-      `/lunch/${lunchDayId}?error=${encodeURIComponent(error.message)}`,
-    );
+    const errorCode = getOrderErrorCode(error.message);
+    redirect(`/lunch/${lunchDayId}?error=${errorCode}`);
   }
 
   revalidatePath("/lunch");

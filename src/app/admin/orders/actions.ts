@@ -21,11 +21,10 @@ export async function fulfillOrder(formData: FormData) {
   });
 
   if (error) {
-    redirect(
-      `/admin/orders?error=${encodeURIComponent(error.message)}`,
-    );
+    redirect("/admin/orders?error=fulfill");
   }
 
   revalidatePath("/admin/orders");
+
   redirect("/admin/orders?fulfilled=1");
 }

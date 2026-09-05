@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FormSubmitButton } from "@/components/form-submit-button";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -38,6 +39,27 @@ function formatDeadline(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function getErrorMessage(code: string) {
+  switch (code) {
+    case "empty":
+      return "Select at least one menu item before submitting.";
+    case "deadline":
+      return "The ordering deadline has passed.";
+    case "closed":
+      return "Ordering is no longer open for this lunch.";
+    case "unavailable-item":
+      return "One of the selected menu items is no longer available.";
+    case "locked":
+      return "This order can no longer be changed.";
+    case "duplicate":
+      return "You already have an active order for this lunch.";
+    case "unauthorized":
+      return "You are not authorized to perform this action.";
+    default:
+      return "Unable to complete the request. Please try again.";
+  }
 }
 
 export default async function LunchOrderPage({
@@ -147,7 +169,7 @@ export default async function LunchOrderPage({
 
       {query.error && (
         <p className="mt-6 rounded border p-3">
-          Unable to complete the request: {query.error}
+          {getErrorMessage(query.error)}
         </p>
       )}
 
@@ -197,12 +219,13 @@ export default async function LunchOrderPage({
                     value={existingOrder.id}
                   />
 
-                  <button
-                    type="submit"
-                    className="rounded border px-4 py-2"
+                  <FormSubmitButton
+                    pendingText="Cancelling..."
+                    confirmMessage="Cancel this order? You can place a new order while ordering remains open."
+                    className="rounded border px-4 py-2 disabled:opacity-50"
                   >
                     Cancel order
-                  </button>
+                  </FormSubmitButton>
                 </form>
               </div>
             )}
@@ -282,12 +305,14 @@ export default async function LunchOrderPage({
           </div>
 
           <div className="mt-6 flex gap-3">
-            <button
-              type="submit"
-              className="rounded border px-4 py-2"
+            <FormSubmitButton
+              pendingText={
+                isEditing ? "Saving..." : "Submitting..."
+              }
+              className="rounded border px-4 py-2 disabled:opacity-50"
             >
               {isEditing ? "Save changes" : "Submit order"}
-            </button>
+            </FormSubmitButton>
 
             {isEditing && (
               <Link
