@@ -24,12 +24,6 @@ export default async function AccountPage() {
           </p>
         )}
       </div>
-
-      <form action="/auth/signout" method="post" className="mt-8">
-        <button type="submit" className="rounded border px-4 py-2">
-          Sign out
-        </button>
-      </form>
     </main>
   );
 }
