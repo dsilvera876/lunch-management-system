@@ -1,6 +1,6 @@
 # Staging deployment — Lunch Management System
 
-Self-hosted deployment guide for Ubuntu with **Apache 2**, HTTPS (later), systemd, and an externally hosted Supabase project.
+Self-hosted **internal staging** on Ubuntu with **Apache 2.4.58**, **HTTPS (self-signed)**, **systemd**, and an externally hosted Supabase project.
 
 This application is **not** deployed to Vercel. The production build runs on the server with:
 
@@ -10,22 +10,34 @@ npm run build
 npm run start
 ```
 
+> **Internal staging only.** Staging uses **internal DNS** and a **self-signed TLS certificate** by design. Staging admins manually trust the certificate on their workstations. This is not a public internet deployment.
+
 ---
 
 ## Architecture
 
 ```text
-Internet
+Staging admin browser (internal DNS, trusts self-signed cert)
    │
    ▼
-Apache 2 (port 80/443, public)
-   │  reverse proxy
+Apache 2.4.58
+   │  :80  → permanent redirect to HTTPS
+   │  :443 → TLS termination + reverse proxy
    ▼
-Next.js (127.0.0.1:3000, localhost only)
+Next.js 16.3.4 (127.0.0.1:3000 only)
    │
    ▼
 Supabase (hosted externally)
 ```
+
+Confirmed working behavior:
+
+- Next.js bound only to `127.0.0.1:3000` via systemd
+- Apache proxies HTTPS to Next.js
+- HTTP port 80 redirects permanently to HTTPS
+- `APP_ORIGIN` uses the HTTPS staging URL
+- Supabase Site URL and Auth redirect URLs use HTTPS
+- Server reboot restores Apache and `lunch-management-staging` automatically
 
 The staging Apache vhost is **additive**. Existing sites under `/etc/apache2/sites-available` are not modified.
 
@@ -38,11 +50,12 @@ The staging Apache vhost is **additive**. Existing sites under `/etc/apache2/sit
 | OS | Ubuntu 22.04 LTS or 24.04 LTS |
 | Node.js | **>= 20.9.0** (Next.js 16 minimum). **Recommended: Node.js 22 LTS** |
 | npm | Bundled with Node.js (npm 10+) |
-| Apache | 2.4+ (staging server: **2.4.58**) |
+| Apache | **2.4.58** (verified on staging) |
 | Git | 2.x |
 | Supabase | Hosted project with migrations applied |
+| DNS | Internal hostname resolving to staging server (internal DNS only) |
 
-The repository includes `.nvmrc` (`20.9.0`) as the documented minimum. Use Node 22 LTS on new servers when possible.
+The repository includes `.nvmrc` (`20.9.0`) as the documented minimum.
 
 ---
 
@@ -50,11 +63,13 @@ The repository includes `.nvmrc` (`20.9.0`) as the documented minimum. Use Node 
 
 ```text
 /var/www/lunch-management-system/              Application checkout (owned by lunchapp)
-/etc/lunch-management/staging.env                Environment file (outside repo, not in Git)
+/etc/lunch-management/staging.env                Environment file (outside repo)
 /etc/systemd/system/lunch-management-staging.service
 /etc/apache2/sites-available/lunch-management-staging.conf
 /etc/apache2/sites-enabled/lunch-management-staging.conf -> ../sites-available/...
-/var/www/certbot/                                Optional ACME webroot for Certbot
+/etc/ssl/lunch-management/                       Self-signed staging TLS files
+    lunch-staging.crt
+    lunch-staging.key
 ```
 
 Templates in this repository:
@@ -64,7 +79,7 @@ deploy/
 ├── STAGING.md
 ├── apache/lunch-management-staging.conf
 ├── env/staging.env.example
-├── nginx/DEPRECATED.md                          (old Nginx template removed)
+├── nginx/DEPRECATED.md
 └── systemd/lunch-management-staging.service
 ```
 
@@ -77,10 +92,10 @@ Apache is already installed on the staging server. Install remaining packages:
 ```bash
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y git certbot python3-certbot-apache
+sudo apt install -y git openssl
 ```
 
-Optional firewall (adjust if ufw is already configured for Apache):
+Optional firewall (adjust if ufw is already configured):
 
 ```bash
 sudo ufw allow OpenSSH
@@ -101,22 +116,13 @@ node -v    # should be v22.x
 npm -v
 ```
 
-**Alternative: nvm (same user that deploys)**
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source ~/.bashrc
-nvm install 22
-nvm use 22
-```
-
-If Node is installed outside `/usr/bin`, update `ExecStart` in the systemd unit to use the correct `node`/`npm` path.
-
 Verify minimum version:
 
 ```bash
 node -e "const v=process.versions.node.split('.').map(Number); process.exit(v[0]>20||(v[0]===20&&v[1]>=9)?0:1)"
 ```
+
+If Node is installed outside `/usr/bin`, update `ExecStart` in the systemd unit.
 
 ---
 
@@ -131,8 +137,6 @@ sudo chown -R lunchapp:lunchapp /var/www/lunch-management-system
 ---
 
 ## 4. Clone the repository
-
-As a deploy user with sudo access:
 
 ```bash
 sudo -u lunchapp git clone <YOUR_GIT_REPOSITORY_URL> /var/www/lunch-management-system
@@ -158,13 +162,19 @@ Required variables (use real values on the server only):
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key |
-| `APP_ORIGIN` | Browser-visible public origin for server-side auth redirects (e.g. `http://lunch-staging.comp.com`). **Required on staging/production.** |
+| `APP_ORIGIN` | Browser-visible **HTTPS** origin (e.g. `https://STAGING_HOSTNAME`). **Required on staging.** |
 
-Do **not** set `NODE_ENV` in this file. Next.js manages `NODE_ENV` automatically for `npm run build` and `npm run start`. Setting `NODE_ENV=production` here can cause build failures such as `Cannot find module '@tailwindcss/postcss'`.
+Example (replace placeholder on the server):
 
-Do **not** set `HOSTNAME` or `PORT` here. The systemd unit binds Next.js explicitly to `127.0.0.1:3000`.
+```bash
+APP_ORIGIN=https://STAGING_HOSTNAME
+```
 
-`APP_ORIGIN` is server-only (not `NEXT_PUBLIC_*`). It prevents Host-header-based open redirects by pinning absolute redirect targets to the configured public URL. Omit it only for local development.
+Do **not** set `NODE_ENV` in this file — it breaks builds if forced during `npm run build`.
+
+Do **not** set `HOSTNAME` or `PORT` — the systemd unit binds Next.js to `127.0.0.1:3000`.
+
+`APP_ORIGIN` is server-only (not `NEXT_PUBLIC_*`). It pins auth redirect targets and prevents Host-header open redirects.
 
 Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to this application.
 
@@ -178,11 +188,11 @@ sudo -u lunchapp npm ci
 sudo -u lunchapp npm run build
 ```
 
-Quick smoke test (optional, bind locally):
+Optional local smoke test:
 
 ```bash
 sudo -u lunchapp npm run start -- --hostname 127.0.0.1 --port 3000
-# Ctrl+C after verifying: curl http://127.0.0.1:3000
+# Ctrl+C after: curl http://127.0.0.1:3000
 ```
 
 ---
@@ -193,58 +203,74 @@ sudo -u lunchapp npm run start -- --hostname 127.0.0.1 --port 3000
 sudo cp /var/www/lunch-management-system/deploy/systemd/lunch-management-staging.service \
   /etc/systemd/system/lunch-management-staging.service
 
-# If npm is not at /usr/bin/npm, edit ExecStart before enabling.
 sudo systemctl daemon-reload
 sudo systemctl enable lunch-management-staging
 sudo systemctl start lunch-management-staging
 sudo systemctl status lunch-management-staging
 ```
 
-The service binds Next.js to **127.0.0.1:3000** via explicit `--hostname` and `--port` flags in `ExecStart`. Port 3000 must remain free on the server.
+The service:
+
+- Runs as `lunchapp`
+- Starts on boot (`enabled`)
+- Restarts on failure
+- Binds Next.js explicitly: `npm run start -- --hostname 127.0.0.1 --port 3000`
 
 ---
 
 ## 8. Enable required Apache modules
 
-On the staging server, enable proxy and header modules before adding the vhost:
-
 ```bash
 sudo a2enmod proxy
 sudo a2enmod proxy_http
 sudo a2enmod headers
-```
-
-Enable `ssl` only when configuring HTTPS (section 10):
-
-```bash
 sudo a2enmod ssl
-```
-
-Reload Apache after enabling modules:
-
-```bash
 sudo apache2ctl configtest
 sudo systemctl reload apache2
 ```
 
-### Apache modules summary
+| Module | Purpose |
+|--------|---------|
+| `proxy` | Core reverse proxy |
+| `proxy_http` | HTTP reverse proxy to Next.js (WebSocket upgrade on 2.4.x) |
+| `headers` | `X-Forwarded-Proto` / `X-Forwarded-Port` |
+| `ssl` | TLS termination on port 443 |
 
-Tested on **Apache 2.4.58** (Ubuntu staging):
-
-| Module | Required when | Purpose |
-|--------|---------------|---------|
-| `proxy` | Always | Core reverse proxy |
-| `proxy_http` | Always | HTTP reverse proxy to Next.js (includes WebSocket upgrade on 2.4.x) |
-| `headers` | Always | `RequestHeader` for forwarded proto/port |
-| `ssl` | HTTPS only | TLS termination |
-
-`proxy_wstunnel` is **not** required on Apache 2.4.58 — `mod_proxy_http` handles WebSocket upgrade behavior for this application.
+`proxy_wstunnel` is **not** required on Apache 2.4.58.
 
 ---
 
-## 9. Configure Apache virtual host
+## 9. Create self-signed TLS certificate (internal staging)
 
-Replace `STAGING_HOSTNAME` in the template (e.g. `lunch-staging.comp.com`):
+Replace `STAGING_HOSTNAME` with your internal staging hostname.
+
+```bash
+sudo mkdir -p /etc/ssl/lunch-management
+sudo chmod 755 /etc/ssl/lunch-management
+
+sudo openssl req -x509 -nodes -days 825 -newkey rsa:2048 \
+  -keyout /etc/ssl/lunch-management/lunch-staging.key \
+  -out /etc/ssl/lunch-management/lunch-staging.crt \
+  -subj "/CN=STAGING_HOSTNAME" \
+  -addext "subjectAltName=DNS:STAGING_HOSTNAME"
+
+sudo chmod 640 /etc/ssl/lunch-management/lunch-staging.key
+sudo chmod 644 /etc/ssl/lunch-management/lunch-staging.crt
+sudo chown root:root /etc/ssl/lunch-management/lunch-staging.crt /etc/ssl/lunch-management/lunch-staging.key
+```
+
+Certificate paths used by the Apache template:
+
+- `/etc/ssl/lunch-management/lunch-staging.crt`
+- `/etc/ssl/lunch-management/lunch-staging.key`
+
+This self-signed certificate is **intentional** for internal staging. Production on HostGator may use a publicly trusted certificate instead.
+
+---
+
+## 10. Configure Apache virtual hosts
+
+Replace `STAGING_HOSTNAME` in the template, then install:
 
 ```bash
 sudo cp /var/www/lunch-management-system/deploy/apache/lunch-management-staging.conf \
@@ -257,84 +283,118 @@ sudo apache2ctl configtest
 sudo systemctl reload apache2
 ```
 
-Verify:
+The template provides:
+
+- **Port 80** — permanent redirect to `https://STAGING_HOSTNAME/`
+- **Port 443** — SSL + reverse proxy to `http://127.0.0.1:3000/`
+- Separate access/error logs for HTTP and HTTPS vhosts
+
+### Apache logs
 
 ```bash
-curl -I http://STAGING_HOSTNAME
-curl http://127.0.0.1:3000
+sudo tail -f /var/log/apache2/lunch-management-staging-ssl-access.log \
+             /var/log/apache2/lunch-management-staging-ssl-error.log
 ```
-
-### Apache logs (separate from other sites)
-
-```bash
-sudo tail -f /var/log/apache2/lunch-management-staging-access.log \
-             /var/log/apache2/lunch-management-staging-error.log
-```
-
----
-
-## 10. HTTPS with Certbot (configure later)
-
-Ensure DNS for `STAGING_HOSTNAME` points to this server before proceeding.
-
-**Recommended — Apache plugin (after HTTP vhost works):**
-
-```bash
-sudo a2enmod ssl
-sudo certbot --apache -d STAGING_HOSTNAME
-sudo apache2ctl configtest
-sudo systemctl reload apache2
-```
-
-Certbot will obtain certificates and update Apache configuration. Do **not** hardcode certificate paths in the repository template until certificates exist on the server.
-
-**Alternative — webroot (HTTP-only vhost already includes `/.well-known/acme-challenge/`):**
-
-```bash
-sudo mkdir -p /var/www/certbot
-sudo certbot certonly --webroot -w /var/www/certbot -d STAGING_HOSTNAME
-```
-
-After certificates exist, either run `certbot --apache` or manually add a `:443` VirtualHost using paths such as:
-
-- `/etc/letsencrypt/live/STAGING_HOSTNAME/fullchain.pem`
-- `/etc/letsencrypt/live/STAGING_HOSTNAME/privkey.pem`
-
-Set `RequestHeader set X-Forwarded-Proto "https"` and `X-Forwarded-Port "443"` on the SSL vhost.
-
-Verify renewal:
-
-```bash
-sudo certbot renew --dry-run
-```
-
-Update Supabase **Site URL** to `https://STAGING_HOSTNAME` after HTTPS is live.
 
 ---
 
 ## 11. Supabase dashboard (staging)
 
-Configure the hosted Supabase project:
+Configure the hosted Supabase project for **HTTPS**:
 
 1. **Authentication → URL Configuration**
-   - Site URL: `http://STAGING_HOSTNAME` initially, then `https://STAGING_HOSTNAME` after TLS
-   - Redirect URLs: `https://STAGING_HOSTNAME/**`
+   - **Site URL:** `https://STAGING_HOSTNAME`
+   - **Redirect URLs:** `https://STAGING_HOSTNAME/**`
 2. **Authentication → Emails** — SMTP (SMTP2Go) and email confirmation enabled
 3. **Confirm signup email template** — token-hash link:
    `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
 4. Apply all database migrations to the hosted project
 5. Promote at least one staging admin in `public.profiles`
 
+Ensure `APP_ORIGIN` in `/etc/lunch-management/staging.env` matches the Supabase Site URL scheme and host.
+
+After changing env vars:
+
+```bash
+sudo systemctl restart lunch-management-staging
+```
+
 ---
 
-## 12. Operating the application
+## 12. Trust the staging certificate on Windows 11
+
+Staging admins must trust the self-signed certificate on their workstation.
+
+1. Copy `/etc/ssl/lunch-management/lunch-staging.crt` from the server to the workstation (secure internal transfer only).
+2. Open **PowerShell as Administrator** on Windows 11.
+3. Import into the **Trusted Root Certification Authorities** store:
+
+```powershell
+Import-Certificate `
+  -FilePath "C:\Path\To\lunch-staging.crt" `
+  -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+4. Restart the browser.
+5. Browse to `https://STAGING_HOSTNAME` — the connection should be trusted internally.
+
+Do not commit certificate files or internal paths to Git.
+
+---
+
+## 13. Boot and recovery verification
+
+After installation or a server reboot, confirm services start automatically:
+
+```bash
+sudo systemctl is-enabled apache2
+sudo systemctl is-enabled lunch-management-staging
+sudo systemctl status apache2
+sudo systemctl status lunch-management-staging
+```
+
+Both should be `enabled` and `active (running)`.
+
+---
+
+## 14. Smoke tests
+
+Run on the staging server (replace `STAGING_HOSTNAME`):
+
+```bash
+# systemd services
+sudo systemctl status lunch-management-staging
+sudo systemctl status apache2
+
+# Next.js bound to localhost only (not *:3000)
+ss -ltnp | grep 3000
+
+# HTTP → HTTPS permanent redirect
+curl -I http://STAGING_HOSTNAME
+
+# HTTPS app response (self-signed cert — use -k on server, or trust cert on workstation)
+curl -k -I https://STAGING_HOSTNAME
+
+# Local Next.js direct (should respond)
+curl -I http://127.0.0.1:3000
+```
+
+Expected:
+
+- `ss` shows `127.0.0.1:3000`, not `0.0.0.0:3000`
+- HTTP returns `301`/`308` redirect to `https://STAGING_HOSTNAME/`
+- HTTPS returns a Next.js response (e.g. `200`, `302`, or `307` depending on auth state)
+- Sign out redirects to `https://STAGING_HOSTNAME/login` (not `localhost:3000`)
+
+---
+
+## 15. Operating the application
 
 ### Start / stop / restart
 
 ```bash
-sudo systemctl start lunch-management-staging
-sudo systemctl stop lunch-management-staging
 sudo systemctl restart lunch-management-staging
+sudo systemctl restart apache2
 sudo systemctl status lunch-management-staging
 ```
 
@@ -345,7 +405,7 @@ sudo journalctl -u lunch-management-staging -f
 sudo journalctl -u lunch-management-staging --since "1 hour ago"
 ```
 
-### Apache reload after config changes
+### Apache config changes
 
 ```bash
 sudo apache2ctl configtest
@@ -354,16 +414,14 @@ sudo systemctl reload apache2
 
 ---
 
-## 13. Safe update procedure
+## 16. Safe update procedure
 
 ```bash
 cd /var/www/lunch-management-system
 
-# Record current commit for rollback
 sudo -u lunchapp git rev-parse HEAD | sudo tee /var/backups/lunch-management-last-good-commit.txt
 
 sudo -u lunchapp git fetch origin
-sudo -u lunchapp git checkout master        # or staging branch
 sudo -u lunchapp git pull origin master
 
 sudo -u lunchapp npm ci
@@ -373,11 +431,11 @@ sudo systemctl restart lunch-management-staging
 sudo systemctl status lunch-management-staging
 ```
 
-Verify the site, login, and a sample order flow.
+Re-run smoke tests (section 14).
 
 ---
 
-## 14. Rollback procedure
+## 17. Rollback procedure
 
 ```bash
 cd /var/www/lunch-management-system
@@ -389,37 +447,21 @@ sudo -u lunchapp npm run build
 sudo systemctl restart lunch-management-staging
 ```
 
-If the previous commit is unknown:
-
-```bash
-sudo -u lunchapp git log --oneline -10
-sudo -u lunchapp git checkout <known-good-commit>
-sudo -u lunchapp npm ci && sudo -u lunchapp npm run build
-sudo systemctl restart lunch-management-staging
-```
-
 ---
 
 ## Security considerations
 
-- Next.js listens on **127.0.0.1:3000 only**; Apache is public-facing
-- Secrets live in `/etc/lunch-management/staging.env`, not in Git
-- Set `APP_ORIGIN` to the browser-visible staging URL so auth redirects cannot be influenced by hostile `Host` headers
+- **Internal staging only** — self-signed TLS, internal DNS, not public internet
+- Next.js listens on **127.0.0.1:3000 only**; Apache terminates TLS and proxies
+- Secrets in `/etc/lunch-management/staging.env`, not in Git
+- `APP_ORIGIN=https://STAGING_HOSTNAME` pins auth redirects
 - No service-role key in the Next.js app
-- systemd unit uses a dedicated non-root `lunchapp` user
-- Staging vhost uses separate Apache access/error logs
-- Existing Apache sites are untouched; only the new vhost is enabled
-- Keep Ubuntu, Node.js, and Apache patched
-- Restrict SSH access; use key-based authentication
-- Supabase RLS and RPC authorization enforce data access server-side
+- systemd runs as dedicated non-root `lunchapp` user
+- Staging vhost uses separate Apache logs
+- Existing Apache sites are untouched
 
 ---
 
 ## Production (HostGator dedicated server)
 
-Use the same pattern:
-
-1. Copy templates to `lunch-management-production.service` and a production Apache vhost
-2. Use `/etc/lunch-management/production.env`
-3. Point Supabase Site URL / redirect URLs to the production hostname
-4. Use separate Supabase project or branch strategy if staging and production must be isolated
+Use the same Apache + systemd pattern. Production will likely use a **publicly trusted certificate** (Let's Encrypt or commercial CA) instead of self-signed staging TLS. Copy templates to production-specific names and set `APP_ORIGIN` to the production HTTPS URL.
