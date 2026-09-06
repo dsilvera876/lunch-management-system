@@ -5,7 +5,10 @@ import {
   getJamaicaIsoWeekday,
   getJamaicaTodayDate,
 } from "@/lib/datetime";
-import { DEFAULT_ORDER_CUTOFF_TIME } from "@/lib/settings";
+import {
+  DEFAULT_ORDER_CUTOFF_TIME,
+  formatJamaicaWallClockTime,
+} from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 
 type Related<T> = T | T[] | null;
@@ -24,18 +27,6 @@ function formatDeadline(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function formatCutoffTime(value: string) {
-  const [hours, minutes] = value.split(":");
-
-  const date = new Date();
-  date.setHours(Number(hours), Number(minutes), 0, 0);
-
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Jamaica",
-    timeStyle: "short",
-  }).format(date);
 }
 
 type Props = {
@@ -198,7 +189,7 @@ export default async function LunchPage({ searchParams }: Props) {
             </p>
 
             <p className="mt-1">
-              Order by {formatCutoffTime(cutoffTime)} Jamaica time
+              Order by {formatJamaicaWallClockTime(cutoffTime)} Jamaica time
               {orderDeadline ? (
                 <>
                   {" "}

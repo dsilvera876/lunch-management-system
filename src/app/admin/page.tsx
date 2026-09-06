@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getJamaicaTodayDate } from "@/lib/datetime";
-import { DEFAULT_ORDER_CUTOFF_TIME } from "@/lib/settings";
+import {
+  cutoffTimeToFormValue,
+  DEFAULT_ORDER_CUTOFF_TIME,
+  formatJamaicaWallClockTime,
+} from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { updateOrderCutoff } from "./actions";
 
@@ -11,18 +15,6 @@ type Props = {
     "cutoff-updated"?: string;
   }>;
 };
-
-function formatCutoffTime(value: string) {
-  const [hours, minutes] = value.split(":");
-
-  const date = new Date();
-  date.setHours(Number(hours), Number(minutes), 0, 0);
-
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Jamaica",
-    timeStyle: "short",
-  }).format(date);
-}
 
 export default async function AdminPage({ searchParams }: Props) {
   const profile = await requireAdmin();
@@ -74,7 +66,7 @@ export default async function AdminPage({ searchParams }: Props) {
   ]);
 
   const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
-  const cutoffInputValue = cutoffTime.slice(0, 5);
+  const cutoffInputValue = cutoffTimeToFormValue(cutoffTime);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -150,7 +142,7 @@ export default async function AdminPage({ searchParams }: Props) {
         </form>
 
         <p className="mt-2 text-sm">
-          Current cutoff: {formatCutoffTime(cutoffTime)} Jamaica time.
+          Current cutoff: {formatJamaicaWallClockTime(cutoffTime)} Jamaica time.
         </p>
       </section>
 

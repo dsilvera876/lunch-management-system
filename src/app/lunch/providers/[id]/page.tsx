@@ -7,7 +7,10 @@ import {
   getJamaicaIsoWeekday,
   getJamaicaTodayDate,
 } from "@/lib/datetime";
-import { DEFAULT_ORDER_CUTOFF_TIME } from "@/lib/settings";
+import {
+  DEFAULT_ORDER_CUTOFF_TIME,
+  formatJamaicaWallClockTime,
+} from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { submitProviderOrder } from "../../actions";
 
@@ -29,18 +32,6 @@ type SnapshotMenuItem = {
   price: number | string;
   is_active: boolean;
 };
-
-function formatCutoffTime(value: string) {
-  const [hours, minutes] = value.split(":");
-
-  const date = new Date();
-  date.setHours(Number(hours), Number(minutes), 0, 0);
-
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Jamaica",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function getErrorMessage(code: string) {
   switch (code) {
@@ -193,7 +184,7 @@ export default async function ProviderOrderPage({
       </p>
 
       <p className="mt-1">
-        Order by {formatCutoffTime(cutoffTime)} Jamaica time.
+        Order by {formatJamaicaWallClockTime(cutoffTime)} Jamaica time.
       </p>
 
       {usingSnapshot && (
