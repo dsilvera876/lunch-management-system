@@ -31,9 +31,9 @@ export default async function ProvidersPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-semibold">Lunch Providers</h1>
           <p className="mt-2 max-w-3xl text-sm">
-            Configure recurring Monday–Friday provider menus. This is the
-            future HR workflow; existing lunch-day ordering remains available
-            until Batch 2 connects providers to daily orders.
+            Configure recurring Monday–Friday provider menus. Employees order
+            from active providers on matching order days for next-business-day
+            delivery.
           </p>
         </div>
 

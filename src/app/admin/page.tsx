@@ -1,10 +1,32 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getJamaicaTodayDate } from "@/lib/datetime";
+import { DEFAULT_ORDER_CUTOFF_TIME } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
+import { updateOrderCutoff } from "./actions";
 
-export default async function AdminPage() {
+type Props = {
+  searchParams: Promise<{
+    error?: string;
+    "cutoff-updated"?: string;
+  }>;
+};
+
+function formatCutoffTime(value: string) {
+  const [hours, minutes] = value.split(":");
+
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Jamaica",
+    timeStyle: "short",
+  }).format(date);
+}
+
+export default async function AdminPage({ searchParams }: Props) {
   const profile = await requireAdmin();
+  const params = await searchParams;
   const supabase = await createClient();
 
   const [
@@ -12,6 +34,7 @@ export default async function AdminPage() {
     { count: submittedOrders },
     { count: fulfilledOrders },
     { data: upcomingLunches },
+    { data: settings },
   ] = await Promise.all([
     supabase
       .from("lunch_days")
@@ -30,11 +53,28 @@ export default async function AdminPage() {
 
     supabase
       .from("lunch_days")
-      .select("id, lunch_date, status")
+      .select(`
+        id,
+        lunch_date,
+        status,
+        provider_id,
+        lunch_providers (
+          name
+        )
+      `)
       .gte("lunch_date", getJamaicaTodayDate())
       .order("lunch_date", { ascending: true })
       .limit(5),
+
+    supabase
+      .from("app_settings")
+      .select("order_cutoff_time")
+      .eq("id", 1)
+      .single(),
   ]);
+
+  const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
+  const cutoffInputValue = cutoffTime.slice(0, 5);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -43,6 +83,18 @@ export default async function AdminPage() {
       <p className="mt-2">
         Signed in as {profile.full_name ?? "Administrator"}.
       </p>
+
+      {params["cutoff-updated"] && (
+        <p className="mt-4 rounded border p-3">
+          Order cutoff updated successfully.
+        </p>
+      )}
+
+      {params.error && (
+        <p className="mt-4 rounded border p-3">
+          Unable to update order cutoff.
+        </p>
+      )}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="rounded border p-4">
@@ -65,6 +117,41 @@ export default async function AdminPage() {
             {fulfilledOrders ?? 0}
           </p>
         </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold">Ordering settings</h2>
+
+        <p className="mt-2 max-w-3xl text-sm">
+          Employees order Monday–Friday for next-business-day delivery. Lunch
+          days are created automatically when the first order is placed for a
+          provider and delivery date.
+        </p>
+
+        <form action={updateOrderCutoff} className="mt-4 flex flex-wrap items-end gap-4">
+          <div>
+            <label htmlFor="orderCutoffTime" className="block">
+              Daily order cutoff (Jamaica time)
+            </label>
+
+            <input
+              id="orderCutoffTime"
+              name="orderCutoffTime"
+              type="time"
+              required
+              defaultValue={cutoffInputValue}
+              className="rounded border p-2"
+            />
+          </div>
+
+          <button type="submit" className="rounded border px-4 py-2">
+            Save cutoff
+          </button>
+        </form>
+
+        <p className="mt-2 text-sm">
+          Current cutoff: {formatCutoffTime(cutoffTime)} Jamaica time.
+        </p>
       </section>
 
       <section className="mt-10">
@@ -94,9 +181,8 @@ export default async function AdminPage() {
         </div>
 
         <p className="mt-3 max-w-3xl text-sm">
-          Use <strong>Lunch providers</strong> for recurring Monday–Friday menus.
-          Lunch days remain available for current staging orders until provider
-          menus drive daily ordering in a later batch.
+          Configure recurring provider menus under <strong>Lunch providers</strong>.
+          Manual lunch days remain available for legacy orders only.
         </p>
       </section>
 
@@ -109,24 +195,33 @@ export default async function AdminPage() {
           <p className="mt-4">No upcoming lunch days.</p>
         ) : (
           <div className="mt-4 space-y-3">
-            {upcomingLunches.map((day) => (
-              <div
-                key={day.id}
-                className="flex items-center justify-between rounded border p-4"
-              >
-                <div>
-                  <p className="font-semibold">{day.lunch_date}</p>
-                  <p className="text-sm">Status: {day.status}</p>
-                </div>
+            {upcomingLunches.map((day) => {
+              const provider = Array.isArray(day.lunch_providers)
+                ? day.lunch_providers[0]
+                : day.lunch_providers;
 
-                <Link
-                  href={`/admin/lunch-days/${day.id}`}
-                  className="underline"
+              return (
+                <div
+                  key={day.id}
+                  className="flex items-center justify-between rounded border p-4"
                 >
-                  Manage
-                </Link>
-              </div>
-            ))}
+                  <div>
+                    <p className="font-semibold">{day.lunch_date}</p>
+                    <p className="text-sm">
+                      Status: {day.status}
+                      {provider?.name ? ` · ${provider.name}` : ""}
+                    </p>
+                  </div>
+
+                  <Link
+                    href={`/admin/lunch-days/${day.id}`}
+                    className="underline"
+                  >
+                    Manage
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

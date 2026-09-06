@@ -3,11 +3,7 @@ import { notFound } from "next/navigation";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  cancelLunchOrder,
-  submitLunchOrder,
-  updateLunchOrder,
-} from "../actions";
+import { submitLunchOrder } from "../actions";
 
 type Props = {
   params: Promise<{
@@ -16,10 +12,6 @@ type Props = {
 
   searchParams: Promise<{
     error?: string;
-    ordered?: string;
-    updated?: string;
-    cancelled?: string;
-    edit?: string;
   }>;
 };
 
@@ -51,18 +43,12 @@ function getErrorMessage(code: string) {
       return "Ordering is no longer open for this lunch.";
     case "unavailable-item":
       return "One of the selected menu items is no longer available.";
-    case "locked":
-      return "This order can no longer be changed.";
-    case "duplicate":
-      return "You already have an active order for this lunch.";
-    case "unauthorized":
-      return "You are not authorized to perform this action.";
     default:
       return "Unable to complete the request. Please try again.";
   }
 }
 
-export default async function LunchOrderPage({
+export default async function LegacyLunchOrderPage({
   params,
   searchParams,
 }: Props) {
@@ -80,6 +66,7 @@ export default async function LunchOrderPage({
       order_deadline,
       status,
       notes,
+      provider_id,
       menu_items (
         id,
         name,
@@ -89,22 +76,20 @@ export default async function LunchOrderPage({
       )
     `)
     .eq("id", id)
+    .is("provider_id", null)
     .single();
 
   if (error || !lunchDay) {
     notFound();
   }
 
-  const { data: existingOrder } = await supabase
+  const { data: existingOrders } = await supabase
     .from("orders")
     .select(`
       id,
       status,
       order_items (
-        id,
-        menu_item_id,
         quantity,
-        unit_price,
         menu_items (
           name
         )
@@ -113,27 +98,14 @@ export default async function LunchOrderPage({
     .eq("profile_id", profile.id)
     .eq("lunch_day_id", id)
     .neq("status", "cancelled")
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
-  const activeItems = lunchDay.menu_items.filter(
-    (item) => item.is_active,
-  );
-
-  const isEditing =
-    query.edit === "1" &&
-    existingOrder?.status === "submitted";
-
-  const quantities = new Map(
-    existingOrder?.order_items.map((item) => [
-      item.menu_item_id,
-      item.quantity,
-    ]) ?? [],
-  );
+  const activeItems = lunchDay.menu_items.filter((item) => item.is_active);
 
   return (
     <main className="mx-auto max-w-3xl p-6">
       <Link href="/lunch" className="underline">
-        Back to lunches
+        Back to lunch
       </Link>
 
       <h1 className="mt-6 text-2xl font-semibold">
@@ -148,89 +120,48 @@ export default async function LunchOrderPage({
         <p className="mt-2">{lunchDay.notes}</p>
       )}
 
-      {query.ordered && (
-        <p className="mt-6 rounded border p-3">
-          Your order was submitted successfully.
-        </p>
-      )}
-
-      {query.updated && (
-        <p className="mt-6 rounded border p-3">
-          Your order was updated successfully.
-        </p>
-      )}
-
-      {query.cancelled && (
-        <p className="mt-6 rounded border p-3">
-          Your order was cancelled. You may place a new order while
-          ordering remains open.
-        </p>
-      )}
-
       {query.error && (
         <p className="mt-6 rounded border p-3">
           {getErrorMessage(query.error)}
         </p>
       )}
 
-      {existingOrder && !isEditing ? (
+      {existingOrders && existingOrders.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-xl font-semibold">Your order</h2>
+          <h2 className="text-xl font-semibold">Your orders</h2>
 
-          <div className="mt-4 space-y-2">
-            {existingOrder.order_items.map((item) => {
-              const menuItem = getRelated(item.menu_items);
+          <div className="mt-4 space-y-4">
+            {existingOrders.map((order) => (
+              <article key={order.id} className="rounded border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="font-semibold">Status: {order.status}</p>
 
-              return (
-                <div key={item.id} className="rounded border p-3">
-                  <p className="font-semibold">
-                    {menuItem?.name ?? "Menu item"}
-                  </p>
-
-                  <p>
-                    Quantity: {item.quantity} · $
-                    {Number(item.unit_price).toFixed(2)} each
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          {existingOrder.status === "submitted" &&
-            lunchDay.status === "open" && (
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href={`/lunch/${lunchDay.id}?edit=1`}
-                  className="rounded border px-4 py-2"
-                >
-                  Edit order
-                </Link>
-
-                <form action={cancelLunchOrder}>
-                  <input
-                    type="hidden"
-                    name="lunchDayId"
-                    value={lunchDay.id}
-                  />
-
-                  <input
-                    type="hidden"
-                    name="orderId"
-                    value={existingOrder.id}
-                  />
-
-                  <FormSubmitButton
-                    pendingText="Cancelling..."
-                    confirmMessage="Cancel this order? You can place a new order while ordering remains open."
-                    className="rounded border px-4 py-2 disabled:opacity-50"
+                  <Link
+                    href={`/lunch/orders/${order.id}`}
+                    className="underline"
                   >
-                    Cancel order
-                  </FormSubmitButton>
-                </form>
-              </div>
-            )}
+                    View order
+                  </Link>
+                </div>
+
+                <ul className="mt-3 space-y-1">
+                  {order.order_items.map((item) => {
+                    const menuItem = getRelated(item.menu_items);
+
+                    return (
+                      <li key={`${order.id}-${menuItem?.name ?? "item"}`}>
+                        {menuItem?.name ?? "Menu item"} × {item.quantity}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+            ))}
+          </div>
         </section>
-      ) : lunchDay.status !== "open" ? (
+      )}
+
+      {lunchDay.status !== "open" ? (
         <p className="mt-8">
           Ordering is closed for this lunch.
         </p>
@@ -239,27 +170,10 @@ export default async function LunchOrderPage({
           No menu items are currently available.
         </p>
       ) : (
-        <form
-          action={isEditing ? updateLunchOrder : submitLunchOrder}
-          className="mt-8"
-        >
-          <input
-            type="hidden"
-            name="lunchDayId"
-            value={lunchDay.id}
-          />
+        <form action={submitLunchOrder} className="mt-8">
+          <input type="hidden" name="lunchDayId" value={lunchDay.id} />
 
-          {isEditing && existingOrder && (
-            <input
-              type="hidden"
-              name="orderId"
-              value={existingOrder.id}
-            />
-          )}
-
-          <h2 className="text-xl font-semibold">
-            {isEditing ? "Edit your order" : "Place your order"}
-          </h2>
+          <h2 className="text-xl font-semibold">Place an order</h2>
 
           <div className="mt-4 space-y-4">
             {activeItems.map((item) => (
@@ -291,11 +205,7 @@ export default async function LunchOrderPage({
                       type="number"
                       min="0"
                       step="1"
-                      defaultValue={
-                        isEditing
-                          ? quantities.get(item.id) ?? 0
-                          : 0
-                      }
+                      defaultValue={0}
                       className="w-20 rounded border p-2"
                     />
                   </div>
@@ -304,24 +214,13 @@ export default async function LunchOrderPage({
             ))}
           </div>
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6">
             <FormSubmitButton
-              pendingText={
-                isEditing ? "Saving..." : "Submitting..."
-              }
+              pendingText="Submitting..."
               className="rounded border px-4 py-2 disabled:opacity-50"
             >
-              {isEditing ? "Save changes" : "Submit order"}
+              Submit order
             </FormSubmitButton>
-
-            {isEditing && (
-              <Link
-                href={`/lunch/${lunchDay.id}`}
-                className="rounded border px-4 py-2"
-              >
-                Cancel editing
-              </Link>
-            )}
           </div>
         </form>
       )}

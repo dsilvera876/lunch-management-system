@@ -1,0 +1,1 @@
+export const DEFAULT_ORDER_CUTOFF_TIME = "16:00:00";
