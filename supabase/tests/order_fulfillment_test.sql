@@ -2,6 +2,15 @@ begin;
 
 select plan(4);
 
+-- Ensure seeded lunch day is open with a future deadline for this test run.
+reset role;
+
+update public.lunch_days
+set
+  status = 'open',
+  order_deadline = now() + interval '1 day'
+where id = '10000000-0000-0000-0000-000000000001';
+
 insert into auth.users (id, email, raw_user_meta_data)
 values
 (

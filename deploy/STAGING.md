@@ -38,7 +38,7 @@ The staging Apache vhost is **additive**. Existing sites under `/etc/apache2/sit
 | OS | Ubuntu 22.04 LTS or 24.04 LTS |
 | Node.js | **>= 20.9.0** (Next.js 16 minimum). **Recommended: Node.js 22 LTS** |
 | npm | Bundled with Node.js (npm 10+) |
-| Apache | 2.4+ (already installed on staging server) |
+| Apache | 2.4+ (staging server: **2.4.58**) |
 | Git | 2.x |
 | Supabase | Hosted project with migrations applied |
 
@@ -158,9 +158,10 @@ Required variables (use real values on the server only):
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key |
-| `NODE_ENV` | `production` |
-| `HOSTNAME` | `127.0.0.1` (localhost bind) |
-| `PORT` | `3000` |
+
+Do **not** set `NODE_ENV` in this file. Next.js manages `NODE_ENV` automatically for `npm run build` and `npm run start`. Setting `NODE_ENV=production` here can cause build failures such as `Cannot find module '@tailwindcss/postcss'`.
+
+Do **not** set `HOSTNAME` or `PORT` here. The systemd unit binds Next.js explicitly to `127.0.0.1:3000`.
 
 Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to this application.
 
@@ -177,7 +178,7 @@ sudo -u lunchapp npm run build
 Quick smoke test (optional, bind locally):
 
 ```bash
-sudo -u lunchapp env $(grep -v '^#' /etc/lunch-management/staging.env | xargs) npm run start
+sudo -u lunchapp npm run start -- --hostname 127.0.0.1 --port 3000
 # Ctrl+C after verifying: curl http://127.0.0.1:3000
 ```
 
@@ -196,22 +197,21 @@ sudo systemctl start lunch-management-staging
 sudo systemctl status lunch-management-staging
 ```
 
-The service binds Next.js to **127.0.0.1:3000** only. Port 3000 must remain free on the server.
+The service binds Next.js to **127.0.0.1:3000** via explicit `--hostname` and `--port` flags in `ExecStart`. Port 3000 must remain free on the server.
 
 ---
 
 ## 8. Enable required Apache modules
 
-On the staging server, `rewrite_module` is already enabled. Enable proxy and header modules before adding the vhost:
+On the staging server, enable proxy and header modules before adding the vhost:
 
 ```bash
 sudo a2enmod proxy
 sudo a2enmod proxy_http
-sudo a2enmod proxy_wstunnel
 sudo a2enmod headers
 ```
 
-Enable `ssl` only when configuring HTTPS (section 9):
+Enable `ssl` only when configuring HTTPS (section 10):
 
 ```bash
 sudo a2enmod ssl
@@ -226,14 +226,16 @@ sudo systemctl reload apache2
 
 ### Apache modules summary
 
+Tested on **Apache 2.4.58** (Ubuntu staging):
+
 | Module | Required when | Purpose |
 |--------|---------------|---------|
 | `proxy` | Always | Core reverse proxy |
-| `proxy_http` | Always | HTTP reverse proxy to Next.js |
-| `proxy_wstunnel` | Always | WebSocket / upgrade support |
+| `proxy_http` | Always | HTTP reverse proxy to Next.js (includes WebSocket upgrade on 2.4.x) |
 | `headers` | Always | `RequestHeader` for forwarded proto/port |
-| `rewrite` | Always | WebSocket rewrite rules (already enabled) |
 | `ssl` | HTTPS only | TLS termination |
+
+`proxy_wstunnel` is **not** required on Apache 2.4.58 — `mod_proxy_http` handles WebSocket upgrade behavior for this application.
 
 ---
 
