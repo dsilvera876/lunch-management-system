@@ -2,12 +2,11 @@ import { type EmailOtpType } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getExternalUrl } from "@/lib/request-origin";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type") as EmailOtpType | null;
+  const tokenHash = request.nextUrl.searchParams.get("token_hash");
+  const type = request.nextUrl.searchParams.get("type") as EmailOtpType | null;
 
   if (tokenHash && type) {
     const supabase = await createClient();
@@ -19,11 +18,11 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       revalidatePath("/", "layout");
-      return NextResponse.redirect(new URL("/account", request.url));
+      return NextResponse.redirect(getExternalUrl(request, "/account"));
     }
   }
 
   return NextResponse.redirect(
-    new URL("/login?error=confirmation", request.url),
+    getExternalUrl(request, "/login?error=confirmation"),
   );
 }

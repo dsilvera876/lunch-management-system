@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getExternalUrl } from "@/lib/request-origin";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   revalidatePath("/", "layout");
 
-  return NextResponse.redirect(new URL("/login", request.url), {
-    status: 302,
+  return NextResponse.redirect(getExternalUrl(request, "/login"), {
+    status: 303,
   });
 }

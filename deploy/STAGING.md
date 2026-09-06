@@ -158,10 +158,13 @@ Required variables (use real values on the server only):
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key |
+| `APP_ORIGIN` | Browser-visible public origin for server-side auth redirects (e.g. `http://lunch-staging.comp.com`). **Required on staging/production.** |
 
 Do **not** set `NODE_ENV` in this file. Next.js manages `NODE_ENV` automatically for `npm run build` and `npm run start`. Setting `NODE_ENV=production` here can cause build failures such as `Cannot find module '@tailwindcss/postcss'`.
 
 Do **not** set `HOSTNAME` or `PORT` here. The systemd unit binds Next.js explicitly to `127.0.0.1:3000`.
+
+`APP_ORIGIN` is server-only (not `NEXT_PUBLIC_*`). It prevents Host-header-based open redirects by pinning absolute redirect targets to the configured public URL. Omit it only for local development.
 
 Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to this application.
 
@@ -401,6 +404,7 @@ sudo systemctl restart lunch-management-staging
 
 - Next.js listens on **127.0.0.1:3000 only**; Apache is public-facing
 - Secrets live in `/etc/lunch-management/staging.env`, not in Git
+- Set `APP_ORIGIN` to the browser-visible staging URL so auth redirects cannot be influenced by hostile `Host` headers
 - No service-role key in the Next.js app
 - systemd unit uses a dedicated non-root `lunchapp` user
 - Staging vhost uses separate Apache access/error logs
