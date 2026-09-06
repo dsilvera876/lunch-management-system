@@ -72,6 +72,13 @@ export default async function AdminPage() {
 
         <div className="mt-4 flex flex-wrap gap-4">
           <Link
+            href="/admin/providers"
+            className="rounded border px-4 py-2"
+          >
+            Lunch providers
+          </Link>
+
+          <Link
             href="/admin/lunch-days"
             className="rounded border px-4 py-2"
           >
@@ -85,6 +92,12 @@ export default async function AdminPage() {
             View orders
           </Link>
         </div>
+
+        <p className="mt-3 max-w-3xl text-sm">
+          Use <strong>Lunch providers</strong> for recurring Monday–Friday menus.
+          Lunch days remain available for current staging orders until provider
+          menus drive daily ordering in a later batch.
+        </p>
       </section>
 
       <section className="mt-10">
