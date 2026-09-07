@@ -12,5 +12,5 @@ export default async function HomePage() {
     redirect("/admin");
   }
 
-  redirect("/lunch");
+  redirect("/home");
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { getJamaicaTodayDate } from "@/lib/datetime";
+import { getJamaicaTodayDate, getJamaicaIsoWeekday, getDeliveryDateForOrderDate } from "@/lib/datetime";
 import {
   cutoffTimeToFormValue,
   DEFAULT_ORDER_CUTOFF_TIME,
@@ -8,6 +8,14 @@ import {
 } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { updateOrderCutoff } from "./actions";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { Button, linkButtonClass } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatDeadline } from "@/lib/format";
 
 type Props = {
   searchParams: Promise<{
@@ -20,203 +28,144 @@ export default async function AdminPage({ searchParams }: Props) {
   const profile = await requireAdmin();
   const params = await searchParams;
   const supabase = await createClient();
+  const orderDate = getJamaicaTodayDate();
+  const orderWeekday = getJamaicaIsoWeekday(orderDate);
+  const deliveryDate = orderWeekday
+    ? getDeliveryDateForOrderDate(orderDate)
+    : null;
 
   const [
-    { count: openLunchDays },
     { count: submittedOrders },
     { count: fulfilledOrders },
-    { data: upcomingLunches },
+    { count: activeProviders },
     { data: settings },
+    { data: orderDeadline },
   ] = await Promise.all([
-    supabase
-      .from("lunch_days")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "open"),
-
     supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
       .eq("status", "submitted"),
-
     supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
       .eq("status", "fulfilled"),
-
     supabase
-      .from("lunch_days")
-      .select(`
-        id,
-        lunch_date,
-        status,
-        provider_id,
-        lunch_providers (
-          name
-        )
-      `)
-      .gte("lunch_date", getJamaicaTodayDate())
-      .order("lunch_date", { ascending: true })
-      .limit(5),
-
-    supabase
-      .from("app_settings")
-      .select("order_cutoff_time")
-      .eq("id", 1)
-      .single(),
+      .from("lunch_providers")
+      .select("*", { count: "exact", head: true })
+      .eq("active", true),
+    supabase.from("app_settings").select("order_cutoff_time").eq("id", 1).single(),
+    orderWeekday
+      ? supabase.rpc("order_deadline_for_order_date", { p_order_date: orderDate })
+      : Promise.resolve({ data: null }),
   ]);
 
   const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
   const cutoffInputValue = cutoffTimeToFormValue(cutoffTime);
+  const orderingOpen =
+    orderWeekday !== null &&
+    orderDeadline !== null &&
+    new Date() <= new Date(orderDeadline);
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
-      <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-
-      <p className="mt-2">
-        Signed in as {profile.full_name ?? "Administrator"}.
-      </p>
+    <>
+      <PageHeader
+        title="Dashboard"
+        description={`Signed in as ${profile.full_name ?? "Administrator"}.`}
+      />
 
       {params["cutoff-updated"] && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="success" className="mb-6">
           Order cutoff updated successfully.
-        </p>
+        </Alert>
       )}
 
       {params.error && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           Unable to update order cutoff.
-        </p>
+        </Alert>
       )}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <div className="rounded border p-4">
-          <p className="text-sm">Open lunch days</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {openLunchDays ?? 0}
-          </p>
-        </div>
-
-        <div className="rounded border p-4">
-          <p className="text-sm">Submitted orders</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {submittedOrders ?? 0}
-          </p>
-        </div>
-
-        <div className="rounded border p-4">
-          <p className="text-sm">Fulfilled orders</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {fulfilledOrders ?? 0}
-          </p>
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Ordering settings</h2>
-
-        <p className="mt-2 max-w-3xl text-sm">
-          Employees order Monday–Friday for next-business-day delivery. Lunch
-          days are created automatically when the first order is placed for a
-          provider and delivery date.
-        </p>
-
-        <form action={updateOrderCutoff} className="mt-4 flex flex-wrap items-end gap-4">
-          <div>
-            <label htmlFor="orderCutoffTime" className="block">
-              Daily order cutoff (Jamaica time)
-            </label>
-
-            <input
-              id="orderCutoffTime"
-              name="orderCutoffTime"
-              type="time"
-              required
-              defaultValue={cutoffInputValue}
-              className="rounded border p-2"
-            />
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card padding="sm">
+          <p className="text-sm text-muted">Today&apos;s ordering</p>
+          <div className="mt-2 flex items-center gap-2">
+            <p className="text-2xl font-semibold">
+              {orderWeekday ? (orderingOpen ? "Open" : "Closed") : "Weekend"}
+            </p>
+            {orderWeekday && (
+              <StatusBadge status={orderingOpen ? "open" : "closed"} />
+            )}
           </div>
+        </Card>
+        <Card padding="sm">
+          <p className="text-sm text-muted">Delivery date</p>
+          <p className="mt-2 text-2xl font-semibold">
+            {deliveryDate ?? "—"}
+          </p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-sm text-muted">Submitted orders</p>
+          <p className="mt-2 text-2xl font-semibold">{submittedOrders ?? 0}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-sm text-muted">Active providers</p>
+          <p className="mt-2 text-2xl font-semibold">{activeProviders ?? 0}</p>
+        </Card>
+      </div>
 
-          <button type="submit" className="rounded border px-4 py-2">
-            Save cutoff
-          </button>
-        </form>
+      <div className="grid gap-8 xl:grid-cols-3">
+        <Card className="xl:col-span-1">
+          <SectionHeader
+            title="Order cutoff"
+            description="Global daily cutoff for Jamaica-time ordering."
+          />
+          <p className="mb-4 text-sm text-muted">
+            Current: {formatJamaicaWallClockTime(cutoffTime)} Jamaica time
+            {orderDeadline ? ` (${formatDeadline(orderDeadline)} today)` : ""}
+          </p>
+          <form action={updateOrderCutoff} className="space-y-4">
+            <FormField
+              label="Daily cutoff"
+              htmlFor="orderCutoffTime"
+              description="Applies to all provider ordering for the active order day."
+            >
+              <input
+                id="orderCutoffTime"
+                name="orderCutoffTime"
+                type="time"
+                required
+                defaultValue={cutoffInputValue}
+                className={inputClassName}
+              />
+            </FormField>
+            <Button type="submit" variant="primary">
+              Save cutoff
+            </Button>
+          </form>
+        </Card>
 
-        <p className="mt-2 text-sm">
-          Current cutoff: {formatJamaicaWallClockTime(cutoffTime)} Jamaica time.
-        </p>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Management</h2>
-
-        <div className="mt-4 flex flex-wrap gap-4">
-          <Link
-            href="/admin/providers"
-            className="rounded border px-4 py-2"
-          >
-            Lunch providers
-          </Link>
-
-          <Link
-            href="/admin/lunch-days"
-            className="rounded border px-4 py-2"
-          >
-            Manage lunch days
-          </Link>
-
-          <Link
-            href="/admin/orders"
-            className="rounded border px-4 py-2"
-          >
-            View orders
-          </Link>
-        </div>
-
-        <p className="mt-3 max-w-3xl text-sm">
-          Configure recurring provider menus under <strong>Lunch providers</strong>.
-          Manual lunch days remain available for legacy orders only.
-        </p>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">
-          Upcoming lunch days
-        </h2>
-
-        {!upcomingLunches || upcomingLunches.length === 0 ? (
-          <p className="mt-4">No upcoming lunch days.</p>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {upcomingLunches.map((day) => {
-              const provider = Array.isArray(day.lunch_providers)
-                ? day.lunch_providers[0]
-                : day.lunch_providers;
-
-              return (
-                <div
-                  key={day.id}
-                  className="flex items-center justify-between rounded border p-4"
-                >
-                  <div>
-                    <p className="font-semibold">{day.lunch_date}</p>
-                    <p className="text-sm">
-                      Status: {day.status}
-                      {provider?.name ? ` · ${provider.name}` : ""}
-                    </p>
-                  </div>
-
-                  <Link
-                    href={`/admin/lunch-days/${day.id}`}
-                    className="underline"
-                  >
-                    Manage
-                  </Link>
-                </div>
-              );
-            })}
+        <Card className="xl:col-span-2">
+          <SectionHeader title="Quick actions" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link href="/admin/providers" className={linkButtonClass("secondary")}>
+              Manage lunch providers
+            </Link>
+            <Link href="/admin/orders" className={linkButtonClass("secondary")}>
+              View orders ({submittedOrders ?? 0} submitted)
+            </Link>
+            <Link href="/lunch" className={linkButtonClass("secondary")}>
+              Staff ordering view
+            </Link>
+            <Link href="/admin/lunch-days" className={linkButtonClass("ghost")}>
+              Legacy lunch days
+            </Link>
           </div>
-        )}
-      </section>
-    </main>
+          <p className="mt-4 text-sm text-muted">
+            Fulfilled orders: {fulfilledOrders ?? 0}. Provider menus drive the
+            normal workflow; legacy lunch days remain for compatibility only.
+          </p>
+        </Card>
+      </div>
+    </>
   );
 }

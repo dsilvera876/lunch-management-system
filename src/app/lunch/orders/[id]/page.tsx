@@ -3,10 +3,15 @@ import { notFound } from "next/navigation";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  cancelLunchOrder,
-  updateLunchOrder,
-} from "../../actions";
+import { cancelLunchOrder, updateLunchOrder } from "../../actions";
+import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SectionHeader } from "@/components/ui/section-header";
+import { inputClassName } from "@/components/ui/form-field";
+import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   params: Promise<{
@@ -21,24 +26,6 @@ type Props = {
     edit?: string;
   }>;
 };
-
-type Related<T> = T | T[] | null;
-
-function getRelated<T>(value: Related<T>): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function formatDeadline(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Jamaica",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function getErrorMessage(code: string) {
   switch (code) {
@@ -142,82 +129,71 @@ export default async function OrderDetailPage({
   );
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <Link href="/lunch" className="underline">
-        Back to lunch
-      </Link>
+    <>
+      <PageHeader
+        title={`${provider?.name ? `${provider.name} · ` : ""}Delivery ${lunchDay.lunch_date}`}
+        description={
+          lunchDay.order_date
+            ? `Ordered on ${lunchDay.order_date} for delivery on ${lunchDay.lunch_date}.`
+            : undefined
+        }
+        actions={
+          <Link href="/my-orders" className={linkButtonClass("ghost")}>
+            My orders
+          </Link>
+        }
+      />
 
-      <h1 className="mt-6 text-2xl font-semibold">
-        {provider?.name ? `${provider.name} — ` : "Order — "}
-        {lunchDay.lunch_date}
-      </h1>
-
-      {lunchDay.order_date && (
-        <p className="mt-2">
-          Ordered on {lunchDay.order_date} for delivery on{" "}
-          {lunchDay.lunch_date}.
-        </p>
-      )}
-
-      <p className="mt-2">
-        Status: <strong>{order.status}</strong>
-      </p>
-
-      <p className="mt-1">
-        Ordering deadline:{" "}
-        {effectiveDeadline
-          ? formatDeadline(effectiveDeadline)
-          : formatDeadline(lunchDay.order_deadline)}
-      </p>
-
-      {lunchDay.notes && (
-        <p className="mt-2">{lunchDay.notes}</p>
-      )}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <StatusBadge status={order.status} />
+        <span className="text-sm text-muted">
+          Deadline:{" "}
+          {effectiveDeadline
+            ? formatDeadline(effectiveDeadline)
+            : formatDeadline(lunchDay.order_deadline)}
+        </span>
+      </div>
 
       {query.ordered && (
-        <p className="mt-6 rounded border p-3">
+        <Alert variant="success" className="mb-6">
           Your order was submitted successfully.
-        </p>
+        </Alert>
       )}
 
       {query.updated && (
-        <p className="mt-6 rounded border p-3">
+        <Alert variant="success" className="mb-6">
           Your order was updated successfully.
-        </p>
+        </Alert>
       )}
 
       {query.cancelled && (
-        <p className="mt-6 rounded border p-3">
+        <Alert variant="info" className="mb-6">
           This order was cancelled. You may place another order while ordering
           remains open.
-        </p>
+        </Alert>
       )}
 
       {query.error && (
-        <p className="mt-6 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           {getErrorMessage(query.error)}
-        </p>
+        </Alert>
       )}
 
       {order.status !== "cancelled" && !isEditing ? (
-        <section className="mt-8">
-          <h2 className="text-xl font-semibold">Order items</h2>
+        <section>
+          <SectionHeader title="Order items" />
 
-          <div className="mt-4 space-y-2">
+          <div className="space-y-3">
             {order.order_items.map((item) => {
               const menuItem = getRelated(item.menu_items);
 
               return (
-                <div key={item.id} className="rounded border p-3">
-                  <p className="font-semibold">
-                    {menuItem?.name ?? "Menu item"}
+                <Card key={item.id} padding="sm">
+                  <p className="font-semibold">{menuItem?.name ?? "Menu item"}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    Quantity {item.quantity} · ${formatCurrency(item.unit_price)} each
                   </p>
-
-                  <p>
-                    Quantity: {item.quantity} · $
-                    {Number(item.unit_price).toFixed(2)} each
-                  </p>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -226,18 +202,17 @@ export default async function OrderDetailPage({
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={`/lunch/orders/${order.id}?edit=1`}
-                className="rounded border px-4 py-2"
+                className={linkButtonClass("secondary")}
               >
                 Edit order
               </Link>
 
               <form action={cancelLunchOrder}>
                 <input type="hidden" name="orderId" value={order.id} />
-
                 <FormSubmitButton
                   pendingText="Cancelling..."
                   confirmMessage="Cancel this order? Your other orders for this delivery date will not be affected."
-                  className="rounded border px-4 py-2 disabled:opacity-50"
+                  variant="danger"
                 >
                   Cancel order
                 </FormSubmitButton>
@@ -246,39 +221,29 @@ export default async function OrderDetailPage({
           )}
         </section>
       ) : order.status === "cancelled" ? (
-        <p className="mt-8">This order has been cancelled.</p>
+        <Alert variant="info">This order has been cancelled.</Alert>
       ) : order.status === "fulfilled" ? (
-        <p className="mt-8">This order has been fulfilled.</p>
+        <Alert variant="info">This order has been fulfilled.</Alert>
       ) : isEditing ? (
-        <form action={updateLunchOrder} className="mt-8">
+        <form action={updateLunchOrder}>
           <input type="hidden" name="orderId" value={order.id} />
+          <SectionHeader title="Edit your order" />
 
-          <h2 className="text-xl font-semibold">Edit your order</h2>
-
-          <div className="mt-4 space-y-4">
+          <div className="space-y-3">
             {activeItems.map((item) => (
-              <div key={item.id} className="rounded border p-4">
-                <div className="flex justify-between gap-4">
+              <Card key={item.id} padding="sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
-
                     {item.description && (
-                      <p className="mt-1">{item.description}</p>
+                      <p className="mt-1 text-sm text-muted">{item.description}</p>
                     )}
-
-                    <p className="mt-1">
-                      ${Number(item.price).toFixed(2)}
-                    </p>
+                    <p className="mt-1 text-sm">${formatCurrency(item.price)}</p>
                   </div>
-
                   <div>
-                    <label
-                      htmlFor={`quantity:${item.id}`}
-                      className="block"
-                    >
+                    <label htmlFor={`quantity:${item.id}`} className="block text-sm font-medium">
                       Qty
                     </label>
-
                     <input
                       id={`quantity:${item.id}`}
                       name={`quantity:${item.id}`}
@@ -286,25 +251,21 @@ export default async function OrderDetailPage({
                       min="0"
                       step="1"
                       defaultValue={quantities.get(item.id) ?? 0}
-                      className="w-20 rounded border p-2"
+                      className={`${inputClassName} mt-1 w-24`}
                     />
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
 
-          <div className="mt-6 flex gap-3">
-            <FormSubmitButton
-              pendingText="Saving..."
-              className="rounded border px-4 py-2 disabled:opacity-50"
-            >
+          <div className="mt-6 flex flex-wrap gap-3">
+            <FormSubmitButton pendingText="Saving..." variant="primary">
               Save changes
             </FormSubmitButton>
-
             <Link
               href={`/lunch/orders/${order.id}`}
-              className="rounded border px-4 py-2"
+              className={linkButtonClass("ghost")}
             >
               Cancel editing
             </Link>
@@ -316,12 +277,12 @@ export default async function OrderDetailPage({
         <div className="mt-8">
           <Link
             href={`/lunch/providers/${lunchDay.provider_id}`}
-            className="underline"
+            className={linkButtonClass("primary")}
           >
             Place another order from {provider?.name ?? "this provider"}
           </Link>
         </div>
       )}
-    </main>
+    </>
   );
 }

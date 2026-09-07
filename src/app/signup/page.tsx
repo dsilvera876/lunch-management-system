@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { signup } from "../login/actions";
+import { AuthLayout } from "@/components/auth-layout";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 
 type Props = {
   searchParams: Promise<{
@@ -11,67 +15,60 @@ export default async function SignupPage({ searchParams }: Props) {
   const params = await searchParams;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
-      <h1 className="mb-6 text-2xl font-semibold">Create account</h1>
+    <AuthLayout>
+      <h1 className="text-xl font-semibold">Create account</h1>
 
       {params.error && (
-        <p className="mb-4 rounded border p-3">
+        <Alert variant="error" className="mt-4">
           Unable to create account. Check the information and try again.
-        </p>
+        </Alert>
       )}
 
-      <form action={signup} className="space-y-4">
-        <div>
-          <label htmlFor="fullName" className="block">
-            Full name
-          </label>
+      <form action={signup} className="mt-6 space-y-4">
+        <FormField label="Full name" htmlFor="fullName">
           <input
             id="fullName"
             name="fullName"
             type="text"
             required
-            className="w-full rounded border p-2"
+            className={inputClassName}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label htmlFor="email" className="block">
-            Email
-          </label>
+        <FormField label="Email" htmlFor="email">
           <input
             id="email"
             name="email"
             type="email"
             required
-            className="w-full rounded border p-2"
+            autoComplete="email"
+            className={inputClassName}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label htmlFor="password" className="block">
-            Password
-          </label>
+        <FormField label="Password" htmlFor="password" description="At least 8 characters.">
           <input
             id="password"
             name="password"
             type="password"
             minLength={8}
             required
-            className="w-full rounded border p-2"
+            autoComplete="new-password"
+            className={inputClassName}
           />
-        </div>
+        </FormField>
 
-        <button type="submit" className="w-full rounded border p-2">
+        <Button type="submit" variant="primary" className="w-full">
           Create account
-        </button>
+        </Button>
       </form>
 
-      <p className="mt-4">
+      <p className="mt-4 text-center text-sm text-muted">
         Already registered?{" "}
-        <Link href="/login" className="underline">
+        <Link href="/login" className="font-medium text-primary underline-offset-2 hover:underline">
           Sign in
         </Link>
       </p>
-    </main>
+    </AuthLayout>
   );
 }

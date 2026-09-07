@@ -4,6 +4,15 @@ import { FormSubmitButton } from "@/components/form-submit-button";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { submitLunchOrder } from "../actions";
+import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { inputClassName } from "@/components/ui/form-field";
+import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   params: Promise<{
@@ -14,24 +23,6 @@ type Props = {
     error?: string;
   }>;
 };
-
-type Related<T> = T | T[] | null;
-
-function getRelated<T>(value: Related<T>): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function formatDeadline(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Jamaica",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function getErrorMessage(code: string) {
   switch (code) {
@@ -103,48 +94,51 @@ export default async function LegacyLunchOrderPage({
   const activeItems = lunchDay.menu_items.filter((item) => item.is_active);
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <Link href="/lunch" className="underline">
-        Back to lunch
-      </Link>
+    <>
+      <PageHeader
+        title={`Legacy lunch · ${lunchDay.lunch_date}`}
+        description="Manual lunch day ordering (legacy workflow)."
+        actions={
+          <Link href="/lunch" className={linkButtonClass("ghost")}>
+            Order lunch
+          </Link>
+        }
+      />
 
-      <h1 className="mt-6 text-2xl font-semibold">
-        Lunch — {lunchDay.lunch_date}
-      </h1>
-
-      <p className="mt-2">
+      <p className="mb-6 text-sm text-muted">
         Ordering deadline: {formatDeadline(lunchDay.order_deadline)}
       </p>
 
       {lunchDay.notes && (
-        <p className="mt-2">{lunchDay.notes}</p>
+        <Alert variant="info" className="mb-6">
+          {lunchDay.notes}
+        </Alert>
       )}
 
       {query.error && (
-        <p className="mt-6 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           {getErrorMessage(query.error)}
-        </p>
+        </Alert>
       )}
 
       {existingOrders && existingOrders.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-xl font-semibold">Your orders</h2>
+        <section className="mb-8">
+          <SectionHeader title="Your orders" />
 
-          <div className="mt-4 space-y-4">
+          <div className="space-y-3">
             {existingOrders.map((order) => (
-              <article key={order.id} className="rounded border p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <p className="font-semibold">Status: {order.status}</p>
-
+              <Card key={order.id} padding="sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <StatusBadge status={order.status} />
                   <Link
                     href={`/lunch/orders/${order.id}`}
-                    className="underline"
+                    className={linkButtonClass("ghost")}
                   >
                     View order
                   </Link>
                 </div>
 
-                <ul className="mt-3 space-y-1">
+                <ul className="mt-3 space-y-1 text-sm">
                   {order.order_items.map((item) => {
                     const menuItem = getRelated(item.menu_items);
 
@@ -155,50 +149,42 @@ export default async function LegacyLunchOrderPage({
                     );
                   })}
                 </ul>
-              </article>
+              </Card>
             ))}
           </div>
         </section>
       )}
 
       {lunchDay.status !== "open" ? (
-        <p className="mt-8">
-          Ordering is closed for this lunch.
-        </p>
+        <EmptyState
+          title="Ordering closed"
+          description="Ordering is closed for this lunch."
+        />
       ) : activeItems.length === 0 ? (
-        <p className="mt-8">
-          No menu items are currently available.
-        </p>
+        <EmptyState
+          title="No menu items"
+          description="No menu items are currently available."
+        />
       ) : (
-        <form action={submitLunchOrder} className="mt-8">
+        <form action={submitLunchOrder}>
           <input type="hidden" name="lunchDayId" value={lunchDay.id} />
+          <SectionHeader title="Place an order" />
 
-          <h2 className="text-xl font-semibold">Place an order</h2>
-
-          <div className="mt-4 space-y-4">
+          <div className="space-y-3">
             {activeItems.map((item) => (
-              <div key={item.id} className="rounded border p-4">
-                <div className="flex justify-between gap-4">
+              <Card key={item.id} padding="sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
-
                     {item.description && (
-                      <p className="mt-1">{item.description}</p>
+                      <p className="mt-1 text-sm text-muted">{item.description}</p>
                     )}
-
-                    <p className="mt-1">
-                      ${Number(item.price).toFixed(2)}
-                    </p>
+                    <p className="mt-1 text-sm">${formatCurrency(item.price)}</p>
                   </div>
-
                   <div>
-                    <label
-                      htmlFor={`quantity:${item.id}`}
-                      className="block"
-                    >
+                    <label htmlFor={`quantity:${item.id}`} className="block text-sm font-medium">
                       Qty
                     </label>
-
                     <input
                       id={`quantity:${item.id}`}
                       name={`quantity:${item.id}`}
@@ -206,24 +192,21 @@ export default async function LegacyLunchOrderPage({
                       min="0"
                       step="1"
                       defaultValue={0}
-                      className="w-20 rounded border p-2"
+                      className={`${inputClassName} mt-1 w-24`}
                     />
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
 
           <div className="mt-6">
-            <FormSubmitButton
-              pendingText="Submitting..."
-              className="rounded border px-4 py-2 disabled:opacity-50"
-            >
+            <FormSubmitButton pendingText="Submitting..." variant="primary">
               Submit order
             </FormSubmitButton>
           </div>
         </form>
       )}
-    </main>
+    </>
   );
 }

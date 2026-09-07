@@ -3,6 +3,15 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fulfillOrder } from "./actions";
 import { FormSubmitButton } from "@/components/form-submit-button";
+import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { FormField, selectClassName } from "@/components/ui/form-field";
+import { Button, linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{
@@ -13,47 +22,21 @@ type Props = {
   }>;
 };
 
-type Related<T> = T | T[] | null;
-
 type OrderRow = {
   id: string;
   status: string;
   created_at: string;
-  profiles: Related<{
-    full_name: string | null;
-  }>;
-  lunch_days: Related<{
-    lunch_date: string;
-  }>;
+  profiles: ReturnType<typeof getRelated<{ full_name: string | null }>>;
+  lunch_days: ReturnType<typeof getRelated<{ lunch_date: string }>>;
   order_items: Array<{
     id: string;
     quantity: number;
     unit_price: number | string;
-    menu_items: Related<{
-      name: string;
-    }>;
+    menu_items: ReturnType<typeof getRelated<{ name: string }>>;
   }>;
 };
 
-function getRelated<T>(value: Related<T>): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function formatCreatedAt(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Jamaica",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-export default async function AdminOrdersPage({
-  searchParams,
-}: Props) {
+export default async function AdminOrdersPage({ searchParams }: Props) {
   await requireAdmin();
 
   const params = await searchParams;
@@ -92,17 +75,12 @@ export default async function AdminOrdersPage({
     .order("created_at", { ascending: false });
 
   if (params.lunchDay) {
-    ordersQuery = ordersQuery.eq(
-      "lunch_day_id",
-      params.lunchDay,
-    );
+    ordersQuery = ordersQuery.eq("lunch_day_id", params.lunchDay);
   }
 
   if (
     params.status &&
-    ["submitted", "cancelled", "fulfilled"].includes(
-      params.status,
-    )
+    ["submitted", "cancelled", "fulfilled"].includes(params.status)
   ) {
     ordersQuery = ordersQuery.eq("status", params.status);
   }
@@ -113,319 +91,196 @@ export default async function AdminOrdersPage({
     throw new Error("Unable to load orders.");
   }
 
-  const orders = (data ?? []) as OrderRow[];
+  const orders = (data ?? []) as unknown as OrderRow[];
 
-  const itemTotals = new Map<
-    string,
-    {
-      name: string;
-      quantity: number;
-    }
-  >();
-
+  const itemTotals = new Map<string, { name: string; quantity: number }>();
   let activeOrderValue = 0;
 
   for (const order of orders) {
-    if (order.status === "cancelled") {
-      continue;
-    }
+    if (order.status === "cancelled") continue;
 
     for (const item of order.order_items) {
       const menuItem = getRelated(item.menu_items);
       const name = menuItem?.name ?? "Menu item";
-
       const existing = itemTotals.get(name);
 
       if (existing) {
         existing.quantity += item.quantity;
       } else {
-        itemTotals.set(name, {
-          name,
-          quantity: item.quantity,
-        });
+        itemTotals.set(name, { name, quantity: item.quantity });
       }
 
-      activeOrderValue +=
-        Number(item.unit_price) * item.quantity;
+      activeOrderValue += Number(item.unit_price) * item.quantity;
     }
   }
 
-  const summaryItems = Array.from(itemTotals.values()).sort(
-    (a, b) => a.name.localeCompare(b.name),
+  const summaryItems = Array.from(itemTotals.values()).sort((a, b) =>
+    a.name.localeCompare(b.name),
   );
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Orders</h1>
-
-        <Link href="/admin" className="underline">
-          Admin dashboard
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        title="Orders"
+        description="Each row is one individual order. Employees may have multiple orders for the same delivery date."
+      />
 
       {params.fulfilled && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="success" className="mb-6">
           Order marked as fulfilled.
-        </p>
+        </Alert>
       )}
 
       {params.error && (
-        <p className="mt-4 rounded border p-3">
-          Unable to update order: {params.error}
-        </p>
+        <Alert variant="error" className="mb-6">
+          Unable to update order.
+        </Alert>
       )}
 
-      <section className="mt-8">
-        <h2 className="text-xl font-semibold">Filters</h2>
-
-        <form
-          method="get"
-          className="mt-4 flex flex-wrap items-end gap-4"
-        >
-          <div>
-            <label htmlFor="lunchDay" className="block">
-              Lunch day
-            </label>
-
+      <Card className="mb-8">
+        <SectionHeader title="Filters" />
+        <form method="get" className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <FormField label="Delivery date" htmlFor="lunchDay">
             <select
               id="lunchDay"
               name="lunchDay"
               defaultValue={params.lunchDay ?? ""}
-              className="rounded border p-2"
+              className={selectClassName}
             >
-              <option value="">All lunch days</option>
-
+              <option value="">All delivery dates</option>
               {lunchDays.map((day) => (
                 <option key={day.id} value={day.id}>
                   {day.lunch_date}
                 </option>
               ))}
             </select>
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="status" className="block">
-              Status
-            </label>
-
+          <FormField label="Status" htmlFor="status">
             <select
               id="status"
               name="status"
               defaultValue={params.status ?? ""}
-              className="rounded border p-2"
+              className={selectClassName}
             >
               <option value="">All statuses</option>
               <option value="submitted">Submitted</option>
               <option value="fulfilled">Fulfilled</option>
               <option value="cancelled">Cancelled</option>
             </select>
+          </FormField>
+
+          <div className="flex gap-2">
+            <Button type="submit" variant="primary">
+              Apply
+            </Button>
+            <Link href="/admin/orders" className={linkButtonClass("ghost")}>
+              Clear
+            </Link>
           </div>
-
-          <button
-            type="submit"
-            className="rounded border px-4 py-2"
-          >
-            Apply filters
-          </button>
-
-          <Link
-            href="/admin/orders"
-            className="px-2 py-2 underline"
-          >
-            Clear
-          </Link>
         </form>
-      </section>
+      </Card>
 
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">
-          Menu item totals
-        </h2>
-
-        <p className="mt-1 text-sm">
-          Cancelled orders are excluded from these totals.
-        </p>
-
-        {summaryItems.length === 0 ? (
-          <p className="mt-4">No active ordered items.</p>
-        ) : (
-          <div className="mt-4 max-w-xl overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Menu item</th>
-                  <th className="p-2">Quantity</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {summaryItems.map((item) => (
-                  <tr key={item.name} className="border-b">
-                    <td className="p-2">{item.name}</td>
-                    <td className="p-2">
-                      {item.quantity}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <p className="mt-4 font-semibold">
-          Active order value: $
-          {activeOrderValue.toFixed(2)}
-        </p>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">
-          Orders ({orders.length})
-        </h2>
-
-        {orders.length === 0 ? (
-          <p className="mt-4">
-            No orders match these filters.
+      <div className="grid gap-8 xl:grid-cols-3">
+        <Card className="xl:col-span-1">
+          <SectionHeader
+            title="Menu item totals"
+            description="Cancelled orders excluded."
+          />
+          {summaryItems.length === 0 ? (
+            <p className="text-sm text-muted">No active ordered items.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {summaryItems.map((item) => (
+                <li key={item.name} className="flex justify-between gap-4">
+                  <span>{item.name}</span>
+                  <span className="font-medium">{item.quantity}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-4 text-sm font-semibold">
+            Active order value: ${formatCurrency(activeOrderValue)}
           </p>
-        ) : (
-          <div className="mt-4 space-y-4">
-            {orders.map((order) => {
+        </Card>
+
+        <div className="space-y-4 xl:col-span-2">
+          <SectionHeader title={`Orders (${orders.length})`} />
+
+          {orders.length === 0 ? (
+            <EmptyState title="No orders match these filters" />
+          ) : (
+            orders.map((order) => {
               const profile = getRelated(order.profiles);
               const lunchDay = getRelated(order.lunch_days);
-
               const orderTotal = order.order_items.reduce(
-                (total, item) =>
-                  total +
-                  Number(item.unit_price) * item.quantity,
+                (total, item) => total + Number(item.unit_price) * item.quantity,
                 0,
               );
 
               return (
-                <article
-                  key={order.id}
-                  className="rounded border p-4"
-                >
-                  <div className="flex flex-wrap justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold">
-                        {profile?.full_name ??
-                          "Unnamed user"}
-                      </h3>
-
-                      <p>
-                        Lunch:{" "}
-                        {lunchDay?.lunch_date ??
-                          "Unknown date"}
+                <Card key={order.id} padding="sm">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">
+                          {profile?.full_name ?? "Unnamed user"}
+                        </h3>
+                        <StatusBadge status={order.status} />
+                      </div>
+                      <p className="text-sm text-muted">
+                        Delivery {lunchDay?.lunch_date ?? "Unknown"} · Order{" "}
+                        {order.id.slice(0, 8)}
                       </p>
-
-                      <p>
-                        Submitted:{" "}
-                        {formatCreatedAt(
-                          order.created_at,
-                        )}
+                      <p className="text-sm text-muted">
+                        Submitted {formatDeadline(order.created_at)}
+                      </p>
+                      <p className="text-sm font-medium">
+                        Total: ${formatCurrency(orderTotal)}
                       </p>
                     </div>
 
-                    <div className="text-right">
-                      <p>
-                        Status:{" "}
-                        <strong>{order.status}</strong>
-                      </p>
-
-                      <p className="mt-1 font-semibold">
-                        Total: ${orderTotal.toFixed(2)}
-                      </p>
-
-                      {order.status === "submitted" && (
-                        <form
-                          action={fulfillOrder}
-                          className="mt-3"
+                    {order.status === "submitted" && (
+                      <form action={fulfillOrder}>
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <FormSubmitButton
+                          pendingText="Updating..."
+                          confirmMessage="Mark this order as fulfilled?"
+                          variant="primary"
                         >
-                          <input
-                            type="hidden"
-                            name="orderId"
-                            value={order.id}
-                          />
-
-                          <FormSubmitButton
-                            pendingText="Updating..."
-                            confirmMessage="Mark this order as fulfilled?"
-                            className="rounded border px-3 py-2 disabled:opacity-50"
-                          >
-                            Mark fulfilled
-                          </FormSubmitButton>
-                        </form>
-                      )}
-                    </div>
+                          Mark fulfilled
+                        </FormSubmitButton>
+                      </form>
+                    )}
                   </div>
 
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="p-2">Item</th>
-                          <th className="p-2">Qty</th>
-                          <th className="p-2">
-                            Unit price
-                          </th>
-                          <th className="p-2">
-                            Subtotal
-                          </th>
-                        </tr>
-                      </thead>
+                  <ul className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+                    {order.order_items.map((item) => {
+                      const menuItem = getRelated(item.menu_items);
+                      const subtotal = Number(item.unit_price) * item.quantity;
 
-                      <tbody>
-                        {order.order_items.map(
-                          (item) => {
-                            const menuItem =
-                              getRelated(
-                                item.menu_items,
-                              );
-
-                            const subtotal =
-                              Number(
-                                item.unit_price,
-                              ) * item.quantity;
-
-                            return (
-                              <tr
-                                key={item.id}
-                                className="border-b"
-                              >
-                                <td className="p-2">
-                                  {menuItem?.name ??
-                                    "Menu item"}
-                                </td>
-
-                                <td className="p-2">
-                                  {item.quantity}
-                                </td>
-
-                                <td className="p-2">
-                                  $
-                                  {Number(
-                                    item.unit_price,
-                                  ).toFixed(2)}
-                                </td>
-
-                                <td className="p-2">
-                                  $
-                                  {subtotal.toFixed(2)}
-                                </td>
-                              </tr>
-                            );
-                          },
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </article>
+                      return (
+                        <li
+                          key={item.id}
+                          className="flex flex-col gap-1 sm:flex-row sm:justify-between"
+                        >
+                          <span>
+                            {menuItem?.name ?? "Menu item"} × {item.quantity}
+                          </span>
+                          <span className="text-muted">
+                            ${formatCurrency(item.unit_price)} each · $
+                            {formatCurrency(subtotal)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
               );
-            })}
-          </div>
-        )}
-      </section>
-    </main>
+            })
+          )}
+        </div>
+      </div>
+    </>
   );
 }

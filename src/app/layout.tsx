@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppHeader } from "@/components/app-header";
+import { AppShellWrapper } from "@/components/app-shell/app-shell-wrapper";
+import { getCurrentProfile } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,18 +19,19 @@ export const metadata: Metadata = {
   description: "Manage lunch menus and employee orders.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const profile = await getCurrentProfile();
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppHeader />
-        {children}
+        <AppShellWrapper profile={profile}>{children}</AppShellWrapper>
       </body>
     </html>
   );

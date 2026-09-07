@@ -12,6 +12,19 @@ import {
   toggleProviderMenuItemActive,
   updateProviderMenuItem,
 } from "./actions";
+import { formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  FormField,
+  inputClassName,
+  textareaClassName,
+} from "@/components/ui/form-field";
+import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -74,199 +87,200 @@ export default async function ProviderDetailPage({
   const items = (menuItems ?? []) as MenuItemRow[];
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{provider.name}</h1>
-          <p className="mt-2 text-sm">
-            Recurring weekly menu (order weekdays). Delivery is the next
-            business day (Friday orders deliver Monday).
-          </p>
-        </div>
+    <>
+      <PageHeader
+        title={provider.name}
+        description="Recurring weekly menu (order weekdays). Delivery is the next business day (Friday orders deliver Monday)."
+        actions={
+          <Link href="/admin/providers" className={linkButtonClass("ghost")}>
+            All providers
+          </Link>
+        }
+      />
 
-        <Link href="/admin/providers" className="underline">
-          Back to providers
-        </Link>
+      <div className="mb-6">
+        <StatusBadge status={provider.active ? "active" : "inactive"} />
       </div>
 
       {query.updated && (
-        <p className="mt-4 rounded border p-3">Provider updated.</p>
+        <Alert variant="success" className="mb-6">
+          Provider updated.
+        </Alert>
       )}
 
       {query.menuCreated && (
-        <p className="mt-4 rounded border p-3">Menu item created.</p>
+        <Alert variant="success" className="mb-6">
+          Menu item created.
+        </Alert>
       )}
 
       {query.menuUpdated && (
-        <p className="mt-4 rounded border p-3">Menu item updated.</p>
+        <Alert variant="success" className="mb-6">
+          Menu item updated.
+        </Alert>
       )}
 
       {query.error === "duplicate" && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           A menu item with that name already exists for this provider.
-        </p>
+        </Alert>
       )}
 
       {query.error && query.error !== "duplicate" && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           Unable to complete that action.
-        </p>
+        </Alert>
       )}
 
-      <section className="mt-8">
-        <h2 className="text-xl font-semibold">Provider details</h2>
+      <section className="mb-10">
+        <SectionHeader title="Provider details" />
 
-        <form action={updateProvider} className="mt-4 grid max-w-xl gap-4">
-          <input type="hidden" name="id" value={provider.id} />
+        <Card className="max-w-xl">
+          <form action={updateProvider} className="grid gap-4">
+            <input type="hidden" name="id" value={provider.id} />
 
-          <div>
-            <label htmlFor="name" className="block">
-              Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              defaultValue={provider.name}
-              required
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              defaultValue={provider.description ?? ""}
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <button type="submit" className="w-fit rounded border px-4 py-2">
-            Save provider
-          </button>
-        </form>
-
-        <form action={toggleProviderActive} className="mt-4">
-          <input type="hidden" name="id" value={provider.id} />
-          <input
-            type="hidden"
-            name="active"
-            value={String(provider.active)}
-          />
-
-          <button type="submit" className="rounded border px-4 py-2">
-            {provider.active ? "Deactivate provider" : "Activate provider"}
-          </button>
-        </form>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Add recurring menu item</h2>
-
-        <form action={createProviderMenuItem} className="mt-4 grid max-w-xl gap-4">
-          <input type="hidden" name="providerId" value={provider.id} />
-
-          <div>
-            <label htmlFor="itemName" className="block">
-              Name
-            </label>
-            <input
-              id="itemName"
-              name="name"
-              required
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="itemDescription" className="block">
-              Description
-            </label>
-            <textarea
-              id="itemDescription"
-              name="description"
-              rows={2}
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="itemPrice" className="block">
-              Price
-            </label>
-            <input
-              id="itemPrice"
-              name="price"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <fieldset>
-            <legend className="font-semibold">Order weekdays</legend>
-            <p className="mt-1 text-sm">
-              Weekday is when staff place the order, not delivery day.
-            </p>
-
-            <label className="mt-3 flex items-center gap-2">
+            <FormField label="Name" htmlFor="name">
               <input
-                type="checkbox"
-                name="allWeekdays"
-                value="true"
-                defaultChecked
+                id="name"
+                name="name"
+                defaultValue={provider.name}
+                required
+                className={inputClassName}
               />
-              All weekdays (Mon–Fri)
-            </label>
+            </FormField>
 
-            <div className="mt-3 flex flex-wrap gap-4">
-              {WEEKDAYS.map((day) => (
-                <label key={day.value} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name={`weekday:${day.value}`}
-                    defaultChecked
-                  />
-                  {day.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+            <FormField label="Description" htmlFor="description">
+              <textarea
+                id="description"
+                name="description"
+                rows={3}
+                defaultValue={provider.description ?? ""}
+                className={textareaClassName}
+              />
+            </FormField>
 
-          <button type="submit" className="w-fit rounded border px-4 py-2">
-            Add menu item
-          </button>
-        </form>
+            <button type="submit" className={linkButtonClass("primary")}>
+              Save provider
+            </button>
+          </form>
+
+          <form action={toggleProviderActive} className="mt-4 border-t border-border pt-4">
+            <input type="hidden" name="id" value={provider.id} />
+            <input
+              type="hidden"
+              name="active"
+              value={String(provider.active)}
+            />
+            <button
+              type="submit"
+              className={linkButtonClass(provider.active ? "danger" : "secondary")}
+            >
+              {provider.active ? "Deactivate provider" : "Activate provider"}
+            </button>
+          </form>
+        </Card>
       </section>
 
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Recurring menu</h2>
+      <section className="mb-10">
+        <SectionHeader
+          title="Add recurring menu item"
+          description="Weekday is when staff place the order, not delivery day."
+        />
+
+        <Card className="max-w-xl">
+          <form action={createProviderMenuItem} className="grid gap-4">
+            <input type="hidden" name="providerId" value={provider.id} />
+
+            <FormField label="Name" htmlFor="itemName">
+              <input id="itemName" name="name" required className={inputClassName} />
+            </FormField>
+
+            <FormField label="Description" htmlFor="itemDescription">
+              <textarea
+                id="itemDescription"
+                name="description"
+                rows={2}
+                className={textareaClassName}
+              />
+            </FormField>
+
+            <FormField label="Price" htmlFor="itemPrice">
+              <input
+                id="itemPrice"
+                name="price"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                className={inputClassName}
+              />
+            </FormField>
+
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Order weekdays</legend>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="allWeekdays"
+                  value="true"
+                  defaultChecked
+                  className="size-4 rounded border-border"
+                />
+                All weekdays (Mon–Fri)
+              </label>
+
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {WEEKDAYS.map((day) => (
+                  <label key={day.value} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name={`weekday:${day.value}`}
+                      defaultChecked
+                      className="size-4 rounded border-border"
+                    />
+                    {day.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <button type="submit" className={linkButtonClass("primary")}>
+              Add menu item
+            </button>
+          </form>
+        </Card>
+      </section>
+
+      <section>
+        <SectionHeader title="Recurring menu" />
 
         {items.length === 0 ? (
-          <p className="mt-4">No menu items yet.</p>
+          <EmptyState
+            title="No menu items yet"
+            description="Add recurring menu items above to make this provider available for ordering."
+          />
         ) : (
-          <div className="mt-4 space-y-6">
+          <div className="space-y-4">
             {items.map((item) => {
               const weekdays = item.provider_menu_item_weekdays.map(
                 (row) => row.weekday,
               );
 
               return (
-                <article key={item.id} className="rounded border p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+                <Card key={item.id} padding="md">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h3 className="font-semibold">{item.name}</h3>
-                      {item.description && <p>{item.description}</p>}
-                      <p className="mt-1">
-                        ${Number(item.price).toFixed(2)} ·{" "}
-                        <strong>{formatWeekdayList(weekdays)}</strong> ·{" "}
-                        {item.active ? "Active" : "Inactive"}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        <StatusBadge status={item.active ? "active" : "inactive"} />
+                      </div>
+                      {item.description && (
+                        <p className="mt-1 text-sm text-muted">{item.description}</p>
+                      )}
+                      <p className="mt-2 text-sm">
+                        ${formatCurrency(item.price)} ·{" "}
+                        <span className="font-medium">{formatWeekdayList(weekdays)}</span>
                       </p>
                     </div>
 
@@ -278,8 +292,10 @@ export default async function ProviderDetailPage({
                         name="active"
                         value={String(item.active)}
                       />
-
-                      <button type="submit" className="rounded border px-3 py-2">
+                      <button
+                        type="submit"
+                        className={linkButtonClass(item.active ? "danger" : "secondary")}
+                      >
                         {item.active ? "Deactivate" : "Activate"}
                       </button>
                     </form>
@@ -287,41 +303,32 @@ export default async function ProviderDetailPage({
 
                   <form
                     action={updateProviderMenuItem}
-                    className="mt-4 grid max-w-xl gap-3 border-t pt-4"
+                    className="mt-4 grid max-w-xl gap-3 border-t border-border pt-4"
                   >
                     <input type="hidden" name="providerId" value={provider.id} />
                     <input type="hidden" name="menuItemId" value={item.id} />
 
-                    <div>
-                      <label htmlFor={`name-${item.id}`} className="block">
-                        Name
-                      </label>
+                    <FormField label="Name" htmlFor={`name-${item.id}`}>
                       <input
                         id={`name-${item.id}`}
                         name="name"
                         defaultValue={item.name}
                         required
-                        className="w-full rounded border p-2"
+                        className={inputClassName}
                       />
-                    </div>
+                    </FormField>
 
-                    <div>
-                      <label htmlFor={`description-${item.id}`} className="block">
-                        Description
-                      </label>
+                    <FormField label="Description" htmlFor={`description-${item.id}`}>
                       <textarea
                         id={`description-${item.id}`}
                         name="description"
                         rows={2}
                         defaultValue={item.description ?? ""}
-                        className="w-full rounded border p-2"
+                        className={textareaClassName}
                       />
-                    </div>
+                    </FormField>
 
-                    <div>
-                      <label htmlFor={`price-${item.id}`} className="block">
-                        Price
-                      </label>
+                    <FormField label="Price" htmlFor={`price-${item.id}`}>
                       <input
                         id={`price-${item.id}`}
                         name="price"
@@ -330,33 +337,35 @@ export default async function ProviderDetailPage({
                         step="0.01"
                         defaultValue={Number(item.price)}
                         required
-                        className="w-full rounded border p-2"
+                        className={inputClassName}
                       />
-                    </div>
+                    </FormField>
 
-                    <fieldset>
-                      <legend className="font-semibold">Order weekdays</legend>
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">Order weekdays</legend>
 
-                      <label className="mt-2 flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
                           name="allWeekdays"
                           value="true"
                           defaultChecked={weekdays.length === 5}
+                          className="size-4 rounded border-border"
                         />
                         All weekdays (Mon–Fri)
                       </label>
 
-                      <div className="mt-3 flex flex-wrap gap-4">
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {WEEKDAYS.map((day) => (
                           <label
                             key={day.value}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 text-sm"
                           >
                             <input
                               type="checkbox"
                               name={`weekday:${day.value}`}
                               defaultChecked={weekdays.includes(day.value)}
+                              className="size-4 rounded border-border"
                             />
                             {day.label}
                           </label>
@@ -364,16 +373,16 @@ export default async function ProviderDetailPage({
                       </div>
                     </fieldset>
 
-                    <button type="submit" className="w-fit rounded border px-4 py-2">
+                    <button type="submit" className={linkButtonClass("secondary")}>
                       Save menu item
                     </button>
                   </form>
-                </article>
+                </Card>
               );
             })}
           </div>
         )}
       </section>
-    </main>
+    </>
   );
 }

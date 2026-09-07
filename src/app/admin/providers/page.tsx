@@ -2,6 +2,14 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createProvider } from "./actions";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { FormField, inputClassName, textareaClassName } from "@/components/ui/form-field";
+import { Button, linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{
@@ -26,111 +34,85 @@ export default async function ProvidersPage({ searchParams }: Props) {
   }
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Lunch Providers</h1>
-          <p className="mt-2 max-w-3xl text-sm">
-            Configure recurring Monday–Friday provider menus. Employees order
-            from active providers on matching order days for next-business-day
-            delivery.
-          </p>
-        </div>
-
-        <Link href="/admin" className="underline">
-          Admin dashboard
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        title="Lunch Providers"
+        description="Configure recurring Monday–Friday provider menus for employee ordering."
+      />
 
       {params.created && (
-        <p className="mt-4 rounded border p-3">Provider created successfully.</p>
+        <Alert variant="success" className="mb-6">
+          Provider created successfully.
+        </Alert>
       )}
 
       {params.error === "duplicate" && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           A provider with that name already exists.
-        </p>
+        </Alert>
       )}
 
       {params.error && params.error !== "duplicate" && (
-        <p className="mt-4 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           Unable to complete that action.
-        </p>
+        </Alert>
       )}
 
-      <section className="mt-8">
-        <h2 className="text-xl font-semibold">Add provider</h2>
+      <div className="grid gap-8 xl:grid-cols-3">
+        <Card className="xl:col-span-1">
+          <SectionHeader title="Add provider" />
+          <form action={createProvider} className="space-y-4">
+            <FormField label="Name" htmlFor="name">
+              <input id="name" name="name" required className={inputClassName} />
+            </FormField>
+            <FormField label="Description" htmlFor="description">
+              <textarea
+                id="description"
+                name="description"
+                rows={3}
+                className={textareaClassName}
+              />
+            </FormField>
+            <Button type="submit" variant="primary">
+              Create provider
+            </Button>
+          </form>
+        </Card>
 
-        <form action={createProvider} className="mt-4 grid max-w-xl gap-4">
-          <div>
-            <label htmlFor="name" className="block">
-              Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              required
-              className="w-full rounded border p-2"
+        <div className="xl:col-span-2">
+          <SectionHeader title="Providers" />
+          {!providers || providers.length === 0 ? (
+            <EmptyState
+              title="No providers yet"
+              description="Create a lunch provider to configure recurring menus."
             />
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <button type="submit" className="w-fit rounded border px-4 py-2">
-            Create provider
-          </button>
-        </form>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Providers</h2>
-
-        {!providers || providers.length === 0 ? (
-          <p className="mt-4">No providers have been created yet.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Description</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {providers.map((provider) => (
-                  <tr key={provider.id} className="border-b">
-                    <td className="p-2 font-semibold">{provider.name}</td>
-                    <td className="p-2">{provider.description ?? "—"}</td>
-                    <td className="p-2">
-                      {provider.active ? "Active" : "Inactive"}
-                    </td>
-                    <td className="p-2">
-                      <Link
-                        href={`/admin/providers/${provider.id}`}
-                        className="underline"
-                      >
-                        Manage menu
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </main>
+          ) : (
+            <div className="space-y-3">
+              {providers.map((provider) => (
+                <Card key={provider.id} padding="sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">{provider.name}</h3>
+                        <StatusBadge status={provider.active ? "active" : "inactive"} />
+                      </div>
+                      <p className="mt-1 text-sm text-muted">
+                        {provider.description ?? "No description"}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/admin/providers/${provider.id}`}
+                      className={linkButtonClass("secondary")}
+                    >
+                      Manage menu
+                    </Link>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

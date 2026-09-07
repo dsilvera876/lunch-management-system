@@ -13,6 +13,14 @@ import {
 } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { submitProviderOrder } from "../../actions";
+import { formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { inputClassName } from "@/components/ui/form-field";
+import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   params: Promise<{
@@ -165,79 +173,75 @@ export default async function ProviderOrderPage({
       }));
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <Link href="/lunch" className="underline">
-        Back to lunch
-      </Link>
+    <>
+      <PageHeader
+        title={provider.name}
+        description={provider.description ?? undefined}
+        actions={
+          <Link href="/lunch" className={linkButtonClass("ghost")}>
+            All providers
+          </Link>
+        }
+      />
 
-      <h1 className="mt-6 text-2xl font-semibold">
-        {provider.name}
-      </h1>
-
-      {provider.description && (
-        <p className="mt-2">{provider.description}</p>
-      )}
-
-      <p className="mt-4">
-        Order today ({orderDate}) for delivery on{" "}
-        <strong>{deliveryDate}</strong>.
-      </p>
-
-      <p className="mt-1">
-        Order by {formatJamaicaWallClockTime(cutoffTime)} Jamaica time.
-      </p>
-
-      {usingSnapshot && (
-        <p className="mt-2 text-sm">
-          Showing today&apos;s established menu snapshot for this provider.
+      <Card className="mb-6">
+        <p className="text-sm">
+          Order today ({orderDate}) for delivery on{" "}
+          <strong>{deliveryDate}</strong>.
         </p>
-      )}
+        <p className="mt-1 text-sm text-muted">
+          Order by {formatJamaicaWallClockTime(cutoffTime)} Jamaica time.
+        </p>
+        {usingSnapshot && (
+          <p className="mt-2 text-sm text-muted">
+            Showing today&apos;s established menu snapshot for this provider.
+          </p>
+        )}
+      </Card>
 
       {query.error && (
-        <p className="mt-6 rounded border p-3">
+        <Alert variant="error" className="mb-6">
           {getErrorMessage(query.error)}
-        </p>
+        </Alert>
       )}
 
       {!orderingOpen ? (
-        <p className="mt-8">
-          Today&apos;s ordering window has closed.
-        </p>
+        <EmptyState
+          title="Ordering closed"
+          description="Today's ordering window has closed."
+        />
       ) : menuItems.length === 0 ? (
-        <p className="mt-8">
-          No menu items are available from this provider today.
-        </p>
+        <EmptyState
+          title="No menu items"
+          description="No menu items are available from this provider today."
+        />
       ) : (
-        <form action={submitProviderOrder} className="mt-8">
+        <form action={submitProviderOrder}>
           <input type="hidden" name="providerId" value={provider.id} />
           <input type="hidden" name="orderDate" value={orderDate} />
 
-          <h2 className="text-xl font-semibold">Place your order</h2>
+          <SectionHeader title="Place your order" />
 
-          <div className="mt-4 space-y-4">
+          <div className="space-y-3">
             {menuItems.map((item) => (
-              <div key={item.id} className="rounded border p-4">
-                <div className="flex justify-between gap-4">
+              <Card key={item.id} padding="sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
-
                     {item.description && (
-                      <p className="mt-1">{item.description}</p>
+                      <p className="mt-1 text-sm text-muted">{item.description}</p>
                     )}
-
-                    <p className="mt-1">
-                      ${Number(item.price).toFixed(2)}
+                    <p className="mt-1 text-sm font-medium">
+                      ${formatCurrency(item.price)}
                     </p>
                   </div>
-
                   <div>
                     <label
                       htmlFor={`provider-quantity:${item.id}`}
-                      className="block"
+                      className="block text-sm font-medium"
                     >
                       Qty
                     </label>
-
                     <input
                       id={`provider-quantity:${item.id}`}
                       name={`provider-quantity:${item.id}`}
@@ -245,24 +249,21 @@ export default async function ProviderOrderPage({
                       min="0"
                       step="1"
                       defaultValue={0}
-                      className="w-20 rounded border p-2"
+                      className={`${inputClassName} mt-1 w-24`}
                     />
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
 
           <div className="mt-6">
-            <FormSubmitButton
-              pendingText="Submitting..."
-              className="rounded border px-4 py-2 disabled:opacity-50"
-            >
+            <FormSubmitButton pendingText="Submitting..." variant="primary">
               Submit order
             </FormSubmitButton>
           </div>
         </form>
       )}
-    </main>
+    </>
   );
 }
