@@ -31,6 +31,7 @@ export type StaffOrderingContext = {
   deliveryDate: string | null;
   cutoffTime: string;
   orderDeadline: string | null;
+  periodFinalized: boolean;
   orderingOpen: boolean;
   availableProviders: AvailableProvider[];
   deliveryOrders: DeliveryOrderSummary[];
@@ -115,9 +116,16 @@ export async function getStaffOrderingContext(
       })
     : { data: null };
 
+  const { data: periodFinalized } = orderWeekday
+    ? await supabase.rpc("is_order_date_in_finalized_period", {
+        p_order_date: orderDate,
+      })
+    : { data: false };
+
   const orderingOpen =
     orderWeekday !== null &&
     orderDeadline !== null &&
+    !periodFinalized &&
     new Date() <= new Date(orderDeadline);
 
   const availableProviders =
@@ -173,6 +181,7 @@ export async function getStaffOrderingContext(
     deliveryDate,
     cutoffTime,
     orderDeadline: orderDeadline ?? null,
+    periodFinalized: Boolean(periodFinalized),
     orderingOpen,
     availableProviders,
     deliveryOrders,

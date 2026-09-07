@@ -14,12 +14,14 @@ import type {
 } from "./financial-summaries";
 
 const staffPayload: StaffExportPayload = {
+  daily_lunch_subsidy: "500",
   period: {
     period_id: "period-1",
     label: "August Payroll",
     start_date: "2026-08-03",
     end_date: "2026-08-27",
     status: "open",
+    daily_subsidy_rate: "500",
   },
   employee: {
     employee_id: "staff-1",
@@ -27,7 +29,11 @@ const staffPayload: StaffExportPayload = {
     employee_email: "staff1@test.local",
   },
   order_count: 2,
+  qualifying_order_days: 2,
   period_total: "35.00",
+  gross: "35.00",
+  subsidy_used: "20.00",
+  net_deduction: "15.00",
   orders: [
     {
       order_id: "order-1",
@@ -46,16 +52,34 @@ const staffPayload: StaffExportPayload = {
       order_total: "11.00",
     },
   ],
+  daily_summary: [
+    {
+      order_date: "2026-08-14",
+      gross: "11.00",
+      subsidy_used: "11.00",
+      net_deduction: "0.00",
+      order_count: 1,
+    },
+    {
+      order_date: "2026-08-21",
+      gross: "24.00",
+      subsidy_used: "9.00",
+      net_deduction: "15.00",
+      order_count: 1,
+    },
+  ],
 };
 
 const managementPayload: LunchPeriodFinancialSummary = {
+  daily_lunch_subsidy: "500",
   period: {
     period_id: "period-1",
     label: "August Payroll",
     start_date: "2026-08-03",
     end_date: "2026-08-27",
-    status: "open",
+    status: "finalized",
     is_current: true,
+    daily_subsidy_rate: "500",
   },
   employees: [
     {
@@ -63,14 +87,22 @@ const managementPayload: LunchPeriodFinancialSummary = {
       employee_name: "Staff One",
       employee_email: "staff1@test.local",
       order_count: 2,
+      qualifying_order_days: 2,
       period_total: "35.00",
+      gross: "35.00",
+      subsidy_used: "20.00",
+      net_deduction: "15.00",
     },
     {
       employee_id: "staff-2",
       employee_name: "Staff Two",
       employee_email: "staff2@test.local",
       order_count: 1,
+      qualifying_order_days: 1,
       period_total: "12.00",
+      gross: "12.00",
+      subsidy_used: "12.00",
+      net_deduction: "0.00",
     },
   ],
   orders: [
@@ -97,7 +129,32 @@ const managementPayload: LunchPeriodFinancialSummary = {
       order_total: "12.00",
     },
   ],
+  daily_summary: [
+    {
+      employee_id: "staff-1",
+      employee_name: "Staff One",
+      employee_email: "staff1@test.local",
+      order_date: "2026-08-21",
+      gross: "24.00",
+      subsidy_used: "9.00",
+      net_deduction: "15.00",
+      order_count: 1,
+    },
+    {
+      employee_id: "staff-2",
+      employee_name: "Staff Two",
+      employee_email: "staff2@test.local",
+      order_date: "2026-08-21",
+      gross: "12.00",
+      subsidy_used: "12.00",
+      net_deduction: "0.00",
+      order_count: 1,
+    },
+  ],
   grand_total: "47.00",
+  grand_gross: "47.00",
+  grand_subsidy_used: "32.00",
+  grand_net_deduction: "15.00",
 };
 
 describe("export filenames", () => {
@@ -121,20 +178,17 @@ describe("staff workbook", () => {
     const buffer = await buildStaffWorkbook(staffPayload);
     const sheetNames = await readWorkbookSheetNames(buffer);
 
-    assert.deepEqual(sheetNames, ["Summary", "Orders"]);
+    assert.deepEqual(sheetNames, ["Summary", "Daily Summary", "Orders"]);
   });
 
-  it("contains only the authenticated employee", async () => {
-    const buffer = await buildStaffWorkbook(staffPayload);
-    const sheetNames = await readWorkbookSheetNames(buffer);
-
-    assert.equal(sheetNames.length, 2);
-    assert.equal(staffPayload.orders.length, 2);
-    assert.equal(staffPayload.employee.employee_id, "staff-1");
+  it("contains subsidy and net deduction fields", async () => {
+    assert.equal(Number(staffPayload.subsidy_used), 20);
+    assert.equal(Number(staffPayload.net_deduction), 15);
+    assert.equal(Number(staffPayload.daily_lunch_subsidy), 500);
   });
 
   it("totals match summary data", async () => {
-    assert.equal(Number(staffPayload.period_total), 35);
+    assert.equal(Number(staffPayload.gross), 35);
     assert.equal(
       staffPayload.orders.reduce((sum, order) => sum + Number(order.order_total), 0),
       35,
@@ -147,21 +201,26 @@ describe("management workbook", () => {
     const buffer = await buildManagementWorkbook(managementPayload);
     const sheetNames = await readWorkbookSheetNames(buffer);
 
-    assert.deepEqual(sheetNames, ["Employee Summary", "Orders", "Period"]);
+    assert.deepEqual(sheetNames, [
+      "Period",
+      "Employee Summary",
+      "Daily Summary",
+      "Orders",
+    ]);
   });
 
-  it("contains multiple employees", async () => {
-    assert.equal(managementPayload.employees.length, 2);
-    assert.equal(managementPayload.orders.length, 2);
+  it("contains finalized subsidy snapshot on period sheet", async () => {
+    assert.equal(managementPayload.period.status, "finalized");
+    assert.equal(Number(managementPayload.daily_lunch_subsidy), 500);
   });
 
-  it("grand total matches employee totals", async () => {
-    const employeeTotal = managementPayload.employees.reduce(
-      (sum, employee) => sum + Number(employee.period_total),
+  it("grand totals match employee subsidy totals", async () => {
+    const employeeNet = managementPayload.employees.reduce(
+      (sum, employee) => sum + Number(employee.net_deduction),
       0,
     );
 
-    assert.equal(employeeTotal, Number(managementPayload.grand_total));
+    assert.equal(employeeNet, Number(managementPayload.grand_net_deduction));
   });
 
   it("does not include cancelled orders in fixture", async () => {

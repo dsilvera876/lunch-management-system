@@ -73,6 +73,10 @@ function getOrderErrorCode(message: string) {
     return "closed";
   }
 
+  if (normalized.includes("lunch period has been finalized")) {
+    return "finalized";
+  }
+
   if (
     normalized.includes("menu item is invalid") ||
     normalized.includes("inactive") ||

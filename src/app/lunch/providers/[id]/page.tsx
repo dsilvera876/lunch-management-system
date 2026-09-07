@@ -49,6 +49,8 @@ function getErrorMessage(code: string) {
       return "The ordering deadline has passed.";
     case "closed":
       return "Ordering is not available right now.";
+    case "finalized":
+      return "Ordering is unavailable because this lunch period has been finalized.";
     case "unavailable-item":
       return "One of the selected menu items is no longer available.";
     case "unauthorized":
@@ -82,6 +84,7 @@ export default async function ProviderOrderPage({
     { data: provider, error: providerError },
     { data: settings },
     { data: orderDeadline },
+    { data: periodFinalized },
     { data: existingCycle },
   ] = await Promise.all([
     supabase
@@ -116,6 +119,10 @@ export default async function ProviderOrderPage({
       p_order_date: orderDate,
     }),
 
+    supabase.rpc("is_order_date_in_finalized_period", {
+      p_order_date: orderDate,
+    }),
+
     supabase
       .from("lunch_days")
       .select(`
@@ -140,6 +147,7 @@ export default async function ProviderOrderPage({
 
   const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
   const orderingOpen =
+    !periodFinalized &&
     orderDeadline !== null &&
     new Date() <= new Date(orderDeadline);
 
@@ -190,7 +198,7 @@ export default async function ProviderOrderPage({
           <strong>{deliveryDate}</strong>.
         </p>
         <p className="mt-1 text-sm text-muted">
-          Order by {formatJamaicaWallClockTime(cutoffTime)} Jamaica time.
+          Order by {formatJamaicaWallClockTime(cutoffTime)}.
         </p>
         {usingSnapshot && (
           <p className="mt-2 text-sm text-muted">
@@ -205,7 +213,12 @@ export default async function ProviderOrderPage({
         </Alert>
       )}
 
-      {!orderingOpen ? (
+      {periodFinalized ? (
+        <EmptyState
+          title="Ordering unavailable"
+          description="Ordering is unavailable because this lunch period has been finalized."
+        />
+      ) : !orderingOpen ? (
         <EmptyState
           title="Ordering closed"
           description="Today's ordering window has closed."

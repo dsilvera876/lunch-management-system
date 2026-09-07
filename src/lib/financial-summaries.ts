@@ -2,6 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type LunchPeriodStatus = "open" | "finalized";
 
+export type FinancialAmountSummary = {
+  gross: string | number;
+  subsidy_used: string | number;
+  net_deduction: string | number;
+};
+
 export type FinancialOrderLine = {
   order_id: string;
   order_date: string;
@@ -11,7 +17,15 @@ export type FinancialOrderLine = {
   order_total: string | number;
 };
 
-export type FinancialMonthSummary = {
+export type FinancialDailySummary = {
+  order_date: string;
+  gross: string | number;
+  subsidy_used: string | number;
+  net_deduction: string | number;
+  order_count: number;
+};
+
+export type FinancialMonthSummary = FinancialAmountSummary & {
   year: number;
   month: number;
   label: string;
@@ -20,29 +34,36 @@ export type FinancialMonthSummary = {
   total: string | number;
 };
 
-export type StaffCurrentPeriodSummary = {
+export type StaffCurrentPeriodSummary = FinancialAmountSummary & {
   period_id: string;
   label: string;
   start_date: string;
   end_date: string;
   status: LunchPeriodStatus;
+  daily_subsidy_rate: string | number;
   order_count: number;
+  qualifying_order_days: number;
   period_total: string | number;
   orders: FinancialOrderLine[];
+  daily_summary: FinancialDailySummary[];
 };
 
 export type StaffFinancialDashboard = {
+  daily_lunch_subsidy: string | number;
+  today: FinancialAmountSummary;
+  current_month: FinancialAmountSummary;
   today_total: string | number;
   current_month_total: string | number;
   recent_months: FinancialMonthSummary[];
   current_period: StaffCurrentPeriodSummary | null;
 };
 
-export type ManagementEmployeeSummary = {
+export type ManagementEmployeeSummary = FinancialAmountSummary & {
   employee_id: string;
   employee_name: string | null;
   employee_email: string | null;
   order_count: number;
+  qualifying_order_days: number;
   period_total: string | number;
 };
 
@@ -52,7 +73,14 @@ export type ManagementOrderLine = FinancialOrderLine & {
   employee_email: string | null;
 };
 
+export type ManagementDailySummary = FinancialDailySummary & {
+  employee_id: string;
+  employee_name: string | null;
+  employee_email: string | null;
+};
+
 export type LunchPeriodFinancialSummary = {
+  daily_lunch_subsidy: string | number;
   period: {
     period_id: string;
     label: string;
@@ -60,19 +88,26 @@ export type LunchPeriodFinancialSummary = {
     end_date: string;
     status: LunchPeriodStatus;
     is_current: boolean;
+    daily_subsidy_rate: string | number;
   };
   employees: ManagementEmployeeSummary[];
   orders: ManagementOrderLine[];
+  daily_summary: ManagementDailySummary[];
   grand_total: string | number;
+  grand_gross: string | number;
+  grand_subsidy_used: string | number;
+  grand_net_deduction: string | number;
 };
 
 export type StaffExportPayload = {
+  daily_lunch_subsidy: string | number;
   period: {
     period_id: string;
     label: string;
     start_date: string;
     end_date: string;
     status: LunchPeriodStatus;
+    daily_subsidy_rate: string | number;
   };
   employee: {
     employee_id: string;
@@ -80,9 +115,26 @@ export type StaffExportPayload = {
     employee_email: string | null;
   };
   order_count: number;
+  qualifying_order_days: number;
   period_total: string | number;
+  gross: string | number;
+  subsidy_used: string | number;
+  net_deduction: string | number;
   orders: FinancialOrderLine[];
+  daily_summary: FinancialDailySummary[];
 };
+
+export async function getDailyLunchSubsidy(
+  supabase: SupabaseClient,
+): Promise<number> {
+  const { data, error } = await supabase.rpc("get_daily_lunch_subsidy");
+
+  if (error) {
+    throw new Error("Unable to load daily lunch subsidy.");
+  }
+
+  return Number(data);
+}
 
 export async function getStaffFinancialDashboard(
   supabase: SupabaseClient,

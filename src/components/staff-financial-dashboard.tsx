@@ -13,40 +13,75 @@ type Props = {
   canExport: boolean;
 };
 
+function AmountBreakdown({
+  gross,
+  subsidyUsed,
+  netDeduction,
+}: {
+  gross: string | number;
+  subsidyUsed: string | number;
+  netDeduction: string | number;
+}) {
+  return (
+    <dl className="mt-3 space-y-1 text-sm">
+      <div className="flex justify-between gap-4">
+        <dt className="text-muted">Gross spend</dt>
+        <dd className="font-medium">{formatMoney(gross)}</dd>
+      </div>
+      <div className="flex justify-between gap-4">
+        <dt className="text-muted">Subsidy used</dt>
+        <dd className="font-medium">{formatMoney(subsidyUsed)}</dd>
+      </div>
+      <div className="flex justify-between gap-4">
+        <dt className="text-muted">Net deduction</dt>
+        <dd className="font-semibold">{formatMoney(netDeduction)}</dd>
+      </div>
+    </dl>
+  );
+}
+
 export function StaffFinancialDashboardView({ dashboard, canExport }: Props) {
   return (
     <div className="space-y-8">
+      <Card padding="sm">
+        <p className="text-sm text-muted">Daily lunch subsidy</p>
+        <p className="mt-2 text-2xl font-semibold">
+          {formatMoney(dashboard.daily_lunch_subsidy)}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          Applied once per order date across all qualifying orders.
+        </p>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card padding="sm">
           <p className="text-sm text-muted">Today</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatMoney(dashboard.today_total)}
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            Non-cancelled orders with today&apos;s Jamaica order date
-          </p>
+          <AmountBreakdown
+            gross={dashboard.today.gross}
+            subsidyUsed={dashboard.today.subsidy_used}
+            netDeduction={dashboard.today.net_deduction}
+          />
         </Card>
 
         <Card padding="sm">
           <p className="text-sm text-muted">Current month</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatMoney(dashboard.current_month_total)}
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            Jamaica calendar month to date
-          </p>
+          <AmountBreakdown
+            gross={dashboard.current_month.gross}
+            subsidyUsed={dashboard.current_month.subsidy_used}
+            netDeduction={dashboard.current_month.net_deduction}
+          />
         </Card>
 
         <Card padding="sm" className="md:col-span-2 xl:col-span-1">
-          <p className="text-sm text-muted">Recent months</p>
-          <ul className="mt-3 space-y-2">
+          <p className="text-sm text-muted">Last 3 months</p>
+          <ul className="mt-3 space-y-3">
             {dashboard.recent_months.map((month) => (
-              <li
-                key={`${month.year}-${month.month}`}
-                className="flex items-center justify-between text-sm"
-              >
-                <span>{month.label.trim()}</span>
-                <span className="font-medium">{formatMoney(month.total)}</span>
+              <li key={`${month.year}-${month.month}`} className="text-sm">
+                <p className="font-medium">{month.label.trim()}</p>
+                <div className="mt-1 flex justify-between gap-4 text-muted">
+                  <span>Gross {formatMoney(month.gross)}</span>
+                  <span>Net {formatMoney(month.net_deduction)}</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -87,17 +122,36 @@ export function StaffFinancialDashboardView({ dashboard, canExport }: Props) {
                   dashboard.current_period.end_date,
                 )}
               </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <p className="mt-2 text-sm text-muted">
+                Daily subsidy for this period:{" "}
+                {formatMoney(dashboard.current_period.daily_subsidy_rate)}
+              </p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                  <p className="text-sm text-muted">Period total</p>
+                  <p className="text-sm text-muted">Gross spend</p>
                   <p className="text-xl font-semibold">
-                    {formatMoney(dashboard.current_period.period_total)}
+                    {formatMoney(dashboard.current_period.gross)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted">Qualifying orders</p>
+                  <p className="text-sm text-muted">Subsidy used</p>
                   <p className="text-xl font-semibold">
-                    {dashboard.current_period.order_count}
+                    {formatMoney(dashboard.current_period.subsidy_used)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted">Net payroll deduction</p>
+                  <p className="text-xl font-semibold">
+                    {formatMoney(dashboard.current_period.net_deduction)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted">Qualifying order days</p>
+                  <p className="text-xl font-semibold">
+                    {dashboard.current_period.qualifying_order_days}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {dashboard.current_period.order_count} orders
                   </p>
                 </div>
               </div>

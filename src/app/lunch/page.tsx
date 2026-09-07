@@ -82,7 +82,7 @@ export default async function LunchPage({ searchParams }: Props) {
               <div>
                 <dt className="text-sm text-muted">Cutoff</dt>
                 <dd className="mt-1 font-semibold">
-                  {formatJamaicaWallClockTime(ctx.cutoffTime)} Jamaica time
+                  {formatJamaicaWallClockTime(ctx.cutoffTime)}
                 </dd>
                 {ctx.orderDeadline && (
                   <dd className="mt-1 text-xs text-muted">
@@ -93,24 +93,32 @@ export default async function LunchPage({ searchParams }: Props) {
             </dl>
           </Card>
 
-          {!ctx.orderingOpen ? (
-            <Alert variant="info" className="mb-8">
-              Today&apos;s ordering window has closed.
-            </Alert>
-          ) : ctx.availableProviders.length === 0 ? (
-            <EmptyState
-              title="No providers available"
-              description="No active providers have menu items available for ordering today."
-            />
+          {!ctx.periodFinalized ? (
+            <>
+              {!ctx.orderingOpen ? (
+                <Alert variant="info" className="mb-8">
+                  Today&apos;s ordering window has closed.
+                </Alert>
+              ) : ctx.availableProviders.length === 0 ? (
+                <EmptyState
+                  title="No providers available"
+                  description="No active providers have menu items available for ordering today."
+                />
+              ) : (
+                <section className="mb-10">
+                  <SectionHeader title="Available providers" />
+                  <div className="space-y-4">
+                    {ctx.availableProviders.map((provider) => (
+                      <ProviderCard key={provider.id} {...provider} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
           ) : (
-            <section className="mb-10">
-              <SectionHeader title="Available providers" />
-              <div className="space-y-4">
-                {ctx.availableProviders.map((provider) => (
-                  <ProviderCard key={provider.id} {...provider} />
-                ))}
-              </div>
-            </section>
+            <Alert variant="info" className="mb-8">
+              Ordering is unavailable because this lunch period has been finalized.
+            </Alert>
           )}
         </>
       )}

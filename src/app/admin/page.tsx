@@ -117,10 +117,10 @@ export default async function AdminPage({ searchParams }: Props) {
         <Card className="xl:col-span-1">
           <SectionHeader
             title="Order cutoff"
-            description="Global daily cutoff for Jamaica-time ordering."
+            description="Global daily cutoff for ordering."
           />
           <p className="mb-4 text-sm text-muted">
-            Current: {formatJamaicaWallClockTime(cutoffTime)} Jamaica time
+            Current: {formatJamaicaWallClockTime(cutoffTime)}
             {orderDeadline ? ` (${formatDeadline(orderDeadline)} today)` : ""}
           </p>
           <form action={updateOrderCutoff} className="space-y-4">

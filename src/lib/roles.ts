@@ -79,6 +79,10 @@ export function canFinalizeLunchPeriods(role: UserRole): boolean {
   return role === "accounts" || role === "admin" || role === "owner";
 }
 
+export function canUpdateDailyLunchSubsidy(role: UserRole): boolean {
+  return role === "accounts" || role === "admin" || role === "owner";
+}
+
 export function canAccessAdminDashboard(role: UserRole): boolean {
   return role === "admin" || role === "owner";
 }

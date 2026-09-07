@@ -28,7 +28,7 @@ export function CutoffControl({
     <Card className="mb-8">
       <SectionHeader
         title="Daily order cutoff"
-        description={`Current cutoff: ${formatJamaicaWallClockTime(cutoffTime)} Jamaica time.`}
+        description={`Current cutoff: ${formatJamaicaWallClockTime(cutoffTime)}.`}
       />
 
       {showUpdated && (
@@ -41,7 +41,7 @@ export function CutoffControl({
 
       <form action={updateOrderCutoff} className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <input type="hidden" name="returnTo" value={returnTo} />
-        <FormField label="Cutoff time (Jamaica)" htmlFor="orderCutoffTime">
+        <FormField label="Cutoff time" htmlFor="orderCutoffTime">
           <input
             id="orderCutoffTime"
             name="orderCutoffTime"

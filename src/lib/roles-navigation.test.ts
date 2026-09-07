@@ -11,6 +11,7 @@ import {
 import {
   canExportFinancialSummaries,
   canFinalizeLunchPeriods,
+  canUpdateDailyLunchSubsidy,
   canFulfillOrders,
   canManageLunchPeriods,
   canManageProviders,
@@ -97,6 +98,12 @@ describe("navigation by role", () => {
     assert.equal(canViewAllFinancialSummaries("accounts"), true);
     assert.equal(canExportFinancialSummaries("accounts"), true);
     assert.equal(canFinalizeLunchPeriods("accounts"), true);
+    assert.equal(canUpdateDailyLunchSubsidy("accounts"), true);
+  });
+
+  it("allows HR to read but not update daily lunch subsidy", () => {
+    assert.equal(canUpdateDailyLunchSubsidy("hr"), false);
+    assert.equal(canUpdateDailyLunchSubsidy("staff"), false);
   });
 
   it("returns role-specific navigation", () => {

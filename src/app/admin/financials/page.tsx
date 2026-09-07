@@ -3,14 +3,17 @@ import { requireViewAllFinancialSummaries } from "@/lib/auth";
 import {
   canExportFinancialSummaries,
   canFinalizeLunchPeriods,
+  canUpdateDailyLunchSubsidy,
 } from "@/lib/roles";
 import {
+  getDailyLunchSubsidy,
   getLunchPeriodFinancialSummary,
 } from "@/lib/financial-summaries";
 import { formatLunchPeriodRange, listLunchPeriods } from "@/lib/lunch-periods";
 import { formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { finalizeLunchPeriod } from "./actions";
+import { DailyLunchSubsidyControl } from "@/components/daily-lunch-subsidy-control";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
@@ -24,6 +27,8 @@ type Props = {
     periodId?: string;
     finalized?: string;
     error?: string;
+    "subsidy-updated"?: string;
+    "subsidy-error"?: string;
   }>;
 };
 
@@ -31,12 +36,16 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
   const profile = await requireViewAllFinancialSummaries();
   const params = await searchParams;
   const supabase = await createClient();
+  const dailyLunchSubsidy = await getDailyLunchSubsidy(supabase);
   const periods = await listLunchPeriods(supabase);
   const currentPeriod = periods.find((period) => period.is_current) ?? null;
   const selectedPeriodId = params.periodId ?? currentPeriod?.id ?? periods[0]?.id ?? null;
   const summary = selectedPeriodId
     ? await getLunchPeriodFinancialSummary(supabase, selectedPeriodId)
     : null;
+  const returnTo = selectedPeriodId
+    ? `/admin/financials?periodId=${selectedPeriodId}`
+    : "/admin/financials";
 
   return (
     <>
@@ -56,6 +65,14 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
           Unable to complete that financial action.
         </Alert>
       )}
+
+      <DailyLunchSubsidyControl
+        dailyLunchSubsidy={dailyLunchSubsidy}
+        canEdit={canUpdateDailyLunchSubsidy(profile.role)}
+        returnTo={returnTo}
+        showUpdated={Boolean(params["subsidy-updated"])}
+        showError={Boolean(params["subsidy-error"])}
+      />
 
       <Card className="mb-8">
         <SectionHeader
@@ -134,11 +151,7 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
                     selectedPeriodId && (
                       <form action={finalizeLunchPeriod}>
                         <input type="hidden" name="periodId" value={selectedPeriodId} />
-                        <input
-                          type="hidden"
-                          name="returnTo"
-                          value={`/admin/financials?periodId=${selectedPeriodId}`}
-                        />
+                        <input type="hidden" name="returnTo" value={returnTo} />
                         <Button type="submit" variant="secondary">
                           Finalize period
                         </Button>
@@ -155,11 +168,28 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
               />
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <p className="mt-4 text-sm text-muted">
+              Daily subsidy used for calculations:{" "}
+              {formatMoney(summary.daily_lunch_subsidy)}
+            </p>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-sm text-muted">Overall period total</p>
+                <p className="text-sm text-muted">Total gross</p>
                 <p className="text-2xl font-semibold">
-                  {formatMoney(summary.grand_total)}
+                  {formatMoney(summary.grand_gross)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Total subsidy used</p>
+                <p className="text-2xl font-semibold">
+                  {formatMoney(summary.grand_subsidy_used)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Total net payroll deduction</p>
+                <p className="text-2xl font-semibold">
+                  {formatMoney(summary.grand_net_deduction)}
                 </p>
               </div>
               <div>
@@ -187,7 +217,10 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
                       <th className="px-3 py-2 font-medium">Employee</th>
                       <th className="px-3 py-2 font-medium">Email</th>
                       <th className="px-3 py-2 font-medium text-right">Orders</th>
-                      <th className="px-3 py-2 font-medium text-right">Total</th>
+                      <th className="px-3 py-2 font-medium text-right">Order days</th>
+                      <th className="px-3 py-2 font-medium text-right">Gross</th>
+                      <th className="px-3 py-2 font-medium text-right">Subsidy used</th>
+                      <th className="px-3 py-2 font-medium text-right">Net deduction</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -206,7 +239,16 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
                           {employee.order_count}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {formatMoney(employee.period_total)}
+                          {employee.qualifying_order_days}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {formatMoney(employee.gross)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {formatMoney(employee.subsidy_used)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {formatMoney(employee.net_deduction)}
                         </td>
                       </tr>
                     ))}

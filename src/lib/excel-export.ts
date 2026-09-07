@@ -54,6 +54,7 @@ export async function buildStaffWorkbook(
 ): Promise<ExcelJS.Buffer> {
   const workbook = new ExcelJS.Workbook();
   const summarySheet = workbook.addWorksheet("Summary");
+  const dailySheet = workbook.addWorksheet("Daily Summary");
   const ordersSheet = workbook.addWorksheet("Orders");
 
   applyHeaderRow(summarySheet, [
@@ -62,8 +63,12 @@ export async function buildStaffWorkbook(
     "Start date",
     "End date",
     "Period status",
+    "Daily lunch subsidy",
+    "Qualifying order days",
     "Number of orders",
-    "Total",
+    "Gross spend",
+    "Subsidy used",
+    "Net deduction",
   ]);
 
   summarySheet.addRow([
@@ -72,11 +77,39 @@ export async function buildStaffWorkbook(
     payload.period.start_date,
     payload.period.end_date,
     payload.period.status,
+    Number(payload.daily_lunch_subsidy),
+    payload.qualifying_order_days,
     payload.order_count,
-    Number(payload.period_total),
+    Number(payload.gross),
+    Number(payload.subsidy_used),
+    Number(payload.net_deduction),
   ]);
 
-  setCurrencyColumn(summarySheet, 7, 2);
+  for (const columnIndex of [6, 9, 10, 11]) {
+    setCurrencyColumn(summarySheet, columnIndex, 2);
+  }
+
+  applyHeaderRow(dailySheet, [
+    "Order date",
+    "Gross",
+    "Subsidy used",
+    "Net deduction",
+    "Orders",
+  ]);
+
+  for (const day of payload.daily_summary) {
+    dailySheet.addRow([
+      day.order_date,
+      Number(day.gross),
+      Number(day.subsidy_used),
+      Number(day.net_deduction),
+      day.order_count,
+    ]);
+  }
+
+  for (const columnIndex of [2, 3, 4]) {
+    setCurrencyColumn(dailySheet, columnIndex, 2);
+  }
 
   applyHeaderRow(ordersSheet, [
     "Order date",
@@ -100,6 +133,7 @@ export async function buildStaffWorkbook(
 
   setCurrencyColumn(ordersSheet, 6, 2);
   autosizeColumns(summarySheet);
+  autosizeColumns(dailySheet);
   autosizeColumns(ordersSheet);
 
   return workbook.xlsx.writeBuffer();
@@ -109,15 +143,45 @@ export async function buildManagementWorkbook(
   payload: LunchPeriodFinancialSummary,
 ): Promise<ExcelJS.Buffer> {
   const workbook = new ExcelJS.Workbook();
-  const employeeSheet = workbook.addWorksheet("Employee Summary");
-  const ordersSheet = workbook.addWorksheet("Orders");
   const periodSheet = workbook.addWorksheet("Period");
+  const employeeSheet = workbook.addWorksheet("Employee Summary");
+  const dailySheet = workbook.addWorksheet("Daily Summary");
+  const ordersSheet = workbook.addWorksheet("Orders");
+
+  applyHeaderRow(periodSheet, [
+    "Period",
+    "Start",
+    "End",
+    "Status",
+    "Daily subsidy used for calculations",
+    "Total gross",
+    "Total subsidy used",
+    "Total net deduction",
+  ]);
+
+  periodSheet.addRow([
+    payload.period.label,
+    payload.period.start_date,
+    payload.period.end_date,
+    payload.period.status,
+    Number(payload.daily_lunch_subsidy),
+    Number(payload.grand_gross),
+    Number(payload.grand_subsidy_used),
+    Number(payload.grand_net_deduction),
+  ]);
+
+  for (const columnIndex of [5, 6, 7, 8]) {
+    setCurrencyColumn(periodSheet, columnIndex, 2);
+  }
 
   applyHeaderRow(employeeSheet, [
     "Employee",
     "Email",
     "Order count",
-    "Period total",
+    "Qualifying order days",
+    "Gross",
+    "Subsidy used",
+    "Net deduction",
   ]);
 
   for (const employee of payload.employees) {
@@ -125,11 +189,40 @@ export async function buildManagementWorkbook(
       employee.employee_name ?? "",
       employee.employee_email ?? "",
       employee.order_count,
-      Number(employee.period_total),
+      employee.qualifying_order_days,
+      Number(employee.gross),
+      Number(employee.subsidy_used),
+      Number(employee.net_deduction),
     ]);
   }
 
-  setCurrencyColumn(employeeSheet, 4, 2);
+  for (const columnIndex of [5, 6, 7]) {
+    setCurrencyColumn(employeeSheet, columnIndex, 2);
+  }
+
+  applyHeaderRow(dailySheet, [
+    "Employee",
+    "Order date",
+    "Gross",
+    "Subsidy used",
+    "Net deduction",
+    "Orders",
+  ]);
+
+  for (const day of payload.daily_summary) {
+    dailySheet.addRow([
+      day.employee_name ?? "",
+      day.order_date,
+      Number(day.gross),
+      Number(day.subsidy_used),
+      Number(day.net_deduction),
+      day.order_count,
+    ]);
+  }
+
+  for (const columnIndex of [3, 4, 5]) {
+    setCurrencyColumn(dailySheet, columnIndex, 2);
+  }
 
   applyHeaderRow(ordersSheet, [
     "Employee",
@@ -154,27 +247,10 @@ export async function buildManagementWorkbook(
   }
 
   setCurrencyColumn(ordersSheet, 7, 2);
-
-  applyHeaderRow(periodSheet, [
-    "Label",
-    "Start",
-    "End",
-    "Status",
-    "Overall total",
-  ]);
-
-  periodSheet.addRow([
-    payload.period.label,
-    payload.period.start_date,
-    payload.period.end_date,
-    payload.period.status,
-    Number(payload.grand_total),
-  ]);
-
-  setCurrencyColumn(periodSheet, 5, 2);
-  autosizeColumns(employeeSheet);
-  autosizeColumns(ordersSheet);
   autosizeColumns(periodSheet);
+  autosizeColumns(employeeSheet);
+  autosizeColumns(dailySheet);
+  autosizeColumns(ordersSheet);
 
   return workbook.xlsx.writeBuffer();
 }

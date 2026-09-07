@@ -10,6 +10,7 @@ import {
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canUpdateDailyLunchSubsidy,
   canViewAllFinancialSummaries,
   canViewAllOrders,
   isOwner,
@@ -197,6 +198,16 @@ export async function requireFinalizeLunchPeriods(): Promise<Profile> {
   return profile;
 }
 
+export async function requireUpdateDailyLunchSubsidy(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canUpdateDailyLunchSubsidy(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
 export async function requireLegacyLunchDays(): Promise<Profile> {
   const profile = await requireProfile();
 
@@ -216,6 +227,7 @@ export {
   canAccessAdminDashboard,
   canExportFinancialSummaries,
   canFinalizeLunchPeriods,
+  canUpdateDailyLunchSubsidy,
   canFulfillOrders,
   canManageCutoff,
   canManageLegacyLunchDays,

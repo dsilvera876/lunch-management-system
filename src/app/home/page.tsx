@@ -84,7 +84,13 @@ export default async function HomePage() {
         </div>
       )}
 
-      {ctx.orderWeekday && ctx.orderingOpen && (
+      {ctx.orderWeekday && ctx.periodFinalized && (
+        <Alert variant="info" className="mb-10">
+          Ordering is unavailable because this lunch period has been finalized.
+        </Alert>
+      )}
+
+      {ctx.orderWeekday && !ctx.periodFinalized && ctx.orderingOpen && (
         <section className="mb-10">
           <SectionHeader
             title="Place an order"
@@ -116,7 +122,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {ctx.orderWeekday && !ctx.orderingOpen && (
+      {ctx.orderWeekday && !ctx.periodFinalized && !ctx.orderingOpen && (
         <Alert variant="info" className="mb-10">
           Today&apos;s ordering window has closed. You can still review your
           orders for delivery on {ctx.deliveryDate}.
