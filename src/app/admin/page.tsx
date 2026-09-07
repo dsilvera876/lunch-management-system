@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminOrOwner } from "@/lib/auth";
 import { getJamaicaTodayDate, getJamaicaIsoWeekday, getDeliveryDateForOrderDate } from "@/lib/datetime";
 import {
   cutoffTimeToFormValue,
@@ -25,7 +25,7 @@ type Props = {
 };
 
 export default async function AdminPage({ searchParams }: Props) {
-  const profile = await requireAdmin();
+  const profile = await requireAdminOrOwner();
   const params = await searchParams;
   const supabase = await createClient();
   const orderDate = getJamaicaTodayDate();
@@ -155,6 +155,9 @@ export default async function AdminPage({ searchParams }: Props) {
             </Link>
             <Link href="/lunch" className={linkButtonClass("secondary")}>
               Staff ordering view
+            </Link>
+            <Link href="/admin/users" className={linkButtonClass("secondary")}>
+              User / role management
             </Link>
             <Link href="/admin/lunch-days" className={linkButtonClass("ghost")}>
               Legacy lunch days

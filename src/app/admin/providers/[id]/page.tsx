@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireHrAdminOrOwner } from "@/lib/auth";
 import { formatWeekdayList, WEEKDAYS } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -49,7 +49,7 @@ export default async function ProviderDetailPage({
   params,
   searchParams,
 }: Props) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const { id } = await params;
   const query = await searchParams;

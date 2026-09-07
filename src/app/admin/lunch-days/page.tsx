@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireLegacyLunchDays } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createLunchDay } from "./actions";
 
@@ -19,7 +19,7 @@ function formatDeadline(value: string) {
 }
 
 export default async function LunchDaysPage({ searchParams }: Props) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const params = await searchParams;
   const supabase = await createClient();

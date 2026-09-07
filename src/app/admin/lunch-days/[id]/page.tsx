@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireLegacyLunchDays } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   createMenuItem,
@@ -41,7 +41,7 @@ export default async function LunchDayPage({
   params,
   searchParams,
 }: Props) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const { id } = await params;
   const query = await searchParams;

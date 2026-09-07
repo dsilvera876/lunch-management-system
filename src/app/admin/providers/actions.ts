@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createProvider(formData: FormData) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const name = formData.get("name");
   const description = formData.get("description");
@@ -40,7 +40,7 @@ export async function createProvider(formData: FormData) {
 }
 
 export async function updateProvider(formData: FormData) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const id = formData.get("id");
   const name = formData.get("name");
@@ -80,7 +80,7 @@ export async function updateProvider(formData: FormData) {
 }
 
 export async function toggleProviderActive(formData: FormData) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const id = formData.get("id");
   const active = formData.get("active");

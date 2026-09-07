@@ -24,9 +24,8 @@ values
   '{"full_name":"Fulfillment User"}'
 );
 
-update public.profiles
-set role = 'admin'
-where id = 'f3333333-3333-4333-8333-333333333333';
+reset role;
+select private.apply_profile_role('f3333333-3333-4333-8333-333333333333', 'admin');
 
 -- Create one order for the normal user.
 set local role authenticated;
@@ -63,7 +62,7 @@ select throws_ok(
     )
   $$,
   'P0001',
-  'Administrator access required',
+  'Fulfillment access required',
   'Normal user cannot fulfill an order'
 );
 

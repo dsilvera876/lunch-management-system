@@ -15,9 +15,8 @@ values
   '{"full_name":"Order User"}'
 );
 
-update public.profiles
-set role = 'admin'
-where id = 'd1111111-1111-4111-8111-111111111111';
+reset role;
+select private.apply_profile_role('d1111111-1111-4111-8111-111111111111', 'admin');
 
 -- ============================================================
 -- Default cutoff and admin settings
@@ -346,9 +345,8 @@ select results_eq(
 
 reset role;
 
-update public.profiles
-set role = 'admin'
-where id = 'd1111111-1111-4111-8111-111111111111';
+reset role;
+select private.apply_profile_role('d1111111-1111-4111-8111-111111111111', 'admin');
 
 set local role authenticated;
 

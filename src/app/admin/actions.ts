@@ -2,16 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireManageCutoff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateOrderCutoff(formData: FormData) {
-  await requireAdmin();
+  await requireManageCutoff();
 
   const cutoffTime = formData.get("orderCutoffTime");
+  const returnTo = formData.get("returnTo");
+
+  const redirectPath =
+    typeof returnTo === "string" && returnTo.startsWith("/admin")
+      ? returnTo
+      : "/admin";
 
   if (typeof cutoffTime !== "string" || !/^\d{2}:\d{2}$/.test(cutoffTime)) {
-    redirect("/admin?error=invalid-cutoff");
+    redirect(`${redirectPath}?error=invalid-cutoff`);
   }
 
   const supabase = await createClient();
@@ -22,11 +28,13 @@ export async function updateOrderCutoff(formData: FormData) {
     .eq("id", 1);
 
   if (error) {
-    redirect("/admin?error=cutoff-update");
+    redirect(`${redirectPath}?error=cutoff-update`);
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/providers");
   revalidatePath("/lunch");
+  revalidatePath("/home");
 
-  redirect("/admin?cutoff-updated=1");
+  redirect(`${redirectPath}?cutoff-updated=1`);
 }

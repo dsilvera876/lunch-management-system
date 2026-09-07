@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 function parseWeekdays(formData: FormData): number[] {
@@ -52,7 +52,7 @@ async function syncMenuItemWeekdays(
 }
 
 export async function createProviderMenuItem(formData: FormData) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const providerId = formData.get("providerId");
   const name = formData.get("name");
@@ -115,7 +115,7 @@ export async function createProviderMenuItem(formData: FormData) {
 }
 
 export async function updateProviderMenuItem(formData: FormData) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const providerId = formData.get("providerId");
   const menuItemId = formData.get("menuItemId");
@@ -177,7 +177,7 @@ export async function updateProviderMenuItem(formData: FormData) {
 }
 
 export async function toggleProviderMenuItemActive(formData: FormData) {
-  await requireAdmin();
+  await requireHrAdminOrOwner();
 
   const providerId = formData.get("providerId");
   const menuItemId = formData.get("menuItemId");

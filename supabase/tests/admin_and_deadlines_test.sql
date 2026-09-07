@@ -17,9 +17,8 @@ values
 );
 
 -- Promote first user to admin
-update public.profiles
-set role = 'admin'
-where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+reset role;
+select private.apply_profile_role('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'admin');
 
 -- ============================================================
 -- Admin tests

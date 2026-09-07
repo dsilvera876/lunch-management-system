@@ -24,7 +24,7 @@ async function redirectAfterAuth() {
     .eq("id", user.id)
     .single();
 
-  redirect(getPostLoginPath(profile?.role ?? "user"));
+  redirect(getPostLoginPath(profile?.role ?? "staff"));
 }
 
 export async function login(formData: FormData) {

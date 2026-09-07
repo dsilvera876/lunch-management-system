@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireLegacyLunchDays } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createLunchDay(formData: FormData) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const lunchDate = formData.get("lunchDate");
   const deadline = formData.get("deadline");

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireHrAdminOrOwner, canManageCutoff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createProvider } from "./actions";
+import { CutoffControl } from "@/components/cutoff-control";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
@@ -15,19 +16,22 @@ type Props = {
   searchParams: Promise<{
     error?: string;
     created?: string;
+    "cutoff-updated"?: string;
   }>;
 };
 
 export default async function ProvidersPage({ searchParams }: Props) {
-  await requireAdmin();
-
+  const profile = await requireHrAdminOrOwner();
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: providers, error } = await supabase
-    .from("lunch_providers")
-    .select("id, name, description, active, created_at")
-    .order("name", { ascending: true });
+  const [{ data: providers, error }, { data: settings }] = await Promise.all([
+    supabase
+      .from("lunch_providers")
+      .select("id, name, description, active, created_at")
+      .order("name", { ascending: true }),
+    supabase.from("app_settings").select("order_cutoff_time").eq("id", 1).single(),
+  ]);
 
   if (error) {
     throw new Error("Unable to load lunch providers.");
@@ -56,6 +60,15 @@ export default async function ProvidersPage({ searchParams }: Props) {
         <Alert variant="error" className="mb-6">
           Unable to complete that action.
         </Alert>
+      )}
+
+      {canManageCutoff(profile.role) && (
+        <CutoffControl
+          cutoffTime={settings?.order_cutoff_time ?? "16:00:00"}
+          returnTo="/admin/providers"
+          showUpdated={Boolean(params["cutoff-updated"])}
+          showError={params.error === "cutoff-update" || params.error === "invalid-cutoff"}
+        />
       )}
 
       <div className="grid gap-8 xl:grid-cols-3">

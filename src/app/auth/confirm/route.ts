@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
           .single();
 
         return NextResponse.redirect(
-          getExternalUrl(request, getPostLoginPath(profile?.role ?? "user")),
+          getExternalUrl(request, getPostLoginPath(profile?.role ?? "staff")),
         );
       }
 

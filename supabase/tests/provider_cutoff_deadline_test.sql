@@ -15,9 +15,8 @@ values
   '{"full_name":"Cutoff User"}'
 );
 
-update public.profiles
-set role = 'admin'
-where id = 'a1111111-1111-4111-8111-111111111111';
+reset role;
+select private.apply_profile_role('a1111111-1111-4111-8111-111111111111', 'admin');
 
 reset role;
 

@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireFulfillOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function fulfillOrder(formData: FormData) {
-  await requireAdmin();
+  await requireFulfillOrders();
 
   const orderId = formData.get("orderId");
 

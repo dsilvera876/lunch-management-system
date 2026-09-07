@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireViewAllOrders, canFulfillOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fulfillOrder } from "./actions";
 import { FormSubmitButton } from "@/components/form-submit-button";
@@ -37,7 +37,8 @@ type OrderRow = {
 };
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
-  await requireAdmin();
+  const profile = await requireViewAllOrders();
+  const canFulfill = canFulfillOrders(profile.role);
 
   const params = await searchParams;
   const supabase = await createClient();
@@ -240,7 +241,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                       </p>
                     </div>
 
-                    {order.status === "submitted" && (
+                    {order.status === "submitted" && canFulfill && (
                       <form action={fulfillOrder}>
                         <input type="hidden" name="orderId" value={order.id} />
                         <FormSubmitButton

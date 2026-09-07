@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireLegacyLunchDays } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateLunchDay(formData: FormData) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const id = formData.get("id");
   const lunchDate = formData.get("lunchDate");
@@ -46,7 +46,7 @@ export async function updateLunchDay(formData: FormData) {
 }
 
 export async function updateLunchDayStatus(formData: FormData) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const id = formData.get("id");
   const status = formData.get("status");
@@ -77,7 +77,7 @@ export async function updateLunchDayStatus(formData: FormData) {
 }
 
 export async function createMenuItem(formData: FormData) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const lunchDayId = formData.get("lunchDayId");
   const name = formData.get("name");
@@ -123,7 +123,7 @@ export async function createMenuItem(formData: FormData) {
 }
 
 export async function toggleMenuItem(formData: FormData) {
-  await requireAdmin();
+  await requireLegacyLunchDays();
 
   const lunchDayId = formData.get("lunchDayId");
   const menuItemId = formData.get("menuItemId");
