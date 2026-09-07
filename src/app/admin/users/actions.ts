@@ -28,6 +28,7 @@ export async function assignUserRole(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
   redirect("/admin/users?updated=1");
 }
 
@@ -51,5 +52,6 @@ export async function transferOwnership(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
   redirect("/admin/users?transferred=1");
 }

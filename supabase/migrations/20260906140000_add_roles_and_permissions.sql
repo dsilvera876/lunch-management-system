@@ -7,19 +7,43 @@
 -- 1. Role column migration
 -- ------------------------------------------------------------
 
+-- Drop the legacy constraint before changing role values.
+-- create_core_schema.sql defines: check (role in ('user', 'admin'))
+-- PostgreSQL names that inline CHECK profiles_role_check.
+alter table public.profiles
+  drop constraint if exists profiles_role_check;
+
+-- Transitional constraint: permit legacy + new roles during data migration.
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('user', 'staff', 'hr', 'accounts', 'admin', 'owner'));
+
 update public.profiles
 set role = 'staff'
 where role = 'user';
 
 alter table public.profiles
-  drop constraint if exists profiles_role_check;
+  alter column role set default 'staff';
+
+-- Guard: no legacy values may remain before the final constraint is installed.
+do $$
+begin
+  if exists (
+    select 1
+    from public.profiles
+    where role = 'user'
+  ) then
+    raise exception 'Migration incomplete: legacy user roles remain in profiles';
+  end if;
+end;
+$$;
+
+alter table public.profiles
+  drop constraint profiles_role_check;
 
 alter table public.profiles
   add constraint profiles_role_check
   check (role in ('staff', 'hr', 'accounts', 'admin', 'owner'));
-
-alter table public.profiles
-  alter column role set default 'staff';
 
 create unique index if not exists profiles_single_owner_idx
   on public.profiles (role)
@@ -161,17 +185,22 @@ grant execute on function private.can_manage_roles() to authenticated;
 -- 3. Profile role / owner protection
 -- ------------------------------------------------------------
 
+-- pgcrypto lives in the extensions schema on Supabase (local and hosted).
+-- Migrations run with a search_path that may not include extensions, so
+-- schema-qualify extension functions and ensure the extension exists.
+create extension if not exists pgcrypto with schema extensions;
+
 -- Trusted role-change gate: secret readable only by SECURITY DEFINER
 -- helpers. The trigger accepts role changes only when a transaction-local
 -- GUC matches this secret, which only private.activate_trusted_role_change()
 -- can set. Authenticated users cannot read the secret or call the activator.
 create table if not exists private.role_change_gate (
   id int primary key default 1 check (id = 1),
-  gate_secret text not null default encode(gen_random_bytes(32), 'hex')
+  gate_secret text not null default encode(extensions.gen_random_bytes(32), 'hex')
 );
 
 insert into private.role_change_gate (id, gate_secret)
-values (1, encode(gen_random_bytes(32), 'hex'))
+values (1, encode(extensions.gen_random_bytes(32), 'hex'))
 on conflict (id) do nothing;
 
 revoke all on table private.role_change_gate from public, anon, authenticated;

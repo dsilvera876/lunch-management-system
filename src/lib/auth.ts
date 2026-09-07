@@ -9,6 +9,7 @@ import {
   canManageRoles,
   canViewAllOrders,
   isOwner,
+  isUserRole,
   type UserRole,
 } from "@/lib/roles";
 
@@ -41,6 +42,31 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   }
 
   return profile as Profile;
+}
+
+export async function getCurrentUserRole(): Promise<UserRole | null> {
+  const supabase = await createClient();
+
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+
+  const userId = claimsData?.claims?.sub;
+
+  if (claimsError || !userId) {
+    return null;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile?.role || !isUserRole(profile.role)) {
+    return null;
+  }
+
+  return profile.role;
 }
 
 export async function requireProfile(): Promise<Profile> {

@@ -3,6 +3,7 @@ import { getRoleLabel, isOwner, ASSIGNABLE_ROLES } from "@/lib/roles";
 import type { AssignableRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { assignUserRole, transferOwnership } from "./actions";
+import { ProfileMutationRefresh } from "@/components/profile-mutation-refresh";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -45,6 +46,11 @@ export default async function UserManagementPage({ searchParams }: Props) {
 
   return (
     <>
+      <ProfileMutationRefresh
+        active={Boolean(params.transferred)}
+        renderedRole={profile.role}
+      />
+
       <PageHeader
         title="User / Role Management"
         description="Assign employee roles. Owner promotion happens only through ownership transfer."
