@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { AppShellWrapper } from "@/components/app-shell/app-shell-wrapper";
 import { getCurrentProfile } from "@/lib/auth";
@@ -31,7 +32,9 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppShellWrapper profile={profile}>{children}</AppShellWrapper>
+        <Suspense fallback={children}>
+          <AppShellWrapper profile={profile}>{children}</AppShellWrapper>
+        </Suspense>
       </body>
     </html>
   );

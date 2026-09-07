@@ -2,6 +2,8 @@ begin;
 
 select plan(33);
 
+-- Fixture dates use January 2099 so tests do not depend on the real calendar month.
+
 -- ============================================================
 -- Users and roles
 -- ============================================================
@@ -51,8 +53,8 @@ update public.app_settings set order_cutoff_time = '23:59:00' where id = 1;
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'e5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select public.create_first_lunch_period('Subsidy Payroll', '2026-09-01', '2026-09-30');
-select public.create_next_lunch_period('October Payroll', '2026-10-31');
+select public.create_first_lunch_period('Subsidy Payroll', '2099-01-01', '2099-01-31');
+select public.create_next_lunch_period('October Payroll', '2099-02-28');
 
 select public.set_current_lunch_period(id)
 from public.lunch_periods
@@ -146,50 +148,50 @@ select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-
 -- Sep 11: 700 + 400 + 200 across providers same day
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[{"provider_menu_item_id":"01111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
 );
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[{"provider_menu_item_id":"02222222-2222-4222-8222-222222222222","quantity":1}]'::jsonb
 );
 select public.submit_provider_order(
   'f2222222-2222-4222-8222-222222222222',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[{"provider_menu_item_id":"06666666-6666-4666-8666-666666666666","quantity":1}]'::jsonb
 );
 
 -- Sep 14: spend below subsidy (300)
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-14'::date,
+  '2099-01-12'::date,
   '[{"provider_menu_item_id":"03333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
 );
 
 -- Sep 15: spend equal subsidy (500)
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-15'::date,
+  '2099-01-13'::date,
   '[{"provider_menu_item_id":"04444444-4444-4444-8444-444444444444","quantity":1}]'::jsonb
 );
 
 -- Sep 16: spend above subsidy (800)
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-16'::date,
+  '2099-01-14'::date,
   '[{"provider_menu_item_id":"05555555-5555-4555-8555-555555555555","quantity":1}]'::jsonb
 );
 
 -- Sep 17: quantity > 1 (24.00) and cancelled duplicate
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-17'::date,
+  '2099-01-15'::date,
   '[{"provider_menu_item_id":"07777777-7777-4777-8777-777777777777","quantity":2}]'::jsonb
 );
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
-  '2026-09-17'::date,
+  '2099-01-15'::date,
   '[{"provider_menu_item_id":"07777777-7777-4777-8777-777777777777","quantity":1}]'::jsonb
 );
 
@@ -197,7 +199,7 @@ select public.cancel_order(o.id)
 from public.orders o
 join public.lunch_days ld on ld.id = o.lunch_day_id
 where o.profile_id = 'e1111111-1111-4111-8111-111111111111'
-  and ld.order_date = '2026-09-17'::date
+  and ld.order_date = '2099-01-15'::date
   and o.status = 'submitted'
   and public.calculate_order_total(o.id) = 12.00
 limit 1;
@@ -208,7 +210,7 @@ update public.orders
 set status = 'fulfilled'
 where profile_id = 'e1111111-1111-4111-8111-111111111111'
   and lunch_day_id in (
-    select id from public.lunch_days where order_date = '2026-09-15'::date
+    select id from public.lunch_days where order_date = '2099-01-13'::date
   );
 
 -- ============================================================
@@ -222,8 +224,8 @@ select results_eq(
     select s.subsidy_used
     from private.financial_subsidy_summary(
       'e2222222-2222-4222-8222-222222222222',
-      '2026-09-01'::date,
-      '2026-09-30'::date,
+      '2099-01-01'::date,
+      '2099-01-31'::date,
       (select id from public.lunch_periods where label = 'Subsidy Payroll'),
       500::numeric
     ) s
@@ -235,8 +237,8 @@ select results_eq(
 select results_eq(
   $$ select s.subsidy_used, s.net_deduction from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-14'::date,
-      '2026-09-14'::date,
+      '2099-01-12'::date,
+      '2099-01-12'::date,
       null,
       500::numeric
     ) s $$,
@@ -247,8 +249,8 @@ select results_eq(
 select results_eq(
   $$ select s.subsidy_used, s.net_deduction from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-15'::date,
-      '2026-09-15'::date,
+      '2099-01-13'::date,
+      '2099-01-13'::date,
       null,
       500::numeric
     ) s $$,
@@ -259,8 +261,8 @@ select results_eq(
 select results_eq(
   $$ select s.subsidy_used, s.net_deduction from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-16'::date,
-      '2026-09-16'::date,
+      '2099-01-14'::date,
+      '2099-01-14'::date,
       null,
       500::numeric
     ) s $$,
@@ -271,8 +273,8 @@ select results_eq(
 select results_eq(
   $$ select s.gross_total, s.subsidy_used, s.net_deduction from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-11'::date,
-      '2026-09-11'::date,
+      '2099-01-09'::date,
+      '2099-01-09'::date,
       null,
       500::numeric
     ) s $$,
@@ -285,8 +287,8 @@ select results_eq(
     select count(*)::bigint
     from private.employee_daily_gross_spend(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-11'::date,
-      '2026-09-11'::date,
+      '2099-01-09'::date,
+      '2099-01-09'::date,
       null
     ) d
   $$,
@@ -299,8 +301,8 @@ select results_eq(
     select s.gross_total
     from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-17'::date,
-      '2026-09-17'::date,
+      '2099-01-15'::date,
+      '2099-01-15'::date,
       null,
       500::numeric
     ) s
@@ -312,8 +314,8 @@ select results_eq(
 select results_eq(
   $$ select s.gross_total, s.subsidy_used from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-17'::date,
-      '2026-09-17'::date,
+      '2099-01-15'::date,
+      '2099-01-15'::date,
       null,
       500::numeric
     ) s $$,
@@ -326,8 +328,8 @@ select results_eq(
     select s.gross_total
     from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-15'::date,
-      '2026-09-15'::date,
+      '2099-01-13'::date,
+      '2099-01-13'::date,
       null,
       500::numeric
     ) s
@@ -341,8 +343,8 @@ select results_eq(
     select s.subsidy_used
     from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-11'::date,
-      '2026-09-14'::date,
+      '2099-01-09'::date,
+      '2099-01-12'::date,
       null,
       500::numeric
     ) s
@@ -356,8 +358,8 @@ select results_eq(
     select s.subsidy_used
     from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-01'::date,
-      '2026-09-30'::date,
+      '2099-01-01'::date,
+      '2099-01-31'::date,
       (select id from public.lunch_periods where label = 'Subsidy Payroll'),
       500::numeric
     ) s
@@ -384,8 +386,8 @@ select results_eq(
 select results_eq(
   $$ select s.gross_total, s.subsidy_used, s.net_deduction from private.financial_subsidy_summary(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-01'::date,
-      '2026-09-30'::date,
+      '2099-01-01'::date,
+      '2099-01-31'::date,
       null,
       500::numeric
     ) s $$,
@@ -497,7 +499,7 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select throws_ok(
-  $$ select public.financial_total_for_profile('e2222222-2222-4222-8222-222222222222', '2026-09-01'::date, '2026-09-30'::date) $$,
+  $$ select public.financial_total_for_profile('e2222222-2222-4222-8222-222222222222', '2099-01-01'::date, '2099-01-31'::date) $$,
   'P0001',
   'Not authorized to view financial summaries for this employee',
   'Staff cannot query another employee financial data'

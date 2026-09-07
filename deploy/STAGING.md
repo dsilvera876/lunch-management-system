@@ -304,12 +304,30 @@ Configure the hosted Supabase project for **HTTPS**:
 
 1. **Authentication → URL Configuration**
    - **Site URL:** `https://STAGING_HOSTNAME`
-   - **Redirect URLs:** `https://STAGING_HOSTNAME/**`
+   - **Redirect URLs** — add each explicit route required by auth flows (use these on staging; do not rely on a broad wildcard as the primary deployed configuration):
+     - `https://STAGING_HOSTNAME/auth/confirm`
+     - `https://STAGING_HOSTNAME/account/update-password`
+
+   > A wildcard such as `https://STAGING_HOSTNAME/**` may be convenient for local Supabase CLI or preview environments, but **staging should use the explicit routes above.**
+
 2. **Authentication → Emails** — SMTP (SMTP2Go) and email confirmation enabled
-3. **Confirm signup email template** — token-hash link:
+
+3. **Authentication → Email Templates → Confirm signup** — token-hash link:
+
    `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
-4. Apply all database migrations to the hosted project
-5. Promote at least one staging admin in `public.profiles`
+
+4. **Authentication → Email Templates → Reset Password** — configure the recovery link for SSR token-hash verification. Use this exact href in the template body (plain link or button):
+
+   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
+
+   Example button:
+
+   ```html
+   <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Reset Password</a>
+   ```
+
+5. Apply all database migrations to the hosted project
+6. Promote at least one staging admin in `public.profiles`
 
 Ensure `APP_ORIGIN` in `/etc/lunch-management/staging.env` matches the Supabase Site URL scheme and host.
 
@@ -318,6 +336,23 @@ After changing env vars:
 ```bash
 sudo systemctl restart lunch-management-staging
 ```
+
+### Local development (password recovery)
+
+Local development validates password recovery through automated checks only:
+
+```bash
+npm run lint
+npm run build
+npx supabase test db
+npx tsx --test src/lib/*.test.ts
+```
+
+The auth-recovery unit tests cover redirect construction, email validation, anti-user-enumeration messaging, recovery vs signup routing, and password policy — without sending email.
+
+**Do not require actual password-reset email delivery on a development PC.** End-to-end recovery acceptance (SMTP2Go delivery, link click-through, password change) is performed on **staging** (section 18).
+
+Optional: Supabase CLI local Auth can capture outbound mail in Inbucket/Mailpit for individual developer inspection. This is optional tooling, not a required project workflow.
 
 ---
 
@@ -446,6 +481,24 @@ sudo -u lunchapp npm ci
 sudo -u lunchapp npm run build
 sudo systemctl restart lunch-management-staging
 ```
+
+---
+
+## 18. Password recovery — staging acceptance
+
+After deploying password recovery changes, run this checklist on staging (replace `STAGING_HOSTNAME`):
+
+1. Visit `/login` → click **Forgot password?**
+2. Submit an **existing** staging account email
+3. Receive the reset email via SMTP2Go
+4. Confirm the reset link stays on `https://STAGING_HOSTNAME` (not localhost)
+5. Set a new password on `/account/update-password`
+6. Confirm redirect to `/login` with the password-updated success message
+7. Sign in with the **old** password → must fail
+8. Sign in with the **new** password → must succeed
+9. Confirm role and navigation are unchanged (Owner remains Owner, etc.)
+10. Reuse the same reset link → friendly invalid/expired message with option to request a new link
+11. Submit a **nonexistent** email on `/forgot-password` → same neutral reset-request success message as step 2
 
 ---
 

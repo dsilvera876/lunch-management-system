@@ -2,6 +2,8 @@ begin;
 
 select plan(6);
 
+-- Fixture dates use January 2099 so provider orders stay before the cutoff.
+
 -- ============================================================
 -- Post-migration state: no legacy lunch days remain
 -- ============================================================
@@ -56,7 +58,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'd0333333-3333-
 
 select public.submit_provider_order(
   'd0111111-1111-4111-8111-111111111111',
-  '2026-09-08'::date,
+  '2099-01-06'::date,
   '[{"provider_menu_item_id":"d0222222-2222-4222-8222-222222222222","quantity":1}]'::jsonb
 );
 
@@ -111,7 +113,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'd0333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.financial_total_for_profile('d0333333-3333-4333-8333-333333333333', '2026-09-01'::date, '2026-12-31'::date) $$,
+  $$ select public.financial_total_for_profile('d0333333-3333-4333-8333-333333333333', '2099-01-01'::date, '2099-12-31'::date) $$,
   array[10.00::numeric],
   'Financial summaries include only provider-based orders with order dates'
 );

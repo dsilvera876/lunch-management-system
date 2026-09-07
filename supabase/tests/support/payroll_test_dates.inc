@@ -1,0 +1,16 @@
+-- Reference payroll fixture dates for deterministic pgTAP tests.
+-- Tests embed these literals directly; January 2099 avoids calendar-month drift.
+--
+-- Anchor: 2099-01-05 = Monday (see provider_cutoff_deadline_test.sql)
+--
+-- period_a:        2099-01-01 .. 2099-01-11
+-- period_b_end:    2099-01-25
+-- order_friday:    2099-01-09  (was Sep 11 2026)
+-- order_tuesday:   2099-01-06  (was Sep 8 2026)
+-- order_monday:    2099-01-12  (was Sep 14 2026)
+-- order_wd3:       2099-01-13  (was Sep 15 2026)
+-- order_wd4:       2099-01-14  (was Sep 16 2026)
+-- order_wd5:       2099-01-15  (was Sep 17 2026)
+-- february_end:    2099-02-28
+-- march_end:       2099-03-31
+-- order_march_open: 2099-03-05 (Wednesday; weekday 3 added in test)

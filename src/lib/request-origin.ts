@@ -36,6 +36,20 @@ function normalizeHost(value: string | null): string | null {
   return value;
 }
 
+export function getApplicationOrigin(): string {
+  const configuredOrigin = getConfiguredOrigin();
+
+  if (configuredOrigin) {
+    return configuredOrigin;
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    return "http://127.0.0.1:3000";
+  }
+
+  throw new Error("APP_ORIGIN must be configured for server-side auth redirects");
+}
+
 function getConfiguredOrigin(): string | null {
   const configured = process.env.APP_ORIGIN?.trim();
 

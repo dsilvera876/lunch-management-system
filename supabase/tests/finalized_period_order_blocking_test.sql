@@ -2,6 +2,8 @@ begin;
 
 select plan(6);
 
+-- Fixture dates use January 2099 so tests do not depend on the real calendar month.
+
 -- ============================================================
 -- Setup
 -- ============================================================
@@ -34,8 +36,8 @@ where id = 1;
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '10444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
-select public.create_first_lunch_period('Guard Payroll A', '2026-09-01', '2026-09-11');
-select public.create_next_lunch_period('Guard Payroll B', '2026-09-25');
+select public.create_first_lunch_period('Guard Payroll A', '2099-01-01', '2099-01-11');
+select public.create_next_lunch_period('Guard Payroll B', '2099-01-25');
 
 select public.set_current_lunch_period(id)
 from public.lunch_periods
@@ -51,7 +53,7 @@ select lives_ok(
   $$
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
-      '2026-09-11'::date,
+      '2099-01-09'::date,
       '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
     )
   $$,
@@ -59,7 +61,7 @@ select lives_ok(
 );
 
 -- ============================================================
--- Finalize the period containing 2026-09-11
+-- Finalize the period containing 2099-01-09
 -- ============================================================
 
 set local role authenticated;
@@ -79,7 +81,7 @@ select throws_ok(
   $$
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
-      '2026-09-11'::date,
+      '2099-01-09'::date,
       '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
     )
   $$,
@@ -101,7 +103,7 @@ select throws_ok(
         select id
         from public.lunch_days
         where provider_id = '10222222-2222-4222-8222-222222222222'
-          and order_date = '2026-09-11'::date
+          and order_date = '2099-01-09'::date
       )
     )
   $$,
@@ -127,7 +129,7 @@ select throws_ok(
   $$
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
-      '2026-09-11'::date,
+      '2099-01-09'::date,
       '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
     )
   $$,
@@ -162,7 +164,7 @@ select lives_ok(
   $$
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
-      '2026-09-14'::date,
+      '2099-01-12'::date,
       '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
     )
   $$,

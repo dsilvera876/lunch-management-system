@@ -2,6 +2,8 @@ begin;
 
 select plan(37);
 
+-- Fixture dates use January 2099 so tests do not depend on the real calendar month.
+
 -- ============================================================
 -- Users and roles
 -- ============================================================
@@ -50,8 +52,8 @@ values
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select public.create_first_lunch_period('September Payroll A', '2026-09-01', '2026-09-11');
-select public.create_next_lunch_period('September Payroll B', '2026-09-25');
+select public.create_first_lunch_period('September Payroll A', '2099-01-01', '2099-01-11');
+select public.create_next_lunch_period('September Payroll B', '2099-01-25');
 
 select public.set_current_lunch_period(id)
 from public.lunch_periods
@@ -72,21 +74,21 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 -- Friday order in first period (Sep 11 2026)
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":2}]'::jsonb
 );
 
 -- Fulfilled order in first period
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-09-08'::date,
+  '2099-01-06'::date,
   '[{"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}]'::jsonb
 );
 
 -- Cancelled order in first period
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
 );
 
@@ -94,7 +96,7 @@ select public.cancel_order(o.id)
 from public.orders o
 join public.lunch_days ld on ld.id = o.lunch_day_id
 where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-  and ld.order_date = '2026-09-11'::date
+  and ld.order_date = '2099-01-09'::date
   and o.status = 'submitted'
   and public.calculate_order_total(o.id) = 12.00
 limit 1;
@@ -104,14 +106,14 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a2222222-2222-
 
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
 );
 
 -- Order outside first period (second period)
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-09-15'::date,
+  '2099-01-13'::date,
   '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
 );
 
@@ -121,7 +123,7 @@ update public.orders
 set status = 'fulfilled'
 where profile_id = 'a1111111-1111-4111-8111-111111111111'
   and lunch_day_id in (
-    select id from public.lunch_days where order_date = '2026-09-08'::date
+    select id from public.lunch_days where order_date = '2099-01-06'::date
   );
 
 -- Multi-item order total check setup
@@ -130,7 +132,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-09-11'::date,
+  '2099-01-09'::date,
   '[
     {"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1},
     {"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}
@@ -148,7 +150,7 @@ select results_eq(
     join public.lunch_days ld on ld.id = o.lunch_day_id
     join public.order_items oi on oi.order_id = o.id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
       and oi.quantity = 2
     limit 1
   $$,
@@ -162,7 +164,7 @@ select results_eq(
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
       and public.calculate_order_total(o.id) = 23.00
     limit 1
   $$,
@@ -176,7 +178,7 @@ select results_eq(
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
       and o.status in ('submitted', 'fulfilled')
   $$,
   array[2::bigint],
@@ -189,7 +191,7 @@ select results_eq(
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
       and o.status = 'submitted'
   $$,
   array[2::bigint],
@@ -202,7 +204,7 @@ select results_eq(
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date between '2026-09-01'::date and '2026-09-11'::date
+      and ld.order_date between '2099-01-01'::date and '2099-01-11'::date
       and o.status = 'fulfilled'
   $$,
   array[1::bigint],
@@ -215,7 +217,7 @@ select results_eq(
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
       and o.status = 'cancelled'
   $$,
   array[1::bigint],
@@ -228,7 +230,7 @@ select results_eq(
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date between '2026-09-01'::date and '2026-09-11'::date
+      and ld.order_date between '2099-01-01'::date and '2099-01-11'::date
       and o.status in ('submitted', 'fulfilled')
   $$,
   array[3::bigint],
@@ -243,7 +245,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select throws_ok(
-  $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2026-09-01'::date, '2026-09-11'::date) $$,
+  $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2099-01-01'::date, '2099-01-11'::date) $$,
   'P0001',
   'Not authorized to view financial summaries for this employee',
   'Staff sees own financial data only'
@@ -252,7 +254,7 @@ select throws_ok(
 select set_config('request.jwt.claims', json_build_object('sub', 'a3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2026-09-01'::date, '2026-09-11'::date) $$,
+  $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2099-01-01'::date, '2099-01-11'::date) $$,
   array[58.00::numeric],
   'HR sees all staff summaries'
 );
@@ -260,7 +262,7 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2026-09-01'::date, '2026-09-11'::date) $$,
+  $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2099-01-01'::date, '2099-01-11'::date) $$,
   array[58.00::numeric],
   'Accounts sees all staff summaries'
 );
@@ -268,7 +270,7 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2026-09-01'::date, '2026-09-11'::date) $$,
+  $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2099-01-01'::date, '2099-01-11'::date) $$,
   array[12.00::numeric],
   'Admin sees all staff summaries'
 );
@@ -276,7 +278,7 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', 'a6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2026-09-01'::date, '2026-09-11'::date) $$,
+  $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2099-01-01'::date, '2099-01-11'::date) $$,
   array[12.00::numeric],
   'Owner sees all staff summaries'
 );
@@ -289,13 +291,13 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'a3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.lunch_period_contains_order_date('2026-09-01', '2026-09-11', '2026-09-11') $$,
+  $$ select public.lunch_period_contains_order_date('2099-01-01', '2099-01-11', '2099-01-09') $$,
   array[true],
   'Current-period membership uses order date'
 );
 
 select results_eq(
-  $$ select public.lunch_period_contains_order_date('2026-09-01', '2026-09-11', '2026-09-14') $$,
+  $$ select public.lunch_period_contains_order_date('2099-01-01', '2099-01-11', '2099-01-12') $$,
   array[false],
   'Friday order Monday delivery uses Friday order date for membership'
 );
@@ -313,7 +315,7 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2026-09-01'::date, '2026-09-11'::date) $$,
+  $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2099-01-01'::date, '2099-01-11'::date) $$,
   array[58.00::numeric],
   'Period employee total is correct'
 );
@@ -365,7 +367,7 @@ select results_eq(
     join public.orders o on o.id = oi.order_id
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
   $$,
   array[2],
   'Quantity greater than one is handled correctly'
@@ -384,7 +386,7 @@ select results_eq(
     join public.lunch_days ld on ld.id = o.lunch_day_id
     join public.order_items oi on oi.order_id = o.id
     where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-      and ld.order_date = '2026-09-11'::date
+      and ld.order_date = '2099-01-09'::date
       and oi.quantity = 2
     limit 1
   $$,
@@ -415,7 +417,7 @@ select lives_ok(
 
 reset role;
 
-select public.create_next_lunch_period('October Payroll', '2026-10-31');
+select public.create_next_lunch_period('October Payroll', '2099-02-28');
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'a6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
@@ -471,7 +473,7 @@ select throws_ok(
         from public.orders o
         join public.lunch_days ld on ld.id = o.lunch_day_id
         where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-          and ld.order_date = '2026-09-11'::date
+          and ld.order_date = '2099-01-09'::date
           and o.status = 'submitted'
         order by o.created_at
         limit 1
@@ -489,7 +491,7 @@ select throws_ok(
           from public.orders o
           join public.lunch_days ld on ld.id = o.lunch_day_id
           where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-            and ld.order_date = '2026-09-11'::date
+            and ld.order_date = '2099-01-09'::date
             and o.status = 'submitted'
           order by o.created_at
           limit 1
@@ -511,7 +513,7 @@ select throws_ok(
         from public.orders o
         join public.lunch_days ld on ld.id = o.lunch_day_id
         where o.profile_id = 'a1111111-1111-4111-8111-111111111111'
-          and ld.order_date = '2026-09-11'::date
+          and ld.order_date = '2099-01-09'::date
           and o.status = 'submitted'
         order by o.created_at
         limit 1
@@ -540,7 +542,7 @@ select results_eq(
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select public.create_next_lunch_period('November Payroll', '2026-11-30');
+select public.create_next_lunch_period('November Payroll', '2099-03-31');
 
 reset role;
 
@@ -552,7 +554,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
-  '2026-11-04'::date,
+  '2099-03-05'::date,
   '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
 );
 
@@ -563,7 +565,7 @@ select lives_ok(
         select o.id
         from public.orders o
         join public.lunch_days ld on ld.id = o.lunch_day_id
-        where ld.order_date = '2026-11-04'::date
+        where ld.order_date = '2099-03-05'::date
           and o.profile_id = 'a1111111-1111-4111-8111-111111111111'
         limit 1
       )

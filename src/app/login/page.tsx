@@ -4,6 +4,7 @@ import { AuthLayout } from "@/components/auth-layout";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { FORGOT_PASSWORD_PATH, PASSWORD_UPDATED_MESSAGE } from "@/lib/auth-recovery";
 
 type Props = {
   searchParams: Promise<{
@@ -22,6 +23,12 @@ export default async function LoginPage({ searchParams }: Props) {
       {params.message === "check-email" && (
         <Alert variant="success" className="mt-4">
           Check your email to confirm your account.
+        </Alert>
+      )}
+
+      {params.message === "password-updated" && (
+        <Alert variant="success" className="mt-4">
+          {PASSWORD_UPDATED_MESSAGE}
         </Alert>
       )}
 
@@ -71,6 +78,15 @@ export default async function LoginPage({ searchParams }: Props) {
             className={inputClassName}
           />
         </FormField>
+
+        <div className="text-right">
+          <Link
+            href={FORGOT_PASSWORD_PATH}
+            className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
 
         <Button type="submit" variant="primary" className="w-full">
           Sign in

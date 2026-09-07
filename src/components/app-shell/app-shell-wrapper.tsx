@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { FORGOT_PASSWORD_PATH, UPDATE_PASSWORD_PATH } from "@/lib/auth-recovery";
 import { refreshProfileIfRoleChanged } from "@/lib/profile-refresh-client";
 import { shouldCheckRoleOnNavigation } from "@/lib/profile-refresh";
 import { AppShell } from "./app-shell";
@@ -11,7 +12,7 @@ type Profile = {
   role: string;
 };
 
-const AUTH_PATHS = ["/login", "/signup"];
+const AUTH_PATHS = ["/login", "/signup", FORGOT_PASSWORD_PATH];
 
 export function AppShellWrapper({
   profile,
@@ -21,9 +22,12 @@ export function AppShellWrapper({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const previousPathnameRef = useRef<string | null>(null);
-  const isAuthPage = AUTH_PATHS.includes(pathname);
+  const isRecoveryPasswordPage =
+    pathname === UPDATE_PASSWORD_PATH && searchParams.get("recovery") === "1";
+  const isAuthPage = AUTH_PATHS.includes(pathname) || isRecoveryPasswordPage;
 
   useEffect(() => {
     if (!profile || isAuthPage) {

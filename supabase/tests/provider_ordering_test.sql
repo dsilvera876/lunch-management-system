@@ -51,7 +51,7 @@ select lives_ok(
 select results_eq(
   $$
     select to_char(
-      public.order_deadline_for_order_date('2026-09-07'::date) at time zone 'America/Jamaica',
+      public.order_deadline_for_order_date('2099-01-05'::date) at time zone 'America/Jamaica',
       'HH24:MI:SS'
     )
   $$,
@@ -84,9 +84,8 @@ select results_eq(
 
 reset role;
 
-update public.app_settings
-set order_cutoff_time = '16:00:00'
-where id = 1;
+-- Provider ordering sections below use far-future order dates so tests do
+-- not depend on the real wall clock relative to the 16:00 business cutoff.
 
 -- ============================================================
 -- Provider and recurring menu setup
@@ -167,6 +166,10 @@ select is_empty(
   'Per-user lunch day order uniqueness index is removed'
 );
 
+\ir support/open_ordering.inc
+
+-- 2099-01-05 is a Monday; delivery date is 2099-01-06 (Tuesday).
+
 -- ============================================================
 -- Multiple orders for same employee and delivery date
 -- ============================================================
@@ -184,7 +187,7 @@ select set_config(
 
 select public.submit_provider_order(
   'e1111111-1111-4111-8111-111111111111',
-  '2026-09-07'::date,
+  '2099-01-05'::date,
   '[
     {
       "provider_menu_item_id": "f1111111-1111-4111-8111-111111111111",
@@ -195,7 +198,7 @@ select public.submit_provider_order(
 
 select public.submit_provider_order(
   'e1111111-1111-4111-8111-111111111111',
-  '2026-09-07'::date,
+  '2099-01-05'::date,
   '[
     {
       "provider_menu_item_id": "f2222222-2222-4222-8222-222222222222",
@@ -206,7 +209,7 @@ select public.submit_provider_order(
 
 select public.submit_provider_order(
   'e2222222-2222-4222-8222-222222222222',
-  '2026-09-07'::date,
+  '2099-01-05'::date,
   '[
     {
       "provider_menu_item_id": "f3333333-3333-4333-8333-333333333333",
@@ -222,7 +225,7 @@ select results_eq(
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'd2222222-2222-4222-8222-222222222222'
       and o.status = 'submitted'
-      and ld.lunch_date = '2026-09-08'::date
+      and ld.lunch_date = '2099-01-06'::date
   $$,
   array[3::bigint],
   'Employee can submit multiple orders for the same delivery date'
@@ -268,7 +271,7 @@ select results_eq(
         select id
         from public.lunch_days
         where provider_id = 'e1111111-1111-4111-8111-111111111111'
-          and order_date = '2026-09-07'::date
+          and order_date = '2099-01-05'::date
       )
   $$,
   array[1::bigint],
@@ -279,7 +282,7 @@ select throws_ok(
   $$
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-07'::date,
+      '2099-01-05'::date,
       '[
         {
           "provider_menu_item_id": "f3333333-3333-4333-8333-333333333333",
@@ -318,7 +321,7 @@ select lives_ok(
             from public.menu_items mi
             join public.lunch_days ld on ld.id = mi.lunch_day_id
             where ld.provider_id = 'e1111111-1111-4111-8111-111111111111'
-              and ld.order_date = '2026-09-07'::date
+              and ld.order_date = '2099-01-05'::date
               and mi.provider_menu_item_id = 'f1111111-1111-4111-8111-111111111111'
           ),
           'quantity',
@@ -390,7 +393,7 @@ select lives_ok(
   $$
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-07'::date,
+      '2099-01-05'::date,
       '[
         {
           "provider_menu_item_id": "f2222222-2222-4222-8222-222222222222",
@@ -423,7 +426,7 @@ select throws_ok(
             from public.menu_items mi
             join public.lunch_days ld on ld.id = mi.lunch_day_id
             where ld.provider_id = 'e1111111-1111-4111-8111-111111111111'
-              and ld.order_date = '2026-09-07'::date
+              and ld.order_date = '2099-01-05'::date
               and mi.provider_menu_item_id = 'f1111111-1111-4111-8111-111111111111'
           ),
           'quantity',
@@ -485,7 +488,7 @@ select is(
     from public.menu_items mi
     join public.lunch_days ld on ld.id = mi.lunch_day_id
     where mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
-      and ld.lunch_date = '2026-09-08'::date
+      and ld.lunch_date = '2099-01-06'::date
   ),
   'BBQ Chicken|11.00',
   'Snapshotted menu items remain stable after recurring menu edits'
@@ -510,7 +513,7 @@ select throws_ok(
   $$
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-07'::date,
+      '2099-01-05'::date,
       '[
         {
           "provider_menu_item_id": "f1111111-1111-4111-8111-111111111111",
@@ -549,7 +552,7 @@ select throws_ok(
   $$
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
-      '2026-09-07'::date,
+      '2099-01-05'::date,
       '[
         {
           "provider_menu_item_id": "f2222222-2222-4222-8222-222222222222",
