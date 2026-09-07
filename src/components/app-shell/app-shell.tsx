@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   getNavForRole,
+  getPostLoginPath,
   getRoleLabel,
   isNavActive,
   type NavItem,
@@ -19,11 +20,15 @@ function NavLinks({
   items,
   pathname,
   onNavigate,
+  variant = "sidebar",
 }: {
   items: NavItem[];
   pathname: string;
   onNavigate?: () => void;
+  variant?: "sidebar" | "light";
 }) {
+  const isSidebar = variant === "sidebar";
+
   return (
     <ul className="space-y-1">
       {items.map((item) => {
@@ -37,8 +42,12 @@ function NavLinks({
               aria-current={active ? "page" : undefined}
               className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-white/10 text-white"
-                  : "text-sidebar-muted hover:bg-white/5 hover:text-white"
+                  ? isSidebar
+                    ? "bg-white/10 text-white"
+                    : "bg-primary/10 text-primary"
+                  : isSidebar
+                    ? "text-sidebar-muted hover:bg-white/5 hover:text-white"
+                    : "text-foreground hover:bg-background"
               }`}
             >
               {item.label}
@@ -60,13 +69,14 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navItems = getNavForRole(profile.role);
+  const homeHref = getPostLoginPath(profile.role);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-sidebar text-sidebar-foreground lg:flex">
         <div className="border-b border-white/10 px-5 py-5">
-          <Link href={profile.role === "admin" ? "/admin" : "/home"} className="block">
+          <Link href={homeHref} className="block">
             <span className="text-lg font-semibold text-white">
               Lunch Management
             </span>
@@ -128,6 +138,7 @@ export function AppShell({
             <NavLinks
               items={navItems}
               pathname={pathname}
+              variant="light"
               onNavigate={() => setMobileOpen(false)}
             />
             <form action="/auth/signout" method="post" className="mt-3 px-3">

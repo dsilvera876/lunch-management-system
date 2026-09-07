@@ -2,6 +2,7 @@ import { type EmailOtpType } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getPostLoginPath } from "@/lib/navigation";
 import { getExternalUrl } from "@/lib/request-origin";
 
 export async function GET(request: NextRequest) {
@@ -18,7 +19,24 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       revalidatePath("/", "layout");
-      return NextResponse.redirect(getExternalUrl(request, "/account"));
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        return NextResponse.redirect(
+          getExternalUrl(request, getPostLoginPath(profile?.role ?? "user")),
+        );
+      }
+
+      return NextResponse.redirect(getExternalUrl(request, "/home"));
     }
   }
 

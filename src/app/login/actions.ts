@@ -2,7 +2,30 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getPostLoginPath } from "@/lib/navigation";
 import { createClient } from "@/lib/supabase/server";
+
+async function redirectAfterAuth() {
+  const supabase = await createClient();
+
+  revalidatePath("/", "layout");
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  redirect(getPostLoginPath(profile?.role ?? "user"));
+}
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -27,8 +50,7 @@ export async function login(formData: FormData) {
     redirect("/login?error=credentials");
   }
 
-  revalidatePath("/", "layout");
-  redirect("/account");
+  await redirectAfterAuth();
 }
 
 export async function signup(formData: FormData) {
@@ -69,6 +91,5 @@ export async function signup(formData: FormData) {
     redirect("/login?message=check-email");
   }
 
-  revalidatePath("/", "layout");
-  redirect("/account");
+  await redirectAfterAuth();
 }

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
+import { getPostLoginPath } from "@/lib/navigation";
 
 export default async function HomePage() {
   const profile = await getCurrentProfile();
@@ -8,9 +9,5 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  if (profile.role === "admin") {
-    redirect("/admin");
-  }
-
-  redirect("/home");
+  redirect(getPostLoginPath(profile.role));
 }

@@ -14,6 +14,11 @@ export const STAFF_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", description: "Operations overview" },
   {
+    href: "/home",
+    label: "Staff Home",
+    description: "Employee ordering overview",
+  },
+  {
     href: "/admin/providers",
     label: "Lunch Providers",
     description: "Recurring menus",
@@ -21,14 +26,18 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
   {
     href: "/lunch",
-    label: "Lunch / Ordering",
-    description: "Staff ordering view",
+    label: "Order Lunch",
+    description: "Place a staff order",
   },
   { href: "/account", label: "Account", description: "Profile and settings" },
 ];
 
 export function getNavForRole(role: string): NavItem[] {
   return role === "admin" ? ADMIN_NAV : STAFF_NAV;
+}
+
+export function getPostLoginPath(role: string): string {
+  return role === "admin" ? "/admin" : "/home";
 }
 
 export function getRoleLabel(role: string): string {
