@@ -4,6 +4,7 @@ import {
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canViewAllFinancialSummaries,
   canViewAllOrders,
   getRoleLabel,
   type UserRole,
@@ -19,6 +20,11 @@ const STAFF_ORDERING: NavItem[] = [
   { href: "/home", label: "Home", description: "Today's lunch overview" },
   { href: "/lunch", label: "Order Lunch", description: "Place a new order" },
   { href: "/my-orders", label: "My Orders", description: "View your orders" },
+  {
+    href: "/financials",
+    label: "My Financials",
+    description: "Your lunch spending summaries",
+  },
 ];
 
 const ACCOUNT_NAV: NavItem = {
@@ -35,6 +41,12 @@ const LUNCH_PERIODS_NAV: NavItem = {
   description: "Payroll lunch periods",
 };
 
+const FINANCIALS_NAV: NavItem = {
+  href: "/admin/financials",
+  label: "Financial Summaries",
+  description: "Payroll lunch totals",
+};
+
 export const HR_NAV: NavItem[] = [
   ...STAFF_ORDERING,
   {
@@ -43,6 +55,7 @@ export const HR_NAV: NavItem[] = [
     description: "Recurring menus",
   },
   LUNCH_PERIODS_NAV,
+  FINANCIALS_NAV,
   { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
   ACCOUNT_NAV,
 ];
@@ -50,6 +63,7 @@ export const HR_NAV: NavItem[] = [
 export const ACCOUNTS_NAV: NavItem[] = [
   ...STAFF_ORDERING,
   LUNCH_PERIODS_NAV,
+  FINANCIALS_NAV,
   { href: "/admin/orders", label: "Orders", description: "All employee orders" },
   ACCOUNT_NAV,
 ];
@@ -67,6 +81,7 @@ export const ADMIN_NAV: NavItem[] = [
     description: "Recurring menus",
   },
   LUNCH_PERIODS_NAV,
+  FINANCIALS_NAV,
   { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
   {
     href: "/lunch",
@@ -121,7 +136,7 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return true;
   }
 
-  if (pathname === "/my-orders" || pathname === "/account") {
+  if (pathname === "/my-orders" || pathname === "/account" || pathname === "/financials") {
     return true;
   }
 
@@ -139,6 +154,10 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 
   if (pathname.startsWith("/admin/orders")) {
     return canViewAllOrders(role);
+  }
+
+  if (pathname.startsWith("/admin/financials")) {
+    return canViewAllFinancialSummaries(role);
   }
 
   if (pathname.startsWith("/admin/users")) {

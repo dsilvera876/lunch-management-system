@@ -5,11 +5,7 @@ select plan(3);
 -- Ensure seeded lunch day is open with a future deadline for this test run.
 reset role;
 
-update public.lunch_days
-set
-  status = 'open',
-  order_deadline = now() + interval '1 day'
-where id = '10000000-0000-0000-0000-000000000001';
+\ir support/legacy_lunch_day_fixture.inc
 
 -- Create test user. Profile is created automatically by trigger.
 insert into auth.users (id, email, raw_user_meta_data)

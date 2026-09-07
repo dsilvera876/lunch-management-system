@@ -57,6 +57,28 @@ export function canExportLunchPeriodSummaries(role: UserRole): boolean {
   return role === "accounts" || role === "admin" || role === "owner";
 }
 
+export function canViewFinancialSummaries(role: UserRole): boolean {
+  return (
+    role === "hr" ||
+    role === "accounts" ||
+    role === "admin" ||
+    role === "owner" ||
+    role === "staff"
+  );
+}
+
+export function canViewAllFinancialSummaries(role: UserRole): boolean {
+  return role === "hr" || role === "accounts" || role === "admin" || role === "owner";
+}
+
+export function canExportFinancialSummaries(role: UserRole): boolean {
+  return role === "accounts" || role === "admin" || role === "owner";
+}
+
+export function canFinalizeLunchPeriods(role: UserRole): boolean {
+  return role === "accounts" || role === "admin" || role === "owner";
+}
+
 export function canAccessAdminDashboard(role: UserRole): boolean {
   return role === "admin" || role === "owner";
 }

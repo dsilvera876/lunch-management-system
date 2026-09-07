@@ -172,6 +172,8 @@ select lives_ok(
 
 reset role;
 
+\ir support/legacy_lunch_day_fixture.inc
+
 insert into public.orders (id, profile_id, lunch_day_id, status)
 values
   ('99999999-9999-4999-8999-999999999901', '11111111-1111-4111-8111-111111111111', '10000000-0000-0000-0000-000000000001', 'submitted'),

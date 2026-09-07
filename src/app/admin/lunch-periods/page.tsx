@@ -6,6 +6,7 @@ import {
   isLatestLunchPeriod,
   listLunchPeriods,
 } from "@/lib/lunch-periods";
+import Link from "next/link";
 import { canExportLunchPeriodSummaries } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -22,7 +23,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FormField, inputClassName } from "@/components/ui/form-field";
-import { Button } from "@/components/ui/button";
+import { Button, linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{
@@ -94,6 +95,9 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-semibold">{currentPeriod.label}</h3>
                 <StatusBadge status="active" />
+                {currentPeriod.status === "finalized" && (
+                  <StatusBadge status="closed" />
+                )}
               </div>
               <p className="mt-2 text-sm text-muted">
                 {formatLunchPeriodRange(currentPeriod.start_date, currentPeriod.end_date)}
@@ -107,13 +111,16 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
           />
         )}
 
-        {canExportLunchPeriodSummaries(profile.role) && (
+        {canExportLunchPeriodSummaries(profile.role) && currentPeriod && (
           <div className="mt-6 border-t border-border pt-4">
-            <Button disabled title="Coming in Batch 2B">
+            <Link
+              href={`/admin/financials/export?periodId=${currentPeriod.id}`}
+              className={linkButtonClass("primary")}
+            >
               Export to Excel
-            </Button>
+            </Link>
             <p className="mt-2 text-xs text-muted">
-              Coming soon — export all staff summaries for the selected lunch period.
+              Export all staff summaries for the current lunch period.
             </p>
           </div>
         )}

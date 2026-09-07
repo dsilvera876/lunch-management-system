@@ -1,10 +1,11 @@
+import Link from "next/link";
 import {
   formatLunchPeriodRange,
   type LunchPeriod,
 } from "@/lib/lunch-periods";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Button } from "@/components/ui/button";
+import { Button, linkButtonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 
@@ -22,6 +23,15 @@ export function CurrentLunchPeriodCard({
       <SectionHeader
         title="Current lunch period"
         description="Payroll-aligned dates for lunch ordering. Period totals use order date, not delivery date."
+        actions={
+          showStaffExport ? (
+            period ? (
+              <Link href="/financials" className={linkButtonClass("secondary")}>
+                My Financials
+              </Link>
+            ) : undefined
+          ) : undefined
+        }
       />
 
       {period ? (
@@ -31,8 +41,16 @@ export function CurrentLunchPeriodCard({
               {formatLunchPeriodRange(period.start_date, period.end_date)}
             </p>
             <StatusBadge status="active" />
+            {period.status === "finalized" && <StatusBadge status="closed" />}
           </div>
           <p className="mt-2 text-sm text-muted">{period.label}</p>
+          {showStaffExport && (
+            <div className="mt-4">
+              <Link href="/financials/export" className={linkButtonClass("primary")}>
+                Export My Summary
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <EmptyState
@@ -41,13 +59,13 @@ export function CurrentLunchPeriodCard({
         />
       )}
 
-      {showStaffExport && (
+      {showStaffExport && !period && (
         <div className="mt-6 border-t border-border pt-4">
-          <Button disabled title="Coming in Batch 2B">
+          <Button disabled title="No current lunch period">
             Export My Summary
           </Button>
           <p className="mt-2 text-xs text-muted">
-            Coming soon — export your own lunch-period summary.
+            Export becomes available once a current lunch period is configured.
           </p>
         </div>
       )}

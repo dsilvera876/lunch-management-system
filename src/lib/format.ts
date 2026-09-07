@@ -19,3 +19,7 @@ export function formatDeadline(value: string) {
 export function formatCurrency(value: number | string) {
   return Number(value).toFixed(2);
 }
+
+export function formatMoney(value: number | string) {
+  return formatCurrency(value);
+}

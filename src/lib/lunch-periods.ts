@@ -6,6 +6,7 @@ export type LunchPeriod = {
   start_date: string;
   end_date: string;
   is_current: boolean;
+  status: "open" | "finalized";
   created_by: string | null;
   updated_by: string | null;
   created_at: string;

@@ -9,10 +9,13 @@ import {
   ADMIN_NAV,
 } from "./navigation";
 import {
+  canExportFinancialSummaries,
+  canFinalizeLunchPeriods,
   canFulfillOrders,
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canViewAllFinancialSummaries,
   canViewAllOrders,
   getRoleLabel,
 } from "./roles";
@@ -75,6 +78,25 @@ describe("navigation by role", () => {
 
   it("includes user management for Admin", () => {
     assert.ok(ADMIN_NAV.some((item) => item.href === "/admin/users"));
+  });
+
+  it("includes financial summaries for HR and Accounts but not export-only staff routes", () => {
+    assert.ok(HR_NAV.some((item) => item.href === "/admin/financials"));
+    assert.ok(ACCOUNTS_NAV.some((item) => item.href === "/admin/financials"));
+    assert.ok(STAFF_NAV.some((item) => item.href === "/financials"));
+    assert.ok(!STAFF_NAV.some((item) => item.href === "/admin/financials"));
+  });
+
+  it("allows HR to view but not export or finalize financial summaries", () => {
+    assert.equal(canViewAllFinancialSummaries("hr"), true);
+    assert.equal(canExportFinancialSummaries("hr"), false);
+    assert.equal(canFinalizeLunchPeriods("hr"), false);
+  });
+
+  it("allows Accounts to view, export, and finalize financial summaries", () => {
+    assert.equal(canViewAllFinancialSummaries("accounts"), true);
+    assert.equal(canExportFinancialSummaries("accounts"), true);
+    assert.equal(canFinalizeLunchPeriods("accounts"), true);
   });
 
   it("returns role-specific navigation", () => {

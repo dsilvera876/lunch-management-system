@@ -2,12 +2,15 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   canAccessAdminDashboard,
+  canExportFinancialSummaries,
+  canFinalizeLunchPeriods,
   canFulfillOrders,
   canManageCutoff,
   canManageLegacyLunchDays,
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canViewAllFinancialSummaries,
   canViewAllOrders,
   isOwner,
   isUserRole,
@@ -164,6 +167,36 @@ export async function requireManageLunchPeriods(): Promise<Profile> {
   return profile;
 }
 
+export async function requireViewAllFinancialSummaries(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canViewAllFinancialSummaries(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
+export async function requireExportFinancialSummaries(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canExportFinancialSummaries(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
+export async function requireFinalizeLunchPeriods(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canFinalizeLunchPeriods(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
 export async function requireLegacyLunchDays(): Promise<Profile> {
   const profile = await requireProfile();
 
@@ -181,12 +214,15 @@ export async function requireAdmin(): Promise<Profile> {
 
 export {
   canAccessAdminDashboard,
+  canExportFinancialSummaries,
+  canFinalizeLunchPeriods,
   canFulfillOrders,
   canManageCutoff,
   canManageLegacyLunchDays,
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canViewAllFinancialSummaries,
   canViewAllOrders,
   isOwner,
 };

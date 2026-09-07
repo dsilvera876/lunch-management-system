@@ -257,6 +257,8 @@ select throws_ok(
 
 reset role;
 
+\ir support/legacy_lunch_day_fixture.inc
+
 update public.lunch_days
 set
   status = 'open',
