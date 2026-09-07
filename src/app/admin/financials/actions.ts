@@ -3,7 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireFinalizeLunchPeriods, requireUpdateDailyLunchSubsidy } from "@/lib/auth";
+import { appendSearchParams } from "@/lib/redirect-url";
 import { createClient } from "@/lib/supabase/server";
+
+function financialsRedirectBase(
+  returnTo: FormDataEntryValue | null,
+  periodId?: string,
+): string {
+  if (typeof returnTo === "string" && returnTo.startsWith("/admin/financials")) {
+    return returnTo;
+  }
+
+  if (periodId) {
+    return appendSearchParams("/admin/financials", { periodId });
+  }
+
+  return "/admin/financials";
+}
 
 export async function finalizeLunchPeriod(formData: FormData) {
   await requireFinalizeLunchPeriods();
@@ -12,8 +28,10 @@ export async function finalizeLunchPeriod(formData: FormData) {
   const returnTo = formData.get("returnTo");
 
   if (typeof periodId !== "string" || !periodId) {
-    redirect("/admin/financials?error=invalid");
+    redirect(appendSearchParams("/admin/financials", { error: "invalid" }));
   }
+
+  const redirectBase = financialsRedirectBase(returnTo, periodId);
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("finalize_lunch_period", {
@@ -21,7 +39,7 @@ export async function finalizeLunchPeriod(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/financials?error=finalize");
+    redirect(appendSearchParams(redirectBase, { error: "finalize" }));
   }
 
   revalidatePath("/admin/financials");
@@ -29,11 +47,7 @@ export async function finalizeLunchPeriod(formData: FormData) {
   revalidatePath("/financials");
   revalidatePath("/home");
 
-  if (typeof returnTo === "string" && returnTo.startsWith("/admin/financials")) {
-    redirect(`${returnTo}?finalized=1`);
-  }
-
-  redirect(`/admin/financials?periodId=${periodId}&finalized=1`);
+  redirect(appendSearchParams(redirectBase, { finalized: "1" }));
 }
 
 export async function updateDailyLunchSubsidy(formData: FormData) {
@@ -42,7 +56,7 @@ export async function updateDailyLunchSubsidy(formData: FormData) {
   const amountRaw = formData.get("dailyLunchSubsidy");
   const returnTo = formData.get("returnTo");
 
-  const redirectPath =
+  const redirectBase =
     typeof returnTo === "string" && returnTo.startsWith("/admin")
       ? returnTo
       : "/admin/financials";
@@ -50,7 +64,7 @@ export async function updateDailyLunchSubsidy(formData: FormData) {
   const amount = typeof amountRaw === "string" ? Number(amountRaw) : NaN;
 
   if (!Number.isFinite(amount) || amount < 0) {
-    redirect(`${redirectPath}?subsidy-error=invalid`);
+    redirect(appendSearchParams(redirectBase, { "subsidy-error": "invalid" }));
   }
 
   const supabase = await createClient();
@@ -59,12 +73,12 @@ export async function updateDailyLunchSubsidy(formData: FormData) {
   });
 
   if (error) {
-    redirect(`${redirectPath}?subsidy-error=update`);
+    redirect(appendSearchParams(redirectBase, { "subsidy-error": "update" }));
   }
 
   revalidatePath("/admin/financials");
   revalidatePath("/financials");
   revalidatePath("/home");
 
-  redirect(`${redirectPath}?subsidy-updated=1`);
+  redirect(appendSearchParams(redirectBase, { "subsidy-updated": "1" }));
 }
