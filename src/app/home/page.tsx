@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { formatDeadline } from "@/lib/format";
+import { getCurrentLunchPeriod } from "@/lib/lunch-periods";
 import { formatJamaicaWallClockTime } from "@/lib/settings";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
+import { createClient } from "@/lib/supabase/server";
+import { CurrentLunchPeriodCard } from "@/components/current-lunch-period-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
@@ -15,7 +18,11 @@ import { linkButtonClass } from "@/components/ui/button";
 
 export default async function HomePage() {
   const profile = await requireProfile();
-  const ctx = await getStaffOrderingContext(profile.id);
+  const supabase = await createClient();
+  const [ctx, currentPeriod] = await Promise.all([
+    getStaffOrderingContext(profile.id),
+    getCurrentLunchPeriod(supabase),
+  ]);
 
   return (
     <>
@@ -23,6 +30,8 @@ export default async function HomePage() {
         title={`Welcome, ${profile.full_name ?? "Staff"}`}
         description="Your daily lunch ordering overview."
       />
+
+      <CurrentLunchPeriodCard period={currentPeriod} showStaffExport />
 
       {!ctx.orderWeekday ? (
         <Card className="mb-8">

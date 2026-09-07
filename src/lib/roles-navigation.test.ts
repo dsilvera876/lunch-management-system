@@ -10,6 +10,7 @@ import {
 } from "./navigation";
 import {
   canFulfillOrders,
+  canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
   canViewAllOrders,
@@ -59,6 +60,17 @@ describe("navigation by role", () => {
   it("includes orders but not providers for Accounts", () => {
     assert.ok(ACCOUNTS_NAV.some((item) => item.href === "/admin/orders"));
     assert.ok(!ACCOUNTS_NAV.some((item) => item.href === "/admin/providers"));
+  });
+
+  it("includes lunch periods for HR and Accounts but not Staff", () => {
+    assert.ok(HR_NAV.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(ACCOUNTS_NAV.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(!STAFF_NAV.some((item) => item.href === "/admin/lunch-periods"));
+  });
+
+  it("allows HR to manage lunch periods", () => {
+    assert.equal(canManageLunchPeriods("hr"), true);
+    assert.equal(canManageLunchPeriods("staff"), false);
   });
 
   it("includes user management for Admin", () => {

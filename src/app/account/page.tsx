@@ -1,10 +1,15 @@
 import { requireProfile } from "@/lib/auth";
+import { getCurrentLunchPeriod } from "@/lib/lunch-periods";
 import { getRoleLabel } from "@/lib/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { CurrentLunchPeriodCard } from "@/components/current-lunch-period-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 
 export default async function AccountPage() {
   const profile = await requireProfile();
+  const supabase = await createClient();
+  const currentPeriod = await getCurrentLunchPeriod(supabase);
 
   return (
     <>
@@ -12,6 +17,8 @@ export default async function AccountPage() {
         title="Account"
         description="Your profile information for the lunch management system."
       />
+
+      <CurrentLunchPeriodCard period={currentPeriod} showStaffExport />
 
       <Card className="max-w-xl">
         <dl className="space-y-4">

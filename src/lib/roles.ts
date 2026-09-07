@@ -49,6 +49,14 @@ export function canManageLegacyLunchDays(role: UserRole): boolean {
   return role === "admin" || role === "owner";
 }
 
+export function canManageLunchPeriods(role: UserRole): boolean {
+  return role === "hr" || role === "accounts" || role === "admin" || role === "owner";
+}
+
+export function canExportLunchPeriodSummaries(role: UserRole): boolean {
+  return role === "accounts" || role === "admin" || role === "owner";
+}
+
 export function canAccessAdminDashboard(role: UserRole): boolean {
   return role === "admin" || role === "owner";
 }

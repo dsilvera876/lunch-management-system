@@ -1,6 +1,7 @@
 import {
   canAccessAdminDashboard,
   canManageLegacyLunchDays,
+  canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
   canViewAllOrders,
@@ -28,6 +29,12 @@ const ACCOUNT_NAV: NavItem = {
 
 export const STAFF_NAV: NavItem[] = [...STAFF_ORDERING, ACCOUNT_NAV];
 
+const LUNCH_PERIODS_NAV: NavItem = {
+  href: "/admin/lunch-periods",
+  label: "Lunch Periods",
+  description: "Payroll lunch periods",
+};
+
 export const HR_NAV: NavItem[] = [
   ...STAFF_ORDERING,
   {
@@ -35,12 +42,14 @@ export const HR_NAV: NavItem[] = [
     label: "Lunch Providers",
     description: "Recurring menus",
   },
+  LUNCH_PERIODS_NAV,
   { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
   ACCOUNT_NAV,
 ];
 
 export const ACCOUNTS_NAV: NavItem[] = [
   ...STAFF_ORDERING,
+  LUNCH_PERIODS_NAV,
   { href: "/admin/orders", label: "Orders", description: "All employee orders" },
   ACCOUNT_NAV,
 ];
@@ -57,6 +66,7 @@ export const ADMIN_NAV: NavItem[] = [
     label: "Lunch Providers",
     description: "Recurring menus",
   },
+  LUNCH_PERIODS_NAV,
   { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
   {
     href: "/lunch",
@@ -121,6 +131,10 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 
   if (pathname.startsWith("/admin/providers")) {
     return canManageProviders(role);
+  }
+
+  if (pathname.startsWith("/admin/lunch-periods")) {
+    return canManageLunchPeriods(role);
   }
 
   if (pathname.startsWith("/admin/orders")) {

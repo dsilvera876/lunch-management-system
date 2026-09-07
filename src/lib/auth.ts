@@ -5,6 +5,7 @@ import {
   canFulfillOrders,
   canManageCutoff,
   canManageLegacyLunchDays,
+  canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
   canViewAllOrders,
@@ -153,6 +154,16 @@ export async function requireManageCutoff(): Promise<Profile> {
   return profile;
 }
 
+export async function requireManageLunchPeriods(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canManageLunchPeriods(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
 export async function requireLegacyLunchDays(): Promise<Profile> {
   const profile = await requireProfile();
 
@@ -173,6 +184,7 @@ export {
   canFulfillOrders,
   canManageCutoff,
   canManageLegacyLunchDays,
+  canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
   canViewAllOrders,
