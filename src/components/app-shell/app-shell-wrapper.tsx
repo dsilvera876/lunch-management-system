@@ -28,6 +28,8 @@ export function AppShellWrapper({
   const isRecoveryPasswordPage =
     pathname === UPDATE_PASSWORD_PATH && searchParams.get("recovery") === "1";
   const isAuthPage = AUTH_PATHS.includes(pathname) || isRecoveryPasswordPage;
+  const isPrintDeliverySheet =
+    pathname.includes("/admin/orders/provider/") && pathname.endsWith("/print");
 
   useEffect(() => {
     if (!profile || isAuthPage) {
@@ -55,7 +57,7 @@ export function AppShellWrapper({
     };
   }, [pathname, profile, isAuthPage, router]);
 
-  if (!profile || isAuthPage) {
+  if (!profile || isAuthPage || isPrintDeliverySheet) {
     return <>{children}</>;
   }
 

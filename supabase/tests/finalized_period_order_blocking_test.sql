@@ -75,6 +75,10 @@ select lives_ok(
 -- Finalize the period containing 2099-01-09
 -- ============================================================
 
+\ir support/reconcile_lunch_period_orders.inc
+
+select pg_temp.reconcile_lunch_period_orders_by_label('Guard Payroll A');
+
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '10444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 

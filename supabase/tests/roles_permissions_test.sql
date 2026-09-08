@@ -266,7 +266,9 @@ select lives_ok(
 );
 
 reset role;
-update public.orders set status = 'submitted' where id = '99999999-9999-4999-8999-999999999902';
+update public.orders
+set status = 'submitted', delivery_state = 'pending', financial_disposition = 'chargeable'
+where id = '99999999-9999-4999-8999-999999999902';
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
@@ -277,7 +279,9 @@ select lives_ok(
 );
 
 reset role;
-update public.orders set status = 'submitted' where id = '99999999-9999-4999-8999-999999999902';
+update public.orders
+set status = 'submitted', delivery_state = 'pending', financial_disposition = 'chargeable'
+where id = '99999999-9999-4999-8999-999999999902';
 
 select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 

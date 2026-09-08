@@ -3,6 +3,11 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getRelated, formatCurrency, formatHumanDate } from "@/lib/format";
 import { formatOrderLineLabel, groupMenuItemsByType, groupStandaloneItemsByCategory, type MenuItemType } from "@/lib/menu-items";
+import {
+  getStaffDeliveryStatusLabel,
+  type DeliveryState,
+  type FinancialDisposition,
+} from "@/lib/delivery-reconciliation";
 import { formatMealBundleLabel } from "@/lib/order-payload";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -19,7 +24,8 @@ export default async function MyOrdersPage() {
     .select(`
       id,
       status,
-      created_at,
+      delivery_state,
+      financial_disposition,
       special_instructions,
       meal_quantity,
       office_location_name,
@@ -83,6 +89,11 @@ export default async function MyOrdersPage() {
               0,
             );
             const isCancelled = order.status === "cancelled";
+            const staffDeliveryLabel = getStaffDeliveryStatusLabel({
+              status: order.status,
+              deliveryState: order.delivery_state as DeliveryState,
+              financialDisposition: order.financial_disposition as FinancialDisposition,
+            });
 
             const grouped = groupMenuItemsByType(
               order.order_items.map((item) => {
@@ -121,6 +132,11 @@ export default async function MyOrdersPage() {
                         Delivery: {lunchDay?.lunch_date ? formatHumanDate(lunchDay.lunch_date) : "Unknown date"}
                         {order.office_location_name ? ` · ${order.office_location_name}` : ""}
                       </p>
+                      {staffDeliveryLabel && (
+                        <p className="mt-1 text-sm font-medium text-rose-800">
+                          {staffDeliveryLabel}
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 gap-2 mt-1 sm:mt-0">
                       <Link

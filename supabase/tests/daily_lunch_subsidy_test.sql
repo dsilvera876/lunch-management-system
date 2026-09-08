@@ -478,6 +478,10 @@ select results_eq(
 -- Finalized-period subsidy snapshot
 -- ============================================================
 
+\ir support/reconcile_lunch_period_orders.inc
+
+select pg_temp.reconcile_lunch_period_orders_by_label('Subsidy Payroll');
+
 select lives_ok(
   $$ select public.finalize_lunch_period((select id from public.lunch_periods where label = 'Subsidy Payroll')) $$,
   'Finalized period snapshots current global subsidy'

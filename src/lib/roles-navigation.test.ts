@@ -160,6 +160,14 @@ describe("navigation by role", () => {
     assert.equal(canAccessRoute("accounts", "/admin/financials"), true);
     assert.equal(canAccessRoute("staff", "/admin/orders"), false);
     assert.equal(canAccessRoute("staff", "/admin/financials"), false);
+    assert.equal(
+      canAccessRoute("hr", "/admin/orders/provider/abc/print"),
+      true,
+    );
+    assert.equal(
+      canAccessRoute("accounts", "/admin/orders/provider/abc/print"),
+      false,
+    );
   });
 
   it("allows Accounts to view, export, and finalize financial summaries", () => {

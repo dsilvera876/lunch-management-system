@@ -1,108 +1,123 @@
 import Link from "next/link";
 import { requireViewAllOrders, canFulfillOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { fulfillOrder } from "./actions";
-import { FormSubmitButton } from "@/components/form-submit-button";
-import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
-import { formatOrderLineLabel } from "@/lib/menu-items";
+import { formatHumanDate } from "@/lib/format";
+import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
+import { buildOperationalDeliveryReport } from "@/lib/operational-orders";
+import {
+  OPERATIONAL_ORDERS_SELECT,
+  parseOperationalOrderRow,
+  type OperationalOrderRow,
+} from "@/lib/operational-orders-data";
+import { ProviderOperationalSection } from "@/components/admin/operational-orders";
+import type { SnapshotMenuItem } from "@/components/admin/delivery-reconciliation-actions";
+import {
+  RECONCILIATION_FILTERS,
+  countsForReconciliationFilter,
+  matchesReconciliationFilter,
+  type ReconciliationFilter,
+} from "@/lib/delivery-reconciliation";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { FormField, selectClassName } from "@/components/ui/form-field";
 import { Button, linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{
-    lunchDay?: string;
-    status?: string;
+    deliveryDate?: string;
+    provider?: string;
+    reconciliation?: string;
     location?: string;
     error?: string;
-    fulfilled?: string;
+    delivered?: string;
+    "issue-reported"?: string;
+    resolved?: string;
+    waived?: string;
+    "resolution-updated"?: string;
+    adjusted?: string;
+    "notes-updated"?: string;
   }>;
 };
 
-type OrderRow = {
-  id: string;
-  status: string;
-  created_at: string;
-  special_instructions: string | null;
-  office_location_name: string | null;
-  office_location_address: string | null;
-  profiles: ReturnType<typeof getRelated<{ full_name: string | null }>>;
-  lunch_days: ReturnType<typeof getRelated<{ lunch_date: string }>>;
-  order_items: Array<{
-    id: string;
-    quantity: number;
-    unit_price: number | string;
-    menu_items: ReturnType<
-      typeof getRelated<{ name: string; unit_label: string }>
-    >;
-  }>;
+function buildOrdersReturnPath(params: {
+  deliveryDate: string;
+  provider?: string;
+  reconciliation?: string;
+  location?: string;
+}): string {
+  const query = new URLSearchParams();
+  query.set("deliveryDate", params.deliveryDate);
+
+  if (params.provider) {
+    query.set("provider", params.provider);
+  }
+
+  if (params.reconciliation) {
+    query.set("reconciliation", params.reconciliation);
+  }
+
+  if (params.location) {
+    query.set("location", params.location);
+  }
+
+  return `/admin/orders?${query.toString()}`;
+}
+
+const RECONCILIATION_FILTER_LABELS: Record<ReconciliationFilter, string> = {
+  all: "All",
+  pending: "Pending",
+  delivered: "Delivered",
+  issues: "Issues",
+  resolved: "Resolved",
+  cancelled: "Cancelled",
 };
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const profile = await requireViewAllOrders();
-  const canFulfill = canFulfillOrders(profile.role);
-
+  const canReconcile = canFulfillOrders(profile.role);
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: lunchDays, error: lunchDaysError }, { data: locationRows }] =
+  const deliveryDate =
+    params.deliveryDate?.trim() || getDefaultOperationalDeliveryDate();
+
+  const reconciliationFilter = RECONCILIATION_FILTERS.includes(
+    params.reconciliation as ReconciliationFilter,
+  )
+    ? (params.reconciliation as ReconciliationFilter)
+    : "all";
+
+  const [{ data: providers }, { data: locationRows }, { data: deliveryDates }] =
     await Promise.all([
-    supabase
-    .from("lunch_days")
-    .select("id, lunch_date")
-    .order("lunch_date", { ascending: false }),
+      supabase
+        .from("lunch_providers")
+        .select("id, name")
+        .eq("active", true)
+        .order("name", { ascending: true }),
 
-    supabase
-      .from("office_locations")
-      .select("name")
-      .order("name", { ascending: true }),
-  ]);
+      supabase
+        .from("office_locations")
+        .select("name")
+        .order("name", { ascending: true }),
 
-  if (lunchDaysError) {
-    throw new Error("Unable to load lunch days.");
-  }
+      supabase
+        .from("lunch_days")
+        .select("lunch_date")
+        .order("lunch_date", { ascending: false })
+        .limit(90),
+    ]);
 
   let ordersQuery = supabase
     .from("orders")
-    .select(`
-      id,
-      status,
-      created_at,
-      special_instructions,
-      office_location_name,
-      office_location_address,
-      profiles (
-        full_name
-      ),
-      lunch_days (
-        lunch_date
-      ),
-      order_items (
-        id,
-        quantity,
-        unit_price,
-        menu_items (
-          name,
-          unit_label
-        )
-      )
-    `)
-    .order("created_at", { ascending: false });
+    .select(OPERATIONAL_ORDERS_SELECT)
+    .eq("lunch_days.lunch_date", deliveryDate)
+    .order("created_at", { ascending: true });
 
-  if (params.lunchDay) {
-    ordersQuery = ordersQuery.eq("lunch_day_id", params.lunchDay);
-  }
-
-  if (
-    params.status &&
-    ["submitted", "cancelled", "fulfilled"].includes(params.status)
-  ) {
-    ordersQuery = ordersQuery.eq("status", params.status);
+  if (params.provider) {
+    ordersQuery = ordersQuery.eq("lunch_days.provider_id", params.provider);
   }
 
   if (params.location) {
@@ -115,107 +130,136 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
     throw new Error("Unable to load orders.");
   }
 
-  const orders = (data ?? []) as unknown as OrderRow[];
+  const parsedOrders = (data ?? [])
+    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
+    .filter((order): order is NonNullable<typeof order> => order !== null);
 
-  const itemTotals = new Map<string, { name: string; quantity: number }>();
-  let activeOrderValue = 0;
-
-  for (const order of orders) {
-    if (order.status === "cancelled") continue;
-
-    for (const item of order.order_items) {
-      const menuItem = getRelated(item.menu_items);
-      const name = menuItem?.name ?? "Menu item";
-      const existing = itemTotals.get(name);
-
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        itemTotals.set(name, { name, quantity: item.quantity });
-      }
-
-      activeOrderValue += Number(item.unit_price) * item.quantity;
-    }
-  }
-
-  const summaryItems = Array.from(itemTotals.values()).sort((a, b) =>
-    a.name.localeCompare(b.name),
+  const orders = parsedOrders.filter((order) =>
+    matchesReconciliationFilter(reconciliationFilter, order),
   );
+
+  const report = buildOperationalDeliveryReport(orders, deliveryDate);
+  const filterCounts = countsForReconciliationFilter(parsedOrders);
+
+  const lunchDayIds = Array.from(new Set(parsedOrders.map((order) => order.lunchDayId)));
+  const { data: menuItemRows } = lunchDayIds.length
+    ? await supabase
+        .from("menu_items")
+        .select("id, lunch_day_id, name, item_type, unit_label, price, is_active")
+        .in("lunch_day_id", lunchDayIds)
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+    : { data: [] as never[] };
+
+  const snapshotMenuItemsByLunchDay = (menuItemRows ?? []).reduce<
+    Record<string, SnapshotMenuItem[]>
+  >((acc, item) => {
+    const bucket = acc[item.lunch_day_id] ?? [];
+    bucket.push({
+      id: item.id,
+      name: item.name,
+      itemType: item.item_type,
+      unitLabel: item.unit_label,
+      price: Number(item.price),
+    });
+    acc[item.lunch_day_id] = bucket;
+    return acc;
+  }, {});
 
   const locationNames = Array.from(
     new Set(
       (locationRows ?? [])
         .map((row) => row.name)
-        .concat(orders.map((order) => order.office_location_name).filter(Boolean) as string[]),
+        .concat(parsedOrders.map((order) => order.officeLocationName)),
     ),
   ).sort((a, b) => a.localeCompare(b));
 
-  const groupedOrders = new Map<string, OrderRow[]>();
+  const availableDeliveryDates = Array.from(
+    new Set((deliveryDates ?? []).map((row) => row.lunch_date)),
+  );
 
-  for (const order of orders) {
-    const locationLabel = order.office_location_name ?? "No delivery location";
-    const existing = groupedOrders.get(locationLabel) ?? [];
-    existing.push(order);
-    groupedOrders.set(locationLabel, existing);
+  if (!availableDeliveryDates.includes(deliveryDate)) {
+    availableDeliveryDates.unshift(deliveryDate);
   }
 
-  const groupedOrderEntries = Array.from(groupedOrders.entries()).sort(([a], [b]) =>
-    a.localeCompare(b),
-  );
+  const returnTo = buildOrdersReturnPath({
+    deliveryDate,
+    provider: params.provider,
+    reconciliation: reconciliationFilter === "all" ? undefined : reconciliationFilter,
+    location: params.location,
+  });
+
+  const successMessage =
+    params.delivered
+      ? "Order marked as delivered."
+      : params["issue-reported"]
+        ? "Delivery issue reported."
+        : params.resolved
+          ? "Replacement delivery confirmed."
+          : params.waived
+            ? "Order resolved with no charge."
+            : params["resolution-updated"]
+              ? "Resolution plan updated."
+              : params.adjusted
+                ? "Order adjustment saved."
+                : params["notes-updated"]
+                  ? "HR notes updated."
+                  : null;
 
   return (
     <>
       <PageHeader
         title="Orders"
-        description="Each row is one individual order. Employees may have multiple orders for the same delivery date."
+        description="Reconcile provider deliveries by scheduled delivery date. Payroll still uses the original order date."
       />
 
-      {params.fulfilled && (
+      {successMessage && (
         <Alert variant="success" className="mb-6">
-          Order marked as fulfilled.
+          {successMessage}
         </Alert>
       )}
 
       {params.error && (
         <Alert variant="error" className="mb-6">
-          Unable to update order.
+          Unable to update delivery reconciliation.
         </Alert>
       )}
 
       <Card className="mb-8">
         <SectionHeader title="Filters" />
         <form method="get" className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-          <FormField label="Delivery date" htmlFor="lunchDay">
+          <FormField label="Delivery date" htmlFor="deliveryDate">
             <select
-              id="lunchDay"
-              name="lunchDay"
-              defaultValue={params.lunchDay ?? ""}
+              id="deliveryDate"
+              name="deliveryDate"
+              defaultValue={deliveryDate}
               className={selectClassName}
             >
-              <option value="">All delivery dates</option>
-              {lunchDays.map((day) => (
-                <option key={day.id} value={day.id}>
-                  {day.lunch_date}
+              {availableDeliveryDates.map((date) => (
+                <option key={date} value={date}>
+                  {formatHumanDate(date)}
                 </option>
               ))}
             </select>
           </FormField>
 
-          <FormField label="Status" htmlFor="status">
+          <FormField label="Provider" htmlFor="provider">
             <select
-              id="status"
-              name="status"
-              defaultValue={params.status ?? ""}
+              id="provider"
+              name="provider"
+              defaultValue={params.provider ?? ""}
               className={selectClassName}
             >
-              <option value="">All statuses</option>
-              <option value="submitted">Submitted</option>
-              <option value="fulfilled">Fulfilled</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="">All providers</option>
+              {(providers ?? []).map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
             </select>
           </FormField>
 
-          <FormField label="Delivery location" htmlFor="location">
+          <FormField label="Office location" htmlFor="location">
             <select
               id="location"
               name="location"
@@ -231,143 +275,74 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
             </select>
           </FormField>
 
+          <FormField label="Reconciliation" htmlFor="reconciliation">
+            <select
+              id="reconciliation"
+              name="reconciliation"
+              defaultValue={reconciliationFilter}
+              className={selectClassName}
+            >
+              {RECONCILIATION_FILTERS.map((filter) => (
+                <option key={filter} value={filter}>
+                  {RECONCILIATION_FILTER_LABELS[filter]} ({filterCounts[filter]})
+                </option>
+              ))}
+            </select>
+          </FormField>
+
           <div className="flex gap-2">
             <Button type="submit" variant="primary">
               Apply
             </Button>
-            <Link href="/admin/orders" className={linkButtonClass("ghost")}>
+            <Link
+              href={`/admin/orders?deliveryDate=${deliveryDate}`}
+              className={linkButtonClass("ghost")}
+            >
               Clear
             </Link>
           </div>
         </form>
       </Card>
 
-      <div className="grid gap-8 xl:grid-cols-3">
-        <Card className="xl:col-span-1">
-          <SectionHeader
-            title="Menu item totals"
-            description="Cancelled orders excluded."
-          />
-          {summaryItems.length === 0 ? (
-            <p className="text-sm text-muted">No active ordered items.</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {summaryItems.map((item) => (
-                <li key={item.name} className="flex justify-between gap-4">
-                  <span>{item.name}</span>
-                  <span className="font-medium">{item.quantity}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-4 text-sm font-semibold">
-            Active order value: {formatCurrency(activeOrderValue)}
-          </p>
-        </Card>
-
-        <div className="space-y-4 xl:col-span-2">
-          <SectionHeader title={`Orders (${orders.length})`} />
-
-          {orders.length === 0 ? (
-            <EmptyState title="No orders match these filters" />
-          ) : (
-            groupedOrderEntries.map(([locationName, locationOrders]) => (
-              <div key={locationName} className="space-y-4">
-                <SectionHeader
-                  title={locationName}
-                  description={`${locationOrders.length} order${locationOrders.length === 1 ? "" : "s"}`}
-                />
-                {locationOrders.map((order) => {
-              const profile = getRelated(order.profiles);
-              const lunchDay = getRelated(order.lunch_days);
-              const orderTotal = order.order_items.reduce(
-                (total, item) => total + Number(item.unit_price) * item.quantity,
-                0,
-              );
-
-              return (
-                <Card key={order.id} padding="sm">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">
-                          {profile?.full_name ?? "Unnamed user"}
-                        </h3>
-                        <StatusBadge status={order.status} />
-                      </div>
-                      <p className="text-sm text-muted">
-                        Delivery {lunchDay?.lunch_date ?? "Unknown"} · Order{" "}
-                        {order.id.slice(0, 8)}
-                      </p>
-                      {order.office_location_address && (
-                        <p className="text-sm text-muted">
-                          {order.office_location_address}
-                        </p>
-                      )}
-                      <p className="text-sm text-muted">
-                        Submitted {formatDeadline(order.created_at)}
-                      </p>
-                      <p className="text-sm font-medium">
-                        Total: {formatCurrency(orderTotal)}
-                      </p>
-                    </div>
-
-                    {order.status === "submitted" && canFulfill && (
-                      <form action={fulfillOrder}>
-                        <input type="hidden" name="orderId" value={order.id} />
-                        <FormSubmitButton
-                          pendingText="Updating..."
-                          confirmMessage="Mark this order as fulfilled?"
-                          variant="primary"
-                        >
-                          Mark fulfilled
-                        </FormSubmitButton>
-                      </form>
-                    )}
-                  </div>
-
-                  <ul className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
-                    {order.order_items.map((item) => {
-                      const menuItem = getRelated(item.menu_items);
-                      const subtotal = Number(item.unit_price) * item.quantity;
-
-                      return (
-                        <li
-                          key={item.id}
-                          className="flex flex-col gap-1 sm:flex-row sm:justify-between"
-                        >
-                          <span>
-                            {formatOrderLineLabel(
-                              menuItem?.name ?? "Menu item",
-                              menuItem?.unit_label ?? "Each",
-                              item.quantity,
-                            )}
-                          </span>
-                          <span className="text-muted">
-                            {formatCurrency(item.unit_price)} each ·{" "}
-                            {formatCurrency(subtotal)}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {order.special_instructions && (
-                    <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-inset ring-amber-200">
-                      <p className="font-medium">Special instructions</p>
-                      <p className="mt-1 whitespace-pre-wrap">
-                        {order.special_instructions}
-                      </p>
-                    </div>
-                  )}
-                </Card>
-              );
-                })}
-              </div>
-            ))
-          )}
-        </div>
+      <div className="mb-6 flex flex-wrap gap-4 text-sm text-muted">
+        <span>
+          Scheduled delivery {formatHumanDate(deliveryDate)} · {orders.length}{" "}
+          {orders.length === 1 ? "order" : "orders"} shown
+        </span>
+        <span>{filterCounts.pending} pending</span>
+        <span>{filterCounts.delivered} delivered</span>
+        <span>{filterCounts.issues} issues</span>
+        <span>{filterCounts.resolved} resolved</span>
+        {filterCounts.cancelled > 0 && <span>{filterCounts.cancelled} cancelled</span>}
       </div>
+
+      {report.providers.length === 0 ? (
+        <EmptyState
+          title="No orders match these filters"
+          description={
+            params.provider || params.location || reconciliationFilter !== "all"
+              ? "Try clearing filters or choosing another delivery date."
+              : "When staff place orders, they will appear here grouped by provider and office."
+          }
+        />
+      ) : (
+        <div className="space-y-10">
+          {report.providers.map((provider) => (
+            <ProviderOperationalSection
+              key={provider.providerId}
+              providerId={provider.providerId}
+              providerName={provider.providerName}
+              officeSummaries={provider.officeSummaries}
+              preparationSections={provider.preparationSections}
+              offices={provider.offices}
+              canReconcile={canReconcile}
+              returnTo={returnTo}
+              deliveryDate={deliveryDate}
+              snapshotMenuItemsByLunchDay={snapshotMenuItemsByLunchDay}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 }

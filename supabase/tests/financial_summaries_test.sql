@@ -427,6 +427,11 @@ select results_eq(
 -- Finalization
 -- ============================================================
 
+\ir support/reconcile_lunch_period_orders.inc
+
+select pg_temp.reconcile_lunch_period_orders_by_label('September Payroll A');
+select pg_temp.reconcile_lunch_period_orders_by_label('September Payroll B');
+
 select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select lives_ok(

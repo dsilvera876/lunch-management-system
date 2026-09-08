@@ -11,6 +11,7 @@ import {
 } from "@/lib/financial-summaries";
 import { formatLunchPeriodRange, listLunchPeriods } from "@/lib/lunch-periods";
 import { formatCurrency } from "@/lib/format";
+import { formatFinalizationBlockedMessage } from "@/lib/delivery-reconciliation";
 import { createClient } from "@/lib/supabase/server";
 import { finalizeLunchPeriod } from "./actions";
 import { DailyLunchSubsidyControl } from "@/components/daily-lunch-subsidy-control";
@@ -43,6 +44,16 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
   const summary = selectedPeriodId
     ? await getLunchPeriodFinancialSummary(supabase, selectedPeriodId)
     : null;
+  const unresolvedIssueCount =
+    selectedPeriodId && summary?.period.status === "open"
+      ? Number(
+          (
+            await supabase.rpc("get_lunch_period_unresolved_delivery_issue_count", {
+              p_period_id: selectedPeriodId,
+            })
+          ).data ?? 0,
+        )
+      : 0;
   const returnTo = selectedPeriodId
     ? `/admin/financials?periodId=${selectedPeriodId}`
     : "/admin/financials";
@@ -148,7 +159,8 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
                   )}
                   {canFinalizeLunchPeriods(profile.role) &&
                     summary.period.status === "open" &&
-                    selectedPeriodId && (
+                    selectedPeriodId &&
+                    unresolvedIssueCount === 0 && (
                       <form action={finalizeLunchPeriod}>
                         <input type="hidden" name="periodId" value={selectedPeriodId} />
                         <input type="hidden" name="returnTo" value={returnTo} />
@@ -172,6 +184,13 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
               Daily subsidy used for calculations:{" "}
               {formatCurrency(summary.daily_lunch_subsidy)}
             </p>
+
+            {unresolvedIssueCount > 0 && (
+              <Alert variant="error" className="mt-4">
+                {formatFinalizationBlockedMessage(unresolvedIssueCount)} HR must complete
+                delivery reconciliation before finalization.
+              </Alert>
+            )}
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card padding="sm">
