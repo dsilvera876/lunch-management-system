@@ -222,8 +222,8 @@ select results_eq(
       '99999999-9999-4999-8999-999999999902'
     )
   $$,
-  array[2::bigint],
-  'Accounts can view all orders'
+  array[0::bigint],
+  'Accounts cannot view all orders'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);

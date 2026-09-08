@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(39);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -262,10 +262,17 @@ select throws_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
-select results_eq(
+select throws_ok(
   $$ select public.financial_total_for_profile('a1111111-1111-4111-8111-111111111111', '2099-01-01'::date, '2099-01-11'::date) $$,
-  array[58.00::numeric],
-  'HR sees all staff summaries'
+  'P0001',
+  'Not authorized to view financial summaries for this employee',
+  'HR cannot view other staff summaries'
+);
+
+select results_eq(
+  $$ select public.financial_total_for_profile('a3333333-3333-4333-8333-333333333333', '2099-01-01'::date, '2099-01-11'::date) $$,
+  array[0::numeric],
+  'HR can view own financial summary'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
@@ -297,7 +304,7 @@ select results_eq(
 -- ============================================================
 
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', 'a3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select results_eq(
   $$ select public.lunch_period_contains_order_date('2099-01-01', '2099-01-11', '2099-01-09') $$,
@@ -337,6 +344,19 @@ select results_eq(
   $$,
   array[70.00::numeric],
   'Overall period total is correct'
+);
+
+select set_config('request.jwt.claims', json_build_object('sub', 'a3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
+
+select throws_ok(
+  $$
+    select public.get_lunch_period_financial_summary(
+      (select id from public.lunch_periods where label = 'September Payroll A')
+    )
+  $$,
+  'P0001',
+  'Financial summary access required',
+  'HR cannot access lunch-period financial summaries'
 );
 
 -- ============================================================
