@@ -2,6 +2,8 @@ begin;
 
 select plan(31);
 
+\ir support/isolate_lunch_periods.inc
+
 insert into auth.users (id, email, raw_user_meta_data)
 values
 (
@@ -58,8 +60,8 @@ reset role;
 
 insert into public.office_locations (id, name, address, is_active)
 values
-  ('d1111111-1111-4111-8111-111111111111', 'Office 1', '100 Main Street', true),
-  ('d2222222-2222-4222-8222-222222222222', 'Office 2', '200 Side Avenue', true);
+  ('d1111111-1111-4111-8111-111111111111', 'Location Test Office 1', '100 Main Street', true),
+  ('d2222222-2222-4222-8222-222222222222', 'Location Test Office 2', '200 Side Avenue', true);
 
 -- HR can create and manage locations.
 
@@ -73,7 +75,7 @@ select set_config(
 select lives_ok(
   $$
     insert into public.office_locations (name, address, is_active)
-    values ('Office 3', '300 Third Road', true)
+    values ('Location Test Office 3', '300 Third Road', true)
   $$,
   'HR can create office locations'
 );
@@ -81,7 +83,7 @@ select lives_ok(
 select throws_ok(
   $$
     insert into public.office_locations (name, address, is_active)
-    values (' office 1 ', 'Duplicate normalized name', true)
+    values (' location test office 1 ', 'Duplicate normalized name', true)
   $$,
   '23505',
   null,
@@ -261,7 +263,7 @@ select lives_ok(
 
 select lives_ok(
   $$ select public.set_my_default_office_location('d1111111-1111-4111-8111-111111111111') $$,
-  'Staff sets default to Office 1'
+  'Staff sets default to test Office 1'
 );
 
 select lives_ok(
@@ -323,15 +325,15 @@ select results_eq(
     order by created_at desc
     limit 1
   $$,
-  array['Office 2'::text],
-  'Override order stores Office 2 snapshot'
+  array['Location Test Office 2'::text],
+  'Override order stores test Office 2 snapshot'
 );
 
 -- Historical integrity: rename location after order.
 
 reset role;
 update public.office_locations
-set name = 'Office 2 Renamed', address = 'New address'
+set name = 'Location Test Office 2 Renamed', address = 'New address'
 where id = 'd2222222-2222-4222-8222-222222222222';
 
 select results_eq(
@@ -343,7 +345,7 @@ select results_eq(
     order by created_at desc
     limit 1
   $$,
-  array['Office 2'::text],
+  array['Location Test Office 2'::text],
   'Historical order keeps original name snapshot after rename'
 );
 
@@ -418,7 +420,7 @@ select results_eq(
     order by created_at desc
     limit 1
   $$,
-  array['Office 2'::text],
+  array['Location Test Office 2'::text],
   'Editing order items preserves original location name after profile default change'
 );
 
@@ -482,7 +484,7 @@ select results_eq(
   $$
     values (
       'd1111111-1111-4111-8111-111111111111'::text,
-      'Office 1'::text,
+      'Location Test Office 1'::text,
       '100 Main Street'::text
     )
   $$,
@@ -505,7 +507,7 @@ select set_config(
 
 select lives_ok(
   $$ select public.set_my_default_office_location('d2222222-2222-4222-8222-222222222222') $$,
-  'Staff sets default to inactive-bound Office 2'
+  'Staff sets default to inactive-bound test Office 2'
 );
 
 reset role;
@@ -576,14 +578,23 @@ select ok(
   (
     select count(*)
     from public.orders
-    where office_location_name in ('Office 1', 'Office 2')
+    where office_location_name in (
+      'Location Test Office 1',
+      'Location Test Office 2'
+    )
   ) >= 1,
   'HR can read historical order location snapshots'
 );
 
 -- Export payload includes location fields.
 
-reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text,
+  true
+);
+
 select public.create_first_lunch_period('Location Export Period', '2099-01-01', '2099-01-31');
 select public.set_current_lunch_period(id)
 from public.lunch_periods
@@ -601,7 +612,7 @@ select ok(
     select (elem ->> 'office_location_name') is not null
     from public.get_my_lunch_period_export_data() payload
     cross join lateral jsonb_array_elements(payload -> 'orders') elem
-    where elem ->> 'office_location_name' = 'Office 1'
+    where elem ->> 'office_location_name' = 'Location Test Office 1'
     limit 1
   ),
   'Staff export payload includes delivery location'

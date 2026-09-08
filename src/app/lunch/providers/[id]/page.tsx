@@ -43,6 +43,7 @@ type SnapshotMenuItem = {
   price: number | string;
   item_type: string;
   unit_label: string;
+  display_category: string | null;
   is_active: boolean;
 };
 
@@ -112,6 +113,7 @@ export default async function ProviderOrderPage({
           price,
           item_type,
           unit_label,
+          display_category,
           active,
           provider_menu_item_weekdays (
             weekday
@@ -148,6 +150,7 @@ export default async function ProviderOrderPage({
           price,
           item_type,
           unit_label,
+          display_category,
           is_active
         )
       `)
@@ -218,6 +221,7 @@ export default async function ProviderOrderPage({
         price: item.price,
         itemType: item.item_type as MenuItemType,
         unitLabel: item.unit_label,
+        displayCategory: item.display_category,
       }))
     : recurringItems.map((item) => ({
         id: item.id,
@@ -226,6 +230,7 @@ export default async function ProviderOrderPage({
         price: item.price,
         itemType: item.item_type as MenuItemType,
         unitLabel: item.unit_label,
+        displayCategory: item.display_category,
       }));
 
   const closedReason = periodFinalized

@@ -1,6 +1,9 @@
 begin;
 
-select plan(32);
+select plan(39);
+
+\ir support/isolate_existing_owner.inc
+\ir support/isolate_lunch_periods.inc
 
 -- ============================================================
 -- Users
@@ -43,6 +46,15 @@ select throws_ok(
   'Staff cannot create lunch periods'
 );
 
+select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+
+select throws_ok(
+  $$ select public.create_first_lunch_period('HR Blocked', '2026-08-01', '2026-08-31') $$,
+  'P0001',
+  'Lunch period management access required',
+  'HR cannot create the first lunch period'
+);
+
 -- ============================================================
 -- First period and continuity
 -- ============================================================
@@ -51,7 +63,7 @@ select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-
 
 select lives_ok(
   $$ select public.create_first_lunch_period('August Payroll', '2026-08-03', '2026-08-27') $$,
-  'First period can choose start and end'
+  'Admin can create the first lunch period'
 );
 
 select results_eq(
@@ -68,7 +80,7 @@ select results_eq(
 
 select lives_ok(
   $$ select public.create_next_lunch_period('September Payroll', '2026-09-25') $$,
-  'Second period appends contiguously'
+  'Admin can create the next lunch period'
 );
 
 select results_eq(
@@ -87,6 +99,50 @@ select results_eq(
   array['2026-09-26'::text],
   'Third period starts after second period end'
 );
+
+select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+
+select throws_ok(
+  $$ select public.create_next_lunch_period('HR Next Blocked', '2026-11-21') $$,
+  'P0001',
+  'Lunch period management access required',
+  'HR cannot create the next lunch period'
+);
+
+select throws_ok(
+  $$
+    select public.update_lunch_period_label(id, 'HR Label Blocked')
+    from public.lunch_periods
+    where label = 'August Payroll'
+  $$,
+  'P0001',
+  'Lunch period management access required',
+  'HR cannot edit a lunch period label'
+);
+
+select throws_ok(
+  $$
+    select public.update_latest_lunch_period_end_date(id, '2026-10-31')
+    from public.lunch_periods
+    where label = 'October Payroll'
+  $$,
+  'P0001',
+  'Lunch period management access required',
+  'HR cannot edit the latest lunch period end date'
+);
+
+select throws_ok(
+  $$
+    select public.set_current_lunch_period(id)
+    from public.lunch_periods
+    where label = 'August Payroll'
+  $$,
+  'P0001',
+  'Lunch period management access required',
+  'HR cannot set the current lunch period'
+);
+
+select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select throws_ok(
   $$ select public.create_next_lunch_period('Too Early End', '2026-10-20') $$,
@@ -205,9 +261,33 @@ select results_eq(
   'Historical lunch periods are retained'
 );
 
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
+
+select lives_ok(
+  $$
+    select public.set_current_lunch_period(id)
+    from public.lunch_periods
+    where label = 'August Payroll'
+  $$,
+  'Accounts can manage the current lunch period'
+);
+
+select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
+
+select lives_ok(
+  $$
+    select public.set_current_lunch_period(id)
+    from public.lunch_periods
+    where label = 'December Payroll'
+  $$,
+  'Owner can manage the current lunch period'
+);
+
 -- ============================================================
 -- Editing restrictions
 -- ============================================================
+
+select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select lives_ok(
   $$ select public.update_lunch_period_label(id, 'August Payroll Updated') from public.lunch_periods where label = 'August Payroll' $$,

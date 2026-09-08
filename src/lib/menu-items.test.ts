@@ -3,10 +3,13 @@ import { describe, it } from "node:test";
 
 import {
   DEFAULT_UNIT_LABEL,
+  formatDisplayCategoryCount,
   formatMenuItemLabel,
   formatOrderLineLabel,
   groupMenuItemsByType,
+  groupStandaloneItemsByCategory,
   isValidSpecialInstructions,
+  normalizeDisplayCategory,
   normalizeSpecialInstructions,
   providerOffersMeals,
 } from "./menu-items";
@@ -37,6 +40,33 @@ describe("menu item presentation helpers", () => {
     assert.equal(grouped.main.length, 1);
     assert.equal(grouped.side.length, 1);
     assert.equal(grouped.standalone.length, 1);
+  });
+
+  it("groups standalone items by display category", () => {
+    const grouped = groupStandaloneItemsByCategory([
+      { id: "1", itemType: "standalone" as const, displayCategory: "Juice" },
+      { id: "2", itemType: "standalone" as const, displayCategory: " juices " },
+      { id: "3", itemType: "standalone" as const, displayCategory: null },
+      { id: "4", itemType: "standalone" as const, displayCategory: "  " },
+      { id: "5", itemType: "standalone" as const, displayCategory: "FRUIT" },
+    ]);
+
+    assert.equal(grouped.Juices.length, 2);
+    assert.equal(grouped["Other items"].length, 2);
+    assert.equal(grouped.Fruit.length, 1);
+  });
+
+  it("distinguishes an unset category from the literal Other category", () => {
+    assert.equal(normalizeDisplayCategory("Other"), "Other");
+    assert.equal(normalizeDisplayCategory(""), null);
+    assert.equal(normalizeDisplayCategory(null), null);
+  });
+
+  it("uses customer-friendly provider category counts", () => {
+    assert.equal(formatDisplayCategoryCount("Fruit", 3), "3 Fruit items");
+    assert.equal(formatDisplayCategoryCount("Juices", 2), "2 Juices");
+    assert.equal(formatDisplayCategoryCount("Juices", 1), "1 Juice");
+    assert.equal(formatDisplayCategoryCount("Other items", 1), "1 Other item");
   });
 
   it("detects whether a provider offers meals", () => {

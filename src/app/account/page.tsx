@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { getCurrentLunchPeriod } from "@/lib/lunch-periods";
 import { getRoleLabel } from "@/lib/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { CurrentLunchPeriodCard } from "@/components/current-lunch-period-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -26,7 +24,6 @@ export default async function AccountPage({ searchParams }: Props) {
   const params = await searchParams;
   const profile = await requireProfile();
   const supabase = await createClient();
-  const currentPeriod = await getCurrentLunchPeriod(supabase);
 
   const [{ data: activeLocations }, { data: profileRow }] = await Promise.all([
     supabase
@@ -83,8 +80,6 @@ export default async function AccountPage({ searchParams }: Props) {
           Unable to update your default delivery location.
         </Alert>
       )}
-
-      <CurrentLunchPeriodCard period={currentPeriod} showStaffExport />
 
       <Card className="mb-6 max-w-xl">
         <dl className="space-y-4">

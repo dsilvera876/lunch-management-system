@@ -1,11 +1,8 @@
 import {
   cutoffTimeToFormValue,
-  DEFAULT_ORDER_CUTOFF_TIME,
   formatJamaicaWallClockTime,
 } from "@/lib/settings";
 import { updateOrderCutoff } from "@/app/admin/actions";
-import { SectionHeader } from "@/components/ui/section-header";
-import { Card } from "@/components/ui/card";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 
@@ -25,39 +22,43 @@ export function CutoffControl({
   const cutoffInputValue = cutoffTimeToFormValue(cutoffTime);
 
   return (
-    <Card className="mb-8">
-      <SectionHeader
-        title="Daily order cutoff"
-        description={`Current cutoff: ${formatJamaicaWallClockTime(cutoffTime)}.`}
-      />
+    <div className="mb-6">
+      <div className="flex items-center gap-4">
+        <p className="text-sm font-medium text-muted">
+          Order cutoff: <span className="text-foreground">{formatJamaicaWallClockTime(cutoffTime)}</span>
+        </p>
+        <details className="group relative">
+          <summary className="cursor-pointer text-sm font-medium text-primary hover:underline list-none">
+            Change
+          </summary>
+          <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-lg border border-border bg-surface p-4 shadow-lg">
+            <form action={updateOrderCutoff} className="flex flex-col gap-3">
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <FormField label="New cutoff time" htmlFor="orderCutoffTime">
+                <input
+                  id="orderCutoffTime"
+                  name="orderCutoffTime"
+                  type="time"
+                  required
+                  defaultValue={cutoffInputValue}
+                  className={inputClassName}
+                />
+              </FormField>
+              <Button type="submit" variant="primary" className="w-full justify-center">
+                Save
+              </Button>
+            </form>
+          </div>
+        </details>
+      </div>
 
       {showUpdated && (
-        <p className="mb-4 text-sm text-primary">Order cutoff updated successfully.</p>
+        <p className="mt-2 text-sm text-primary">Order cutoff updated successfully.</p>
       )}
 
       {showError && (
-        <p className="mb-4 text-sm text-red-700">Unable to update order cutoff.</p>
+        <p className="mt-2 text-sm text-red-700">Unable to update order cutoff.</p>
       )}
-
-      <form action={updateOrderCutoff} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <input type="hidden" name="returnTo" value={returnTo} />
-        <FormField label="Cutoff time" htmlFor="orderCutoffTime">
-          <input
-            id="orderCutoffTime"
-            name="orderCutoffTime"
-            type="time"
-            required
-            defaultValue={cutoffInputValue}
-            className={inputClassName}
-          />
-        </FormField>
-        <Button type="submit" variant="primary">
-          Save cutoff
-        </Button>
-      </form>
-      <p className="mt-3 text-sm text-muted">
-        Default if unset: {formatJamaicaWallClockTime(DEFAULT_ORDER_CUTOFF_TIME)}.
-      </p>
-    </Card>
+    </div>
   );
 }

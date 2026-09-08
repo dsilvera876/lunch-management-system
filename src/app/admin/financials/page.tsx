@@ -10,7 +10,7 @@ import {
   getLunchPeriodFinancialSummary,
 } from "@/lib/financial-summaries";
 import { formatLunchPeriodRange, listLunchPeriods } from "@/lib/lunch-periods";
-import { formatMoney } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { finalizeLunchPeriod } from "./actions";
 import { DailyLunchSubsidyControl } from "@/components/daily-lunch-subsidy-control";
@@ -170,32 +170,32 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
 
             <p className="mt-4 text-sm text-muted">
               Daily subsidy used for calculations:{" "}
-              {formatMoney(summary.daily_lunch_subsidy)}
+              {formatCurrency(summary.daily_lunch_subsidy)}
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
+              <Card padding="sm">
                 <p className="text-sm text-muted">Total gross</p>
-                <p className="text-2xl font-semibold">
-                  {formatMoney(summary.grand_gross)}
+                <p className="mt-2 text-2xl font-semibold">
+                  {formatCurrency(summary.grand_gross)}
                 </p>
-              </div>
-              <div>
+              </Card>
+              <Card padding="sm">
                 <p className="text-sm text-muted">Total subsidy used</p>
-                <p className="text-2xl font-semibold">
-                  {formatMoney(summary.grand_subsidy_used)}
+                <p className="mt-2 text-2xl font-semibold">
+                  {formatCurrency(summary.grand_subsidy_used)}
                 </p>
-              </div>
-              <div>
+              </Card>
+              <Card padding="sm">
                 <p className="text-sm text-muted">Total net payroll deduction</p>
-                <p className="text-2xl font-semibold">
-                  {formatMoney(summary.grand_net_deduction)}
+                <p className="mt-2 text-2xl font-semibold">
+                  {formatCurrency(summary.grand_net_deduction)}
                 </p>
-              </div>
-              <div>
+              </Card>
+              <Card padding="sm">
                 <p className="text-sm text-muted">Employees with orders</p>
-                <p className="text-2xl font-semibold">{summary.employees.length}</p>
-              </div>
+                <p className="mt-2 text-2xl font-semibold">{summary.employees.length}</p>
+              </Card>
             </div>
           </Card>
 
@@ -242,13 +242,13 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
                           {employee.qualifying_order_days}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {formatMoney(employee.gross)}
+                          {formatCurrency(employee.gross)}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {formatMoney(employee.subsidy_used)}
+                          {formatCurrency(employee.subsidy_used)}
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          {formatMoney(employee.net_deduction)}
+                        <td className="px-3 py-2 text-right font-medium">
+                          {formatCurrency(employee.net_deduction)}
                         </td>
                       </tr>
                     ))}

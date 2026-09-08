@@ -1,28 +1,86 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { formatDeadline } from "@/lib/format";
-import { getCurrentLunchPeriod } from "@/lib/lunch-periods";
+import { formatCurrency } from "@/lib/format";
 import { formatJamaicaWallClockTime } from "@/lib/settings";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
+import { getStaffFinancialDashboardResult } from "@/lib/financial-summaries";
+import {
+  getCurrentOrdersState,
+  getCurrentSpendState,
+  getLocationDisplay,
+  getProviderSetupMessage,
+} from "@/lib/home-dashboard";
 import { createClient } from "@/lib/supabase/server";
-import { CurrentLunchPeriodCard } from "@/components/current-lunch-period-card";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
-import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { OrderSummaryCard } from "@/components/order-summary-card";
-import { ProviderCard } from "@/components/provider-card";
 import { linkButtonClass } from "@/components/ui/button";
 
 export default async function HomePage() {
   const profile = await requireProfile();
   const supabase = await createClient();
-  const [ctx, currentPeriod] = await Promise.all([
+  const [ctx, financialResult] = await Promise.all([
     getStaffOrderingContext(profile.id),
-    getCurrentLunchPeriod(supabase),
+    getStaffFinancialDashboardResult(supabase),
   ]);
+
+  const activeOrdersCount = ctx.deliveryOrders.filter(
+    (order) => order.status === "submitted" || order.status === "fulfilled"
+  ).length;
+
+  const activeOrdersTotal = ctx.deliveryOrders
+    .filter((order) => order.status === "submitted" || order.status === "fulfilled")
+    .reduce((sum, order) => sum + order.total, 0);
+
+  const [
+    { data: profileRow, error: profileError },
+    { count: activeLocationCount, error: locationsError },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(`
+        default_office_location_id,
+        office_locations:default_office_location_id (
+          name,
+          is_active
+        )
+      `)
+      .eq("id", profile.id)
+      .single(),
+    supabase
+      .from("office_locations")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true),
+  ]);
+
+  if (profileError || locationsError) {
+    throw new Error("Unable to load Home delivery settings.", {
+      cause: profileError ?? locationsError,
+    });
+  }
+
+  const defaultLocation = profileRow?.office_locations
+    ? Array.isArray(profileRow.office_locations)
+      ? profileRow.office_locations[0]
+      : profileRow.office_locations
+    : null;
+
+  const defaultLocationName = defaultLocation?.is_active ? defaultLocation.name : null;
+  const currentOrders = getCurrentOrdersState(
+    activeOrdersCount,
+    activeOrdersTotal,
+  );
+  const currentSpend =
+    financialResult.status === "ready"
+      ? getCurrentSpendState(financialResult.dashboard)
+      : null;
+  const providerSetupMessage = getProviderSetupMessage(
+    ctx.availableProviders.length,
+  );
+  const locationDisplay = getLocationDisplay(
+    activeLocationCount ?? 0,
+    defaultLocationName,
+  );
 
   return (
     <>
@@ -31,145 +89,101 @@ export default async function HomePage() {
         description="Your daily lunch ordering overview."
       />
 
-      <CurrentLunchPeriodCard period={currentPeriod} showStaffExport />
-
-      {!ctx.orderWeekday ? (
-        <Card className="mb-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">Ordering closed</h2>
-                <StatusBadge status="closed" />
-              </div>
-              <p className="mt-2 text-sm text-muted">
-                Lunch ordering is closed for the weekend. Ordering resumes
-                Monday for Tuesday delivery.
-              </p>
+      <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <Card padding="md" className="flex flex-col">
+          <h2 className="text-lg font-semibold mb-4">Today&apos;s Lunch</h2>
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Status</span>
+              <StatusBadge status={ctx.orderingOpen ? "open" : "closed"} />
             </div>
-            <Link href="/my-orders" className={linkButtonClass("secondary")}>
-              View my orders
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Delivery</span>
+              <span className="text-sm font-medium">{ctx.deliveryDate ?? "N/A"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Cutoff</span>
+              <span className="text-sm font-medium">
+                {formatJamaicaWallClockTime(ctx.cutoffTime)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Deliver to</span>
+              <span className="text-sm font-medium truncate max-w-[150px] text-right">
+                {locationDisplay}
+              </span>
+            </div>
+            {providerSetupMessage && (
+              <p className="text-sm text-muted">{providerSetupMessage}</p>
+            )}
+          </div>
+          <div className="mt-6">
+            <Link href="/lunch" className={linkButtonClass("primary") + " w-full justify-center"}>
+              View Today&apos;s Lunch
             </Link>
           </div>
         </Card>
-      ) : (
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card padding="sm">
-            <p className="text-sm text-muted">Ordering status</p>
-            <div className="mt-2 flex items-center gap-2">
-              <p className="text-lg font-semibold">
-                {ctx.orderingOpen ? "Open" : "Closed"}
-              </p>
-              <StatusBadge status={ctx.orderingOpen ? "open" : "closed"} />
-            </div>
-          </Card>
-          <Card padding="sm">
-            <p className="text-sm text-muted">Order date</p>
-            <p className="mt-2 text-lg font-semibold">{ctx.orderDate}</p>
-          </Card>
-          <Card padding="sm">
-            <p className="text-sm text-muted">Delivery date</p>
-            <p className="mt-2 text-lg font-semibold">{ctx.deliveryDate}</p>
-          </Card>
-          <Card padding="sm">
-            <p className="text-sm text-muted">Cutoff</p>
-            <p className="mt-2 text-lg font-semibold">
-              {formatJamaicaWallClockTime(ctx.cutoffTime)}
-            </p>
-            {ctx.orderDeadline && (
-              <p className="mt-1 text-xs text-muted">
-                {formatDeadline(ctx.orderDeadline)}
-              </p>
+
+        <Card padding="md" className="flex flex-col">
+          <h2 className="text-lg font-semibold mb-4">My Current Orders</h2>
+          <div className="flex-1 space-y-3">
+            {currentOrders.status === "empty" ? (
+              <p className="text-sm text-muted">No orders today</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Active orders</span>
+                  <span className="text-sm font-medium">{currentOrders.count}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Total</span>
+                  <span className="text-sm font-medium">
+                    {formatCurrency(currentOrders.total)}
+                  </span>
+                </div>
+              </>
             )}
-          </Card>
-        </div>
-      )}
-
-      {ctx.orderWeekday && ctx.periodFinalized && (
-        <Alert variant="info" className="mb-10">
-          Ordering is unavailable because this lunch period has been finalized.
-        </Alert>
-      )}
-
-      {ctx.orderWeekday && !ctx.periodFinalized && ctx.orderingOpen && (
-        <section className="mb-10">
-          <SectionHeader
-            title="Place an order"
-            description="You may place multiple separate orders before the cutoff."
-            actions={
-              <Link href="/lunch" className={linkButtonClass("primary")}>
-                Order lunch
-              </Link>
-            }
-          />
-
-          {ctx.availableProviders.length === 0 ? (
-            <EmptyState
-              title="No providers available today"
-              description="No active providers have menu items configured for today's order day."
-            />
-          ) : (
-            <div className="space-y-4">
-              {ctx.availableProviders.slice(0, 3).map((provider) => (
-                <ProviderCard
-                  key={provider.id}
-                  {...provider}
-                  orderingOpen={ctx.orderingOpen}
-                />
-              ))}
-              {ctx.availableProviders.length > 3 && (
-                <Link href="/lunch" className={linkButtonClass("secondary")}>
-                  View all {ctx.availableProviders.length} providers
-                </Link>
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {ctx.orderWeekday && !ctx.periodFinalized && !ctx.orderingOpen && (
-        <Alert variant="info" className="mb-10">
-          Today&apos;s ordering window has closed. You can still review your
-          orders for delivery on {ctx.deliveryDate}.
-        </Alert>
-      )}
-
-      <section>
-        <SectionHeader
-          title={
-            ctx.deliveryDate
-              ? `Orders for delivery on ${ctx.deliveryDate}`
-              : "Recent orders"
-          }
-          description="Each order is listed separately. You can place another order at any time before cutoff."
-          actions={
-            ctx.orderingOpen ? (
-              <Link href="/lunch" className={linkButtonClass("primary")}>
-                Place another order
-              </Link>
-            ) : undefined
-          }
-        />
-
-        {ctx.deliveryOrders.length === 0 ? (
-          <EmptyState
-            title="No orders yet for this delivery date"
-            description="When you place an order, it will appear here."
-            action={
-              ctx.orderingOpen ? (
-                <Link href="/lunch" className={linkButtonClass("primary")}>
-                  Order lunch
-                </Link>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="space-y-4">
-            {ctx.deliveryOrders.map((order) => (
-              <OrderSummaryCard key={order.id} order={order} />
-            ))}
           </div>
-        )}
-      </section>
+          <div className="mt-6">
+            <Link href="/my-orders" className={linkButtonClass("secondary") + " w-full justify-center"}>
+              View My Orders
+            </Link>
+          </div>
+        </Card>
+
+        <Card padding="md" className="flex flex-col">
+          <h2 className="text-lg font-semibold mb-4">Current Spend</h2>
+          <div className="flex-1 space-y-3">
+            {!currentSpend ? (
+              <p className="text-sm text-red-700">
+                Financial summary unavailable
+              </p>
+            ) : currentSpend.status === "no-period" ? (
+              <p className="text-sm text-muted">No current lunch period</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Period deduction</span>
+                  <span className="text-sm font-medium">
+                    {formatCurrency(currentSpend.netDeduction)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Daily subsidy</span>
+                  <span className="text-sm font-medium">
+                    {formatCurrency(currentSpend.dailySubsidy)}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="mt-6">
+            <Link href="/financials" className={linkButtonClass("secondary") + " w-full justify-center"}>
+              View My Financials
+            </Link>
+          </div>
+        </Card>
+      </div>
     </>
   );
 }

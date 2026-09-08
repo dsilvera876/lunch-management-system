@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { requireHrAdminOrOwner, canManageCutoff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import {
+  formatDisplayCategoryCount,
+  normalizeDisplayCategory,
+} from "@/lib/menu-items";
 import { summarizeProviderWeekdays } from "@/lib/ordering-ui";
 import { createProvider } from "./actions";
 import { CutoffControl } from "@/components/cutoff-control";
@@ -27,7 +31,9 @@ type ProviderRow = {
   description: string | null;
   active: boolean;
   provider_menu_items: Array<{
+    item_type: string;
     active: boolean;
+    display_category: string | null;
     provider_menu_item_weekdays: Array<{ weekday: number }>;
   }>;
 };
@@ -46,7 +52,9 @@ export default async function ProvidersPage({ searchParams }: Props) {
         description,
         active,
         provider_menu_items (
+          item_type,
           active,
+          display_category,
           provider_menu_item_weekdays (
             weekday
           )
@@ -127,9 +135,22 @@ export default async function ProvidersPage({ searchParams }: Props) {
           ) : (
             <div className="space-y-3">
               {providerRows.map((provider) => {
-                const activeItemCount = provider.provider_menu_items.filter(
+                const activeItems = provider.provider_menu_items.filter(
                   (item) => item.active,
-                ).length;
+                );
+                const mainCount = activeItems.filter(i => i.item_type === 'main').length;
+                const sideCount = activeItems.filter(i => i.item_type === 'side').length;
+                const standaloneItems = activeItems.filter(i => i.item_type === 'standalone');
+
+                // Group standalone items by their display category
+                const standaloneCategories = standaloneItems.reduce((acc, item) => {
+                  const cat =
+                    normalizeDisplayCategory(item.display_category) ??
+                    "Other items";
+                  acc[cat] = (acc[cat] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>);
+
                 const weekdaySummary = summarizeProviderWeekdays(
                   provider.provider_menu_items.map((item) => ({
                     active: item.active,
@@ -149,37 +170,31 @@ export default async function ProvidersPage({ searchParams }: Props) {
                         : "opacity-80 ring-1 ring-slate-200"
                     }
                   >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold">{provider.name}</h3>
+                          <h3 className="text-base font-semibold">{provider.name}</h3>
                           <StatusBadge
                             status={provider.active ? "active" : "inactive"}
                           />
                         </div>
-                        <p className="mt-1 text-sm text-muted">
-                          {provider.description ?? "No description"}
-                        </p>
-                        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                          <div>
-                            <dt className="inline text-muted after:content-[':']">
-                              Active menu items
-                            </dt>{" "}
-                            <dd className="inline font-medium">{activeItemCount}</dd>
-                          </div>
-                          <div>
-                            <dt className="inline text-muted after:content-[':']">
-                              Order days covered
-                            </dt>{" "}
-                            <dd className="inline font-medium">{weekdaySummary}</dd>
-                          </div>
-                        </dl>
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+                          {mainCount > 0 && <span>{mainCount} Mains</span>}
+                          {sideCount > 0 && <span>{sideCount} Sides</span>}
+                          {Object.entries(standaloneCategories).map(([cat, count]) => (
+                            <span key={cat}>
+                              {formatDisplayCategoryCount(cat, count)}
+                            </span>
+                          ))}
+                          <span className="hidden sm:inline">·</span>
+                          <span>{weekdaySummary}</span>
+                        </div>
                       </div>
                       <Link
                         href={`/admin/providers/${provider.id}`}
-                        className={`${linkButtonClass("primary")} shrink-0`}
+                        className={`${linkButtonClass("secondary")} shrink-0`}
                       >
-                        Manage provider
+                        Manage
                       </Link>
                     </div>
                   </Card>

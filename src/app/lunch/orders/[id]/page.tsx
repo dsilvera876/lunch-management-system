@@ -5,14 +5,14 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { cancelLunchOrder, updateLunchOrder } from "../../actions";
 import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
-import { formatDisplayDate } from "@/lib/ordering-ui";
+import { canEditOrder, formatDisplayDate } from "@/lib/ordering-ui";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ProviderOrderForm } from "@/components/provider-order-form";
-import { formatMenuItemLabel, formatOrderLineLabel, groupMenuItemsByType, type MenuItemType } from "@/lib/menu-items";
+import { formatMenuItemLabel, formatOrderLineLabel, groupMenuItemsByType, groupStandaloneItemsByCategory, type MenuItemType } from "@/lib/menu-items";
 import { formatMealBundleLabel } from "@/lib/order-payload";
 import { linkButtonClass } from "@/components/ui/button";
 
@@ -96,6 +96,7 @@ export default async function OrderDetailPage({
           price,
           item_type,
           unit_label,
+          display_category,
           is_active
         )
       ),
@@ -107,7 +108,8 @@ export default async function OrderDetailPage({
         menu_items (
           name,
           item_type,
-          unit_label
+          unit_label,
+          display_category
         )
       )
     `)
@@ -148,7 +150,7 @@ export default async function OrderDetailPage({
 
   const isEditing =
     query.edit === "1" &&
-    order.status === "submitted";
+    canEditOrder(order.status, orderingOpen);
 
   const selectedMainId =
     order.order_items.find((item) => {
@@ -178,14 +180,18 @@ export default async function OrderDetailPage({
     order.order_items.map((item) => {
       const menuItem = getRelated(item.menu_items);
       return {
+        id: item.id,
         name: menuItem?.name ?? "Menu item",
         quantity: item.quantity,
         itemType: (menuItem?.item_type ?? "standalone") as MenuItemType,
         unitLabel: menuItem?.unit_label ?? "Each",
         unitPrice: item.unit_price,
+        displayCategory: menuItem?.display_category,
       };
     }),
   );
+
+  const standaloneGrouped = groupStandaloneItemsByCategory(groupedOrderItems.standalone);
 
   return (
     <>
@@ -286,32 +292,30 @@ export default async function OrderDetailPage({
               <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
                 {order.meal_quantity ? "Optional items" : "Items"}
               </h3>
-              <div className="space-y-3">
-                {order.order_items
-                  .filter((item) => {
-                    const menuItem = getRelated(item.menu_items);
-                    return menuItem?.item_type === "standalone";
-                  })
-                  .map((item) => {
-                    const menuItem = getRelated(item.menu_items);
-
-                    return (
-                      <Card key={item.id} padding="sm">
-                        <p className="font-semibold">
-                          {formatOrderLineLabel(
-                            menuItem?.name ?? "Menu item",
-                            menuItem?.unit_label ?? "Each",
-                            item.quantity,
-                          )}
-                        </p>
-                        <p className="mt-1 text-sm text-muted">
-                          {formatCurrency(item.unit_price)} per{" "}
-                          {(menuItem?.unit_label ?? "Each").toLowerCase()} · Subtotal{" "}
-                          {formatCurrency(Number(item.unit_price) * item.quantity)}
-                        </p>
-                      </Card>
-                    );
-                  })}
+              <div className="space-y-6">
+                {Object.entries(standaloneGrouped).map(([category, items]) => (
+                  <div key={category}>
+                    <h4 className="mb-2 text-sm font-medium text-muted">{category}</h4>
+                    <div className="space-y-3">
+                      {items.map((item) => (
+                        <Card key={item.id} padding="sm">
+                          <p className="font-semibold">
+                            {formatOrderLineLabel(
+                              item.name,
+                              item.unitLabel,
+                              item.quantity,
+                            )}
+                          </p>
+                          <p className="mt-1 text-sm text-muted">
+                            {formatCurrency(item.unitPrice)} per{" "}
+                            {item.unitLabel.toLowerCase()} · Subtotal{" "}
+                            {formatCurrency(Number(item.unitPrice) * item.quantity)}
+                          </p>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -364,6 +368,7 @@ export default async function OrderDetailPage({
             price: item.price,
             itemType: item.item_type as MenuItemType,
             unitLabel: item.unit_label,
+            displayCategory: item.display_category,
           }))}
           quantityFieldPrefix="quantity"
           mainFieldName="mainMenuItemId"

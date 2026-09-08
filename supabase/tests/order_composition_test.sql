@@ -48,7 +48,12 @@ insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 select id, wd
 from public.provider_menu_items
 cross join generate_series(1, 5) as wd
-where id <> 'c9999999-9999-4999-8999-999999999999';
+where provider_id in (
+  'b1111111-1111-4111-8111-111111111111',
+  'b2222222-2222-4222-8222-222222222222',
+  'b3333333-3333-4333-8333-333333333333'
+)
+  and id <> 'c9999999-9999-4999-8999-999999999999';
 
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 values ('c9999999-9999-4999-8999-999999999999', 2);

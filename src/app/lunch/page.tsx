@@ -44,10 +44,30 @@ export default async function LunchPage({ searchParams }: Props) {
     .gt("order_deadline", new Date().toISOString())
     .order("lunch_date", { ascending: true });
 
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select(`
+      default_office_location_id,
+      office_locations:default_office_location_id (
+        name,
+        is_active
+      )
+    `)
+    .eq("id", profile.id)
+    .single();
+
+  const defaultLocation = profileRow?.office_locations
+    ? Array.isArray(profileRow.office_locations)
+      ? profileRow.office_locations[0]
+      : profileRow.office_locations
+    : null;
+
+  const defaultLocationName = defaultLocation?.is_active ? defaultLocation.name : null;
+
   return (
     <>
       <PageHeader
-        title="Order Lunch"
+        title="Today's Lunch"
         description="Choose a provider and place a separate order. You may submit unlimited orders before today's cutoff."
       />
 
@@ -70,11 +90,11 @@ export default async function LunchPage({ searchParams }: Props) {
         orderingOpen={ctx.orderingOpen}
         orderWeekday={ctx.orderWeekday}
         periodFinalized={ctx.periodFinalized}
+        defaultLocationName={defaultLocationName}
       />
 
       {ctx.orderWeekday && ctx.orderingOpen && ctx.availableProviders.length > 0 && (
         <section className="mb-10">
-          <SectionHeader title="Available providers" />
           <div className="space-y-4">
             {ctx.availableProviders.map((provider) => (
               <ProviderCard

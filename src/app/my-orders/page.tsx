@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
-import { formatDisplayDate } from "@/lib/ordering-ui";
-import { formatOrderLineLabel } from "@/lib/menu-items";
+import { getRelated, formatCurrency, formatHumanDate } from "@/lib/format";
+import { formatOrderLineLabel, groupMenuItemsByType, groupStandaloneItemsByCategory, type MenuItemType } from "@/lib/menu-items";
+import { formatMealBundleLabel } from "@/lib/order-payload";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -21,6 +21,8 @@ export default async function MyOrdersPage() {
       status,
       created_at,
       special_instructions,
+      meal_quantity,
+      office_location_name,
       lunch_days (
         lunch_date,
         order_date,
@@ -34,7 +36,8 @@ export default async function MyOrdersPage() {
         menu_items (
           name,
           item_type,
-          unit_label
+          unit_label,
+          display_category
         )
       )
     `)
@@ -64,7 +67,7 @@ export default async function MyOrdersPage() {
           description="When you place lunch orders, each one will appear here individually."
           action={
             <Link href="/lunch" className={linkButtonClass("primary")}>
-              Order lunch
+              View Today&apos;s Lunch
             </Link>
           }
         />
@@ -81,6 +84,22 @@ export default async function MyOrdersPage() {
             );
             const isCancelled = order.status === "cancelled";
 
+            const grouped = groupMenuItemsByType(
+              order.order_items.map((item) => {
+                const menuItem = getRelated(item.menu_items);
+                return {
+                  name: menuItem?.name ?? "Menu item",
+                  quantity: item.quantity,
+                  itemType: (menuItem?.item_type ?? "standalone") as MenuItemType,
+                  unitLabel: menuItem?.unit_label ?? "Each",
+                  unitPrice: item.unit_price,
+                  displayCategory: menuItem?.display_category,
+                };
+              }),
+            );
+
+            const standaloneGrouped = groupStandaloneItemsByCategory(grouped.standalone);
+
             return (
               <Card
                 key={order.id}
@@ -89,86 +108,75 @@ export default async function MyOrdersPage() {
                   isCancelled ? "opacity-75 ring-1 ring-slate-200" : undefined
                 }
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-semibold text-foreground">
-                        {provider?.name ?? "Lunch order"}
-                      </h2>
-                      <StatusBadge status={order.status} />
-                    </div>
-
-                    <dl className="grid gap-1 text-sm text-muted">
-                      {lunchDay?.order_date && (
-                        <div>
-                          <dt className="sr-only">Order date</dt>
-                          <dd>
-                            Ordered {formatDisplayDate(lunchDay.order_date)}
-                          </dd>
-                        </div>
-                      )}
-                      {lunchDay?.lunch_date && (
-                        <div>
-                          <dt className="sr-only">Delivery date</dt>
-                          <dd>
-                            Delivery {formatDisplayDate(lunchDay.lunch_date)}
-                          </dd>
-                        </div>
-                      )}
-                      <div>
-                        <dt className="sr-only">Submitted</dt>
-                        <dd>Submitted {formatDeadline(order.created_at)}</dd>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-semibold text-foreground">
+                          {provider?.name ?? "Lunch order"}
+                        </h2>
+                        <StatusBadge status={order.status} />
                       </div>
-                    </dl>
-                  </div>
-
-                  <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-                    {!isCancelled && total > 0 && (
-                      <p className="text-sm font-semibold">
-                        Total: {formatCurrency(total)}
+                      <p className="mt-1 text-sm text-muted">
+                        Delivery: {lunchDay?.lunch_date ? formatHumanDate(lunchDay.lunch_date) : "Unknown date"}
+                        {order.office_location_name ? ` · ${order.office_location_name}` : ""}
                       </p>
-                    )}
-                    <Link
-                      href={`/lunch/orders/${order.id}`}
-                      className={linkButtonClass("secondary")}
-                    >
-                      View order
-                    </Link>
+                    </div>
+                    <div className="flex shrink-0 gap-2 mt-1 sm:mt-0">
+                      <Link
+                        href={`/lunch/orders/${order.id}`}
+                        className={linkButtonClass("secondary")}
+                      >
+                        View
+                      </Link>
+                    </div>
                   </div>
+
+                  {!isCancelled && (
+                    <div className="space-y-4 border-t border-border pt-4 text-sm">
+                      {order.meal_quantity && grouped.main.length > 0 && (
+                        <div>
+                          <p className="font-semibold">{formatMealBundleLabel(order.meal_quantity)}</p>
+                          <ul className="mt-1 space-y-1 text-muted">
+                            {[...grouped.main, ...grouped.side].map((item) => (
+                              <li key={item.name}>{item.name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {Object.entries(standaloneGrouped).map(([category, items]) => (
+                        <div key={category}>
+                          <p className="font-semibold">{category}</p>
+                          <ul className="mt-1 space-y-1 text-muted">
+                            {items.map((item) => (
+                              <li key={item.name} className="flex justify-between gap-4">
+                                <span>
+                                  {formatOrderLineLabel(item.name, item.unitLabel, item.quantity)}
+                                </span>
+                                <span className="shrink-0">{formatCurrency(Number(item.unitPrice) * item.quantity)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+
+                      {order.special_instructions && (
+                        <div>
+                          <p className="font-semibold">Special instructions</p>
+                          <p className="mt-1 text-muted">{order.special_instructions}</p>
+                        </div>
+                      )}
+
+                      {total > 0 && (
+                        <div className="flex justify-between gap-4 border-t border-border pt-3 font-semibold">
+                          <span>Total</span>
+                          <span>{formatCurrency(total)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-
-                {!isCancelled && order.special_instructions && (
-                  <p className="mt-3 text-sm text-muted">
-                    <span className="font-medium text-foreground">Instructions:</span>{" "}
-                    {order.special_instructions}
-                  </p>
-                )}
-
-                {!isCancelled && (
-                  <ul className="mt-4 space-y-1 border-t border-border pt-4 text-sm">
-                    {order.order_items.map((item) => {
-                      const menuItem = getRelated(item.menu_items);
-
-                      return (
-                        <li
-                          key={`${order.id}-${menuItem?.name ?? "item"}`}
-                          className="flex justify-between gap-3"
-                        >
-                          <span>
-                            {formatOrderLineLabel(
-                              menuItem?.name ?? "Menu item",
-                              menuItem?.unit_label ?? "Each",
-                              item.quantity,
-                            )}
-                          </span>
-                          <span className="shrink-0 text-muted">
-                            {formatCurrency(Number(item.unit_price) * item.quantity)}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
               </Card>
             );
           })}

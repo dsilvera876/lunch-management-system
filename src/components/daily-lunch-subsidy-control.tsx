@@ -4,7 +4,7 @@ import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
-import { formatMoney } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { updateDailyLunchSubsidy } from "@/app/admin/financials/actions";
 
 type Props = {
@@ -29,7 +29,7 @@ export function DailyLunchSubsidyControl({
         description={
           canEdit
             ? "Company-wide amount applied once per employee per order date."
-            : `Current daily lunch subsidy: ${formatMoney(dailyLunchSubsidy)}`
+            : `Current daily lunch subsidy: ${formatCurrency(dailyLunchSubsidy)}`
         }
       />
 
@@ -61,7 +61,7 @@ export function DailyLunchSubsidyControl({
           </Button>
         </form>
       ) : (
-        <p className="text-2xl font-semibold">{formatMoney(dailyLunchSubsidy)}</p>
+        <p className="text-2xl font-semibold">{formatCurrency(dailyLunchSubsidy)}</p>
       )}
     </Card>
   );

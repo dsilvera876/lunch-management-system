@@ -3,6 +3,7 @@ import {
   canManageLegacyLunchDays,
   canManageLunchPeriods,
   canManageProviders,
+  canManageOfficeLocations,
   canManageRoles,
   canViewAllFinancialSummaries,
   canViewAllOrders,
@@ -16,111 +17,66 @@ export type NavItem = {
   description?: string;
 };
 
-const STAFF_ORDERING: NavItem[] = [
+export type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const LUNCH_ITEMS: NavItem[] = [
   { href: "/home", label: "Home", description: "Today's lunch overview" },
-  { href: "/lunch", label: "Order Lunch", description: "Place a new order" },
+  { href: "/lunch", label: "Today's Lunch", description: "Place a new order" },
   { href: "/my-orders", label: "My Orders", description: "View your orders" },
-  {
-    href: "/financials",
-    label: "My Financials",
-    description: "Your lunch spending summaries",
-  },
+  { href: "/financials", label: "My Financials", description: "Your lunch spending summaries" },
 ];
 
-const ACCOUNT_NAV: NavItem = {
+const HR_ITEMS: NavItem[] = [
+  { href: "/admin/providers", label: "Lunch Providers", description: "Recurring menus" },
+  { href: "/admin/locations", label: "Office Locations", description: "Delivery locations" },
+  { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
+];
+
+const ACCOUNTS_ITEMS: NavItem[] = [
+  { href: "/admin/lunch-periods", label: "Lunch Periods", description: "Payroll lunch periods" },
+  { href: "/admin/financials", label: "Financial Summaries", description: "Payroll lunch totals" },
+];
+
+const ADMIN_ITEMS: NavItem[] = [
+  { href: "/admin", label: "Dashboard", description: "Operations overview" },
+  { href: "/admin/users", label: "User Management", description: "Manage employee roles" },
+];
+
+export const ACCOUNT_NAV: NavItem = {
   href: "/account",
   label: "Account",
   description: "Profile and settings",
 };
 
-export const STAFF_NAV: NavItem[] = [...STAFF_ORDERING, ACCOUNT_NAV];
+export function getNavForRole(role: string): NavGroup[] {
+  const groups: NavGroup[] = [];
+  const userRole = role as UserRole;
 
-const LUNCH_PERIODS_NAV: NavItem = {
-  href: "/admin/lunch-periods",
-  label: "Lunch Periods",
-  description: "Payroll lunch periods",
-};
+  // Everyone gets LUNCH
+  groups.push({ label: "LUNCH", items: LUNCH_ITEMS });
 
-const FINANCIALS_NAV: NavItem = {
-  href: "/admin/financials",
-  label: "Financial Summaries",
-  description: "Payroll lunch totals",
-};
-
-export const HR_NAV: NavItem[] = [
-  ...STAFF_ORDERING,
-  {
-    href: "/admin/providers",
-    label: "Lunch Providers",
-    description: "Recurring menus",
-  },
-  {
-    href: "/admin/locations",
-    label: "Office Locations",
-    description: "Delivery locations",
-  },
-  LUNCH_PERIODS_NAV,
-  FINANCIALS_NAV,
-  { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
-  ACCOUNT_NAV,
-];
-
-export const ACCOUNTS_NAV: NavItem[] = [
-  ...STAFF_ORDERING,
-  LUNCH_PERIODS_NAV,
-  FINANCIALS_NAV,
-  { href: "/admin/orders", label: "Orders", description: "All employee orders" },
-  ACCOUNT_NAV,
-];
-
-export const ADMIN_NAV: NavItem[] = [
-  { href: "/admin", label: "Dashboard", description: "Operations overview" },
-  {
-    href: "/home",
-    label: "Staff Home",
-    description: "Employee ordering overview",
-  },
-  {
-    href: "/admin/providers",
-    label: "Lunch Providers",
-    description: "Recurring menus",
-  },
-  {
-    href: "/admin/locations",
-    label: "Office Locations",
-    description: "Delivery locations",
-  },
-  LUNCH_PERIODS_NAV,
-  FINANCIALS_NAV,
-  { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
-  {
-    href: "/lunch",
-    label: "Order Lunch",
-    description: "Place a staff order",
-  },
-  {
-    href: "/admin/users",
-    label: "User / Role Management",
-    description: "Manage employee roles",
-  },
-  ACCOUNT_NAV,
-];
-
-export const OWNER_NAV: NavItem[] = ADMIN_NAV;
-
-export function getNavForRole(role: string): NavItem[] {
-  switch (role as UserRole) {
-    case "hr":
-      return HR_NAV;
-    case "accounts":
-      return ACCOUNTS_NAV;
-    case "admin":
-    case "owner":
-      return ADMIN_NAV;
-    case "staff":
-    default:
-      return STAFF_NAV;
+  // HR TOOLS
+  const hrItems = HR_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
+  if (hrItems.length > 0) {
+    groups.push({ label: "HR TOOLS", items: hrItems });
   }
+
+  // ACCOUNTS
+  const accountsItems = ACCOUNTS_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
+  if (accountsItems.length > 0) {
+    groups.push({ label: "ACCOUNTS", items: accountsItems });
+  }
+
+  // ADMIN
+  const adminItems = ADMIN_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
+  if (adminItems.length > 0) {
+    groups.push({ label: "ADMIN", items: adminItems });
+  }
+
+  return groups;
 }
 
 export function getPostLoginPath(role: string): string {
@@ -156,6 +112,10 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 
   if (pathname.startsWith("/admin/providers")) {
     return canManageProviders(role);
+  }
+
+  if (pathname.startsWith("/admin/locations")) {
+    return canManageOfficeLocations(role);
   }
 
   if (pathname.startsWith("/admin/lunch-periods")) {

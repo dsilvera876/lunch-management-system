@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_UNIT_LABEL, type MenuItemType } from "@/lib/menu-items";
+import {
+  DEFAULT_UNIT_LABEL,
+  normalizeDisplayCategory,
+  type MenuItemType,
+} from "@/lib/menu-items";
 
 function parseWeekdays(formData: FormData): number[] {
   const weekdays: number[] = [];
@@ -38,6 +42,14 @@ function parseUnitLabel(value: FormDataEntryValue | null): string | null {
   }
 
   return trimmed;
+}
+
+function parseDisplayCategory(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return normalizeDisplayCategory(value);
 }
 
 async function syncMenuItemWeekdays(
@@ -79,6 +91,7 @@ export async function createProviderMenuItem(formData: FormData) {
   const price = formData.get("price");
   const itemType = parseItemType(formData.get("itemType"));
   const unitLabel = parseUnitLabel(formData.get("unitLabel")) ?? DEFAULT_UNIT_LABEL;
+  const displayCategory = itemType === "standalone" ? parseDisplayCategory(formData.get("displayCategory")) : null;
   const weekdays = parseWeekdays(formData);
 
   if (
@@ -113,6 +126,7 @@ export async function createProviderMenuItem(formData: FormData) {
       price: parsedPrice,
       item_type: itemType,
       unit_label: unitLabel,
+      display_category: displayCategory,
       active: true,
     })
     .select("id")
@@ -151,6 +165,7 @@ export async function updateProviderMenuItem(formData: FormData) {
   const price = formData.get("price");
   const itemType = parseItemType(formData.get("itemType"));
   const unitLabel = parseUnitLabel(formData.get("unitLabel")) ?? DEFAULT_UNIT_LABEL;
+  const displayCategory = itemType === "standalone" ? parseDisplayCategory(formData.get("displayCategory")) : null;
   const weekdays = parseWeekdays(formData);
 
   if (
@@ -185,6 +200,7 @@ export async function updateProviderMenuItem(formData: FormData) {
       price: parsedPrice,
       item_type: itemType,
       unit_label: unitLabel,
+      display_category: displayCategory,
     })
     .eq("id", menuItemId)
     .eq("provider_id", providerId);

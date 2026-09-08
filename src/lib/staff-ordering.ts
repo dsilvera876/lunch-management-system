@@ -14,6 +14,7 @@ export type AvailableMenuItem = {
   price: number;
   itemType: MenuItemType;
   unitLabel: string;
+  displayCategory: string | null;
 };
 
 export type AvailableProvider = {
@@ -41,6 +42,7 @@ export type DeliveryOrderSummary = {
   specialInstructions: string | null;
   mealQuantity: number | null;
   total: number;
+  office_location_name: string | null;
 };
 
 export type StaffOrderingContext = {
@@ -86,6 +88,7 @@ export async function getStaffOrderingContext(
                 price,
                 item_type,
                 unit_label,
+                display_category,
                 active,
                 provider_menu_item_weekdays!inner (
                   weekday
@@ -102,32 +105,33 @@ export async function getStaffOrderingContext(
         : Promise.resolve({ data: [] as never[], error: null }),
 
       deliveryDate
-        ? supabase
-            .from("orders")
-            .select(`
-              id,
-              status,
-              created_at,
-              lunch_day_id,
-              special_instructions,
-              meal_quantity,
-              lunch_days!inner (
-                lunch_date,
-                order_date,
-                lunch_providers (
-                  name
-                )
-              ),
-              order_items (
-                quantity,
-                unit_price,
-                menu_items (
-                  name,
-                  item_type,
-                  unit_label
-                )
-              )
-            `)
+        ?       supabase
+        .from("orders")
+        .select(`
+          id,
+          status,
+          created_at,
+          lunch_day_id,
+          special_instructions,
+          meal_quantity,
+          office_location_name,
+          lunch_days!inner (
+            lunch_date,
+            order_date,
+            lunch_providers (
+              name
+            )
+          ),
+          order_items (
+            quantity,
+            unit_price,
+            menu_items (
+              name,
+              item_type,
+              unit_label
+            )
+          )
+        `)
             .eq("profile_id", profileId)
             .eq("lunch_days.lunch_date", deliveryDate)
             .neq("status", "cancelled")
@@ -161,13 +165,14 @@ export async function getStaffOrderingContext(
       name: provider.name,
       description: provider.description,
       itemCount: provider.provider_menu_items.length,
-      items: provider.provider_menu_items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: Number(item.price),
-        itemType: item.item_type as MenuItemType,
-        unitLabel: item.unit_label,
-      })),
+          items: provider.provider_menu_items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            itemType: item.item_type as MenuItemType,
+            unitLabel: item.unit_label,
+            displayCategory: item.display_category,
+          })),
     })) ?? [];
 
   const deliveryOrders: DeliveryOrderSummary[] =
@@ -210,6 +215,7 @@ export async function getStaffOrderingContext(
         items,
         specialInstructions: order.special_instructions ?? null,
         mealQuantity: order.meal_quantity ?? null,
+        office_location_name: order.office_location_name ?? null,
         total,
       };
     }) ?? [];

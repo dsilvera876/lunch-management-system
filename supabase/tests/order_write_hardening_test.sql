@@ -1,6 +1,6 @@
 begin;
 
-select plan(28);
+select plan(29);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -48,6 +48,20 @@ where provider_id = 'c1111111-1111-4111-8111-111111111111';
 
 \ir support/open_ordering.inc
 \ir support/legacy_lunch_day_fixture.inc
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'private.ensure_provider_lunch_day(uuid,date)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'anon',
+    'private.ensure_provider_lunch_day(uuid,date)',
+    'EXECUTE'
+  ),
+  'API roles cannot execute the private lunch-day snapshot helper'
+);
 
 -- Table privilege matrix (authoritative has_table_privilege checks).
 

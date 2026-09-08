@@ -7,11 +7,12 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { QuantityControl } from "@/components/quantity-control";
 import { textareaClassName } from "@/components/ui/form-field";
 import { calculateLineSubtotal, formatDisplayDate } from "@/lib/ordering-ui";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatPrice } from "@/lib/format";
 import {
   formatMenuItemLabel,
   formatOrderLineLabel,
   groupMenuItemsByType,
+  groupStandaloneItemsByCategory,
   isValidSpecialInstructions,
   providerOffersMeals,
   validateOrderComposition,
@@ -31,6 +32,7 @@ type MenuItem = {
   price: number | string;
   itemType: MenuItemType;
   unitLabel: string;
+  displayCategory?: string | null;
 };
 
 type Props = {
@@ -77,7 +79,7 @@ function StandaloneItemCard({
             <p className="mt-1 text-sm text-muted">{item.description}</p>
           )}
           <p className="mt-1 text-sm font-medium">
-            {formatCurrency(item.price)} per {item.unitLabel.toLowerCase()}
+            {Number(item.price) > 0 ? `${formatPrice(item.price)} per ${item.unitLabel.toLowerCase()}` : "Included"}
           </p>
         </div>
         <QuantityControl
@@ -117,6 +119,7 @@ export function ProviderOrderForm({
   preserveExistingLocation = false,
 }: Props) {
   const grouped = useMemo(() => groupMenuItemsByType(menuItems), [menuItems]);
+  const standaloneGrouped = useMemo(() => groupStandaloneItemsByCategory(grouped.standalone), [grouped.standalone]);
   const offersMeals = providerOffersMeals(menuItems);
   const [selectedMainId, setSelectedMainId] = useState<string | null>(
     defaultSelectedMainId,
@@ -212,153 +215,158 @@ export function ProviderOrderForm({
   }
 
   return (
-    <form action={formAction} onSubmit={handleSubmit}>
-      {providerId ? (
-        <>
-          <input type="hidden" name="providerId" value={providerId} />
-          <input type="hidden" name="orderDate" value={orderDate} />
-        </>
-      ) : null}
-      {hiddenFields}
+    <form action={formAction} onSubmit={handleSubmit} className={offersMeals ? "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_384px]" : "max-w-2xl mx-auto"}>
+      <div className="flex flex-col">
+        {providerId ? (
+          <>
+            <input type="hidden" name="providerId" value={providerId} />
+            <input type="hidden" name="orderDate" value={orderDate} />
+          </>
+        ) : null}
+        {hiddenFields}
 
-      {officeLocations.length > 0 && (
-        <OfficeLocationPicker
-          locations={officeLocations}
-          defaultLocationId={defaultOfficeLocationId}
-          defaultLocationName={defaultOfficeLocationName}
-          defaultLocationInactive={defaultOfficeLocationInactive}
-          preserveExistingLocation={preserveExistingLocation}
+        {officeLocations.length > 0 && (
+          <OfficeLocationPicker
+            locations={officeLocations}
+            defaultLocationId={defaultOfficeLocationId}
+            defaultLocationName={defaultOfficeLocationName}
+            defaultLocationInactive={defaultOfficeLocationInactive}
+            preserveExistingLocation={preserveExistingLocation}
+          />
+        )}
+
+        <SectionHeader
+          title="Choose items"
+          description={
+            offersMeals
+              ? "Build a meal with one main and at least one side, or order standalone items only."
+              : "Select the items you want in this order."
+          }
         />
-      )}
 
-      <SectionHeader
-        title="Choose items"
-        description={
-          offersMeals
-            ? "Build a meal with one main and at least one side, or order standalone items only."
-            : "Select the items you want in this order."
-        }
-      />
-
-      {offersMeals && grouped.main.length > 0 && (
-        <section className="mb-8">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Main
-          </h3>
-          <div className="space-y-3">
-            {grouped.main.map((item) => (
-              <Card key={item.id} padding="sm">
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="radio"
-                    name={mainFieldName}
-                    value={item.id}
-                    checked={selectedMainId === item.id}
-                    onChange={() => {
-                      setSelectedMainId(item.id);
-                      setValidationError(null);
-                    }}
-                    className="mt-1 size-4 shrink-0"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="font-semibold">
-                      {formatMenuItemLabel(item.name, item.unitLabel)}
-                    </span>
-                    {item.description && (
-                      <span className="mt-1 block text-sm text-muted">
-                        {item.description}
+        {offersMeals && grouped.main.length > 0 && (
+          <section className="mb-8">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+              Main
+            </h3>
+            <div className="space-y-3">
+              {grouped.main.map((item) => (
+                <Card key={item.id} padding="sm">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="radio"
+                      name={mainFieldName}
+                      value={item.id}
+                      checked={selectedMainId === item.id}
+                      onChange={() => {
+                        setSelectedMainId(item.id);
+                        setValidationError(null);
+                      }}
+                      className="mt-1 size-4 shrink-0"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-semibold">
+                        {formatMenuItemLabel(item.name, item.unitLabel)}
                       </span>
-                    )}
-                    <span className="mt-1 block text-sm font-medium">
-                      {formatCurrency(item.price)} per {item.unitLabel.toLowerCase()}
-                    </span>
-                  </span>
-                </label>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {offersMeals && grouped.side.length > 0 && (
-        <section className="mb-8">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Sides
-          </h3>
-          <div className="space-y-3">
-            {grouped.side.map((item) => (
-              <Card key={item.id} padding="sm">
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    name={`side:${item.id}`}
-                    checked={selectedSideIds.has(item.id)}
-                    onChange={(event) => toggleSide(item.id, event.target.checked)}
-                    className="mt-1 size-4 shrink-0"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="font-semibold">
-                      {formatMenuItemLabel(item.name, item.unitLabel)}
-                    </span>
-                    {item.description && (
-                      <span className="mt-1 block text-sm text-muted">
-                        {item.description}
+                      {item.description && (
+                        <span className="mt-1 block text-sm text-muted">
+                          {item.description}
+                        </span>
+                      )}
+                      <span className="mt-1 block text-sm font-medium">
+                        {Number(item.price) > 0 ? `${formatPrice(item.price)} per ${item.unitLabel.toLowerCase()}` : "Included"}
                       </span>
-                    )}
-                    <span className="mt-1 block text-sm font-medium">
-                      {formatCurrency(item.price)} per {item.unitLabel.toLowerCase()}
                     </span>
-                  </span>
-                </label>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+                  </label>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
-      {offersMeals && hasMealSelection && selectedMain && selectedSides.length > 0 && (
-        <section className="mb-8">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Meal quantity
-          </h3>
-          <Card padding="sm">
-            <QuantityControl
-              id="mealQuantity"
-              name="mealQuantity"
-              label="Meals"
-              price={calculateMealBundleSubtotal(1, [
-                Number(selectedMain.price),
-                ...selectedSides.map((side) => Number(side.price)),
-              ])}
-              defaultValue={mealQuantity}
-              onQuantityChange={(quantity) => {
-                setMealQuantity(quantity);
-                setValidationError(null);
-              }}
-            />
-            <p className="mt-3 text-sm text-muted">
-              Each meal includes your selected main and all selected sides.
+        {offersMeals && grouped.side.length > 0 && (
+          <section className="mb-8">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+              Sides
+            </h3>
+            <div className="space-y-3">
+              {grouped.side.map((item) => (
+                <Card key={item.id} padding="sm">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      name={`side:${item.id}`}
+                      checked={selectedSideIds.has(item.id)}
+                      onChange={(event) => toggleSide(item.id, event.target.checked)}
+                      className="mt-1 size-4 shrink-0"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-semibold">
+                        {formatMenuItemLabel(item.name, item.unitLabel)}
+                      </span>
+                      {item.description && (
+                        <span className="mt-1 block text-sm text-muted">
+                          {item.description}
+                        </span>
+                      )}
+                      <span className="mt-1 block text-sm font-medium">
+                        {Number(item.price) > 0 ? `${formatPrice(item.price)} per ${item.unitLabel.toLowerCase()}` : "Included"}
+                      </span>
+                    </span>
+                  </label>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {offersMeals && hasMealSelection && selectedMain && selectedSides.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center gap-4">
+              <QuantityControl
+                id="mealQuantity"
+                name="mealQuantity"
+                label="Meal quantity"
+                price={calculateMealBundleSubtotal(1, [
+                  Number(selectedMain.price),
+                  ...selectedSides.map((side) => Number(side.price)),
+                ])}
+                defaultValue={mealQuantity}
+                onQuantityChange={(quantity) => {
+                  setMealQuantity(quantity);
+                  setValidationError(null);
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              Applies to the selected main and sides.
             </p>
-          </Card>
-        </section>
-      )}
+          </section>
+        )}
 
       {grouped.standalone.length > 0 && (
         <section className="mb-8">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
             {offersMeals ? "Optional items" : "Items"}
           </h3>
-          <div className="space-y-3">
-            {grouped.standalone.map((item) => (
-              <StandaloneItemCard
-                key={item.id}
-                item={item}
-                quantity={standaloneQuantities[item.id] ?? 0}
-                quantityFieldPrefix={quantityFieldPrefix}
-                onQuantityChange={(quantity) =>
-                  handleStandaloneQuantityChange(item.id, quantity)
-                }
-              />
+          <div className="space-y-6">
+            {Object.entries(standaloneGrouped).map(([category, items]) => (
+              <div key={category}>
+                <h4 className="mb-2 text-sm font-medium text-muted">{category}</h4>
+                <div className="space-y-3">
+                  {items.map((item) => (
+                    <StandaloneItemCard
+                      key={item.id}
+                      item={item}
+                      quantity={standaloneQuantities[item.id] ?? 0}
+                      quantityFieldPrefix={quantityFieldPrefix}
+                      onQuantityChange={(quantity) =>
+                        handleStandaloneQuantityChange(item.id, quantity)
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </section>
@@ -385,88 +393,93 @@ export function ProviderOrderForm({
           Preparation notes for this order only. Up to 500 characters.
         </p>
       </section>
+      </div>
 
-      {(hasMealSelection || selectedStandalone.length > 0) && (
-        <Card className="mb-6" padding="sm">
-          <h3 className="text-sm font-semibold">Order summary</h3>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Provider</dt>
-              <dd className="font-medium text-right">{providerName}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Delivery</dt>
-              <dd className="font-medium text-right">
-                {formatDisplayDate(deliveryDate)}
-              </dd>
-            </div>
-          </dl>
-
-          {selectedMain && selectedSides.length > 0 && (
-            <div className="mt-4 border-t border-border pt-4">
-              <div className="flex justify-between gap-4 text-sm font-semibold">
-                <span>{formatMealBundleLabel(mealQuantity)}</span>
-                <span>{formatCurrency(mealSubtotal)}</span>
+      <div className={offersMeals ? "lg:sticky lg:top-8 lg:self-start" : "mt-8"}>
+        {orderTotal > 0 && (
+          <Card className="mb-6" padding="sm">
+            <h3 className="text-sm font-semibold">Order summary</h3>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Provider</dt>
+                <dd className="font-medium text-right">{providerName}</dd>
               </div>
-              <ul className="mt-2 space-y-1 text-sm text-muted">
-                <li>{formatMenuItemLabel(selectedMain.name, selectedMain.unitLabel)}</li>
-                {selectedSides.map((item) => (
-                  <li key={item.id}>
-                    {formatMenuItemLabel(item.name, item.unitLabel)}
-                  </li>
-                ))}
-              </ul>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Delivery</dt>
+                <dd className="font-medium text-right">
+                  {formatDisplayDate(deliveryDate)}
+                </dd>
+              </div>
+            </dl>
+
+            {selectedMain && selectedSides.length > 0 && (
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="flex justify-between gap-4 text-sm font-semibold">
+                  <span>{formatMealBundleLabel(mealQuantity)}</span>
+                  <span>{formatCurrency(mealSubtotal)}</span>
+                </div>
+                <ul className="mt-2 space-y-1 text-sm text-muted">
+                  <li>{formatMenuItemLabel(selectedMain.name, selectedMain.unitLabel)}</li>
+                  {selectedSides.map((item) => (
+                    <li key={item.id}>
+                      {formatMenuItemLabel(item.name, item.unitLabel)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {selectedStandalone.length > 0 && (
+              <div className="mt-4 border-t border-border pt-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {offersMeals ? "Optional items" : "Items"}
+                </h4>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {selectedStandalone.map((item) => (
+                    <li key={item.id} className="flex justify-between gap-4">
+                      <span>{formatOrderLineLabel(item.name, item.unitLabel, item.quantity)}</span>
+                      <span className="shrink-0 font-medium">
+                        {formatCurrency(calculateLineSubtotal(item.price, item.quantity))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {specialInstructions.trim().length > 0 && (
+              <div className="mt-4 border-t border-border pt-4 text-sm">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  Special instructions
+                </h4>
+                <p className="mt-2 whitespace-pre-wrap">{specialInstructions.trim()}</p>
+              </div>
+            )}
+
+            <div className="mt-4 flex justify-between gap-4 border-t border-border pt-4 text-sm font-semibold">
+              <span>Order total</span>
+              <span>{formatCurrency(orderTotal)}</span>
             </div>
-          )}
 
-          {selectedStandalone.length > 0 && (
-            <div className="mt-4 border-t border-border pt-4">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {offersMeals ? "Optional items" : "Items"}
-              </h4>
-              <ul className="mt-2 space-y-2 text-sm">
-                {selectedStandalone.map((item) => (
-                  <li key={item.id} className="flex justify-between gap-4">
-                    <span>{formatOrderLineLabel(item.name, item.unitLabel, item.quantity)}</span>
-                    <span className="shrink-0 font-medium">
-                      {formatCurrency(calculateLineSubtotal(item.price, item.quantity))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+            <p className="mt-3 text-xs text-muted">
+              Any daily lunch subsidy is calculated across all of your qualifying
+              orders for this delivery date, not per individual order.
+            </p>
+          </Card>
+        )}
 
-          {specialInstructions.trim().length > 0 && (
-            <div className="mt-4 border-t border-border pt-4 text-sm">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Special instructions
-              </h4>
-              <p className="mt-2 whitespace-pre-wrap">{specialInstructions.trim()}</p>
-            </div>
-          )}
-
-          <div className="mt-4 flex justify-between gap-4 border-t border-border pt-4 text-sm font-semibold">
-            <span>Order total</span>
-            <span>{formatCurrency(orderTotal)}</span>
-          </div>
-
-          <p className="mt-3 text-xs text-muted">
-            Any daily lunch subsidy is calculated across all of your qualifying
-            orders for this delivery date, not per individual order.
+        {validationError && (
+          <p className="mb-4 text-sm text-red-600" role="alert">
+            {validationError}
           </p>
-        </Card>
-      )}
+        )}
 
-      {validationError && (
-        <p className="mb-4 text-sm text-red-600" role="alert">
-          {validationError}
-        </p>
-      )}
-
-      <FormSubmitButton pendingText={pendingLabel} variant="primary">
-        {submitLabel}
-      </FormSubmitButton>
+        <div className="sticky bottom-4 lg:static lg:bottom-auto z-10">
+          <FormSubmitButton pendingText={pendingLabel} variant="primary" className="w-full shadow-md lg:shadow-none">
+            {submitLabel}
+          </FormSubmitButton>
+        </div>
+      </div>
     </form>
   );
 }

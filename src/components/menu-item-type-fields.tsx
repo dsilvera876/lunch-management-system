@@ -1,19 +1,31 @@
-import { MENU_ITEM_TYPES, DEFAULT_UNIT_LABEL } from "@/lib/menu-items";
+import {
+  DEFAULT_UNIT_LABEL,
+  DISPLAY_CATEGORIES,
+  MENU_ITEM_TYPES,
+  normalizeDisplayCategory,
+} from "@/lib/menu-items";
 import { FormField, inputClassName, selectClassName } from "@/components/ui/form-field";
 
 type Props = {
   defaultItemType?: string;
   defaultUnitLabel?: string;
+  defaultDisplayCategory?: string;
   itemTypeId?: string;
   unitLabelId?: string;
+  displayCategoryId?: string;
 };
 
 export function MenuItemTypeFields({
   defaultItemType = "standalone",
   defaultUnitLabel = DEFAULT_UNIT_LABEL,
+  defaultDisplayCategory = "",
   itemTypeId = "itemType",
   unitLabelId = "unitLabel",
+  displayCategoryId = "displayCategory",
 }: Props) {
+  const normalizedDefaultCategory =
+    normalizeDisplayCategory(defaultDisplayCategory) ?? "";
+
   return (
     <>
       <FormField label="Item type" htmlFor={itemTypeId}>
@@ -47,6 +59,26 @@ export function MenuItemTypeFields({
         />
         <p className="mt-1 text-xs text-muted">
           Price is per unit. Example: quantity 4 at 1/4 LB means four quarter-pound units.
+        </p>
+      </FormField>
+
+      <FormField label="Display category (Optional)" htmlFor={displayCategoryId}>
+        <select
+          id={displayCategoryId}
+          name="displayCategory"
+          defaultValue={normalizedDefaultCategory}
+          className={selectClassName}
+        >
+          <option value="">No category</option>
+          {DISPLAY_CATEGORIES.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-muted">
+          No category is stored as unset. “Other” is a distinct category.
+          Ignored for mains and sides.
         </p>
       </FormField>
     </>

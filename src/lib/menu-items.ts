@@ -24,6 +24,57 @@ export const MENU_ITEM_TYPES: ReadonlyArray<{
 
 export const DEFAULT_UNIT_LABEL = "Each";
 
+export const DISPLAY_CATEGORIES = [
+  "Juices",
+  "Fruit",
+  "Desserts",
+  "Snacks",
+  "Other",
+] as const;
+
+export type DisplayCategory = (typeof DISPLAY_CATEGORIES)[number];
+
+export function normalizeDisplayCategory(
+  value: string | null | undefined,
+): DisplayCategory | null {
+  const normalized = value?.trim().toLocaleLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const aliases: Record<string, DisplayCategory> = {
+    juice: "Juices",
+    juices: "Juices",
+    fruit: "Fruit",
+    fruits: "Fruit",
+    dessert: "Desserts",
+    desserts: "Desserts",
+    snack: "Snacks",
+    snacks: "Snacks",
+    other: "Other",
+  };
+
+  return aliases[normalized] ?? null;
+}
+
+export function formatDisplayCategoryCount(
+  category: string,
+  count: number,
+): string {
+  if (category === "Fruit") {
+    return `${count} Fruit ${count === 1 ? "item" : "items"}`;
+  }
+
+  if (category === "Other items") {
+    return `${count} Other ${count === 1 ? "item" : "items"}`;
+  }
+
+  const label =
+    count === 1 && category.endsWith("s") ? category.slice(0, -1) : category;
+  return `${count} ${label}`;
+}
+
 export type OrderLineInput = {
   itemType: MenuItemType;
   quantity: number;
@@ -119,6 +170,27 @@ export function groupMenuItemsByType<T extends { itemType: MenuItemType }>(
     side: items.filter((item) => item.itemType === "side"),
     standalone: items.filter((item) => item.itemType === "standalone"),
   };
+}
+
+export function groupStandaloneItemsByCategory<T extends { itemType: MenuItemType; displayCategory?: string | null }>(
+  standaloneItems: T[],
+): Record<string, T[]> {
+  const grouped: Record<string, T[]> = {};
+  for (const item of standaloneItems) {
+    const rawCategory = item.displayCategory?.trim();
+    const category =
+      normalizeDisplayCategory(rawCategory) ??
+      (rawCategory
+        ? rawCategory.toLocaleLowerCase().replace(/\b\w/g, (letter) =>
+            letter.toLocaleUpperCase())
+        : "Other items");
+
+    if (!grouped[category]) {
+      grouped[category] = [];
+    }
+    grouped[category].push(item);
+  }
+  return grouped;
 }
 
 export function providerOffersMeals(items: Array<{ itemType: MenuItemType }>): boolean {

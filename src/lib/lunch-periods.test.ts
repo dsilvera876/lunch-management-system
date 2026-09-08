@@ -14,7 +14,7 @@ import {
   canExportLunchPeriodSummaries,
   canManageLunchPeriods,
 } from "./roles";
-import { ACCOUNTS_NAV, ADMIN_NAV, getNavForRole, HR_NAV, STAFF_NAV } from "./navigation";
+import { getNavForRole } from "./navigation";
 
 const samplePeriods = [
   {
@@ -115,11 +115,11 @@ describe("order-date membership", () => {
 });
 
 describe("lunch period capabilities", () => {
-  it("allows HR, Accounts, Admin, and Owner to manage lunch periods", () => {
-    assert.equal(canManageLunchPeriods("hr"), true);
+  it("allows Accounts, Admin, and Owner to manage lunch periods", () => {
     assert.equal(canManageLunchPeriods("accounts"), true);
     assert.equal(canManageLunchPeriods("admin"), true);
     assert.equal(canManageLunchPeriods("owner"), true);
+    assert.equal(canManageLunchPeriods("hr"), false);
     assert.equal(canManageLunchPeriods("staff"), false);
   });
 
@@ -133,11 +133,12 @@ describe("lunch period capabilities", () => {
 });
 
 describe("navigation visibility", () => {
-  it("shows lunch periods to HR, Accounts, Admin, and Owner only", () => {
-    assert.ok(HR_NAV.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(ACCOUNTS_NAV.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(ADMIN_NAV.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(getNavForRole("owner").some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(!STAFF_NAV.some((item) => item.href === "/admin/lunch-periods"));
+  it("shows lunch periods to Accounts, Admin, and Owner only", () => {
+    assert.ok(!getNavForRole("hr").flatMap((group) => group.items).some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(getNavForRole("accounts").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(getNavForRole("admin").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(getNavForRole("owner").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(!getNavForRole("staff").find((g) => g.label === "HR TOOLS"));
+    assert.ok(!getNavForRole("staff").find((g) => g.label === "ACCOUNTS"));
   });
 });

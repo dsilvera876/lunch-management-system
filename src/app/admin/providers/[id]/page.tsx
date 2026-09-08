@@ -24,6 +24,11 @@ import { linkButtonClass } from "@/components/ui/button";
 import { WeekdayPicker } from "@/components/weekday-picker";
 import { MenuItemTypeFields } from "@/components/menu-item-type-fields";
 import { MenuItemAdminCard } from "@/components/menu-item-admin-card";
+import {
+  groupMenuItemsByType,
+  groupStandaloneItemsByCategory,
+  type MenuItemType,
+} from "@/lib/menu-items";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -44,6 +49,7 @@ type MenuItemRow = {
   price: number | string;
   item_type: string;
   unit_label: string;
+  display_category: string | null;
   active: boolean;
   provider_menu_item_weekdays: Array<{ weekday: number }>;
 };
@@ -77,6 +83,7 @@ export default async function ProviderDetailPage({
       price,
       item_type,
       unit_label,
+      display_category,
       active,
       provider_menu_item_weekdays (
         weekday
@@ -90,6 +97,49 @@ export default async function ProviderDetailPage({
   }
 
   const items = (menuItems ?? []) as MenuItemRow[];
+
+  const groupedItems = groupMenuItemsByType(
+    items.map((item) => ({
+      ...item,
+      itemType: item.item_type as MenuItemType,
+    }))
+  );
+
+  const standaloneGrouped = groupStandaloneItemsByCategory(
+    groupedItems.standalone.map((item) => ({
+      ...item,
+      displayCategory: item.display_category,
+    }))
+  );
+
+  const sortItems = (a: MenuItemRow, b: MenuItemRow) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  };
+
+  const renderItem = (item: MenuItemRow) => {
+    const weekdays = item.provider_menu_item_weekdays.map(
+      (row) => row.weekday,
+    );
+
+    return (
+      <MenuItemAdminCard
+        key={item.id}
+        providerId={provider.id}
+        item={{
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          itemType: item.item_type,
+          unitLabel: item.unit_label,
+          displayCategory: item.display_category,
+          active: item.active,
+          weekdays,
+        }}
+      />
+    );
+  };
 
   return (
     <>
@@ -230,45 +280,50 @@ export default async function ProviderDetailPage({
             description="Menu items staff can order on selected weekdays."
           />
 
-          <Card className="mb-6">
-            <SectionHeader title="Add menu item" />
-            <form action={createProviderMenuItem} className="grid gap-4">
-              <input type="hidden" name="providerId" value={provider.id} />
+          <details className="group mb-6 rounded-xl border border-border bg-surface shadow-sm open:bg-surface">
+            <summary className="flex cursor-pointer items-center justify-between px-5 py-4 font-medium text-foreground hover:bg-black/5 list-none">
+              <span>Add menu item</span>
+              <span className="text-muted group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="border-t border-border p-5">
+              <form action={createProviderMenuItem} className="grid gap-4">
+                <input type="hidden" name="providerId" value={provider.id} />
 
-              <FormField label="Name" htmlFor="itemName">
-                <input id="itemName" name="name" required className={inputClassName} />
-              </FormField>
+                <FormField label="Name" htmlFor="itemName">
+                  <input id="itemName" name="name" required className={inputClassName} />
+                </FormField>
 
-              <FormField label="Description" htmlFor="itemDescription">
-                <textarea
-                  id="itemDescription"
-                  name="description"
-                  rows={2}
-                  className={textareaClassName}
-                />
-              </FormField>
+                <FormField label="Description" htmlFor="itemDescription">
+                  <textarea
+                    id="itemDescription"
+                    name="description"
+                    rows={2}
+                    className={textareaClassName}
+                  />
+                </FormField>
 
-              <FormField label="Price" htmlFor="itemPrice">
-                <input
-                  id="itemPrice"
-                  name="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  className={inputClassName}
-                />
-              </FormField>
+                <FormField label="Price" htmlFor="itemPrice">
+                  <input
+                    id="itemPrice"
+                    name="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    className={inputClassName}
+                  />
+                </FormField>
 
-              <MenuItemTypeFields />
+                <MenuItemTypeFields />
 
-              <WeekdayPicker />
+                <WeekdayPicker />
 
-              <button type="submit" className={linkButtonClass("primary")}>
-                Add menu item
-              </button>
-            </form>
-          </Card>
+                <button type="submit" className={linkButtonClass("primary")}>
+                  Save menu item
+                </button>
+              </form>
+            </div>
+          </details>
 
           {items.length === 0 ? (
             <EmptyState
@@ -276,29 +331,31 @@ export default async function ProviderDetailPage({
               description="Add a recurring menu item above to make this provider available for ordering."
             />
           ) : (
-            <div className="space-y-4">
-              {items.map((item) => {
-                const weekdays = item.provider_menu_item_weekdays.map(
-                  (row) => row.weekday,
-                );
-
-                return (
-                  <MenuItemAdminCard
-                    key={item.id}
-                    providerId={provider.id}
-                    item={{
-                      id: item.id,
-                      name: item.name,
-                      description: item.description,
-                      price: item.price,
-                      itemType: item.item_type,
-                      unitLabel: item.unit_label,
-                      active: item.active,
-                      weekdays,
-                    }}
-                  />
-                );
-              })}
+            <div className="space-y-8">
+              {groupedItems.main.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Mains</h3>
+                  <div className="space-y-4">
+                    {groupedItems.main.sort(sortItems).map(renderItem)}
+                  </div>
+                </div>
+              )}
+              {groupedItems.side.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Sides</h3>
+                  <div className="space-y-4">
+                    {groupedItems.side.sort(sortItems).map(renderItem)}
+                  </div>
+                </div>
+              )}
+              {Object.entries(standaloneGrouped).sort(([a], [b]) => a.localeCompare(b)).map(([category, catItems]) => (
+                <div key={category}>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{category}</h3>
+                  <div className="space-y-4">
+                    {catItems.sort(sortItems).map(renderItem)}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>

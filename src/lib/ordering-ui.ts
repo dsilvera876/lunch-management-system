@@ -58,6 +58,13 @@ export function getOrderingClosedReason(
   return null;
 }
 
+export function canEditOrder(
+  status: string,
+  orderingOpen: boolean,
+): boolean {
+  return status === "submitted" && orderingOpen;
+}
+
 export function summarizeProviderWeekdays(
   items: Array<{ active: boolean; weekdays: number[] }>,
 ): string {

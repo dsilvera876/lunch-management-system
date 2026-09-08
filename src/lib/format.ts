@@ -1,3 +1,5 @@
+import { JAMAICA_TIME_ZONE } from "./datetime";
+
 export type Related<T> = T | T[] | null;
 
 export function getRelated<T>(value: Related<T>): T | null {
@@ -17,9 +19,33 @@ export function formatDeadline(value: string) {
 }
 
 export function formatCurrency(value: number | string) {
-  return Number(value).toFixed(2);
+  const numeric = Number(value);
+  if (isNaN(numeric)) {
+    return "$0.00";
+  }
+  return "$" + numeric.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-export function formatMoney(value: number | string) {
-  return formatCurrency(value);
+export function formatPrice(value: number | string) {
+  const numeric = Number(value);
+  if (isNaN(numeric) || numeric === 0) {
+    return "";
+  }
+  return formatCurrency(numeric);
+}
+
+export function formatHumanDate(dateString: string) {
+  // A PostgreSQL date is a Jamaica calendar date, not an instant. Explicit
+  // Jamaica noon keeps formatting independent of the server's local timezone.
+  const date = new Date(`${dateString}T12:00:00-05:00`);
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: JAMAICA_TIME_ZONE,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(date);
 }

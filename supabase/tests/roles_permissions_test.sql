@@ -2,6 +2,8 @@ begin;
 
 select plan(59);
 
+\ir support/isolate_existing_owner.inc
+
 -- ============================================================
 -- Users
 -- ============================================================
@@ -197,7 +199,14 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select count(*) from public.orders $$,
+  $$
+    select count(*)
+    from public.orders
+    where id in (
+      '99999999-9999-4999-8999-999999999901',
+      '99999999-9999-4999-8999-999999999902'
+    )
+  $$,
   array[2::bigint],
   'HR can view all orders'
 );
@@ -205,7 +214,14 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select count(*) from public.orders $$,
+  $$
+    select count(*)
+    from public.orders
+    where id in (
+      '99999999-9999-4999-8999-999999999901',
+      '99999999-9999-4999-8999-999999999902'
+    )
+  $$,
   array[2::bigint],
   'Accounts can view all orders'
 );
@@ -213,7 +229,14 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select count(*) from public.orders $$,
+  $$
+    select count(*)
+    from public.orders
+    where id in (
+      '99999999-9999-4999-8999-999999999901',
+      '99999999-9999-4999-8999-999999999902'
+    )
+  $$,
   array[2::bigint],
   'Admin can view all orders'
 );
@@ -221,7 +244,14 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select count(*) from public.orders $$,
+  $$
+    select count(*)
+    from public.orders
+    where id in (
+      '99999999-9999-4999-8999-999999999901',
+      '99999999-9999-4999-8999-999999999902'
+    )
+  $$,
   array[2::bigint],
   'Owner can view all orders'
 );
@@ -610,7 +640,12 @@ select lives_ok(
 );
 
 select results_eq(
-  $$ select count(*) from public.lunch_providers where active = true $$,
+  $$
+    select count(*)
+    from public.lunch_providers
+    where id = '88888888-8888-4888-8888-888888888888'
+      and active = true
+  $$,
   array[1::bigint],
   'All authenticated roles can read active provider data needed for personal ordering'
 );

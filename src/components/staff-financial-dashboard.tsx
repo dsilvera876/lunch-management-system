@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatLunchPeriodRange } from "@/lib/lunch-periods";
-import { formatMoney } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import type { StaffFinancialDashboard } from "@/lib/financial-summaries";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -26,15 +26,15 @@ function AmountBreakdown({
     <dl className="mt-3 space-y-1 text-sm">
       <div className="flex justify-between gap-4">
         <dt className="text-muted">Gross spend</dt>
-        <dd className="font-medium">{formatMoney(gross)}</dd>
+        <dd className="font-medium">{formatCurrency(gross)}</dd>
       </div>
       <div className="flex justify-between gap-4">
         <dt className="text-muted">Subsidy used</dt>
-        <dd className="font-medium">{formatMoney(subsidyUsed)}</dd>
+        <dd className="font-medium">{formatCurrency(subsidyUsed)}</dd>
       </div>
       <div className="flex justify-between gap-4">
         <dt className="text-muted">Net deduction</dt>
-        <dd className="font-semibold">{formatMoney(netDeduction)}</dd>
+        <dd className="font-semibold">{formatCurrency(netDeduction)}</dd>
       </div>
     </dl>
   );
@@ -46,7 +46,7 @@ export function StaffFinancialDashboardView({ dashboard, canExport }: Props) {
       <Card padding="sm">
         <p className="text-sm text-muted">Daily lunch subsidy</p>
         <p className="mt-2 text-2xl font-semibold">
-          {formatMoney(dashboard.daily_lunch_subsidy)}
+          {formatCurrency(dashboard.daily_lunch_subsidy)}
         </p>
         <p className="mt-1 text-xs text-muted">
           Applied once per order date across all qualifying orders.
@@ -79,8 +79,8 @@ export function StaffFinancialDashboardView({ dashboard, canExport }: Props) {
               <li key={`${month.year}-${month.month}`} className="text-sm">
                 <p className="font-medium">{month.label.trim()}</p>
                 <div className="mt-1 flex justify-between gap-4 text-muted">
-                  <span>Gross {formatMoney(month.gross)}</span>
-                  <span>Net {formatMoney(month.net_deduction)}</span>
+                  <span>Gross {formatCurrency(month.gross)}</span>
+                  <span>Net {formatCurrency(month.net_deduction)}</span>
                 </div>
               </li>
             ))}
@@ -124,25 +124,25 @@ export function StaffFinancialDashboardView({ dashboard, canExport }: Props) {
               </p>
               <p className="mt-2 text-sm text-muted">
                 Daily subsidy for this period:{" "}
-                {formatMoney(dashboard.current_period.daily_subsidy_rate)}
+                {formatCurrency(dashboard.current_period.daily_subsidy_rate)}
               </p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <p className="text-sm text-muted">Gross spend</p>
                   <p className="text-xl font-semibold">
-                    {formatMoney(dashboard.current_period.gross)}
+                    {formatCurrency(dashboard.current_period.gross)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted">Subsidy used</p>
                   <p className="text-xl font-semibold">
-                    {formatMoney(dashboard.current_period.subsidy_used)}
+                    {formatCurrency(dashboard.current_period.subsidy_used)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted">Net payroll deduction</p>
                   <p className="text-xl font-semibold">
-                    {formatMoney(dashboard.current_period.net_deduction)}
+                    {formatCurrency(dashboard.current_period.net_deduction)}
                   </p>
                 </div>
                 <div>
@@ -182,7 +182,7 @@ export function StaffFinancialDashboardView({ dashboard, canExport }: Props) {
                         <td className="px-3 py-2">{order.provider_name ?? "—"}</td>
                         <td className="px-3 py-2 capitalize">{order.order_status}</td>
                         <td className="px-3 py-2 text-right">
-                          {formatMoney(order.order_total)}
+                          {formatCurrency(order.order_total)}
                         </td>
                       </tr>
                     ))}

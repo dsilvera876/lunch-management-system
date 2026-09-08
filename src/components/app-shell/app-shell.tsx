@@ -8,7 +8,8 @@ import {
   getPostLoginPath,
   getRoleLabel,
   isNavActive,
-  type NavItem,
+  type NavGroup,
+  ACCOUNT_NAV,
 } from "@/lib/navigation";
 
 type Profile = {
@@ -17,12 +18,12 @@ type Profile = {
 };
 
 function NavLinks({
-  items,
+  groups,
   pathname,
   onNavigate,
   variant = "sidebar",
 }: {
-  items: NavItem[];
+  groups: NavGroup[];
   pathname: string;
   onNavigate?: () => void;
   variant?: "sidebar" | "light";
@@ -30,32 +31,47 @@ function NavLinks({
   const isSidebar = variant === "sidebar";
 
   return (
-    <ul className="space-y-1">
-      {items.map((item) => {
-        const active = isNavActive(pathname, item.href);
-
-        return (
-          <li key={item.href}>
-            <Link
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                active
-                  ? isSidebar
-                    ? "bg-white/10 text-white"
-                    : "bg-primary/10 text-primary"
-                  : isSidebar
-                    ? "text-sidebar-muted hover:bg-white/5 hover:text-white"
-                    : "text-foreground hover:bg-background"
+    <div className="space-y-6">
+      {groups.map((group, index) => (
+        <div key={group.label} className={index > 0 ? (isSidebar ? "pt-6 border-t border-white/5" : "pt-6 border-t border-border") : ""}>
+          {group.label !== "LUNCH" && (
+            <h3
+              className={`mb-3 px-3 text-[11px] font-semibold uppercase tracking-widest ${
+                isSidebar ? "text-sidebar-muted/70" : "text-muted/70"
               }`}
             >
-              {item.label}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+              {group.label}
+            </h3>
+          )}
+          <ul className="space-y-1">
+            {group.items.map((item) => {
+              const active = isNavActive(pathname, item.href);
+
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? isSidebar
+                          ? "bg-white/10 text-white"
+                          : "bg-primary/10 text-primary"
+                        : isSidebar
+                          ? "text-sidebar-muted hover:bg-white/5 hover:text-white"
+                          : "text-foreground hover:bg-background"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -87,10 +103,16 @@ export function AppShell({
         </div>
 
         <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 py-4">
-          <NavLinks items={navItems} pathname={pathname} />
+          <NavLinks groups={navItems} pathname={pathname} />
         </nav>
 
         <div className="border-t border-white/10 px-5 py-4">
+          <Link
+            href={ACCOUNT_NAV.href}
+            className="mb-3 block text-sm font-medium text-sidebar-muted transition-colors hover:text-white"
+          >
+            {ACCOUNT_NAV.label}
+          </Link>
           <p className="truncate text-sm font-medium text-white">
             {profile.full_name ?? "User"}
           </p>
@@ -136,19 +158,28 @@ export function AppShell({
             className="border-t border-border px-3 py-3"
           >
             <NavLinks
-              items={navItems}
+              groups={navItems}
               pathname={pathname}
               variant="light"
               onNavigate={() => setMobileOpen(false)}
             />
-            <form action="/auth/signout" method="post" className="mt-3 px-3">
-              <button
-                type="submit"
-                className="text-sm font-medium text-muted underline-offset-2 hover:underline"
+            <div className="mt-6 border-t border-border px-3 pt-4">
+              <Link
+                href={ACCOUNT_NAV.href}
+                onClick={() => setMobileOpen(false)}
+                className="mb-3 block text-sm font-medium text-muted transition-colors hover:text-foreground"
               >
-                Sign out
-              </button>
-            </form>
+                {ACCOUNT_NAV.label}
+              </Link>
+              <form action="/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="text-sm font-medium text-muted underline-offset-2 hover:underline"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
           </nav>
         )}
       </header>

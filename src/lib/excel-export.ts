@@ -4,7 +4,7 @@ import type {
   LunchPeriodFinancialSummary,
   StaffExportPayload,
 } from "@/lib/financial-summaries";
-import { formatMoney } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 
 const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true };
 
@@ -264,7 +264,7 @@ export async function buildManagementWorkbook(
 }
 
 export function formatWorkbookMoney(value: string | number): string {
-  return formatMoney(value);
+  return formatCurrency(value);
 }
 
 export async function readWorkbookSheetNames(

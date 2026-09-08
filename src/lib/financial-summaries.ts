@@ -60,6 +60,31 @@ export type StaffFinancialDashboard = {
   current_period: StaffCurrentPeriodSummary | null;
 };
 
+type FinancialRpcError = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+export class FinancialDashboardLoadError extends Error {
+  readonly code: string | null;
+  readonly details: string | null;
+  readonly hint: string | null;
+
+  constructor(error: FinancialRpcError | null) {
+    super("Unable to load financial summaries.", { cause: error ?? undefined });
+    this.name = "FinancialDashboardLoadError";
+    this.code = error?.code ?? null;
+    this.details = error?.details ?? null;
+    this.hint = error?.hint ?? null;
+  }
+}
+
+export type StaffFinancialDashboardResult =
+  | { status: "ready"; dashboard: StaffFinancialDashboard }
+  | { status: "error"; error: FinancialDashboardLoadError };
+
 export type ManagementEmployeeSummary = FinancialAmountSummary & {
   employee_id: string;
   employee_name: string | null;
@@ -143,11 +168,33 @@ export async function getStaffFinancialDashboard(
 ): Promise<StaffFinancialDashboard> {
   const { data, error } = await supabase.rpc("get_my_financial_dashboard");
 
-  if (error) {
-    throw new Error("Unable to load financial summaries.");
+  if (error || data === null) {
+    throw new FinancialDashboardLoadError(error);
   }
 
   return data as StaffFinancialDashboard;
+}
+
+export async function getStaffFinancialDashboardResult(
+  supabase: SupabaseClient,
+  reportError: (error: FinancialDashboardLoadError) => void = console.error,
+): Promise<StaffFinancialDashboardResult> {
+  try {
+    return {
+      status: "ready",
+      dashboard: await getStaffFinancialDashboard(supabase),
+    };
+  } catch (error) {
+    const dashboardError =
+      error instanceof FinancialDashboardLoadError
+        ? error
+        : new FinancialDashboardLoadError({
+            message: error instanceof Error ? error.message : String(error),
+          });
+
+    reportError(dashboardError);
+    return { status: "error", error: dashboardError };
+  }
 }
 
 export async function getLunchPeriodFinancialSummary(

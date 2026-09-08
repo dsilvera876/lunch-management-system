@@ -2,6 +2,9 @@ begin;
 
 select plan(37);
 
+\ir support/isolate_existing_owner.inc
+\ir support/isolate_lunch_periods.inc
+
 -- Fixture dates use January 2099 so tests do not depend on the real calendar month.
 
 -- ============================================================

@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { formatWeekdayList } from "./datetime";
 import {
   calculateLineSubtotal,
+  canEditOrder,
   formatDisplayDate,
   formatOrderDeliveryHeadline,
   getOrderingClosedReason,
@@ -74,6 +75,15 @@ describe("getOrderingClosedReason", () => {
     });
 
     assert.match(reason?.description ?? "", /window has closed/);
+  });
+});
+
+describe("canEditOrder", () => {
+  it("allows editing only for submitted orders while ordering is open", () => {
+    assert.equal(canEditOrder("submitted", true), true);
+    assert.equal(canEditOrder("submitted", false), false);
+    assert.equal(canEditOrder("fulfilled", true), false);
+    assert.equal(canEditOrder("cancelled", true), false);
   });
 });
 

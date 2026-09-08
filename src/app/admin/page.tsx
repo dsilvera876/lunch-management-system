@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { getJamaicaTodayDate, getJamaicaIsoWeekday, getDeliveryDateForOrderDate } from "@/lib/datetime";
 import {
@@ -9,13 +8,12 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { updateOrderCutoff } from "./actions";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { FormField, inputClassName } from "@/components/ui/form-field";
-import { Button, linkButtonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDeadline } from "@/lib/format";
+import { formatHumanDate } from "@/lib/format";
 
 type Props = {
   searchParams: Promise<{
@@ -35,20 +33,15 @@ export default async function AdminPage({ searchParams }: Props) {
     : null;
 
   const [
-    { count: submittedOrders },
-    { count: fulfilledOrders },
+    { data: ordersData },
     { count: activeProviders },
     { data: settings },
     { data: orderDeadline },
   ] = await Promise.all([
     supabase
       .from("orders")
-      .select("*", { count: "exact", head: true })
+      .select("office_location_name")
       .eq("status", "submitted"),
-    supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "fulfilled"),
     supabase
       .from("lunch_providers")
       .select("*", { count: "exact", head: true })
@@ -58,6 +51,13 @@ export default async function AdminPage({ searchParams }: Props) {
       ? supabase.rpc("order_deadline_for_order_date", { p_order_date: orderDate })
       : Promise.resolve({ data: null }),
   ]);
+
+  const submittedOrders = ordersData?.length ?? 0;
+  const ordersByLocation = ordersData?.reduce((acc, order) => {
+    const loc = order.office_location_name ?? "Unspecified";
+    acc[loc] = (acc[loc] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>) ?? {};
 
   const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
   const cutoffInputValue = cutoffTimeToFormValue(cutoffTime);
@@ -85,88 +85,73 @@ export default async function AdminPage({ searchParams }: Props) {
         </Alert>
       )}
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card padding="sm">
-          <p className="text-sm text-muted">Today&apos;s ordering</p>
-          <div className="mt-2 flex items-center gap-2">
-            <p className="text-2xl font-semibold">
-              {orderWeekday ? (orderingOpen ? "Open" : "Closed") : "Weekend"}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card padding="md" className="flex flex-col">
+          <h2 className="text-lg font-semibold mb-4">Today&apos;s Operations</h2>
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Ordering status</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {orderWeekday ? (orderingOpen ? "Open" : "Closed") : "Weekend"}
+                </span>
+                {orderWeekday && (
+                  <StatusBadge status={orderingOpen ? "open" : "closed"} />
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Delivery date</span>
+              <span className="text-sm font-medium">{deliveryDate ? formatHumanDate(deliveryDate) : "N/A"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Active providers</span>
+              <span className="text-sm font-medium">{activeProviders ?? 0}</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card padding="md" className="flex flex-col">
+          <h2 className="text-lg font-semibold mb-4">Submitted Orders</h2>
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Total submitted</span>
+              <span className="text-sm font-medium">{submittedOrders}</span>
+            </div>
+            {Object.entries(ordersByLocation).map(([loc, count]) => (
+              <div key={loc} className="flex items-center justify-between pl-4 border-l-2 border-border">
+                <span className="text-sm text-muted">{loc}</span>
+                <span className="text-sm font-medium">{count}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card padding="md" className="flex flex-col">
+          <h2 className="text-lg font-semibold mb-4">Order Cutoff</h2>
+          <div className="flex-1">
+            <p className="mb-4 text-sm text-muted">
+              Current cutoff: {formatJamaicaWallClockTime(cutoffTime)}
             </p>
-            {orderWeekday && (
-              <StatusBadge status={orderingOpen ? "open" : "closed"} />
-            )}
+            <form action={updateOrderCutoff} className="space-y-4">
+              <FormField
+                label="Daily cutoff"
+                htmlFor="orderCutoffTime"
+              >
+                <input
+                  id="orderCutoffTime"
+                  name="orderCutoffTime"
+                  type="time"
+                  required
+                  defaultValue={cutoffInputValue}
+                  className={inputClassName}
+                />
+              </FormField>
+              <Button type="submit" variant="primary" className="w-full justify-center">
+                Save cutoff
+              </Button>
+            </form>
           </div>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-muted">Delivery date</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {deliveryDate ?? "—"}
-          </p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-muted">Submitted orders</p>
-          <p className="mt-2 text-2xl font-semibold">{submittedOrders ?? 0}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-muted">Active providers</p>
-          <p className="mt-2 text-2xl font-semibold">{activeProviders ?? 0}</p>
-        </Card>
-      </div>
-
-      <div className="grid gap-8 xl:grid-cols-3">
-        <Card className="xl:col-span-1">
-          <SectionHeader
-            title="Order cutoff"
-            description="Global daily cutoff for ordering."
-          />
-          <p className="mb-4 text-sm text-muted">
-            Current: {formatJamaicaWallClockTime(cutoffTime)}
-            {orderDeadline ? ` (${formatDeadline(orderDeadline)} today)` : ""}
-          </p>
-          <form action={updateOrderCutoff} className="space-y-4">
-            <FormField
-              label="Daily cutoff"
-              htmlFor="orderCutoffTime"
-              description="Applies to all provider ordering for the active order day."
-            >
-              <input
-                id="orderCutoffTime"
-                name="orderCutoffTime"
-                type="time"
-                required
-                defaultValue={cutoffInputValue}
-                className={inputClassName}
-              />
-            </FormField>
-            <Button type="submit" variant="primary">
-              Save cutoff
-            </Button>
-          </form>
-        </Card>
-
-        <Card className="xl:col-span-2">
-          <SectionHeader title="Quick actions" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link href="/admin/providers" className={linkButtonClass("secondary")}>
-              Manage lunch providers
-            </Link>
-            <Link href="/admin/orders" className={linkButtonClass("secondary")}>
-              View orders ({submittedOrders ?? 0} submitted)
-            </Link>
-            <Link href="/lunch" className={linkButtonClass("secondary")}>
-              Staff ordering view
-            </Link>
-            <Link href="/admin/users" className={linkButtonClass("secondary")}>
-              User / role management
-            </Link>
-            <Link href="/admin/lunch-days" className={linkButtonClass("ghost")}>
-              Legacy lunch days
-            </Link>
-          </div>
-          <p className="mt-4 text-sm text-muted">
-            Fulfilled orders: {fulfilledOrders ?? 0}. Provider menus drive the
-            normal workflow; legacy lunch days remain for compatibility only.
-          </p>
         </Card>
       </div>
     </>

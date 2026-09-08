@@ -2,6 +2,9 @@ begin;
 
 select plan(33);
 
+\ir support/isolate_existing_owner.inc
+\ir support/isolate_lunch_periods.inc
+
 -- Fixture dates use January 2099 so tests do not depend on the real calendar month.
 
 -- ============================================================
@@ -46,9 +49,17 @@ values
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 select id, wd
 from public.provider_menu_items
-cross join generate_series(1, 5) as wd;
+cross join generate_series(1, 5) as wd
+where provider_id in (
+  'f1111111-1111-4111-8111-111111111111',
+  'f2222222-2222-4222-8222-222222222222'
+);
 
-update public.app_settings set order_cutoff_time = '23:59:00' where id = 1;
+update public.app_settings
+set
+  order_cutoff_time = '23:59:00',
+  daily_lunch_subsidy = 0
+where id = 1;
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'e5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
