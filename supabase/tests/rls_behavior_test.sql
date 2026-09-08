@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(6);
 
 -- Ensure seeded lunch day is open with a future deadline for this test run.
 reset role;
@@ -66,8 +66,8 @@ select results_eq(
   'User cannot see another users orders'
 );
 
--- 3. User A can create their own order.
-select lives_ok(
+-- 3. User A cannot directly create orders.
+select throws_ok(
   $$
     insert into public.orders (
       id,
@@ -80,11 +80,13 @@ select lives_ok(
       '10000000-0000-0000-0000-000000000001'
     )
   $$,
-  'User can create their own order'
+  '42501',
+  null,
+  'User cannot directly create orders'
 );
 
--- 4. Database replaces client-supplied pricing.
-select lives_ok(
+-- 4. User A cannot directly add order items.
+select throws_ok(
   $$
     insert into public.order_items (
       id,
@@ -103,15 +105,37 @@ select lives_ok(
       0.01
     )
   $$,
-  'User can add a valid menu item'
+  '42501',
+  null,
+  'User cannot directly add order items'
 );
 
--- 5. Confirm fake $0.01 price became actual $12.00 menu price.
+-- 5. Trusted submit_order controls pricing.
+select lives_ok(
+  $$
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
+  $$,
+  'User can submit an order through trusted RPC'
+);
+
 select results_eq(
   $$
     select unit_price
-    from public.order_items
-    where id = '40000000-0000-0000-0000-000000000001'
+    from public.order_items oi
+    join public.orders o on o.id = oi.order_id
+    where o.profile_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    order by o.created_at desc
+    limit 1
   $$,
   array[12.00::numeric],
   'Database controls order item pricing'

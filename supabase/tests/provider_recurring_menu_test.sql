@@ -62,6 +62,8 @@ select lives_ok(
       provider_id,
       name,
       price,
+      item_type,
+      unit_label,
       active
     )
     values (
@@ -69,6 +71,8 @@ select lives_ok(
       'b1111111-1111-4111-8111-111111111111',
       'Fried Chicken',
       12.00,
+      'main',
+      'Each',
       true
     )
   $$,
@@ -80,12 +84,16 @@ select throws_ok(
     insert into public.provider_menu_items (
       provider_id,
       name,
-      price
+      price,
+      item_type,
+      unit_label
     )
     values (
       'b1111111-1111-4111-8111-111111111111',
       'fried chicken',
-      12.50
+      12.50,
+      'main',
+      'Each'
     )
   $$,
   '23505',
@@ -110,12 +118,16 @@ select lives_ok(
     insert into public.provider_menu_items (
       provider_id,
       name,
-      price
+      price,
+      item_type,
+      unit_label
     )
     values (
       'b2222222-2222-4222-8222-222222222222',
       'fried chicken',
-      13.00
+      13.00,
+      'main',
+      'Each'
     )
   $$,
   'Same normalized menu item name allowed for different provider'
@@ -181,12 +193,16 @@ select throws_ok(
     insert into public.provider_menu_items (
       provider_id,
       name,
-      price
+      price,
+      item_type,
+      unit_label
     )
     values (
       'b1111111-1111-4111-8111-111111111111',
       'Curry Chicken',
-      11.00
+      11.00,
+      'main',
+      'Each'
     )
   $$,
   '42501',

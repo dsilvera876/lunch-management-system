@@ -75,14 +75,9 @@ export function getDeliveryDateForOrderDate(orderDateStr: string): string | null
 
 export function formatWeekdayList(weekdays: number[]): string {
   const sorted = [...weekdays].sort((a, b) => a - b);
-
-  if (sorted.length === 5) {
-    return "Mon–Fri";
-  }
-
   const labels = new Map(WEEKDAYS.map((day) => [day.value, day.short]));
 
   return sorted
     .map((day) => labels.get(day as Weekday) ?? String(day))
-    .join(", ");
+    .join(" ");
 }

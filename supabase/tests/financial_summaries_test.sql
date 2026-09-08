@@ -33,10 +33,10 @@ reset role;
 insert into public.lunch_providers (id, name, active)
 values ('b1111111-1111-4111-8111-111111111111', 'Finance Kitchen', true);
 
-insert into public.provider_menu_items (id, provider_id, name, price, active)
+insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values
-  ('c1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111', 'Meal A', 12.00, true),
-  ('c2222222-2222-4222-8222-222222222222', 'b1111111-1111-4111-8111-111111111111', 'Meal B', 11.00, true);
+  ('c1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111', 'Meal A', 12.00, 'standalone', 'Each', true),
+  ('c2222222-2222-4222-8222-222222222222', 'b1111111-1111-4111-8111-111111111111', 'Meal B', 11.00, 'standalone', 'Each', true);
 
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 values
@@ -75,21 +75,24 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-09'::date,
-  '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":2}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":2}]}'::jsonb,
+  null
 );
 
 -- Fulfilled order in first period
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-06'::date,
-  '[{"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}]}'::jsonb,
+  null
 );
 
 -- Cancelled order in first period
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-09'::date,
-  '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+  null
 );
 
 select public.cancel_order(o.id)
@@ -107,14 +110,16 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a2222222-2222-
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-09'::date,
-  '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+  null
 );
 
 -- Order outside first period (second period)
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-13'::date,
-  '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+  null
 );
 
 reset role;
@@ -133,10 +138,8 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-09'::date,
-  '[
-    {"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1},
-    {"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}
-  ]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1},{"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}]}'::jsonb,
+  null
 );
 
 -- ============================================================
@@ -479,10 +482,15 @@ select throws_ok(
         limit 1
       ),
       (
-        select jsonb_build_array(
-          jsonb_build_object(
-            'menu_item_id', oi.menu_item_id,
-            'quantity', 1
+        select jsonb_build_object(
+          'meal_quantity', null,
+          'main_menu_item_id', null,
+          'side_menu_item_ids', '[]'::jsonb,
+          'standalone_items', jsonb_build_array(
+            jsonb_build_object(
+              'menu_item_id', oi.menu_item_id,
+              'quantity', 1
+            )
           )
         )
         from public.order_items oi
@@ -497,7 +505,8 @@ select throws_ok(
           limit 1
         )
         limit 1
-      )
+      ),
+      null
     )
   $$,
   'P0001',
@@ -555,7 +564,8 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-03-05'::date,
-  '[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+  null
 );
 
 select lives_ok(

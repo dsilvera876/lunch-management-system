@@ -38,13 +38,17 @@ reset role;
 insert into public.lunch_providers (id, name, active)
 values ('d0111111-1111-4111-8111-111111111111', 'Cleanup Test Kitchen', true);
 
-insert into public.provider_menu_items (id, provider_id, name, price, active)
-values ('d0222222-2222-4222-8222-222222222222', 'd0111111-1111-4111-8111-111111111111', 'Test Meal', 10.00, true);
+insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
+values
+  ('d0222222-2222-4222-8222-222222222222', 'd0111111-1111-4111-8111-111111111111', 'Test Meal', 8.00, 'main', 'Each', true),
+  ('d0222223-2222-4222-8222-222222222223', 'd0111111-1111-4111-8111-111111111111', 'Test Side', 2.00, 'side', 'Each', true);
 
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 values
   ('d0222222-2222-4222-8222-222222222222', 1),
-  ('d0222222-2222-4222-8222-222222222222', 2);
+  ('d0222222-2222-4222-8222-222222222222', 2),
+  ('d0222223-2222-4222-8222-222222222223', 1),
+  ('d0222223-2222-4222-8222-222222222223', 2);
 
 reset role;
 
@@ -59,7 +63,8 @@ select set_config('request.jwt.claims', json_build_object('sub', 'd0333333-3333-
 select public.submit_provider_order(
   'd0111111-1111-4111-8111-111111111111',
   '2099-01-06'::date,
-  '[{"provider_menu_item_id":"d0222222-2222-4222-8222-222222222222","quantity":1}]'::jsonb
+  '{"meal_quantity":1,"main_provider_menu_item_id":"d0222222-2222-4222-8222-222222222222","side_provider_menu_item_ids":["d0222223-2222-4222-8222-222222222223"],"standalone_items":[]}'::jsonb,
+  null
 );
 
 select results_eq(

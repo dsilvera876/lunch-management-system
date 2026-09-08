@@ -32,16 +32,7 @@ select throws_ok(
   $$
     select public.submit_order(
       '10000000-0000-0000-0000-000000000001',
-      '[
-        {
-          "menu_item_id": "20000000-0000-0000-0000-000000000001",
-          "quantity": 1
-        },
-        {
-          "menu_item_id": "29999999-9999-4999-8999-999999999999",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":null,"main_menu_item_id":null,"side_menu_item_ids":[],"standalone_items":[{"menu_item_id":"20000000-0000-0000-0000-000000000001","quantity":1},{"menu_item_id":"29999999-9999-4999-8999-999999999999","quantity":1}]}'::jsonb
     )
   $$,
   'P0001',

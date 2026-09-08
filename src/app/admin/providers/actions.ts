@@ -102,4 +102,6 @@ export async function toggleProviderActive(formData: FormData) {
 
   revalidatePath("/admin/providers");
   revalidatePath(`/admin/providers/${id}`);
+
+  redirect(`/admin/providers/${id}?statusUpdated=1`);
 }

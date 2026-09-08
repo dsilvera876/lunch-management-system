@@ -295,8 +295,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-
 
 select lives_ok(
   $$
-    insert into public.orders (id, profile_id, lunch_day_id, status)
-    values ('99999999-9999-4999-8999-999999999908', '11111111-1111-4111-8111-111111111111', '10000000-0000-0000-0000-000000000001', 'submitted')
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
   $$,
   'Normal ordering functionality remains unaffected'
 );

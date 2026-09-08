@@ -37,12 +37,7 @@ select set_config(
 
 select public.submit_order(
   '10000000-0000-0000-0000-000000000001',
-  '[
-    {
-      "menu_item_id": "20000000-0000-0000-0000-000000000001",
-      "quantity": 1
-    }
-  ]'::jsonb
+  '{"meal_quantity":null,"main_menu_item_id":null,"side_menu_item_ids":[],"standalone_items":[{"menu_item_id":"20000000-0000-0000-0000-000000000001","quantity":1}]}'::jsonb
 );
 
 -- 1. Normal user cannot fulfill.

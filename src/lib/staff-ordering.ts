@@ -5,13 +5,23 @@ import {
   getJamaicaTodayDate,
   type Weekday,
 } from "@/lib/datetime";
+import type { MenuItemType } from "@/lib/menu-items";
 import { DEFAULT_ORDER_CUTOFF_TIME } from "@/lib/settings";
+
+export type AvailableMenuItem = {
+  id: string;
+  name: string;
+  price: number;
+  itemType: MenuItemType;
+  unitLabel: string;
+};
 
 export type AvailableProvider = {
   id: string;
   name: string;
   description: string | null;
   itemCount: number;
+  items: AvailableMenuItem[];
 };
 
 export type DeliveryOrderSummary = {
@@ -20,8 +30,16 @@ export type DeliveryOrderSummary = {
   created_at: string;
   lunch_day_id: string;
   providerName: string | null;
+  orderDate: string | null;
   deliveryDate: string;
-  items: Array<{ name: string; quantity: number }>;
+  items: Array<{
+    name: string;
+    quantity: number;
+    itemType: MenuItemType;
+    unitLabel: string;
+  }>;
+  specialInstructions: string | null;
+  mealQuantity: number | null;
   total: number;
 };
 
@@ -64,6 +82,10 @@ export async function getStaffOrderingContext(
               description,
               provider_menu_items!inner (
                 id,
+                name,
+                price,
+                item_type,
+                unit_label,
                 active,
                 provider_menu_item_weekdays!inner (
                   weekday
@@ -87,8 +109,11 @@ export async function getStaffOrderingContext(
               status,
               created_at,
               lunch_day_id,
+              special_instructions,
+              meal_quantity,
               lunch_days!inner (
                 lunch_date,
+                order_date,
                 lunch_providers (
                   name
                 )
@@ -97,7 +122,9 @@ export async function getStaffOrderingContext(
                 quantity,
                 unit_price,
                 menu_items (
-                  name
+                  name,
+                  item_type,
+                  unit_label
                 )
               )
             `)
@@ -134,6 +161,13 @@ export async function getStaffOrderingContext(
       name: provider.name,
       description: provider.description,
       itemCount: provider.provider_menu_items.length,
+      items: provider.provider_menu_items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price),
+        itemType: item.item_type as MenuItemType,
+        unitLabel: item.unit_label,
+      })),
     })) ?? [];
 
   const deliveryOrders: DeliveryOrderSummary[] =
@@ -155,6 +189,8 @@ export async function getStaffOrderingContext(
         return {
           name: menuItem?.name ?? "Menu item",
           quantity: item.quantity,
+          itemType: (menuItem?.item_type ?? "standalone") as MenuItemType,
+          unitLabel: menuItem?.unit_label ?? "Each",
         };
       });
 
@@ -169,8 +205,11 @@ export async function getStaffOrderingContext(
         created_at: order.created_at,
         lunch_day_id: order.lunch_day_id,
         providerName: provider?.name ?? null,
+        orderDate: lunchDay?.order_date ?? null,
         deliveryDate: lunchDay?.lunch_date ?? deliveryDate ?? "",
         items,
+        specialInstructions: order.special_instructions ?? null,
+        mealQuantity: order.meal_quantity ?? null,
         total,
       };
     }) ?? [];

@@ -33,15 +33,15 @@ values
   ('f1111111-1111-4111-8111-111111111111', 'Subsidy Kitchen A', true),
   ('f2222222-2222-4222-8222-222222222222', 'Subsidy Kitchen B', true);
 
-insert into public.provider_menu_items (id, provider_id, name, price, active)
+insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values
-  ('01111111-1111-4111-8111-111111111111', 'f1111111-1111-4111-8111-111111111111', 'Meal 700', 700.00, true),
-  ('02222222-2222-4222-8222-222222222222', 'f1111111-1111-4111-8111-111111111111', 'Meal 400', 400.00, true),
-  ('03333333-3333-4333-8333-333333333333', 'f1111111-1111-4111-8111-111111111111', 'Meal 300', 300.00, true),
-  ('04444444-4444-4444-8444-444444444444', 'f1111111-1111-4111-8111-111111111111', 'Meal 500', 500.00, true),
-  ('05555555-5555-4555-8555-555555555555', 'f1111111-1111-4111-8111-111111111111', 'Meal 800', 800.00, true),
-  ('06666666-6666-4666-8666-666666666666', 'f2222222-2222-4222-8222-222222222222', 'Meal 200', 200.00, true),
-  ('07777777-7777-4777-8777-777777777777', 'f1111111-1111-4111-8111-111111111111', 'Meal 12', 12.00, true);
+  ('01111111-1111-4111-8111-111111111111', 'f1111111-1111-4111-8111-111111111111', 'Meal 700', 700.00, 'standalone', 'Each', true),
+  ('02222222-2222-4222-8222-222222222222', 'f1111111-1111-4111-8111-111111111111', 'Meal 400', 400.00, 'standalone', 'Each', true),
+  ('03333333-3333-4333-8333-333333333333', 'f1111111-1111-4111-8111-111111111111', 'Meal 300', 300.00, 'standalone', 'Each', true),
+  ('04444444-4444-4444-8444-444444444444', 'f1111111-1111-4111-8111-111111111111', 'Meal 500', 500.00, 'standalone', 'Each', true),
+  ('05555555-5555-4555-8555-555555555555', 'f1111111-1111-4111-8111-111111111111', 'Meal 800', 800.00, 'standalone', 'Each', true),
+  ('06666666-6666-4666-8666-666666666666', 'f2222222-2222-4222-8222-222222222222', 'Meal 200', 200.00, 'standalone', 'Each', true),
+  ('07777777-7777-4777-8777-777777777777', 'f1111111-1111-4111-8111-111111111111', 'Meal 12', 12.00, 'standalone', 'Each', true);
 
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 select id, wd
@@ -149,50 +149,58 @@ select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-09'::date,
-  '[{"provider_menu_item_id":"01111111-1111-4111-8111-111111111111","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"01111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+  null
 );
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-09'::date,
-  '[{"provider_menu_item_id":"02222222-2222-4222-8222-222222222222","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"02222222-2222-4222-8222-222222222222","quantity":1}]}'::jsonb,
+  null
 );
 select public.submit_provider_order(
   'f2222222-2222-4222-8222-222222222222',
   '2099-01-09'::date,
-  '[{"provider_menu_item_id":"06666666-6666-4666-8666-666666666666","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"06666666-6666-4666-8666-666666666666","quantity":1}]}'::jsonb,
+  null
 );
 
 -- Sep 14: spend below subsidy (300)
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-12'::date,
-  '[{"provider_menu_item_id":"03333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"03333333-3333-4333-8333-333333333333","quantity":1}]}'::jsonb,
+  null
 );
 
 -- Sep 15: spend equal subsidy (500)
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-13'::date,
-  '[{"provider_menu_item_id":"04444444-4444-4444-8444-444444444444","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"04444444-4444-4444-8444-444444444444","quantity":1}]}'::jsonb,
+  null
 );
 
 -- Sep 16: spend above subsidy (800)
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-14'::date,
-  '[{"provider_menu_item_id":"05555555-5555-4555-8555-555555555555","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"05555555-5555-4555-8555-555555555555","quantity":1}]}'::jsonb,
+  null
 );
 
 -- Sep 17: quantity > 1 (24.00) and cancelled duplicate
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-15'::date,
-  '[{"provider_menu_item_id":"07777777-7777-4777-8777-777777777777","quantity":2}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"07777777-7777-4777-8777-777777777777","quantity":2}]}'::jsonb,
+  null
 );
 select public.submit_provider_order(
   'f1111111-1111-4111-8111-111111111111',
   '2099-01-15'::date,
-  '[{"provider_menu_item_id":"07777777-7777-4777-8777-777777777777","quantity":1}]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"07777777-7777-4777-8777-777777777777","quantity":1}]}'::jsonb,
+  null
 );
 
 select public.cancel_order(o.id)

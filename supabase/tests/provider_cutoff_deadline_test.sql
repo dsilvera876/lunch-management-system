@@ -47,6 +47,8 @@ insert into public.provider_menu_items (
   provider_id,
   name,
   price,
+  item_type,
+  unit_label,
   active
 )
 values (
@@ -54,6 +56,8 @@ values (
   'b1111111-1111-4111-8111-111111111111',
   'Cutoff Meal',
   10.00,
+  'standalone',
+  'Each',
   true
 );
 
@@ -82,12 +86,8 @@ select set_config(
 select public.submit_provider_order(
   'b1111111-1111-4111-8111-111111111111',
   '2099-01-05'::date,
-  '[
-    {
-      "provider_menu_item_id": "c1111111-1111-4111-8111-111111111111",
-      "quantity": 1
-    }
-  ]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+  null
 );
 
 reset role;
@@ -152,12 +152,8 @@ select lives_ok(
     select public.submit_provider_order(
       'b1111111-1111-4111-8111-111111111111',
       '2099-01-05'::date,
-      '[
-        {
-          "provider_menu_item_id": "c1111111-1111-4111-8111-111111111111",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+      null
     )
   $$,
   'Already-generated provider cycle accepts orders using the later cutoff'
@@ -191,6 +187,8 @@ insert into public.menu_items (
   provider_menu_item_id,
   name,
   price,
+  item_type,
+  unit_label,
   is_active
 )
 values (
@@ -198,6 +196,8 @@ values (
   'c1111111-1111-4111-8111-111111111111',
   'Cutoff Meal',
   10.00,
+  'standalone',
+  'Each',
   true
 );
 
@@ -240,12 +240,8 @@ select throws_ok(
     select public.submit_provider_order(
       'b1111111-1111-4111-8111-111111111111',
       '2020-01-06'::date,
-      '[
-        {
-          "provider_menu_item_id": "c1111111-1111-4111-8111-111111111111",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c1111111-1111-4111-8111-111111111111","quantity":1}]}'::jsonb,
+      null
     )
   $$,
   'P0001',

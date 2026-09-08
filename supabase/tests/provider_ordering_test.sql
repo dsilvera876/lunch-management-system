@@ -120,6 +120,8 @@ insert into public.provider_menu_items (
   provider_id,
   name,
   price,
+  item_type,
+  unit_label,
   active
 )
 values
@@ -128,13 +130,17 @@ values
   'e1111111-1111-4111-8111-111111111111',
   'Fried Chicken',
   12.00,
+  'main',
+  'Each',
   true
 ),
 (
   'f2222222-2222-4222-8222-222222222222',
   'e1111111-1111-4111-8111-111111111111',
-  'BBQ Chicken',
+  'Rice and Peas',
   11.00,
+  'side',
+  'Each',
   true
 ),
 (
@@ -142,6 +148,8 @@ values
   'e2222222-2222-4222-8222-222222222222',
   'Orange Juice',
   3.00,
+  'standalone',
+  'Each',
   true
 );
 
@@ -188,34 +196,22 @@ select set_config(
 select public.submit_provider_order(
   'e1111111-1111-4111-8111-111111111111',
   '2099-01-05'::date,
-  '[
-    {
-      "provider_menu_item_id": "f1111111-1111-4111-8111-111111111111",
-      "quantity": 2
-    }
-  ]'::jsonb
+  '{"meal_quantity":2,"main_provider_menu_item_id":"f1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["f2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+  null
 );
 
 select public.submit_provider_order(
   'e1111111-1111-4111-8111-111111111111',
   '2099-01-05'::date,
-  '[
-    {
-      "provider_menu_item_id": "f2222222-2222-4222-8222-222222222222",
-      "quantity": 1
-    }
-  ]'::jsonb
+  '{"meal_quantity":1,"main_provider_menu_item_id":"f1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["f2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+  null
 );
 
 select public.submit_provider_order(
   'e2222222-2222-4222-8222-222222222222',
   '2099-01-05'::date,
-  '[
-    {
-      "provider_menu_item_id": "f3333333-3333-4333-8333-333333333333",
-      "quantity": 2
-    }
-  ]'::jsonb
+  '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"f3333333-3333-4333-8333-333333333333","quantity":2}]}'::jsonb,
+  null
 );
 
 select results_eq(
@@ -253,7 +249,8 @@ select results_eq(
     join public.orders o on o.id = oi.order_id
     join public.menu_items mi on mi.id = oi.menu_item_id
     where o.profile_id = 'd2222222-2222-4222-8222-222222222222'
-      and mi.provider_menu_item_id = 'f1111111-1111-4111-8111-111111111111'
+      and mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
+      and oi.quantity > 1
     order by o.created_at
     limit 1
   $$,
@@ -283,12 +280,8 @@ select throws_ok(
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
       '2099-01-05'::date,
-      '[
-        {
-          "provider_menu_item_id": "f3333333-3333-4333-8333-333333333333",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"f3333333-3333-4333-8333-333333333333","quantity":1}]}'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -313,10 +306,10 @@ select lives_ok(
         order by o.created_at
         limit 1
       ),
-      jsonb_build_array(
-        jsonb_build_object(
-          'menu_item_id',
-          (
+      (
+        select jsonb_build_object(
+          'meal_quantity', 3,
+          'main_menu_item_id', (
             select mi.id
             from public.menu_items mi
             join public.lunch_days ld on ld.id = mi.lunch_day_id
@@ -324,10 +317,20 @@ select lives_ok(
               and ld.order_date = '2099-01-05'::date
               and mi.provider_menu_item_id = 'f1111111-1111-4111-8111-111111111111'
           ),
-          'quantity',
-          3
+          'side_menu_item_ids', jsonb_build_array(
+            (
+              select mi.id
+              from public.menu_items mi
+              join public.lunch_days ld on ld.id = mi.lunch_day_id
+              where ld.provider_id = 'e1111111-1111-4111-8111-111111111111'
+                and ld.order_date = '2099-01-05'::date
+                and mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
+            )
+          ),
+          'standalone_items', '[]'::jsonb
         )
-      )
+      ),
+      null
     )
   $$,
   'Editing one order does not require touching other orders'
@@ -335,12 +338,16 @@ select lives_ok(
 
 select results_eq(
   $$
-    select quantity
+    select oi.quantity
     from public.order_items oi
     join public.orders o on o.id = oi.order_id
     join public.menu_items mi on mi.id = oi.menu_item_id
     where o.profile_id = 'd2222222-2222-4222-8222-222222222222'
       and mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
+      and o.meal_quantity = 1
+      and o.status = 'submitted'
+    order by o.created_at
+    limit 1
   $$,
   array[1],
   'Editing one order does not alter another order'
@@ -394,12 +401,8 @@ select lives_ok(
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
       '2099-01-05'::date,
-      '[
-        {
-          "provider_menu_item_id": "f2222222-2222-4222-8222-222222222222",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"f1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["f2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'Fulfilling one order does not prevent additional orders before cutoff'
@@ -418,10 +421,10 @@ select throws_ok(
           and o.status = 'fulfilled'
         limit 1
       ),
-      jsonb_build_array(
-        jsonb_build_object(
-          'menu_item_id',
-          (
+      (
+        select jsonb_build_object(
+          'meal_quantity', 1,
+          'main_menu_item_id', (
             select mi.id
             from public.menu_items mi
             join public.lunch_days ld on ld.id = mi.lunch_day_id
@@ -429,10 +432,20 @@ select throws_ok(
               and ld.order_date = '2099-01-05'::date
               and mi.provider_menu_item_id = 'f1111111-1111-4111-8111-111111111111'
           ),
-          'quantity',
-          1
+          'side_menu_item_ids', jsonb_build_array(
+            (
+              select mi.id
+              from public.menu_items mi
+              join public.lunch_days ld on ld.id = mi.lunch_day_id
+              where ld.provider_id = 'e1111111-1111-4111-8111-111111111111'
+                and ld.order_date = '2099-01-05'::date
+                and mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
+            )
+          ),
+          'standalone_items', '[]'::jsonb
         )
-      )
+      ),
+      null
     )
   $$,
   'P0001',
@@ -490,7 +503,7 @@ select is(
     where mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
       and ld.lunch_date = '2099-01-06'::date
   ),
-  'BBQ Chicken|11.00',
+  'Rice and Peas|11.00',
   'Snapshotted menu items remain stable after recurring menu edits'
 );
 
@@ -514,18 +527,16 @@ select throws_ok(
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
       '2099-01-05'::date,
-      '[
-        {
-          "provider_menu_item_id": "f1111111-1111-4111-8111-111111111111",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"f1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["f2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'P0001',
   'Menu item is invalid or inactive',
   'Deactivated recurring items are blocked from new submissions'
 );
+
+reset role;
 
 update public.provider_menu_items
 set active = true
@@ -553,12 +564,8 @@ select throws_ok(
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
       '2099-01-05'::date,
-      '[
-        {
-          "provider_menu_item_id": "f2222222-2222-4222-8222-222222222222",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"f1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["f2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -596,12 +603,8 @@ select lives_ok(
     select public.submit_provider_order(
       'e2222222-2222-4222-8222-222222222222',
       '2099-01-05'::date,
-      '[
-        {
-          "provider_menu_item_id": "f3333333-3333-4333-8333-333333333333",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"f3333333-3333-4333-8333-333333333333","quantity":1}]}'::jsonb,
+      null
     )
   $$,
   'Ordering before the cutoff succeeds'
@@ -618,12 +621,8 @@ select throws_ok(
     select public.submit_provider_order(
       'e2222222-2222-4222-8222-222222222222',
       '2020-01-06'::date,
-      '[
-        {
-          "provider_menu_item_id": "f3333333-3333-4333-8333-333333333333",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"f3333333-3333-4333-8333-333333333333","quantity":1}]}'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -636,12 +635,8 @@ select throws_ok(
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
       '2026-09-12'::date,
-      '[
-        {
-          "provider_menu_item_id": "f1111111-1111-4111-8111-111111111111",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"f1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["f2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'P0001',

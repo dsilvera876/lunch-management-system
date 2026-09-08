@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fulfillOrder } from "./actions";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
+import { formatOrderLineLabel } from "@/lib/menu-items";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
@@ -26,13 +27,16 @@ type OrderRow = {
   id: string;
   status: string;
   created_at: string;
+  special_instructions: string | null;
   profiles: ReturnType<typeof getRelated<{ full_name: string | null }>>;
   lunch_days: ReturnType<typeof getRelated<{ lunch_date: string }>>;
   order_items: Array<{
     id: string;
     quantity: number;
     unit_price: number | string;
-    menu_items: ReturnType<typeof getRelated<{ name: string }>>;
+    menu_items: ReturnType<
+      typeof getRelated<{ name: string; unit_label: string }>
+    >;
   }>;
 };
 
@@ -58,6 +62,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
       id,
       status,
       created_at,
+      special_instructions,
       profiles (
         full_name
       ),
@@ -69,7 +74,8 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
         quantity,
         unit_price,
         menu_items (
-          name
+          name,
+          unit_label
         )
       )
     `)
@@ -201,7 +207,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
             </ul>
           )}
           <p className="mt-4 text-sm font-semibold">
-            Active order value: ${formatCurrency(activeOrderValue)}
+            Active order value: {formatCurrency(activeOrderValue)}
           </p>
         </Card>
 
@@ -237,7 +243,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                         Submitted {formatDeadline(order.created_at)}
                       </p>
                       <p className="text-sm font-medium">
-                        Total: ${formatCurrency(orderTotal)}
+                        Total: {formatCurrency(orderTotal)}
                       </p>
                     </div>
 
@@ -266,16 +272,29 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                           className="flex flex-col gap-1 sm:flex-row sm:justify-between"
                         >
                           <span>
-                            {menuItem?.name ?? "Menu item"} × {item.quantity}
+                            {formatOrderLineLabel(
+                              menuItem?.name ?? "Menu item",
+                              menuItem?.unit_label ?? "Each",
+                              item.quantity,
+                            )}
                           </span>
                           <span className="text-muted">
-                            ${formatCurrency(item.unit_price)} each · $
+                            {formatCurrency(item.unit_price)} each ·{" "}
                             {formatCurrency(subtotal)}
                           </span>
                         </li>
                       );
                     })}
                   </ul>
+
+                  {order.special_instructions && (
+                    <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-inset ring-amber-200">
+                      <p className="font-medium">Special instructions</p>
+                      <p className="mt-1 whitespace-pre-wrap">
+                        {order.special_instructions}
+                      </p>
+                    </div>
+                  )}
                 </Card>
               );
             })

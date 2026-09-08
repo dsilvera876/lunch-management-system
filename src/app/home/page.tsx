@@ -110,7 +110,11 @@ export default async function HomePage() {
           ) : (
             <div className="space-y-4">
               {ctx.availableProviders.slice(0, 3).map((provider) => (
-                <ProviderCard key={provider.id} {...provider} />
+                <ProviderCard
+                  key={provider.id}
+                  {...provider}
+                  orderingOpen={ctx.orderingOpen}
+                />
               ))}
               {ctx.availableProviders.length > 3 && (
                 <Link href="/lunch" className={linkButtonClass("secondary")}>

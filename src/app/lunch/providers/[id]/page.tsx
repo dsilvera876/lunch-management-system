@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FormSubmitButton } from "@/components/form-submit-button";
 import { requireProfile } from "@/lib/auth";
 import {
   getDeliveryDateForOrderDate,
@@ -13,14 +12,18 @@ import {
 } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { submitProviderOrder } from "../../actions";
-import { formatCurrency } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
-import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { inputClassName } from "@/components/ui/form-field";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { linkButtonClass } from "@/components/ui/button";
+import { ProviderOrderForm } from "@/components/provider-order-form";
+import type { MenuItemType } from "@/lib/menu-items";
+import {
+  formatDisplayDate,
+  formatOrderDeliveryHeadline,
+} from "@/lib/ordering-ui";
 
 type Props = {
   params: Promise<{
@@ -38,13 +41,15 @@ type SnapshotMenuItem = {
   name: string;
   description: string | null;
   price: number | string;
+  item_type: string;
+  unit_label: string;
   is_active: boolean;
 };
 
 function getErrorMessage(code: string) {
   switch (code) {
     case "empty":
-      return "Select at least one menu item before submitting.";
+      return "Select at least one menu item with quantity 1 or more.";
     case "deadline":
       return "The ordering deadline has passed.";
     case "closed":
@@ -53,8 +58,10 @@ function getErrorMessage(code: string) {
       return "Ordering is unavailable because this lunch period has been finalized.";
     case "unavailable-item":
       return "One of the selected menu items is no longer available.";
-    case "unauthorized":
-      return "You are not authorized to perform this action.";
+    case "composition":
+      return "This order combination is not valid. Choose one main with at least one side, or standalone items only.";
+    case "instructions":
+      return "Special instructions must be 500 characters or fewer.";
     default:
       return "Unable to complete the request. Please try again.";
   }
@@ -99,6 +106,8 @@ export default async function ProviderOrderPage({
           name,
           description,
           price,
+          item_type,
+          unit_label,
           active,
           provider_menu_item_weekdays (
             weekday
@@ -133,6 +142,8 @@ export default async function ProviderOrderPage({
           name,
           description,
           price,
+          item_type,
+          unit_label,
           is_active
         )
       `)
@@ -172,13 +183,23 @@ export default async function ProviderOrderPage({
         name: item.name,
         description: item.description,
         price: item.price,
+        itemType: item.item_type as MenuItemType,
+        unitLabel: item.unit_label,
       }))
     : recurringItems.map((item) => ({
         id: item.id,
         name: item.name,
         description: item.description,
         price: item.price,
+        itemType: item.item_type as MenuItemType,
+        unitLabel: item.unit_label,
       }));
+
+  const closedReason = periodFinalized
+    ? "Ordering is unavailable because this lunch period has been finalized."
+    : !orderingOpen
+      ? "Today's ordering window has closed."
+      : null;
 
   return (
     <>
@@ -192,19 +213,17 @@ export default async function ProviderOrderPage({
         }
       />
 
-      <Card className="mb-6">
-        <p className="text-sm">
-          Order today ({orderDate}) for delivery on{" "}
-          <strong>{deliveryDate}</strong>.
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Order by {formatJamaicaWallClockTime(cutoffTime)}.
-        </p>
-        {usingSnapshot && (
-          <p className="mt-2 text-sm text-muted">
-            Showing today&apos;s established menu snapshot for this provider.
+      <Card className="mb-6" padding="sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium">
+            {formatOrderDeliveryHeadline(deliveryDate)}
           </p>
-        )}
+          <StatusBadge status={orderingOpen ? "open" : "closed"} />
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          Order by {formatJamaicaWallClockTime(cutoffTime)} today (
+          {formatDisplayDate(orderDate)}).
+        </p>
       </Card>
 
       {query.error && (
@@ -213,69 +232,22 @@ export default async function ProviderOrderPage({
         </Alert>
       )}
 
-      {periodFinalized ? (
-        <EmptyState
-          title="Ordering unavailable"
-          description="Ordering is unavailable because this lunch period has been finalized."
-        />
-      ) : !orderingOpen ? (
-        <EmptyState
-          title="Ordering closed"
-          description="Today's ordering window has closed."
-        />
+      {closedReason ? (
+        <EmptyState title="Ordering closed" description={closedReason} />
       ) : menuItems.length === 0 ? (
         <EmptyState
-          title="No menu items"
-          description="No menu items are available from this provider today."
+          title="No menu items available"
+          description="This provider has no menu items available for ordering today."
         />
       ) : (
-        <form action={submitProviderOrder}>
-          <input type="hidden" name="providerId" value={provider.id} />
-          <input type="hidden" name="orderDate" value={orderDate} />
-
-          <SectionHeader title="Place your order" />
-
-          <div className="space-y-3">
-            {menuItems.map((item) => (
-              <Card key={item.id} padding="sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold">{item.name}</p>
-                    {item.description && (
-                      <p className="mt-1 text-sm text-muted">{item.description}</p>
-                    )}
-                    <p className="mt-1 text-sm font-medium">
-                      ${formatCurrency(item.price)}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`provider-quantity:${item.id}`}
-                      className="block text-sm font-medium"
-                    >
-                      Qty
-                    </label>
-                    <input
-                      id={`provider-quantity:${item.id}`}
-                      name={`provider-quantity:${item.id}`}
-                      type="number"
-                      min="0"
-                      step="1"
-                      defaultValue={0}
-                      className={`${inputClassName} mt-1 w-24`}
-                    />
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mt-6">
-            <FormSubmitButton pendingText="Submitting..." variant="primary">
-              Submit order
-            </FormSubmitButton>
-          </div>
-        </form>
+        <ProviderOrderForm
+          providerId={provider.id}
+          providerName={provider.name}
+          orderDate={orderDate}
+          deliveryDate={deliveryDate}
+          menuItems={menuItems}
+          formAction={submitProviderOrder}
+        />
       )}
     </>
   );

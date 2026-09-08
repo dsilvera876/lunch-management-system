@@ -179,7 +179,7 @@ export default async function LegacyLunchOrderPage({
                     {item.description && (
                       <p className="mt-1 text-sm text-muted">{item.description}</p>
                     )}
-                    <p className="mt-1 text-sm">${formatCurrency(item.price)}</p>
+                    <p className="mt-1 text-sm">{formatCurrency(item.price)}</p>
                   </div>
                   <div>
                     <label htmlFor={`quantity:${item.id}`} className="block text-sm font-medium">

@@ -56,12 +56,16 @@ select lives_ok(
     insert into public.menu_items (
       lunch_day_id,
       name,
-      price
+      price,
+      item_type,
+      unit_label
     )
     select
       id,
       'Admin Test Meal',
-      15.00
+      15.00,
+      'standalone',
+      'Each'
     from public.lunch_days
     where lunch_date = current_date + 10
   $$,
@@ -128,13 +132,16 @@ select set_config(
 
 select throws_ok(
   $$
-    insert into public.orders (
-      profile_id,
-      lunch_day_id
-    )
-    values (
-      'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-      '10000000-0000-0000-0000-000000000001'
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
     )
   $$,
   'P0001',

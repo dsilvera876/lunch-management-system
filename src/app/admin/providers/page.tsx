@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireHrAdminOrOwner, canManageCutoff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { summarizeProviderWeekdays } from "@/lib/ordering-ui";
 import { createProvider } from "./actions";
 import { CutoffControl } from "@/components/cutoff-control";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,6 +21,17 @@ type Props = {
   }>;
 };
 
+type ProviderRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  provider_menu_items: Array<{
+    active: boolean;
+    provider_menu_item_weekdays: Array<{ weekday: number }>;
+  }>;
+};
+
 export default async function ProvidersPage({ searchParams }: Props) {
   const profile = await requireHrAdminOrOwner();
   const params = await searchParams;
@@ -28,7 +40,18 @@ export default async function ProvidersPage({ searchParams }: Props) {
   const [{ data: providers, error }, { data: settings }] = await Promise.all([
     supabase
       .from("lunch_providers")
-      .select("id, name, description, active, created_at")
+      .select(`
+        id,
+        name,
+        description,
+        active,
+        provider_menu_items (
+          active,
+          provider_menu_item_weekdays (
+            weekday
+          )
+        )
+      `)
       .order("name", { ascending: true }),
     supabase.from("app_settings").select("order_cutoff_time").eq("id", 1).single(),
   ]);
@@ -36,6 +59,8 @@ export default async function ProvidersPage({ searchParams }: Props) {
   if (error) {
     throw new Error("Unable to load lunch providers.");
   }
+
+  const providerRows = (providers ?? []) as ProviderRow[];
 
   return (
     <>
@@ -94,34 +119,72 @@ export default async function ProvidersPage({ searchParams }: Props) {
 
         <div className="xl:col-span-2">
           <SectionHeader title="Providers" />
-          {!providers || providers.length === 0 ? (
+          {providerRows.length === 0 ? (
             <EmptyState
               title="No providers yet"
               description="Create a lunch provider to configure recurring menus."
             />
           ) : (
             <div className="space-y-3">
-              {providers.map((provider) => (
-                <Card key={provider.id} padding="sm">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">{provider.name}</h3>
-                        <StatusBadge status={provider.active ? "active" : "inactive"} />
+              {providerRows.map((provider) => {
+                const activeItemCount = provider.provider_menu_items.filter(
+                  (item) => item.active,
+                ).length;
+                const weekdaySummary = summarizeProviderWeekdays(
+                  provider.provider_menu_items.map((item) => ({
+                    active: item.active,
+                    weekdays: item.provider_menu_item_weekdays.map(
+                      (row) => row.weekday,
+                    ),
+                  })),
+                );
+
+                return (
+                  <Card
+                    key={provider.id}
+                    padding="sm"
+                    className={
+                      provider.active
+                        ? "ring-1 ring-emerald-100"
+                        : "opacity-80 ring-1 ring-slate-200"
+                    }
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-semibold">{provider.name}</h3>
+                          <StatusBadge
+                            status={provider.active ? "active" : "inactive"}
+                          />
+                        </div>
+                        <p className="mt-1 text-sm text-muted">
+                          {provider.description ?? "No description"}
+                        </p>
+                        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                          <div>
+                            <dt className="inline text-muted after:content-[':']">
+                              Active menu items
+                            </dt>{" "}
+                            <dd className="inline font-medium">{activeItemCount}</dd>
+                          </div>
+                          <div>
+                            <dt className="inline text-muted after:content-[':']">
+                              Order days covered
+                            </dt>{" "}
+                            <dd className="inline font-medium">{weekdaySummary}</dd>
+                          </div>
+                        </dl>
                       </div>
-                      <p className="mt-1 text-sm text-muted">
-                        {provider.description ?? "No description"}
-                      </p>
+                      <Link
+                        href={`/admin/providers/${provider.id}`}
+                        className={`${linkButtonClass("primary")} shrink-0`}
+                      >
+                        Manage provider
+                      </Link>
                     </div>
-                    <Link
-                      href={`/admin/providers/${provider.id}`}
-                      className={linkButtonClass("secondary")}
-                    >
-                      Manage menu
-                    </Link>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

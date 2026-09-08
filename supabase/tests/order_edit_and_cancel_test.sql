@@ -38,12 +38,14 @@ select set_config(
 
 select public.submit_order(
   '10000000-0000-0000-0000-000000000001',
-  '[
-    {
-      "menu_item_id": "20000000-0000-0000-0000-000000000001",
-      "quantity": 1
-    }
-  ]'::jsonb
+  '{
+    "meal_quantity": null,
+    "main_menu_item_id": null,
+    "side_menu_item_ids": [],
+    "standalone_items": [
+      {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+    ]
+  }'::jsonb
 );
 
 -- ------------------------------------------------------------
@@ -59,12 +61,15 @@ select lives_ok(
         where profile_id = 'f1111111-1111-4111-8111-111111111111'
           and status = 'submitted'
       ),
-      '[
-        {
-          "menu_item_id": "20000000-0000-0000-0000-000000000002",
-          "quantity": 2
-        }
-      ]'::jsonb
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000002", "quantity": 2}
+        ]
+      }'::jsonb,
+      null
     )
   $$,
   'Owner can replace order items'
@@ -108,12 +113,15 @@ select throws_ok(
         from public.orders
         where profile_id = 'f1111111-1111-4111-8111-111111111111'
       ),
-      '[
-        {
-          "menu_item_id": "20000000-0000-0000-0000-000000000001",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -148,12 +156,15 @@ select throws_ok(
         where profile_id = 'f1111111-1111-4111-8111-111111111111'
           and status = 'submitted'
       ),
-      '[
-        {
-          "menu_item_id": "29999999-9999-4999-8999-999999999999",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "29999999-9999-4999-8999-999999999999", "quantity": 1}
+        ]
+      }'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -197,12 +208,14 @@ select lives_ok(
   $$
     select public.submit_order(
       '10000000-0000-0000-0000-000000000001',
-      '[
-        {
-          "menu_item_id": "20000000-0000-0000-0000-000000000003",
-          "quantity": 1
-        }
-      ]'::jsonb
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000003", "quantity": 1}
+        ]
+      }'::jsonb
     )
   $$,
   'User can submit a new order after cancelling'

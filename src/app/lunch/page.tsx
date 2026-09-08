@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { formatDeadline } from "@/lib/format";
-import { formatJamaicaWallClockTime } from "@/lib/settings";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
@@ -10,8 +9,10 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProviderCard } from "@/components/provider-card";
 import { OrderSummaryCard } from "@/components/order-summary-card";
+import { OrderingStatusBanner } from "@/components/ordering-status-banner";
 import { Card } from "@/components/ui/card";
 import { linkButtonClass } from "@/components/ui/button";
+import { formatDisplayDate } from "@/lib/ordering-ui";
 
 type Props = {
   searchParams: Promise<{
@@ -47,12 +48,12 @@ export default async function LunchPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Order Lunch"
-        description="Choose a provider and submit a separate order. You may place unlimited orders before the cutoff."
+        description="Choose a provider and place a separate order. You may submit unlimited orders before today's cutoff."
       />
 
       {params.ordered && (
         <Alert variant="success" className="mb-6">
-          Your order was submitted successfully.
+          Your order was placed successfully. You can place another order below.
         </Alert>
       )}
 
@@ -62,76 +63,54 @@ export default async function LunchPage({ searchParams }: Props) {
         </Alert>
       )}
 
-      {!ctx.orderWeekday ? (
-        <EmptyState
-          title="Ordering closed for the weekend"
-          description="Lunch ordering is closed for the weekend. Ordering resumes Monday for Tuesday delivery."
-        />
-      ) : (
-        <>
-          <Card className="mb-8" padding="sm">
-            <dl className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <dt className="text-sm text-muted">Order date</dt>
-                <dd className="mt-1 font-semibold">{ctx.orderDate}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted">Delivery date</dt>
-                <dd className="mt-1 font-semibold">{ctx.deliveryDate}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted">Cutoff</dt>
-                <dd className="mt-1 font-semibold">
-                  {formatJamaicaWallClockTime(ctx.cutoffTime)}
-                </dd>
-                {ctx.orderDeadline && (
-                  <dd className="mt-1 text-xs text-muted">
-                    {formatDeadline(ctx.orderDeadline)}
-                  </dd>
-                )}
-              </div>
-            </dl>
-          </Card>
+      <OrderingStatusBanner
+        orderDate={ctx.orderDate}
+        deliveryDate={ctx.deliveryDate}
+        cutoffTime={ctx.cutoffTime}
+        orderingOpen={ctx.orderingOpen}
+        orderWeekday={ctx.orderWeekday}
+        periodFinalized={ctx.periodFinalized}
+      />
 
-          {!ctx.periodFinalized ? (
-            <>
-              {!ctx.orderingOpen ? (
-                <Alert variant="info" className="mb-8">
-                  Today&apos;s ordering window has closed.
-                </Alert>
-              ) : ctx.availableProviders.length === 0 ? (
-                <EmptyState
-                  title="No providers available"
-                  description="No active providers have menu items available for ordering today."
-                />
-              ) : (
-                <section className="mb-10">
-                  <SectionHeader title="Available providers" />
-                  <div className="space-y-4">
-                    {ctx.availableProviders.map((provider) => (
-                      <ProviderCard key={provider.id} {...provider} />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </>
-          ) : (
-            <Alert variant="info" className="mb-8">
-              Ordering is unavailable because this lunch period has been finalized.
-            </Alert>
-          )}
-        </>
+      {ctx.orderWeekday && ctx.orderingOpen && ctx.availableProviders.length > 0 && (
+        <section className="mb-10">
+          <SectionHeader title="Available providers" />
+          <div className="space-y-4">
+            {ctx.availableProviders.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                {...provider}
+                orderingOpen={ctx.orderingOpen}
+              />
+            ))}
+          </div>
+        </section>
       )}
+
+      {ctx.orderWeekday &&
+        ctx.orderingOpen &&
+        ctx.availableProviders.length === 0 &&
+        !ctx.periodFinalized && (
+          <EmptyState
+            title="No providers available"
+            description="No active providers have menu items available for ordering today."
+          />
+        )}
 
       {ctx.deliveryOrders.length > 0 && (
         <section className="mb-10">
           <SectionHeader
-            title={`Today's orders for delivery on ${ctx.deliveryDate}`}
+            title="Your orders today"
+            description={
+              ctx.deliveryDate
+                ? `Separate orders for delivery on ${formatDisplayDate(ctx.deliveryDate)}`
+                : undefined
+            }
             actions={
               ctx.orderingOpen ? (
-                <span className="text-sm text-muted">
-                  You can still place another order below.
-                </span>
+                <Link href="/lunch" className={linkButtonClass("secondary")}>
+                  Place another order
+                </Link>
               ) : undefined
             }
           />

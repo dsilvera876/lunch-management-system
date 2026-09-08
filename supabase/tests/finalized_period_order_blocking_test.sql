@@ -20,14 +20,19 @@ select private.apply_profile_role('10444444-4444-4444-8444-444444444444', 'accou
 insert into public.lunch_providers (id, name, active)
 values ('10222222-2222-4222-8222-222222222222', 'Finalized Guard Kitchen', true);
 
-insert into public.provider_menu_items (id, provider_id, name, price, active)
-values ('10333333-3333-4333-8333-333333333333', '10222222-2222-4222-8222-222222222222', 'Guard Meal', 12.00, true);
+insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
+values
+  ('10333333-3333-4333-8333-333333333333', '10222222-2222-4222-8222-222222222222', 'Guard Meal', 10.00, 'main', 'Each', true),
+  ('10344444-4444-4444-8444-444444444444', '10222222-2222-4222-8222-222222222222', 'Guard Side', 2.00, 'side', 'Each', true);
 
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 values
   ('10333333-3333-4333-8333-333333333333', 1),
   ('10333333-3333-4333-8333-333333333333', 2),
-  ('10333333-3333-4333-8333-333333333333', 5);
+  ('10333333-3333-4333-8333-333333333333', 5),
+  ('10344444-4444-4444-8444-444444444444', 1),
+  ('10344444-4444-4444-8444-444444444444', 2),
+  ('10344444-4444-4444-8444-444444444444', 5);
 
 update public.app_settings
 set order_cutoff_time = '23:59:00'
@@ -54,7 +59,8 @@ select lives_ok(
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
       '2099-01-09'::date,
-      '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"10333333-3333-4333-8333-333333333333","side_provider_menu_item_ids":["10344444-4444-4444-8444-444444444444"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'Open lunch period allows new provider order before cutoff'
@@ -82,7 +88,8 @@ select throws_ok(
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
       '2099-01-09'::date,
-      '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"10333333-3333-4333-8333-333333333333","side_provider_menu_item_ids":["10344444-4444-4444-8444-444444444444"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -91,7 +98,7 @@ select throws_ok(
 );
 
 -- ============================================================
--- 3. Finalized period rejects direct insert trigger path
+-- 3. Direct order insert is blocked for authenticated users
 -- ============================================================
 
 select throws_ok(
@@ -107,9 +114,9 @@ select throws_ok(
       )
     )
   $$,
-  'P0001',
-  'Ordering is unavailable because this lunch period has been finalized',
-  'Finalized period rejects direct order insert path'
+  '42501',
+  null,
+  'Direct order insert is not permitted for authenticated users'
 );
 
 -- ============================================================
@@ -130,7 +137,8 @@ select throws_ok(
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
       '2099-01-09'::date,
-      '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"10333333-3333-4333-8333-333333333333","side_provider_menu_item_ids":["10344444-4444-4444-8444-444444444444"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'P0001',
@@ -165,7 +173,8 @@ select lives_ok(
     select public.submit_provider_order(
       '10222222-2222-4222-8222-222222222222',
       '2099-01-12'::date,
-      '[{"provider_menu_item_id":"10333333-3333-4333-8333-333333333333","quantity":1}]'::jsonb
+      '{"meal_quantity":1,"main_provider_menu_item_id":"10333333-3333-4333-8333-333333333333","side_provider_menu_item_ids":["10344444-4444-4444-8444-444444444444"],"standalone_items":[]}'::jsonb,
+      null
     )
   $$,
   'Later open lunch period accepts new orders normally'

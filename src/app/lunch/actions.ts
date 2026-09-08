@@ -3,62 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
+import {
+  buildProviderOrderPayload,
+  buildSnapshotOrderPayload,
+  hasSelectedOrderItems,
+} from "@/lib/order-payload";
 import { createClient } from "@/lib/supabase/server";
-
-type OrderItemInput = {
-  menu_item_id: string;
-  quantity: number;
-};
-
-type ProviderOrderItemInput = {
-  provider_menu_item_id: string;
-  quantity: number;
-};
-
-function getItems(formData: FormData): OrderItemInput[] {
-  const items: OrderItemInput[] = [];
-
-  for (const [key, value] of formData.entries()) {
-    if (!key.startsWith("quantity:") || typeof value !== "string") {
-      continue;
-    }
-
-    const menuItemId = key.slice("quantity:".length);
-    const quantity = Number(value);
-
-    if (Number.isInteger(quantity) && quantity > 0) {
-      items.push({
-        menu_item_id: menuItemId,
-        quantity,
-      });
-    }
-  }
-
-  return items;
-}
-
-function getProviderItems(formData: FormData): ProviderOrderItemInput[] {
-  const items: ProviderOrderItemInput[] = [];
-
-  for (const [key, value] of formData.entries()) {
-    if (!key.startsWith("provider-quantity:") || typeof value !== "string") {
-      continue;
-    }
-
-    const providerMenuItemId = key.slice("provider-quantity:".length);
-    const quantity = Number(value);
-
-    if (Number.isInteger(quantity) && quantity > 0) {
-      items.push({
-        provider_menu_item_id: providerMenuItemId,
-        quantity,
-      });
-    }
-  }
-
-  return items;
-}
-
 function getOrderErrorCode(message: string) {
   const normalized = message.toLowerCase();
 
@@ -75,6 +25,23 @@ function getOrderErrorCode(message: string) {
 
   if (normalized.includes("lunch period has been finalized")) {
     return "finalized";
+  }
+
+  if (
+    normalized.includes("main item requires") ||
+    normalized.includes("side items require") ||
+    normalized.includes("only one main") ||
+    normalized.includes("meal quantity") ||
+    normalized.includes("meal bundle") ||
+    normalized.includes("duplicate menu items") ||
+    normalized.includes("must contain at least one item") ||
+    normalized.includes("standalone-only orders")
+  ) {
+    return "composition";
+  }
+
+  if (normalized.includes("special instructions are too long")) {
+    return "instructions";
   }
 
   if (
@@ -109,10 +76,18 @@ export async function submitProviderOrder(formData: FormData) {
     redirect("/lunch?error=invalid");
   }
 
-  const items = getProviderItems(formData);
+  const order = buildProviderOrderPayload(formData);
+  const specialInstructions = formData.get("specialInstructions");
 
-  if (items.length === 0) {
+  if (!hasSelectedOrderItems(order)) {
     redirect(`/lunch/providers/${providerId}?error=empty`);
+  }
+
+  if (
+    typeof specialInstructions === "string" &&
+    specialInstructions.trim().length > 500
+  ) {
+    redirect(`/lunch/providers/${providerId}?error=instructions`);
   }
 
   const supabase = await createClient();
@@ -120,7 +95,9 @@ export async function submitProviderOrder(formData: FormData) {
   const { data: orderId, error } = await supabase.rpc("submit_provider_order", {
     p_provider_id: providerId,
     p_order_date: orderDate,
-    p_items: items,
+    p_items: order,
+    p_special_instructions:
+      typeof specialInstructions === "string" ? specialInstructions : null,
   });
 
   if (error) {
@@ -144,9 +121,9 @@ export async function submitLunchOrder(formData: FormData) {
     redirect("/lunch?error=invalid");
   }
 
-  const items = getItems(formData);
+  const order = buildSnapshotOrderPayload(formData);
 
-  if (items.length === 0) {
+  if (!hasSelectedOrderItems(order)) {
     redirect(`/lunch/${lunchDayId}?error=empty`);
   }
 
@@ -154,7 +131,7 @@ export async function submitLunchOrder(formData: FormData) {
 
   const { data: orderId, error } = await supabase.rpc("submit_order", {
     p_lunch_day_id: lunchDayId,
-    p_items: items,
+    p_items: order,
   });
 
   if (error) {
@@ -178,17 +155,27 @@ export async function updateLunchOrder(formData: FormData) {
     redirect("/lunch?error=invalid");
   }
 
-  const items = getItems(formData);
+  const order = buildSnapshotOrderPayload(formData);
+  const specialInstructions = formData.get("specialInstructions");
 
-  if (items.length === 0) {
+  if (!hasSelectedOrderItems(order)) {
     redirect(`/lunch/orders/${orderId}?error=empty&edit=1`);
+  }
+
+  if (
+    typeof specialInstructions === "string" &&
+    specialInstructions.trim().length > 500
+  ) {
+    redirect(`/lunch/orders/${orderId}?error=instructions&edit=1`);
   }
 
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("replace_order_items", {
     p_order_id: orderId,
-    p_items: items,
+    p_items: order,
+    p_special_instructions:
+      typeof specialInstructions === "string" ? specialInstructions : null,
   });
 
   if (error) {

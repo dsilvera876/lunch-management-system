@@ -4,12 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_UNIT_LABEL, type MenuItemType } from "@/lib/menu-items";
 
 function parseWeekdays(formData: FormData): number[] {
-  if (formData.get("allWeekdays") === "true") {
-    return [1, 2, 3, 4, 5];
-  }
-
   const weekdays: number[] = [];
 
   for (let day = 1; day <= 5; day += 1) {
@@ -19,6 +16,28 @@ function parseWeekdays(formData: FormData): number[] {
   }
 
   return weekdays;
+}
+
+function parseItemType(value: FormDataEntryValue | null): MenuItemType | null {
+  if (value === "main" || value === "side" || value === "standalone") {
+    return value;
+  }
+
+  return null;
+}
+
+function parseUnitLabel(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0 || trimmed.length > 40) {
+    return null;
+  }
+
+  return trimmed;
 }
 
 async function syncMenuItemWeekdays(
@@ -58,6 +77,8 @@ export async function createProviderMenuItem(formData: FormData) {
   const name = formData.get("name");
   const description = formData.get("description");
   const price = formData.get("price");
+  const itemType = parseItemType(formData.get("itemType"));
+  const unitLabel = parseUnitLabel(formData.get("unitLabel")) ?? DEFAULT_UNIT_LABEL;
   const weekdays = parseWeekdays(formData);
 
   if (
@@ -66,9 +87,13 @@ export async function createProviderMenuItem(formData: FormData) {
     typeof description !== "string" ||
     typeof price !== "string" ||
     name.trim().length === 0 ||
-    weekdays.length === 0
+    !itemType
   ) {
     redirect(`/admin/providers/${providerId}?error=menu`);
+  }
+
+  if (weekdays.length === 0) {
+    redirect(`/admin/providers/${providerId}?error=no-weekdays`);
   }
 
   const parsedPrice = Number(price);
@@ -86,6 +111,8 @@ export async function createProviderMenuItem(formData: FormData) {
       name: name.trim(),
       description: description.trim() || null,
       price: parsedPrice,
+      item_type: itemType,
+      unit_label: unitLabel,
       active: true,
     })
     .select("id")
@@ -122,6 +149,8 @@ export async function updateProviderMenuItem(formData: FormData) {
   const name = formData.get("name");
   const description = formData.get("description");
   const price = formData.get("price");
+  const itemType = parseItemType(formData.get("itemType"));
+  const unitLabel = parseUnitLabel(formData.get("unitLabel")) ?? DEFAULT_UNIT_LABEL;
   const weekdays = parseWeekdays(formData);
 
   if (
@@ -131,9 +160,13 @@ export async function updateProviderMenuItem(formData: FormData) {
     typeof description !== "string" ||
     typeof price !== "string" ||
     name.trim().length === 0 ||
-    weekdays.length === 0
+    !itemType
   ) {
     redirect(`/admin/providers/${providerId}?error=menu`);
+  }
+
+  if (weekdays.length === 0) {
+    redirect(`/admin/providers/${providerId}?error=no-weekdays`);
   }
 
   const parsedPrice = Number(price);
@@ -150,6 +183,8 @@ export async function updateProviderMenuItem(formData: FormData) {
       name: name.trim(),
       description: description.trim() || null,
       price: parsedPrice,
+      item_type: itemType,
+      unit_label: unitLabel,
     })
     .eq("id", menuItemId)
     .eq("provider_id", providerId);
@@ -204,4 +239,5 @@ export async function toggleProviderMenuItemActive(formData: FormData) {
   }
 
   revalidatePath(`/admin/providers/${providerId}`);
+  redirect(`/admin/providers/${providerId}?menuToggled=1`);
 }

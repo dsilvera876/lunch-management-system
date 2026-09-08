@@ -28,6 +28,8 @@ insert into public.menu_items (
   name,
   description,
   price,
+  item_type,
+  unit_label,
   is_active
 )
 values
@@ -37,6 +39,8 @@ values
   'Jerk Chicken',
   'Jerk chicken with rice and peas',
   12.00,
+  'standalone',
+  'Each',
   true
 ),
 (
@@ -45,6 +49,8 @@ values
   'Curry Chicken',
   'Curry chicken with white rice',
   11.00,
+  'standalone',
+  'Each',
   true
 ),
 (
@@ -53,6 +59,8 @@ values
   'Vegetarian Bowl',
   'Seasoned vegetables with rice and beans',
   9.50,
+  'standalone',
+  'Each',
   true
 )
 on conflict (id) do update

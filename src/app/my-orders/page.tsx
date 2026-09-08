@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getRelated, formatDeadline, formatCurrency } from "@/lib/format";
+import { formatDisplayDate } from "@/lib/ordering-ui";
+import { formatOrderLineLabel } from "@/lib/menu-items";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -18,6 +20,7 @@ export default async function MyOrdersPage() {
       id,
       status,
       created_at,
+      special_instructions,
       lunch_days (
         lunch_date,
         order_date,
@@ -29,7 +32,9 @@ export default async function MyOrdersPage() {
         quantity,
         unit_price,
         menu_items (
-          name
+          name,
+          item_type,
+          unit_label
         )
       )
     `)
@@ -45,7 +50,7 @@ export default async function MyOrdersPage() {
     <>
       <PageHeader
         title="My Orders"
-        description="All of your lunch orders, listed individually."
+        description="Each order is listed separately, even when placed on the same day."
         actions={
           <Link href="/lunch" className={linkButtonClass("primary")}>
             Place another order
@@ -56,7 +61,7 @@ export default async function MyOrdersPage() {
       {!orders || orders.length === 0 ? (
         <EmptyState
           title="No orders yet"
-          description="When you place lunch orders, they will appear here."
+          description="When you place lunch orders, each one will appear here individually."
           action={
             <Link href="/lunch" className={linkButtonClass("primary")}>
               Order lunch
@@ -74,51 +79,95 @@ export default async function MyOrdersPage() {
               (sum, item) => sum + Number(item.unit_price) * item.quantity,
               0,
             );
+            const isCancelled = order.status === "cancelled";
 
             return (
-              <Card key={order.id} padding="sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
+              <Card
+                key={order.id}
+                padding="sm"
+                className={
+                  isCancelled ? "opacity-75 ring-1 ring-slate-200" : undefined
+                }
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold text-foreground">
                         {provider?.name ?? "Lunch order"}
                       </h2>
                       <StatusBadge status={order.status} />
                     </div>
-                    <p className="text-sm text-muted">
-                      Delivery {lunchDay?.lunch_date ?? "—"}
-                      {lunchDay?.order_date
-                        ? ` · Ordered ${lunchDay.order_date}`
-                        : ""}
-                    </p>
-                    <p className="text-sm text-muted">
-                      Submitted {formatDeadline(order.created_at)}
-                    </p>
+
+                    <dl className="grid gap-1 text-sm text-muted">
+                      {lunchDay?.order_date && (
+                        <div>
+                          <dt className="sr-only">Order date</dt>
+                          <dd>
+                            Ordered {formatDisplayDate(lunchDay.order_date)}
+                          </dd>
+                        </div>
+                      )}
+                      {lunchDay?.lunch_date && (
+                        <div>
+                          <dt className="sr-only">Delivery date</dt>
+                          <dd>
+                            Delivery {formatDisplayDate(lunchDay.lunch_date)}
+                          </dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt className="sr-only">Submitted</dt>
+                        <dd>Submitted {formatDeadline(order.created_at)}</dd>
+                      </div>
+                    </dl>
                   </div>
-                  <Link
-                    href={`/lunch/orders/${order.id}`}
-                    className={linkButtonClass("secondary")}
-                  >
-                    View order
-                  </Link>
+
+                  <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                    {!isCancelled && total > 0 && (
+                      <p className="text-sm font-semibold">
+                        Total: {formatCurrency(total)}
+                      </p>
+                    )}
+                    <Link
+                      href={`/lunch/orders/${order.id}`}
+                      className={linkButtonClass("secondary")}
+                    >
+                      View order
+                    </Link>
+                  </div>
                 </div>
 
-                <ul className="mt-4 space-y-1 text-sm">
-                  {order.order_items.map((item) => {
-                    const menuItem = getRelated(item.menu_items);
-
-                    return (
-                      <li key={`${order.id}-${menuItem?.name ?? "item"}`}>
-                        {menuItem?.name ?? "Menu item"} × {item.quantity}
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                {total > 0 && (
-                  <p className="mt-3 text-sm font-medium">
-                    Total: ${formatCurrency(total)}
+                {!isCancelled && order.special_instructions && (
+                  <p className="mt-3 text-sm text-muted">
+                    <span className="font-medium text-foreground">Instructions:</span>{" "}
+                    {order.special_instructions}
                   </p>
+                )}
+
+                {!isCancelled && (
+                  <ul className="mt-4 space-y-1 border-t border-border pt-4 text-sm">
+                    {order.order_items.map((item) => {
+                      const menuItem = getRelated(item.menu_items);
+
+                      return (
+                        <li
+                          key={`${order.id}-${menuItem?.name ?? "item"}`}
+                          className="flex justify-between gap-3"
+                        >
+                          <span>
+                            {formatOrderLineLabel(
+                              menuItem?.name ?? "Menu item",
+                              menuItem?.unit_label ?? "Each",
+                              item.quantity,
+                            )}
+                          </span>
+                          <span className="shrink-0 text-muted">
+                            {formatCurrency(Number(item.unit_price) * item.quantity)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </Card>
             );

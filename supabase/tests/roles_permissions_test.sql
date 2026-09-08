@@ -516,8 +516,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-
 
 select lives_ok(
   $$
-    insert into public.orders (id, profile_id, lunch_day_id, status)
-    values ('99999999-9999-4999-8999-999999999903', '11111111-1111-4111-8111-111111111111', '10000000-0000-0000-0000-000000000001', 'submitted')
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
   $$,
   'Staff can place own lunch orders'
 );
@@ -526,8 +535,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-
 
 select lives_ok(
   $$
-    insert into public.orders (id, profile_id, lunch_day_id, status)
-    values ('99999999-9999-4999-8999-999999999904', '22222222-2222-4222-8222-222222222222', '10000000-0000-0000-0000-000000000001', 'submitted')
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
   $$,
   'HR can place own lunch orders'
 );
@@ -536,8 +554,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-
 
 select lives_ok(
   $$
-    insert into public.orders (id, profile_id, lunch_day_id, status)
-    values ('99999999-9999-4999-8999-999999999905', '33333333-3333-4333-8333-333333333333', '10000000-0000-0000-0000-000000000001', 'submitted')
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
   $$,
   'Accounts can place own lunch orders'
 );
@@ -546,8 +573,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-
 
 select lives_ok(
   $$
-    insert into public.orders (id, profile_id, lunch_day_id, status)
-    values ('99999999-9999-4999-8999-999999999906', '44444444-4444-4444-8444-444444444444', '10000000-0000-0000-0000-000000000001', 'submitted')
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
   $$,
   'Admin can place own lunch orders'
 );
@@ -556,8 +592,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-
 
 select lives_ok(
   $$
-    insert into public.orders (id, profile_id, lunch_day_id, status)
-    values ('99999999-9999-4999-8999-999999999907', '55555555-5555-4555-8555-555555555555', '10000000-0000-0000-0000-000000000001', 'submitted')
+    select public.submit_order(
+      '10000000-0000-0000-0000-000000000001',
+      '{
+        "meal_quantity": null,
+        "main_menu_item_id": null,
+        "side_menu_item_ids": [],
+        "standalone_items": [
+          {"menu_item_id": "20000000-0000-0000-0000-000000000001", "quantity": 1}
+        ]
+      }'::jsonb
+    )
   $$,
   'Owner can place own lunch orders'
 );
