@@ -42,6 +42,8 @@ const staffPayload: StaffExportPayload = {
       provider_name: "Kitchen",
       order_status: "submitted",
       order_total: "24.00",
+      office_location_name: "Office 1",
+      office_location_address: "100 Main Street",
     },
     {
       order_id: "order-2",
@@ -50,6 +52,8 @@ const staffPayload: StaffExportPayload = {
       provider_name: "Kitchen",
       order_status: "fulfilled",
       order_total: "11.00",
+      office_location_name: "Office 2",
+      office_location_address: "200 Side Avenue",
     },
   ],
   daily_summary: [
@@ -116,6 +120,8 @@ const managementPayload: LunchPeriodFinancialSummary = {
       provider_name: "Kitchen",
       order_status: "submitted",
       order_total: "24.00",
+      office_location_name: "Office 1",
+      office_location_address: "100 Main Street",
     },
     {
       order_id: "order-2",
@@ -127,6 +133,8 @@ const managementPayload: LunchPeriodFinancialSummary = {
       provider_name: "Kitchen",
       order_status: "submitted",
       order_total: "12.00",
+      office_location_name: "Office 2",
+      office_location_address: "200 Side Avenue",
     },
   ],
   daily_summary: [

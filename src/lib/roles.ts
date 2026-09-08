@@ -29,6 +29,10 @@ export function canManageProviders(role: UserRole): boolean {
   return role === "hr" || role === "admin" || role === "owner";
 }
 
+export function canManageOfficeLocations(role: UserRole): boolean {
+  return role === "hr" || role === "admin" || role === "owner";
+}
+
 export function canViewAllOrders(role: UserRole): boolean {
   return role === "hr" || role === "accounts" || role === "admin" || role === "owner";
 }

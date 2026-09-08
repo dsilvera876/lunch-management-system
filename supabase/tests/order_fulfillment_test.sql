@@ -20,6 +20,8 @@ values
   '{"full_name":"Fulfillment User"}'
 );
 
+\ir support/assign_test_office_defaults.inc
+
 reset role;
 select private.apply_profile_role('f3333333-3333-4333-8333-333333333333', 'admin');
 

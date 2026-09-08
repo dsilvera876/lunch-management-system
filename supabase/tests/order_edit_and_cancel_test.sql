@@ -24,6 +24,8 @@ values
   '{"full_name":"Other User"}'
 );
 
+\ir support/assign_test_office_defaults.inc
+
 -- Create an order as the owner.
 set local role authenticated;
 

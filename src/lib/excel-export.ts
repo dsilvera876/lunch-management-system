@@ -114,6 +114,8 @@ export async function buildStaffWorkbook(
   applyHeaderRow(ordersSheet, [
     "Order date",
     "Delivery date",
+    "Delivery location",
+    "Location address",
     "Provider",
     "Order ID",
     "Status",
@@ -124,6 +126,8 @@ export async function buildStaffWorkbook(
     ordersSheet.addRow([
       order.order_date,
       order.delivery_date,
+      order.office_location_name ?? "",
+      order.office_location_address ?? "",
       order.provider_name ?? "",
       order.order_id,
       order.order_status,
@@ -131,7 +135,7 @@ export async function buildStaffWorkbook(
     ]);
   }
 
-  setCurrencyColumn(ordersSheet, 6, 2);
+  setCurrencyColumn(ordersSheet, 8, 2);
   autosizeColumns(summarySheet);
   autosizeColumns(dailySheet);
   autosizeColumns(ordersSheet);
@@ -228,6 +232,8 @@ export async function buildManagementWorkbook(
     "Employee",
     "Order date",
     "Delivery date",
+    "Delivery location",
+    "Location address",
     "Provider",
     "Order ID",
     "Status",
@@ -239,6 +245,8 @@ export async function buildManagementWorkbook(
       order.employee_name ?? "",
       order.order_date,
       order.delivery_date,
+      order.office_location_name ?? "",
+      order.office_location_address ?? "",
       order.provider_name ?? "",
       order.order_id,
       order.order_status,
@@ -246,7 +254,7 @@ export async function buildManagementWorkbook(
     ]);
   }
 
-  setCurrencyColumn(ordersSheet, 7, 2);
+  setCurrencyColumn(ordersSheet, 9, 2);
   autosizeColumns(periodSheet);
   autosizeColumns(employeeSheet);
   autosizeColumns(dailySheet);

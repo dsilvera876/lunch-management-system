@@ -62,6 +62,8 @@ function getErrorMessage(code: string) {
       return "This order combination is not valid. Choose one main with at least one side, or standalone items only.";
     case "instructions":
       return "Special instructions must be 500 characters or fewer.";
+    case "location":
+      return "Choose an active delivery location before placing your order.";
     default:
       return "Unable to complete the request. Please try again.";
   }
@@ -71,7 +73,7 @@ export default async function ProviderOrderPage({
   params,
   searchParams,
 }: Props) {
-  await requireProfile();
+  const profile = await requireProfile();
 
   const { id } = await params;
   const query = await searchParams;
@@ -93,6 +95,8 @@ export default async function ProviderOrderPage({
     { data: orderDeadline },
     { data: periodFinalized },
     { data: existingCycle },
+    { data: officeLocations },
+    { data: profileRow },
   ] = await Promise.all([
     supabase
       .from("lunch_providers")
@@ -150,7 +154,36 @@ export default async function ProviderOrderPage({
       .eq("provider_id", id)
       .eq("order_date", orderDate)
       .maybeSingle(),
+
+    supabase
+      .from("office_locations")
+      .select("id, name, address, description")
+      .eq("is_active", true)
+      .order("name", { ascending: true }),
+
+    supabase
+      .from("profiles")
+      .select(`
+        default_office_location_id,
+        office_locations:default_office_location_id (
+          id,
+          name,
+          is_active
+        )
+      `)
+      .eq("id", profile.id)
+      .single(),
   ]);
+
+  const defaultLocation = profileRow?.office_locations
+    ? Array.isArray(profileRow.office_locations)
+      ? profileRow.office_locations[0]
+      : profileRow.office_locations
+    : null;
+
+  const defaultOfficeLocationInactive = Boolean(
+    defaultLocation && defaultLocation.is_active === false,
+  );
 
   if (providerError || !provider) {
     notFound();
@@ -247,6 +280,10 @@ export default async function ProviderOrderPage({
           deliveryDate={deliveryDate}
           menuItems={menuItems}
           formAction={submitProviderOrder}
+          officeLocations={officeLocations ?? []}
+          defaultOfficeLocationId={profileRow?.default_office_location_id ?? null}
+          defaultOfficeLocationName={defaultLocation?.name ?? null}
+          defaultOfficeLocationInactive={defaultOfficeLocationInactive}
         />
       )}
     </>

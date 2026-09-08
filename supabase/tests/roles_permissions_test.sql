@@ -16,6 +16,8 @@ values
   ('66666666-6666-4666-8666-666666666666', 'admin2@test.local', '{"full_name":"Admin Two"}'),
   ('77777777-7777-4777-8777-777777777777', 'staff2@test.local', '{"full_name":"Staff Two"}');
 
+\ir support/assign_test_office_defaults.inc
+
 reset role;
 
 select private.apply_profile_role('22222222-2222-4222-8222-222222222222', 'hr');

@@ -16,6 +16,8 @@ values
   '{"full_name":"Normal User"}'
 );
 
+\ir support/assign_test_office_defaults.inc
+
 -- Promote first user to admin
 reset role;
 select private.apply_profile_role('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'admin');

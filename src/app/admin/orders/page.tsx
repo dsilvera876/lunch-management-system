@@ -18,6 +18,7 @@ type Props = {
   searchParams: Promise<{
     lunchDay?: string;
     status?: string;
+    location?: string;
     error?: string;
     fulfilled?: string;
   }>;
@@ -28,6 +29,8 @@ type OrderRow = {
   status: string;
   created_at: string;
   special_instructions: string | null;
+  office_location_name: string | null;
+  office_location_address: string | null;
   profiles: ReturnType<typeof getRelated<{ full_name: string | null }>>;
   lunch_days: ReturnType<typeof getRelated<{ lunch_date: string }>>;
   order_items: Array<{
@@ -47,10 +50,18 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: lunchDays, error: lunchDaysError } = await supabase
+  const [{ data: lunchDays, error: lunchDaysError }, { data: locationRows }] =
+    await Promise.all([
+    supabase
     .from("lunch_days")
     .select("id, lunch_date")
-    .order("lunch_date", { ascending: false });
+    .order("lunch_date", { ascending: false }),
+
+    supabase
+      .from("office_locations")
+      .select("name")
+      .order("name", { ascending: true }),
+  ]);
 
   if (lunchDaysError) {
     throw new Error("Unable to load lunch days.");
@@ -63,6 +74,8 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
       status,
       created_at,
       special_instructions,
+      office_location_name,
+      office_location_address,
       profiles (
         full_name
       ),
@@ -90,6 +103,10 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
     ["submitted", "cancelled", "fulfilled"].includes(params.status)
   ) {
     ordersQuery = ordersQuery.eq("status", params.status);
+  }
+
+  if (params.location) {
+    ordersQuery = ordersQuery.eq("office_location_name", params.location);
   }
 
   const { data, error } = await ordersQuery;
@@ -123,6 +140,27 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
 
   const summaryItems = Array.from(itemTotals.values()).sort((a, b) =>
     a.name.localeCompare(b.name),
+  );
+
+  const locationNames = Array.from(
+    new Set(
+      (locationRows ?? [])
+        .map((row) => row.name)
+        .concat(orders.map((order) => order.office_location_name).filter(Boolean) as string[]),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const groupedOrders = new Map<string, OrderRow[]>();
+
+  for (const order of orders) {
+    const locationLabel = order.office_location_name ?? "No delivery location";
+    const existing = groupedOrders.get(locationLabel) ?? [];
+    existing.push(order);
+    groupedOrders.set(locationLabel, existing);
+  }
+
+  const groupedOrderEntries = Array.from(groupedOrders.entries()).sort(([a], [b]) =>
+    a.localeCompare(b),
   );
 
   return (
@@ -177,6 +215,22 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
             </select>
           </FormField>
 
+          <FormField label="Delivery location" htmlFor="location">
+            <select
+              id="location"
+              name="location"
+              defaultValue={params.location ?? ""}
+              className={selectClassName}
+            >
+              <option value="">All locations</option>
+              {locationNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
           <div className="flex gap-2">
             <Button type="submit" variant="primary">
               Apply
@@ -217,7 +271,13 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
           {orders.length === 0 ? (
             <EmptyState title="No orders match these filters" />
           ) : (
-            orders.map((order) => {
+            groupedOrderEntries.map(([locationName, locationOrders]) => (
+              <div key={locationName} className="space-y-4">
+                <SectionHeader
+                  title={locationName}
+                  description={`${locationOrders.length} order${locationOrders.length === 1 ? "" : "s"}`}
+                />
+                {locationOrders.map((order) => {
               const profile = getRelated(order.profiles);
               const lunchDay = getRelated(order.lunch_days);
               const orderTotal = order.order_items.reduce(
@@ -239,6 +299,11 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                         Delivery {lunchDay?.lunch_date ?? "Unknown"} · Order{" "}
                         {order.id.slice(0, 8)}
                       </p>
+                      {order.office_location_address && (
+                        <p className="text-sm text-muted">
+                          {order.office_location_address}
+                        </p>
+                      )}
                       <p className="text-sm text-muted">
                         Submitted {formatDeadline(order.created_at)}
                       </p>
@@ -297,7 +362,9 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   )}
                 </Card>
               );
-            })
+                })}
+              </div>
+            ))
           )}
         </div>
       </div>

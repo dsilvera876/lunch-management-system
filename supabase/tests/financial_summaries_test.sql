@@ -69,6 +69,9 @@ where id = 1;
 -- Orders for financial tests
 -- ============================================================
 
+\ir support/office_location_fixture.inc
+\ir support/assign_test_office_defaults.inc
+
 select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 -- Friday order in first period (Sep 11 2026)

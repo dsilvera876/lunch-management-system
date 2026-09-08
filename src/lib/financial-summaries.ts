@@ -15,6 +15,8 @@ export type FinancialOrderLine = {
   provider_name: string | null;
   order_status: string;
   order_total: string | number;
+  office_location_name?: string | null;
+  office_location_address?: string | null;
 };
 
 export type FinancialDailySummary = {

@@ -45,6 +45,13 @@ function getOrderErrorCode(message: string) {
   }
 
   if (
+    normalized.includes("delivery location is required") ||
+    normalized.includes("delivery location is invalid or inactive")
+  ) {
+    return "location";
+  }
+
+  if (
     normalized.includes("menu item is invalid") ||
     normalized.includes("inactive") ||
     normalized.includes("not available")
@@ -78,9 +85,15 @@ export async function submitProviderOrder(formData: FormData) {
 
   const order = buildProviderOrderPayload(formData);
   const specialInstructions = formData.get("specialInstructions");
+  const officeLocationId = formData.get("officeLocationId");
+  const saveAsDefault = formData.get("saveAsDefault");
 
   if (!hasSelectedOrderItems(order)) {
     redirect(`/lunch/providers/${providerId}?error=empty`);
+  }
+
+  if (typeof officeLocationId !== "string" || officeLocationId.length === 0) {
+    redirect(`/lunch/providers/${providerId}?error=location`);
   }
 
   if (
@@ -98,11 +111,18 @@ export async function submitProviderOrder(formData: FormData) {
     p_items: order,
     p_special_instructions:
       typeof specialInstructions === "string" ? specialInstructions : null,
+    p_office_location_id: officeLocationId,
   });
 
   if (error) {
     const errorCode = getOrderErrorCode(error.message);
     redirect(`/lunch/providers/${providerId}?error=${errorCode}`);
+  }
+
+  if (saveAsDefault === "on") {
+    await supabase.rpc("set_my_default_office_location", {
+      p_office_location_id: officeLocationId,
+    });
   }
 
   revalidatePath("/lunch");
@@ -122,9 +142,14 @@ export async function submitLunchOrder(formData: FormData) {
   }
 
   const order = buildSnapshotOrderPayload(formData);
+  const officeLocationId = formData.get("officeLocationId");
 
   if (!hasSelectedOrderItems(order)) {
     redirect(`/lunch/${lunchDayId}?error=empty`);
+  }
+
+  if (typeof officeLocationId !== "string" || officeLocationId.length === 0) {
+    redirect(`/lunch/${lunchDayId}?error=location`);
   }
 
   const supabase = await createClient();
@@ -132,6 +157,7 @@ export async function submitLunchOrder(formData: FormData) {
   const { data: orderId, error } = await supabase.rpc("submit_order", {
     p_lunch_day_id: lunchDayId,
     p_items: order,
+    p_office_location_id: officeLocationId,
   });
 
   if (error) {
@@ -157,9 +183,14 @@ export async function updateLunchOrder(formData: FormData) {
 
   const order = buildSnapshotOrderPayload(formData);
   const specialInstructions = formData.get("specialInstructions");
+  const officeLocationId = formData.get("officeLocationId");
 
   if (!hasSelectedOrderItems(order)) {
     redirect(`/lunch/orders/${orderId}?error=empty&edit=1`);
+  }
+
+  if (typeof officeLocationId !== "string" || officeLocationId.length === 0) {
+    redirect(`/lunch/orders/${orderId}?error=location&edit=1`);
   }
 
   if (
@@ -176,6 +207,7 @@ export async function updateLunchOrder(formData: FormData) {
     p_items: order,
     p_special_instructions:
       typeof specialInstructions === "string" ? specialInstructions : null,
+    p_office_location_id: officeLocationId,
   });
 
   if (error) {

@@ -72,6 +72,9 @@ values (
 
 reset role;
 
+\ir support/office_location_fixture.inc
+\ir support/assign_test_office_defaults.inc
+
 -- 2099-01-05 is a Monday.
 
 select set_config(

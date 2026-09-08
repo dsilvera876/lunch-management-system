@@ -46,6 +46,8 @@ function getErrorMessage(code: string) {
       return "This order combination is not valid. Choose one main with at least one side, or standalone items only.";
     case "instructions":
       return "Special instructions must be 500 characters or fewer.";
+    case "location":
+      return "Choose an active delivery location before saving your order.";
     case "unauthorized":
       return "You are not authorized to perform this action.";
     default:
@@ -63,7 +65,9 @@ export default async function OrderDetailPage({
 
   const supabase = await createClient();
 
-  const { data: order, error } = await supabase
+  const [{ data: order, error }, { data: officeLocations }] =
+    await Promise.all([
+    supabase
     .from("orders")
     .select(`
       id,
@@ -71,6 +75,9 @@ export default async function OrderDetailPage({
       created_at,
       special_instructions,
       meal_quantity,
+      office_location_name,
+      office_location_address,
+      office_location_id,
       lunch_days (
         id,
         lunch_date,
@@ -106,7 +113,14 @@ export default async function OrderDetailPage({
     `)
     .eq("id", id)
     .eq("profile_id", profile.id)
-    .single();
+    .single(),
+
+    supabase
+      .from("office_locations")
+      .select("id, name, address, description")
+      .eq("is_active", true)
+      .order("name", { ascending: true }),
+  ]);
 
   if (error || !order) {
     notFound();
@@ -229,6 +243,18 @@ export default async function OrderDetailPage({
         <section>
           <SectionHeader title="Order items" />
 
+          {order.office_location_name && (
+            <Card className="mb-4" padding="sm">
+              <p className="text-sm text-muted">Deliver to</p>
+              <p className="font-medium">{order.office_location_name}</p>
+              {order.office_location_address && (
+                <p className="mt-1 text-sm text-muted">
+                  {order.office_location_address}
+                </p>
+              )}
+            </Card>
+          )}
+
           {order.meal_quantity && groupedOrderItems.main.length > 0 && (
             <div className="mb-4">
               <Card padding="sm">
@@ -350,6 +376,10 @@ export default async function OrderDetailPage({
           formAction={updateLunchOrder}
           submitLabel="Save changes"
           pendingLabel="Saving..."
+          officeLocations={officeLocations ?? []}
+          defaultOfficeLocationId={order.office_location_id}
+          defaultOfficeLocationName={order.office_location_name}
+          preserveExistingLocation
         />
       ) : null}
 

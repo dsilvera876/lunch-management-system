@@ -25,6 +25,8 @@ values
   '{"full_name":"User B"}'
 );
 
+\ir support/assign_test_office_defaults.inc
+
 -- Give User B an order so we can test isolation.
 insert into public.orders (
   id,

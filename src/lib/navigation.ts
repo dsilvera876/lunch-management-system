@@ -54,6 +54,11 @@ export const HR_NAV: NavItem[] = [
     label: "Lunch Providers",
     description: "Recurring menus",
   },
+  {
+    href: "/admin/locations",
+    label: "Office Locations",
+    description: "Delivery locations",
+  },
   LUNCH_PERIODS_NAV,
   FINANCIALS_NAV,
   { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
@@ -79,6 +84,11 @@ export const ADMIN_NAV: NavItem[] = [
     href: "/admin/providers",
     label: "Lunch Providers",
     description: "Recurring menus",
+  },
+  {
+    href: "/admin/locations",
+    label: "Office Locations",
+    description: "Delivery locations",
   },
   LUNCH_PERIODS_NAV,
   FINANCIALS_NAV,

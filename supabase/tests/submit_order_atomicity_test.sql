@@ -15,6 +15,8 @@ values (
   '{"full_name":"Atomic Test User"}'
 );
 
+\ir support/assign_test_office_defaults.inc
+
 set local role authenticated;
 
 select set_config(

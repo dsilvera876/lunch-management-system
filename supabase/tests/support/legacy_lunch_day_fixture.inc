@@ -67,3 +67,5 @@ on conflict (id) do update
 set
   is_active = true,
   price = excluded.price;
+
+\ir office_location_fixture.inc

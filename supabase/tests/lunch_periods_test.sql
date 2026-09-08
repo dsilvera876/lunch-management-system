@@ -14,6 +14,8 @@ values
   ('44444444-4444-4444-8444-444444444444', 'admin@test.local', '{"full_name":"Admin User"}'),
   ('55555555-5555-4555-8555-555555555555', 'owner@test.local', '{"full_name":"Owner User"}');
 
+\ir support/assign_test_office_defaults.inc
+
 reset role;
 
 select private.apply_profile_role('22222222-2222-4222-8222-222222222222', 'hr');

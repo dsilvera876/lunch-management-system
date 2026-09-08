@@ -34,6 +34,9 @@ values
   ('10344444-4444-4444-8444-444444444444', 2),
   ('10344444-4444-4444-8444-444444444444', 5);
 
+\ir support/office_location_fixture.inc
+\ir support/assign_test_office_defaults.inc
+
 update public.app_settings
 set order_cutoff_time = '23:59:00'
 where id = 1;

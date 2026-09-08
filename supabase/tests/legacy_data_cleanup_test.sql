@@ -57,6 +57,9 @@ update public.app_settings set order_cutoff_time = '23:59:00' where id = 1;
 insert into auth.users (id, email, raw_user_meta_data)
 values ('d0333333-3333-4333-8333-333333333333', 'cleanup-staff@test.local', '{"full_name":"Cleanup Staff"}');
 
+\ir support/office_location_fixture.inc
+\ir support/assign_test_office_defaults.inc
+
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'd0333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 

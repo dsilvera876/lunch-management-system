@@ -141,6 +141,9 @@ select results_eq(
 -- Order fixtures for subsidy calculations
 -- ============================================================
 
+\ir support/office_location_fixture.inc
+\ir support/assign_test_office_defaults.inc
+
 select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 -- No orders yet for staff2 (subsidy used should stay zero)

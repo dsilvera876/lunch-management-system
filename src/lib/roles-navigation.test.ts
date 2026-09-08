@@ -15,6 +15,7 @@ import {
   canFulfillOrders,
   canManageLunchPeriods,
   canManageProviders,
+  canManageOfficeLocations,
   canManageRoles,
   canViewAllFinancialSummaries,
   canViewAllOrders,
@@ -34,8 +35,14 @@ describe("getRoleLabel", () => {
 describe("capability helpers", () => {
   it("allows HR to manage providers and fulfill but not manage roles", () => {
     assert.equal(canManageProviders("hr"), true);
+    assert.equal(canManageOfficeLocations("hr"), true);
     assert.equal(canFulfillOrders("hr"), true);
     assert.equal(canManageRoles("hr"), false);
+  });
+
+  it("does not allow Accounts to manage office locations", () => {
+    assert.equal(canManageOfficeLocations("accounts"), false);
+    assert.equal(canManageOfficeLocations("staff"), false);
   });
 
   it("allows Accounts to view all orders but not fulfill or manage providers", () => {
@@ -58,12 +65,14 @@ describe("navigation by role", () => {
   it("includes providers and orders for HR", () => {
     assert.ok(HR_NAV.some((item) => item.href === "/admin/providers"));
     assert.ok(HR_NAV.some((item) => item.href === "/admin/orders"));
+    assert.ok(HR_NAV.some((item) => item.href === "/admin/locations"));
     assert.ok(!HR_NAV.some((item) => item.href === "/admin/users"));
   });
 
   it("includes orders but not providers for Accounts", () => {
     assert.ok(ACCOUNTS_NAV.some((item) => item.href === "/admin/orders"));
     assert.ok(!ACCOUNTS_NAV.some((item) => item.href === "/admin/providers"));
+    assert.ok(!ACCOUNTS_NAV.some((item) => item.href === "/admin/locations"));
   });
 
   it("includes lunch periods for HR and Accounts but not Staff", () => {

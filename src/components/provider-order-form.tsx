@@ -17,6 +17,8 @@ import {
   validateOrderComposition,
   type MenuItemType,
 } from "@/lib/menu-items";
+import { OfficeLocationPicker } from "@/components/office-location-picker";
+import type { OfficeLocationOption } from "@/lib/office-locations";
 import {
   calculateMealBundleSubtotal,
   formatMealBundleLabel,
@@ -48,6 +50,11 @@ type Props = {
   defaultSpecialInstructions?: string;
   submitLabel?: string;
   pendingLabel?: string;
+  officeLocations?: OfficeLocationOption[];
+  defaultOfficeLocationId?: string | null;
+  defaultOfficeLocationName?: string | null;
+  defaultOfficeLocationInactive?: boolean;
+  preserveExistingLocation?: boolean;
 };
 
 function StandaloneItemCard({
@@ -103,6 +110,11 @@ export function ProviderOrderForm({
   defaultSpecialInstructions = "",
   submitLabel = "Place Order",
   pendingLabel = "Placing order...",
+  officeLocations = [],
+  defaultOfficeLocationId = null,
+  defaultOfficeLocationName = null,
+  defaultOfficeLocationInactive = false,
+  preserveExistingLocation = false,
 }: Props) {
   const grouped = useMemo(() => groupMenuItemsByType(menuItems), [menuItems]);
   const offersMeals = providerOffersMeals(menuItems);
@@ -184,6 +196,18 @@ export function ProviderOrderForm({
     if (!isValidSpecialInstructions(specialInstructions)) {
       event.preventDefault();
       setValidationError("Special instructions must be 500 characters or fewer.");
+      return;
+    }
+
+    const officeLocationId = (
+      event.currentTarget.elements.namedItem("officeLocationId") as
+        | HTMLInputElement
+        | null
+    )?.value;
+
+    if (officeLocations.length > 0 && !officeLocationId) {
+      event.preventDefault();
+      setValidationError("Choose a delivery location before placing your order.");
     }
   }
 
@@ -196,6 +220,16 @@ export function ProviderOrderForm({
         </>
       ) : null}
       {hiddenFields}
+
+      {officeLocations.length > 0 && (
+        <OfficeLocationPicker
+          locations={officeLocations}
+          defaultLocationId={defaultOfficeLocationId}
+          defaultLocationName={defaultOfficeLocationName}
+          defaultLocationInactive={defaultOfficeLocationInactive}
+          preserveExistingLocation={preserveExistingLocation}
+        />
+      )}
 
       <SectionHeader
         title="Choose items"
