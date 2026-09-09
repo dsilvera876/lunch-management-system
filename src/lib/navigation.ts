@@ -30,9 +30,10 @@ const LUNCH_ITEMS: NavItem[] = [
 ];
 
 const HR_ITEMS: NavItem[] = [
+  { href: "/admin/deliveries", label: "Deliveries", description: "Daily delivery reconciliation" },
+  { href: "/admin/orders", label: "Orders", description: "Order lookup and history" },
   { href: "/admin/providers", label: "Lunch Providers", description: "Recurring menus" },
   { href: "/admin/locations", label: "Office Locations", description: "Delivery locations" },
-  { href: "/admin/orders", label: "Orders", description: "Fulfillment queue" },
 ];
 
 const ACCOUNTS_ITEMS: NavItem[] = [
@@ -120,6 +121,10 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 
   if (pathname.startsWith("/admin/lunch-periods")) {
     return canManageLunchPeriods(role);
+  }
+
+  if (pathname.startsWith("/admin/deliveries")) {
+    return canViewAllOrders(role);
   }
 
   if (pathname.startsWith("/admin/orders")) {

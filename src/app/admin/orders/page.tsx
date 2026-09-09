@@ -210,8 +210,15 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Orders"
-        description="Reconcile provider deliveries by scheduled delivery date. Payroll still uses the original order date."
+        description="Detailed order lookup, issue history, adjustments, and audit context. For daily delivery check-off, use Deliveries."
       />
+
+      <p className="mb-6 text-sm">
+        <Link href="/admin/deliveries" className="font-medium text-primary hover:underline">
+          Open Deliveries workspace
+        </Link>{" "}
+        for high-volume daily reconciliation.
+      </p>
 
       {successMessage && (
         <Alert variant="success" className="mb-6">

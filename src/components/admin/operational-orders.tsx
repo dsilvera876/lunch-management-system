@@ -213,7 +213,7 @@ export function ProviderOperationalSection({
           )}
         </div>
         <Link
-          href={`/admin/orders/provider/${providerId}/print?deliveryDate=${deliveryDate}`}
+          href={`/admin/deliveries/provider/${providerId}/print?deliveryDate=${deliveryDate}`}
           className="inline-flex items-center justify-center rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/40 print:hidden"
         >
           Print Delivery Sheet
