@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(37);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -205,7 +205,7 @@ select throws_ok(
     select public.worker_materialize_current_order_snapshots()
   $$,
   'permission denied for function worker_materialize_current_order_snapshots',
-  'Worker snapshot RPC denied without service role'
+  'Worker snapshot RPC denied without effective service_role'
 );
 
 select set_config(
@@ -262,10 +262,23 @@ select set_config(
 select set_config('request.jwt.claim.role', 'service_role', true);
 
 select ok(
+  (select private.is_worker_service_caller()),
+  'Effective service_role request context authorizes worker caller check'
+);
+
+reset role;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select ok(
   (
     select (public.worker_materialize_current_order_snapshots() ->> 'materialized')::integer >= 1
   ),
-  'Worker snapshot materialization succeeds for service role'
+  'Worker snapshot materialization succeeds for effective service_role'
 );
 
 select ok(

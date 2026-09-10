@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 
@@ -187,7 +188,13 @@ async function runAutomaticDispatch(dryRun: boolean): Promise<number> {
   return failures;
 }
 
+function assertWorkerEnvironment(): void {
+  getSupabaseUrl();
+  getSupabaseSecretKey();
+}
+
 async function main(): Promise<void> {
+  assertWorkerEnvironment();
   const options = parseArgs(process.argv.slice(2));
 
   if (options.task === "snapshots" || options.task === "all") {

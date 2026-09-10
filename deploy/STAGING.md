@@ -176,7 +176,7 @@ Do **not** set `HOSTNAME` or `PORT` — the systemd unit binds Next.js to `127.0
 
 `APP_ORIGIN` is server-only (not `NEXT_PUBLIC_*`). It pins auth redirect targets and prevents Host-header open redirects.
 
-Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to the Next.js web app. It belongs in `/etc/lunch-management/staging.env` for systemd workers only.
+Do **not** add `SUPABASE_SECRET_KEY` to the Next.js web app. It belongs only in `/etc/lunch-management/worker.env` for systemd workers.
 
 ---
 
@@ -506,12 +506,14 @@ After deploying password recovery changes, run this checklist on staging (replac
 
 Two systemd timers run **outside** the Next.js web process. They load **`/etc/lunch-management/worker.env` only** (see `deploy/env/worker.env.example`).
 
-The Next.js web service continues to load **`/etc/lunch-management/staging.env` only** and must **not** receive the Supabase service-role key.
+The Next.js web service continues to load **`/etc/lunch-management/staging.env` only** and must **not** receive the Supabase Secret key.
 
 | File | Used by | Typical secrets |
 |------|---------|-----------------|
 | `/etc/lunch-management/staging.env` | `lunch-management-staging.service` (Next.js) | publishable Supabase key, `APP_ORIGIN`, optional SMTP for HR manual supplemental sends |
-| `/etc/lunch-management/worker.env` | snapshot + automatic-dispatch workers | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, SMTP2Go |
+| `/etc/lunch-management/worker.env` | snapshot + automatic-dispatch workers | `SUPABASE_SECRET_KEY` (`sb_secret_...`), `SUPABASE_URL`, SMTP2Go |
+
+Worker RPC authorization uses the effective Supabase **`service_role` Postgres/API role** supplied by the hosted gateway when using a Secret key. The worker never parses `sb_secret_...` as a JWT.
 
 ### Install unit files
 
@@ -576,6 +578,8 @@ sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs)
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
 ```
 
+**Local development:** run `supabase status` and copy the **Secret** key (`sb_secret_...`) into a local `worker.env` (or export `SUPABASE_URL` + `SUPABASE_SECRET_KEY`). Do not use the legacy JWT `service_role` key for the worker. Normal app auth continues to use `.env.local` publishable credentials only.
+
 ### Logs and maintenance
 
 ```bash
@@ -603,7 +607,7 @@ sudo systemctl disable --now lunch-management-late-orders-worker.timer
 - Next.js listens on **127.0.0.1:3000 only**; Apache terminates TLS and proxies
 - Secrets in `/etc/lunch-management/staging.env`, not in Git
 - `APP_ORIGIN=https://STAGING_HOSTNAME` pins auth redirects
-- No service-role key in the Next.js app
+- No Supabase Secret key in the Next.js app
 - systemd runs as dedicated non-root `lunchapp` user
 - Staging vhost uses separate Apache logs
 - Existing Apache sites are untouched
