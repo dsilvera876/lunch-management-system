@@ -9,6 +9,7 @@ import {
   assertProviderPrintPayloadSafe,
 } from "@/lib/operational-orders";
 import {
+  failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -56,7 +57,11 @@ export default async function ProviderDeliveryPrintPage({
   }
 
   if (error) {
-    throw new Error("Unable to load delivery sheet.");
+    failOperationalOrdersQuery(
+      "admin/orders/provider/print",
+      error,
+      "Unable to load delivery sheet.",
+    );
   }
 
   const parsedOrders = (orders ?? [])

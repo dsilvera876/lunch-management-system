@@ -10,6 +10,7 @@ import {
 } from "@/lib/mail/smtp2go";
 import type { OperationalOrder } from "@/lib/operational-orders";
 import {
+  logOperationalOrdersQueryError,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -63,6 +64,9 @@ export async function executeSupplementalDispatch(
     .in("id", orderIds);
 
   if (ordersError || !orderRows) {
+    if (ordersError) {
+      logOperationalOrdersQueryError("late-order-supplement-dispatch", ordersError);
+    }
     await finalizeDispatch(supabase, input.finalizeRpc, {
       dispatchId: claim.dispatch_id,
       success: false,

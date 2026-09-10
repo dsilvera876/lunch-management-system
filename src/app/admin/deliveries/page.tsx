@@ -4,6 +4,7 @@ import { buildInitialDeliveriesFilters } from "@/lib/deliveries";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import { formatHumanDate } from "@/lib/format";
 import {
+  failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -53,7 +54,11 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
     .order("created_at", { ascending: true });
 
   if (error) {
-    throw new Error("Unable to load deliveries.");
+    failOperationalOrdersQuery(
+      "admin/deliveries",
+      error,
+      "Unable to load deliveries.",
+    );
   }
 
   const orders = (data ?? [])

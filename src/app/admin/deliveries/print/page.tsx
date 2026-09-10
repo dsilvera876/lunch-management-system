@@ -2,6 +2,7 @@ import { requireViewAllOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
 import {
+  failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -32,7 +33,11 @@ export default async function AllProvidersDeliveryPrintPage({ searchParams }: Pr
     .order("created_at", { ascending: true });
 
   if (error) {
-    throw new Error("Unable to load delivery sheet.");
+    failOperationalOrdersQuery(
+      "admin/deliveries/print",
+      error,
+      "Unable to load delivery sheet.",
+    );
   }
 
   const orders = (data ?? [])

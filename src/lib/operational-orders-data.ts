@@ -1,3 +1,4 @@
+import type { PostgrestError } from "@supabase/supabase-js";
 import { getRelated } from "@/lib/format";
 import type {
   DeliveryIssueType,
@@ -104,6 +105,33 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
   };
 }
 
+/** PostgREST FK: `orders.profile_id` → `profiles.id` (see pg_constraint `orders_profile_id_fkey`). */
+export const OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY = "orders_profile_id_fkey";
+
+export const OPERATIONAL_ORDER_LATE_CREATOR_PROFILE_FKEY =
+  "orders_late_order_created_by_fkey";
+
+export function logOperationalOrdersQueryError(
+  logContext: string,
+  error: PostgrestError,
+): void {
+  console.error(`Failed to load operational orders (${logContext})`, {
+    message: error.message,
+    code: error.code,
+    details: error.details,
+    hint: error.hint,
+  });
+}
+
+export function failOperationalOrdersQuery(
+  logContext: string,
+  error: PostgrestError,
+  userMessage: string,
+): never {
+  logOperationalOrdersQueryError(logContext, error);
+  throw new Error(userMessage);
+}
+
 export function markLateOrderDispatchState(
   orders: OperationalOrder[],
   dispatchedOrderIds: Set<string>,
@@ -129,13 +157,13 @@ export const OPERATIONAL_ORDERS_SELECT = `
   is_late_order,
   office_location_name,
   office_location_address,
-  late_order_creator:profiles!orders_late_order_created_by_fkey (
+  late_order_creator:profiles!${OPERATIONAL_ORDER_LATE_CREATOR_PROFILE_FKEY} (
     full_name
   ),
   order_delivery_reconciliation (
     hr_delivery_notes
   ),
-  profiles (
+  profiles!${OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY} (
     full_name
   ),
   lunch_days!inner (

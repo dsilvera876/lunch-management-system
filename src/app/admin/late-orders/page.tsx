@@ -10,6 +10,7 @@ import {
   isProviderLateOrderingOpen,
   type SupplementDispatchRecord,
 } from "@/lib/late-orders";
+import { OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY } from "@/lib/operational-orders-data";
 import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -102,7 +103,7 @@ export default async function LateOrdersPage() {
           `
           id,
           created_at,
-          profiles ( full_name ),
+          profiles!${OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY} ( full_name ),
           lunch_days!inner ( lunch_date, order_date, provider_id )
         `,
         )

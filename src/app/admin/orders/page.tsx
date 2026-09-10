@@ -5,6 +5,7 @@ import { formatHumanDate } from "@/lib/format";
 import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
 import { buildOperationalDeliveryReport } from "@/lib/operational-orders";
 import {
+  failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -127,7 +128,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   const { data, error } = await ordersQuery;
 
   if (error) {
-    throw new Error("Unable to load orders.");
+    failOperationalOrdersQuery("admin/orders", error, "Unable to load orders.");
   }
 
   const parsedOrders = (data ?? [])

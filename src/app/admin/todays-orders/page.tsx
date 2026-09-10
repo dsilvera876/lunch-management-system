@@ -4,6 +4,7 @@ import { getJamaicaTodayDate } from "@/lib/datetime";
 import { formatHumanDate } from "@/lib/format";
 import { buildOperationalDeliveryReport } from "@/lib/operational-orders";
 import {
+  failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -25,7 +26,11 @@ export default async function TodaysOrdersPage() {
     .order("created_at", { ascending: true });
 
   if (error) {
-    throw new Error("Unable to load today's orders.");
+    failOperationalOrdersQuery(
+      "admin/todays-orders",
+      error,
+      "Unable to load today's orders.",
+    );
   }
 
   const orders = (data ?? [])

@@ -4,6 +4,7 @@ import { requireViewAllOrders } from "@/lib/auth";
 import { assertDeliveriesPayloadSafe } from "@/lib/deliveries";
 import type { OperationalOrder } from "@/lib/operational-orders";
 import {
+  logOperationalOrdersQueryError,
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
   type OperationalOrderRow,
@@ -37,6 +38,7 @@ export async function loadDeliveriesForDateAction(
     .order("created_at", { ascending: true });
 
   if (error) {
+    logOperationalOrdersQueryError("admin/deliveries/load-data", error);
     return { success: false, error: "Unable to load deliveries." };
   }
 
