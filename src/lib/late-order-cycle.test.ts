@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  addCalendarDays,
   candidateLateOrderDeliveryDates,
   classifyLateOrderSnapshotWarning,
-  getOrderDateForDeliveryDate,
   resolveActionableLateOrderDeliveryDates,
   resolvePrimaryLateOrderDeliveryDate,
   shouldShowLateOrderProviderSummary,
 } from "./late-order-cycle";
-import { getDeliveryDateForOrderDate } from "./datetime";
+import {
+  addCalendarDays,
+  getDeliveryDateForOrderDate,
+  getOrderDateForDeliveryDate,
+} from "./datetime";
 
 describe("order date ↔ delivery mapping", () => {
   it("maps Thursday delivery to Wednesday order date (not legacy stale offsets)", () => {

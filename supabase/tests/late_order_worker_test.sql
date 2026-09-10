@@ -44,7 +44,7 @@ values
   true,
   true,
   'delivery_day',
-  '10:30:00',
+  '23:59:00',
   'automatic',
   'delivery_day',
   '10:00:00',
@@ -56,7 +56,7 @@ values
   true,
   true,
   'delivery_day',
-  '10:30:00',
+  '23:59:00',
   'manual',
   null,
   null,
@@ -300,6 +300,13 @@ select ok(
   ),
   'Current-day snapshot materialization is idempotent'
 );
+
+update public.lunch_providers
+set late_order_deadline_day = 'delivery_day',
+    late_order_deadline_time = '10:30:00',
+    automatic_supplement_send_day = 'delivery_day',
+    automatic_supplement_send_time = '10:00:00'
+where id = 'd9111111-1111-4111-8111-111111111111';
 
 select ok(
   not private.automatic_supplement_is_due(

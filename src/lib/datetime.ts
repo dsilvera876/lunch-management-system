@@ -56,6 +56,20 @@ export function getDaysUntilDelivery(orderWeekday: Weekday): number {
  * Delivery calendar date for an order placed on orderDateStr (YYYY-MM-DD, Jamaica).
  * Mon order -> Tue delivery, Fri order -> Mon delivery.
  */
+export function addCalendarDays(dateStr: string, days: number): string {
+  const date = new Date(`${dateStr}T12:00:00-05:00`);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: JAMAICA_TIME_ZONE,
+  }).format(date);
+}
+
+/** Calendar days to subtract for inverse delivery → order date (matches PostgreSQL). */
+export function getDaysBeforeDeliveryForOrderDate(deliveryWeekday: Weekday): number {
+  return deliveryWeekday === 1 ? 3 : 1;
+}
+
 export function getDeliveryDateForOrderDate(orderDateStr: string): string | null {
   const orderWeekday = getJamaicaIsoWeekday(orderDateStr);
 
@@ -63,14 +77,21 @@ export function getDeliveryDateForOrderDate(orderDateStr: string): string | null
     return null;
   }
 
-  const deliveryDate = new Date(`${orderDateStr}T12:00:00-05:00`);
-  deliveryDate.setUTCDate(
-    deliveryDate.getUTCDate() + getDaysUntilDelivery(orderWeekday),
-  );
+  return addCalendarDays(orderDateStr, getDaysUntilDelivery(orderWeekday));
+}
 
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: JAMAICA_TIME_ZONE,
-  }).format(deliveryDate);
+/** Mirrors `public.order_date_for_delivery_date`. */
+export function getOrderDateForDeliveryDate(deliveryDateStr: string): string | null {
+  const deliveryWeekday = getJamaicaIsoWeekday(deliveryDateStr);
+
+  if (!deliveryWeekday) {
+    return null;
+  }
+
+  return addCalendarDays(
+    deliveryDateStr,
+    -getDaysBeforeDeliveryForOrderDate(deliveryWeekday),
+  );
 }
 
 export function formatWeekdayList(weekdays: number[]): string {

@@ -1,34 +1,10 @@
 import {
+  addCalendarDays,
   getDeliveryDateForOrderDate,
-  getJamaicaIsoWeekday,
+  getOrderDateForDeliveryDate,
 } from "./datetime";
 
-/** Mirrors `public.order_date_for_delivery_date` (next-business-day inverse). */
-export function getOrderDateForDeliveryDate(deliveryDateStr: string): string | null {
-  const deliveryWeekday = getJamaicaIsoWeekday(deliveryDateStr);
-
-  if (!deliveryWeekday) {
-    return null;
-  }
-
-  for (let offset = 1; offset <= 5; offset += 1) {
-    const candidate = addCalendarDays(deliveryDateStr, -offset);
-    if (getDeliveryDateForOrderDate(candidate) === deliveryDateStr) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
-export function addCalendarDays(dateStr: string, days: number): string {
-  const date = new Date(`${dateStr}T12:00:00-05:00`);
-  date.setUTCDate(date.getUTCDate() + days);
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Jamaica",
-  }).format(date);
-}
+export { addCalendarDays, getOrderDateForDeliveryDate };
 
 export type LateOrderCycleContext = {
   deliveryDate: string;
