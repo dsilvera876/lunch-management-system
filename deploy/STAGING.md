@@ -176,7 +176,7 @@ Do **not** set `HOSTNAME` or `PORT` — the systemd unit binds Next.js to `127.0
 
 `APP_ORIGIN` is server-only (not `NEXT_PUBLIC_*`). It pins auth redirect targets and prevents Host-header open redirects.
 
-Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to this application.
+Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to the Next.js web app. It belongs in `/etc/lunch-management/staging.env` for systemd workers only.
 
 ---
 
@@ -499,6 +499,101 @@ After deploying password recovery changes, run this checklist on staging (replac
 9. Confirm role and navigation are unchanged (Owner remains Owner, etc.)
 10. Reuse the same reset link → friendly invalid/expired message with option to request a new link
 11. Submit a **nonexistent** email on `/forgot-password` → same neutral reset-request success message as step 2
+
+---
+
+## Background workers (late orders)
+
+Two systemd timers run **outside** the Next.js web process. They load **`/etc/lunch-management/worker.env` only** (see `deploy/env/worker.env.example`).
+
+The Next.js web service continues to load **`/etc/lunch-management/staging.env` only** and must **not** receive the Supabase service-role key.
+
+| File | Used by | Typical secrets |
+|------|---------|-----------------|
+| `/etc/lunch-management/staging.env` | `lunch-management-staging.service` (Next.js) | publishable Supabase key, `APP_ORIGIN`, optional SMTP for HR manual supplemental sends |
+| `/etc/lunch-management/worker.env` | snapshot + automatic-dispatch workers | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, SMTP2Go |
+
+### Install unit files
+
+```bash
+sudo cp deploy/systemd/lunch-management-snapshot.service /etc/systemd/system/
+sudo cp deploy/systemd/lunch-management-snapshot.timer /etc/systemd/system/
+sudo cp deploy/systemd/lunch-management-late-orders-worker.service /etc/systemd/system/
+sudo cp deploy/systemd/lunch-management-late-orders-worker.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+Copy worker env (separate from web env):
+
+```bash
+sudo cp deploy/env/worker.env.example /etc/lunch-management/worker.env
+sudo chown root:lunchapp /etc/lunch-management/worker.env
+sudo chmod 640 /etc/lunch-management/worker.env
+```
+
+### Enable timers
+
+```bash
+sudo systemctl enable --now lunch-management-snapshot.timer
+sudo systemctl enable --now lunch-management-late-orders-worker.timer
+sudo systemctl list-timers 'lunch-management-*'
+```
+
+Schedules (IANA timezone in each `OnCalendar` expression — no standalone `Timezone=` directive):
+
+- **Snapshot materialization** (`lunch-management-snapshot.timer`):
+  ```
+  OnCalendar=*-*-* 00:01:00 America/Jamaica
+  Persistent=true
+  AccuracySec=1min
+  ```
+- **Automatic supplemental dispatch** (`lunch-management-late-orders-worker.timer`):
+  ```
+  OnCalendar=*-*-* *:*:00 America/Jamaica
+  Persistent=true
+  AccuracySec=1s
+  ```
+
+Before enabling on staging, validate timer syntax:
+
+```bash
+systemd-analyze calendar '*-*-* 00:01:00 America/Jamaica'
+systemd-analyze calendar '*-*-* *:*:00 America/Jamaica'
+systemd-analyze verify deploy/systemd/lunch-management-snapshot.service \
+  deploy/systemd/lunch-management-snapshot.timer \
+  deploy/systemd/lunch-management-late-orders-worker.service \
+  deploy/systemd/lunch-management-late-orders-worker.timer
+```
+
+The worker code still derives the authoritative Jamaica order date in the database; systemd timing is only the wake-up schedule.
+
+### Manual worker testing
+
+```bash
+cd /var/www/lunch-management-system
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:snapshots
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:automatic-dispatch
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
+```
+
+### Logs and maintenance
+
+```bash
+journalctl -u lunch-management-snapshot.service -n 100 --no-pager
+journalctl -u lunch-management-late-orders-worker.service -n 100 --no-pager
+journalctl -u lunch-management-snapshot.timer -n 20 --no-pager
+journalctl -u lunch-management-late-orders-worker.timer -n 20 --no-pager
+sudo systemctl disable --now lunch-management-snapshot.timer
+sudo systemctl disable --now lunch-management-late-orders-worker.timer
+```
+
+### Operational notes
+
+- Snapshot job calls `worker_materialize_current_order_snapshots()` for the current Jamaica order date only; it is idempotent and never rebuilds historical snapshots.
+- Automatic dispatch processes **one automatic opportunity per provider/delivery cycle**. Zero-order opportunities are audited once and are not retried every minute. New late orders after that automatic window require HR manual send.
+- Catch-up is allowed only when the automatic opportunity was never processed and the provider deadline has not passed.
+- Stale `pending` dispatches beyond a 15-minute lease are marked `attention_required` and are **not** auto-retried (prevents duplicate email after worker crash).
+- HR must explicitly acknowledge ambiguous dispatches on `/admin/late-orders` before retrying or marking received without resending.
 
 ---
 

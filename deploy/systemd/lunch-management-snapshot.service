@@ -1,0 +1,25 @@
+[Unit]
+Description=Lunch Management menu snapshot materialization worker
+Documentation=file:///var/www/lunch-management-system/deploy/STAGING.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=lunchapp
+Group=lunchapp
+WorkingDirectory=/var/www/lunch-management-system
+EnvironmentFile=/etc/lunch-management/worker.env
+ExecStart=/usr/bin/npm run worker:snapshots
+StandardOutput=journal
+StandardError=journal
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/lunch-management-system
+
+[Install]
+WantedBy=multi-user.target

@@ -17,12 +17,9 @@ import {
   getDeliveryDisplayLinePairs,
   groupOrdersByOfficeLocation,
   patchDeliveryOrder,
-  sanitizeDeliveriesFiltersAfterDateChange,
   type DeliveriesFilterState,
 } from "@/lib/deliveries";
-import { formatHumanDate } from "@/lib/format";
 import type { OperationalOrder } from "@/lib/operational-orders";
-import { loadDeliveriesForDateAction } from "@/app/admin/deliveries/load-data";
 import { markOrderDeliveredMutation } from "@/app/admin/deliveries/mutations";
 import type { DeliveryMutationResult } from "@/app/admin/deliveries/mutations";
 import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
@@ -46,8 +43,8 @@ type Props = {
   initialFilters: DeliveriesFilterState;
   providers: Array<{ id: string; name: string }>;
   locationNames: string[];
-  availableDeliveryDates: string[];
   canReconcile: boolean;
+  deliveryDateLabel: string;
 };
 
 function buildPrintHref(deliveryDate: string, providerId?: string): string {
@@ -186,6 +183,11 @@ function DeliveryRow({
         </td>
         <td className="px-2 py-1.5 align-middle text-sm font-medium text-foreground">
           {order.employeeName}
+          {order.isLateOrder ? (
+            <span className="ml-1 rounded bg-muted/40 px-1 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted">
+              Late
+            </span>
+          ) : null}
         </td>
         {showProviderColumn && (
           <td className="px-2 py-1.5 align-middle text-sm text-muted">{order.providerName}</td>
@@ -217,6 +219,11 @@ function DeliveryRow({
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">
                   {order.employeeName}
+                  {order.isLateOrder ? (
+                    <span className="ml-1 rounded bg-muted/40 px-1 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted">
+                      Late
+                    </span>
+                  ) : null}
                 </p>
                 <DeliveredControl
                   order={order}
@@ -250,12 +257,11 @@ export function DeliveriesWorkspace({
   initialFilters,
   providers,
   locationNames,
-  availableDeliveryDates,
   canReconcile,
+  deliveryDateLabel,
 }: Props) {
   const [orders, setOrders] = useState(initialOrders);
   const [filters, setFilters] = useState<DeliveriesFilterState>(initialFilters);
-  const [dateLoading, setDateLoading] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -279,7 +285,6 @@ export function DeliveriesWorkspace({
   const overallProgress = useMemo(() => computeDeliveryProgress(orders), [orders]);
   const issueOrder = orders.find((order) => order.id === issueOrderId) ?? null;
   const showProviderColumn = !filters.providerId;
-  const deliveryDateLabel = formatHumanDate(filters.deliveryDate);
 
   const applyMutation = (result: DeliveryMutationResult) => {
     if (!result.success) {
@@ -316,37 +321,6 @@ export function DeliveriesWorkspace({
     });
   };
 
-  const handleDateChange = (deliveryDate: string) => {
-    if (deliveryDate === filters.deliveryDate) {
-      return;
-    }
-
-    const previousFilters = filters;
-    syncFilters({ ...filters, deliveryDate });
-
-    setDateLoading(true);
-    setToast(null);
-
-    startTransition(async () => {
-      const result = await loadDeliveriesForDateAction(deliveryDate);
-      setDateLoading(false);
-
-      if (!result.success) {
-        setToast(result.error);
-        syncFilters(previousFilters);
-        return;
-      }
-
-      setOrders(result.orders);
-      syncFilters(
-        sanitizeDeliveriesFiltersAfterDateChange(
-          { ...previousFilters, deliveryDate },
-          result.orders,
-        ),
-      );
-    });
-  };
-
   const handleProviderChange = (providerId: string) => {
     syncFilters({ ...filters, providerId });
   };
@@ -365,9 +339,6 @@ export function DeliveriesWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-lg font-semibold text-foreground">
             Deliveries — {deliveryDateLabel}
-            {dateLoading ? (
-              <span className="ml-2 text-sm font-normal text-muted">Loading…</span>
-            ) : null}
           </h1>
           <p className="text-sm text-muted">
             {overallProgress.reconciled} / {overallProgress.total} reconciled
@@ -375,22 +346,6 @@ export function DeliveriesWorkspace({
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-muted">
-            Date
-            <select
-              value={filters.deliveryDate}
-              disabled={dateLoading}
-              onChange={(event) => handleDateChange(event.target.value)}
-              className={`${selectClassName} mt-0.5 min-w-[9rem] text-sm disabled:opacity-50`}
-            >
-              {availableDeliveryDates.map((date) => (
-                <option key={date} value={date}>
-                  {date}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <label className="text-xs text-muted">
             Provider
             <select

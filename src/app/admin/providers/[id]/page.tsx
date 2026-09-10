@@ -24,6 +24,7 @@ import { linkButtonClass } from "@/components/ui/button";
 import { WeekdayPicker } from "@/components/weekday-picker";
 import { MenuItemTypeFields } from "@/components/menu-item-type-fields";
 import { MenuItemAdminCard } from "@/components/menu-item-admin-card";
+import { ProviderLateOrderSettings } from "@/components/admin/provider-late-order-settings";
 import {
   groupMenuItemsByType,
   groupStandaloneItemsByCategory,
@@ -39,6 +40,7 @@ type Props = {
     menuUpdated?: string;
     menuToggled?: string;
     statusUpdated?: string;
+    lateUpdated?: string;
   }>;
 };
 
@@ -66,7 +68,9 @@ export default async function ProviderDetailPage({
 
   const { data: provider, error } = await supabase
     .from("lunch_providers")
-    .select("id, name, description, active")
+    .select(
+      "id, name, description, active, accepts_late_orders, late_order_deadline_day, late_order_deadline_time, supplemental_dispatch_mode, automatic_supplement_send_day, automatic_supplement_send_time, primary_order_email",
+    )
     .eq("id", id)
     .single();
 
@@ -192,6 +196,12 @@ export default async function ProviderDetailPage({
         </Alert>
       )}
 
+      {query.lateUpdated && (
+        <Alert variant="success" className="mb-6">
+          Late-order settings saved.
+        </Alert>
+      )}
+
       {query.error === "duplicate" && (
         <Alert variant="error" className="mb-6">
           A menu item with that name already exists for this provider.
@@ -271,6 +281,25 @@ export default async function ProviderDetailPage({
                 {provider.active ? "Deactivate provider" : "Activate provider"}
               </button>
             </form>
+          </Card>
+
+          <Card className="mt-6">
+            <SectionHeader
+              title="Late orders"
+              description="Provider-specific late-order deadlines and supplemental email settings."
+            />
+            <ProviderLateOrderSettings
+              providerId={provider.id}
+              settings={{
+                acceptsLateOrders: provider.accepts_late_orders,
+                lateOrderDeadlineDay: provider.late_order_deadline_day,
+                lateOrderDeadlineTime: provider.late_order_deadline_time,
+                supplementalDispatchMode: provider.supplemental_dispatch_mode,
+                automaticSupplementSendDay: provider.automatic_supplement_send_day,
+                automaticSupplementSendTime: provider.automatic_supplement_send_time,
+                primaryOrderEmail: provider.primary_order_email,
+              }}
+            />
           </Card>
         </section>
 

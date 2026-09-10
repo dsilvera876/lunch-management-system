@@ -30,8 +30,10 @@ const LUNCH_ITEMS: NavItem[] = [
 ];
 
 const HR_ITEMS: NavItem[] = [
-  { href: "/admin/deliveries", label: "Deliveries", description: "Daily delivery reconciliation" },
-  { href: "/admin/orders", label: "Orders", description: "Order lookup and history" },
+  { href: "/admin/todays-orders", label: "Today's Orders", description: "Today's ordering cycle overview" },
+  { href: "/admin/late-orders", label: "Late Orders", description: "HR late-order exceptions" },
+  { href: "/admin/deliveries", label: "Deliveries", description: "Today's delivery reconciliation" },
+  { href: "/admin/orders", label: "Order History", description: "Historical order lookup" },
   { href: "/admin/providers", label: "Lunch Providers", description: "Recurring menus" },
   { href: "/admin/locations", label: "Office Locations", description: "Delivery locations" },
 ];
@@ -56,22 +58,18 @@ export function getNavForRole(role: string): NavGroup[] {
   const groups: NavGroup[] = [];
   const userRole = role as UserRole;
 
-  // Everyone gets LUNCH
   groups.push({ label: "LUNCH", items: LUNCH_ITEMS });
 
-  // HR TOOLS
   const hrItems = HR_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
   if (hrItems.length > 0) {
     groups.push({ label: "HR TOOLS", items: hrItems });
   }
 
-  // ACCOUNTS
   const accountsItems = ACCOUNTS_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
   if (accountsItems.length > 0) {
     groups.push({ label: "ACCOUNTS", items: accountsItems });
   }
 
-  // ADMIN
   const adminItems = ADMIN_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
   if (adminItems.length > 0) {
     groups.push({ label: "ADMIN", items: adminItems });
@@ -123,11 +121,12 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return canManageLunchPeriods(role);
   }
 
-  if (pathname.startsWith("/admin/deliveries")) {
-    return canViewAllOrders(role);
-  }
-
-  if (pathname.startsWith("/admin/orders")) {
+  if (
+    pathname.startsWith("/admin/deliveries") ||
+    pathname.startsWith("/admin/orders") ||
+    pathname.startsWith("/admin/todays-orders") ||
+    pathname.startsWith("/admin/late-orders")
+  ) {
     return canViewAllOrders(role);
   }
 

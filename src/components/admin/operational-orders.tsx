@@ -53,6 +53,11 @@ export function OperationalOrderCard({
                 ? ` — ${order.officeLocationName}`
                 : ""}
             </h4>
+            {order.isLateOrder ? (
+              <span className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+                Late
+              </span>
+            ) : null}
             <ReconciliationBadge order={order} />
           </div>
           {!subdued && order.officeLocationAddress && (

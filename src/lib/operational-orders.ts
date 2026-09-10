@@ -44,6 +44,9 @@ export type OperationalOrder = {
   providerId: string;
   providerName: string;
   items: OperationalOrderItem[];
+  isLateOrder: boolean;
+  lateOrderCreatedByName: string | null;
+  lateOrderDispatched: boolean;
 };
 
 export type PreparationLine = {

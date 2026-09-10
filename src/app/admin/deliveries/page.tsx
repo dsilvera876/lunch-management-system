@@ -1,7 +1,8 @@
 import { requireViewAllOrders, canFulfillOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buildInitialDeliveriesFilters } from "@/lib/deliveries";
-import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
+import { getJamaicaTodayDate } from "@/lib/datetime";
+import { formatHumanDate } from "@/lib/format";
 import {
   OPERATIONAL_ORDERS_SELECT,
   parseOperationalOrderRow,
@@ -11,7 +12,6 @@ import { DeliveriesWorkspace } from "@/components/admin/deliveries-workspace";
 
 type Props = {
   searchParams: Promise<{
-    deliveryDate?: string;
     provider?: string;
     location?: string;
     status?: string;
@@ -24,8 +24,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
 
-  const deliveryDate =
-    params.deliveryDate?.trim() || getDefaultOperationalDeliveryDate();
+  const deliveryDate = getJamaicaTodayDate();
 
   const initialFilters = buildInitialDeliveriesFilters({
     deliveryDate,
@@ -34,25 +33,18 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
     statusParam: params.status,
   });
 
-  const [{ data: providers }, { data: locationRows }, { data: deliveryDates }] =
-    await Promise.all([
-      supabase
-        .from("lunch_providers")
-        .select("id, name")
-        .eq("active", true)
-        .order("name", { ascending: true }),
+  const [{ data: providers }, { data: locationRows }] = await Promise.all([
+    supabase
+      .from("lunch_providers")
+      .select("id, name")
+      .eq("active", true)
+      .order("name", { ascending: true }),
 
-      supabase
-        .from("office_locations")
-        .select("name")
-        .order("name", { ascending: true }),
-
-      supabase
-        .from("lunch_days")
-        .select("lunch_date")
-        .order("lunch_date", { ascending: false })
-        .limit(90),
-    ]);
+    supabase
+      .from("office_locations")
+      .select("name")
+      .order("name", { ascending: true }),
+  ]);
 
   const { data, error } = await supabase
     .from("orders")
@@ -76,22 +68,14 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
     ),
   ).sort((a, b) => a.localeCompare(b));
 
-  const availableDeliveryDates = Array.from(
-    new Set((deliveryDates ?? []).map((row) => row.lunch_date)),
-  );
-
-  if (!availableDeliveryDates.includes(deliveryDate)) {
-    availableDeliveryDates.unshift(deliveryDate);
-  }
-
   return (
     <DeliveriesWorkspace
       initialOrders={orders}
       initialFilters={initialFilters}
       providers={providers ?? []}
       locationNames={locationNames}
-      availableDeliveryDates={availableDeliveryDates}
       canReconcile={canReconcile}
+      deliveryDateLabel={formatHumanDate(deliveryDate)}
     />
   );
 }

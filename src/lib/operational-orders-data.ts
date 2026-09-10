@@ -24,8 +24,10 @@ export type OperationalOrderRow = {
   created_at: string;
   special_instructions: string | null;
   meal_quantity: number | null;
+  is_late_order: boolean;
   office_location_name: string | null;
   office_location_address: string | null;
+  late_order_creator: ReturnType<typeof getRelated<{ full_name: string | null }>>;
   order_delivery_reconciliation: ReturnType<
     typeof getRelated<{ hr_delivery_notes: string | null }>
   >;
@@ -73,6 +75,7 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
   });
 
   const reconciliation = getRelated(row.order_delivery_reconciliation);
+  const lateCreator = getRelated(row.late_order_creator);
 
   return {
     id: row.id,
@@ -95,7 +98,20 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
     providerId: provider.id,
     providerName: provider.name,
     items,
+    isLateOrder: row.is_late_order,
+    lateOrderCreatedByName: lateCreator?.full_name?.trim() || null,
+    lateOrderDispatched: false,
   };
+}
+
+export function markLateOrderDispatchState(
+  orders: OperationalOrder[],
+  dispatchedOrderIds: Set<string>,
+): OperationalOrder[] {
+  return orders.map((order) => ({
+    ...order,
+    lateOrderDispatched: order.isLateOrder ? dispatchedOrderIds.has(order.id) : false,
+  }));
 }
 
 export const OPERATIONAL_ORDERS_SELECT = `
@@ -110,8 +126,12 @@ export const OPERATIONAL_ORDERS_SELECT = `
   created_at,
   special_instructions,
   meal_quantity,
+  is_late_order,
   office_location_name,
   office_location_address,
+  late_order_creator:profiles!orders_late_order_created_by_fkey (
+    full_name
+  ),
   order_delivery_reconciliation (
     hr_delivery_notes
   ),

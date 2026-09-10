@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily lunch menu snapshot materialization shortly after midnight Jamaica time
+Documentation=file:///var/www/lunch-management-system/deploy/STAGING.md
+Requires=lunch-management-snapshot.service
+
+[Timer]
+OnCalendar=*-*-* 00:01:00 America/Jamaica
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

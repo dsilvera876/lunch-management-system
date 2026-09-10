@@ -72,10 +72,12 @@ describe("navigation by role", () => {
   it("shows HR tools only for HR", () => {
     const nav = getNavForRole("hr");
     const hrGroup = nav.find((g) => g.label === "HR TOOLS");
+    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/todays-orders"));
+    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/late-orders"));
     assert.ok(hrGroup?.items.some((item) => item.href === "/admin/deliveries"));
-    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/orders"));
+    assert.ok(hrGroup?.items.some((item) => item.label === "Order History"));
     assert.ok(hrGroup?.items.some((item) => item.href === "/admin/locations"));
-    assert.equal(hrGroup?.items[0]?.href, "/admin/deliveries");
+    assert.equal(hrGroup?.items[0]?.href, "/admin/todays-orders");
     assert.ok(!nav.find((g) => g.label === "ACCOUNTS"));
     assert.ok(!nav.some((g) => g.label === "ADMIN"));
     assert.ok(nav.find((g) => g.label === "LUNCH")?.items.some((item) => item.href === "/financials"));
@@ -154,12 +156,14 @@ describe("navigation by role", () => {
     assert.ok(!staffNav.find((g) => g.label === "ACCOUNTS"));
   });
 
-  it("restricts deliveries routes to HR, Admin, and Owner", () => {
-    assert.equal(canAccessRoute("hr", "/admin/deliveries"), true);
-    assert.equal(canAccessRoute("admin", "/admin/deliveries"), true);
-    assert.equal(canAccessRoute("owner", "/admin/deliveries"), true);
-    assert.equal(canAccessRoute("staff", "/admin/deliveries"), false);
-    assert.equal(canAccessRoute("accounts", "/admin/deliveries"), false);
+  it("restricts HR workflow routes to HR, Admin, and Owner", () => {
+    for (const path of ["/admin/todays-orders", "/admin/late-orders", "/admin/deliveries"]) {
+      assert.equal(canAccessRoute("hr", path), true);
+      assert.equal(canAccessRoute("admin", path), true);
+      assert.equal(canAccessRoute("owner", path), true);
+      assert.equal(canAccessRoute("staff", path), false);
+      assert.equal(canAccessRoute("accounts", path), false);
+    }
   });
 
   it("denies cross-group direct route access", () => {

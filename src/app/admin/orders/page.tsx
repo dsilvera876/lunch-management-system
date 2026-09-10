@@ -209,8 +209,8 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader
-        title="Orders"
-        description="Detailed order lookup, issue history, adjustments, and audit context. For daily delivery check-off, use Deliveries."
+        title="Order History"
+        description="Historical order lookup, unresolved delivery issues, substitutions, reconciliation history, and audit details."
       />
 
       <p className="mb-6 text-sm">

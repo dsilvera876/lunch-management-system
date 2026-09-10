@@ -33,6 +33,9 @@ function makeOrder(overrides: Partial<OperationalOrder> & Pick<OperationalOrder,
     providerId: "p1",
     providerName: "Alberries Caterors",
     items: [],
+    isLateOrder: false,
+    lateOrderCreatedByName: null,
+    lateOrderDispatched: false,
     ...overrides,
   };
 }

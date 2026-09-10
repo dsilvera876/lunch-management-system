@@ -43,6 +43,9 @@ function makeOrder(
     providerId: "p1",
     providerName: "Alberries Caterors",
     items: [],
+    isLateOrder: false,
+    lateOrderCreatedByName: null,
+    lateOrderDispatched: false,
     ...overrides,
   };
 }
