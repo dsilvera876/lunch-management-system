@@ -1,7 +1,14 @@
 import { requireViewAllOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getJamaicaTodayDate, getDeliveryDateForOrderDate } from "@/lib/datetime";
+import { getJamaicaTodayDate } from "@/lib/datetime";
 import { getRelated } from "@/lib/format";
+import {
+  candidateLateOrderDeliveryDates,
+  classifyLateOrderSnapshotWarning,
+  getOrderDateForDeliveryDate,
+  resolvePrimaryLateOrderDeliveryDate,
+  shouldShowLateOrderProviderSummary,
+} from "@/lib/late-order-cycle";
 import {
   formatAutomaticSupplementScheduleLabel,
   formatLateOrderTimeLabel,
@@ -14,15 +21,24 @@ import { OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY } from "@/lib/operational-order
 import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 
+function formatLateOrderDeadlineSummary(
+  deadlineDay: string | null,
+  deadlineTime: string | null,
+): string {
+  if (!deadlineDay || !deadlineTime) {
+    return "Late deadline not configured";
+  }
+
+  const dayLabel = deadlineDay === "delivery_day" ? "delivery day" : "order day";
+  return `Late orders accepted until ${formatLateOrderTimeLabel(deadlineTime)} on ${dayLabel}`;
+}
+
 export default async function LateOrdersPage() {
   await requireViewAllOrders();
   const supabase = await createClient();
   const today = getJamaicaTodayDate();
   const now = new Date();
-  const upcomingDeliveryDates = [
-    getDeliveryDateForOrderDate(today),
-    today,
-  ].filter((value, index, array): value is string => Boolean(value) && array.indexOf(value) === index);
+  const deliveryDatesToLoad = candidateLateOrderDeliveryDates(today);
 
   const [{ data: providers }, { data: employees }, { data: locations }] = await Promise.all([
     supabase
@@ -46,16 +62,20 @@ export default async function LateOrdersPage() {
   const providerSummaries = [];
 
   for (const provider of providers ?? []) {
-    for (const deliveryDate of upcomingDeliveryDates) {
-      const { data: orderDateValue } = await supabase.rpc("order_date_for_delivery_date", {
+    for (const deliveryDate of deliveryDatesToLoad) {
+      const orderDateFromRpc = await supabase.rpc("order_date_for_delivery_date", {
         p_delivery_date: deliveryDate,
       });
 
-      if (!orderDateValue) {
+      const orderDate =
+        orderDateFromRpc.data != null
+          ? String(orderDateFromRpc.data)
+          : getOrderDateForDeliveryDate(deliveryDate);
+
+      if (!orderDate) {
         continue;
       }
 
-      const orderDate = String(orderDateValue);
       const { data: companyDeadlinePassed } = await supabase.rpc("order_deadline_for_order_date", {
         p_order_date: orderDate,
       });
@@ -78,11 +98,19 @@ export default async function LateOrdersPage() {
 
       const { data: snapshotRow } = await supabase
         .from("lunch_days")
-        .select("id")
+        .select("id, order_date, lunch_date")
         .eq("provider_id", provider.id)
         .eq("order_date", orderDate)
         .eq("lunch_date", deliveryDate)
         .maybeSingle();
+
+      const snapshotMissing = !snapshotRow;
+      const snapshotWarning = classifyLateOrderSnapshotWarning({
+        snapshotMissing,
+        orderDate,
+        jamaicaToday: today,
+        deliveryDate,
+      });
 
       const { data: dispatchedRows } = await supabase
         .from("provider_late_order_dispatch_orders")
@@ -172,7 +200,7 @@ export default async function LateOrdersPage() {
         approvedUnsentCount: approvedUnsent,
         lateOrderingOpen: lateOpen,
         automaticDue,
-        snapshotMissing: !snapshotRow,
+        snapshotMissing,
         latestDispatch,
         automaticOpportunity,
         now,
@@ -181,15 +209,18 @@ export default async function LateOrdersPage() {
       const attentionDispatchId =
         dispatchRows?.find((row) => row.status === "attention_required")?.id ?? null;
 
-      providerSummaries.push({
+      const lateOrderCount = lateOrders?.length ?? 0;
+
+      const summary = {
         providerId: provider.id,
         providerName: provider.name,
         deliveryDate,
         orderDate,
         acceptsLateOrders: provider.accepts_late_orders,
-        deadlineLabel: provider.late_order_deadline_day
-          ? `${provider.late_order_deadline_day === "delivery_day" ? "Delivery Day" : "Order Day"} at ${formatLateOrderTimeLabel(provider.late_order_deadline_time)}`
-          : "Not configured",
+        deadlineSummary: formatLateOrderDeadlineSummary(
+          provider.late_order_deadline_day,
+          provider.late_order_deadline_time,
+        ),
         lateOrderingOpen: lateOpen,
         approvedUnsentCount: approvedUnsent,
         dispatchMode: provider.supplemental_dispatch_mode,
@@ -199,7 +230,8 @@ export default async function LateOrdersPage() {
           automaticSupplementSendTime: provider.automatic_supplement_send_time,
         }),
         supplementStatusLabel,
-        snapshotMissing: !snapshotRow,
+        snapshotMissing,
+        snapshotWarningMessage: snapshotWarning.message,
         hasBlockingDispatch,
         attentionDispatchId,
         primaryOrderEmail: provider.primary_order_email,
@@ -215,26 +247,72 @@ export default async function LateOrdersPage() {
             dispatched: dispatchedOrderIds.has(order.id as string),
           };
         }),
-      });
+        lateOrderCount,
+      };
+
+      if (
+        !summary.acceptsLateOrders &&
+        !shouldShowLateOrderProviderSummary({
+          lateOrderingOpen: summary.lateOrderingOpen,
+          approvedUnsentCount: summary.approvedUnsentCount,
+          hasBlockingDispatch: summary.hasBlockingDispatch,
+          attentionDispatchId: summary.attentionDispatchId,
+          lateOrderCount: summary.lateOrderCount,
+        })
+      ) {
+        continue;
+      }
+
+      if (
+        shouldShowLateOrderProviderSummary({
+          lateOrderingOpen: summary.lateOrderingOpen,
+          approvedUnsentCount: summary.approvedUnsentCount,
+          hasBlockingDispatch: summary.hasBlockingDispatch,
+          attentionDispatchId: summary.attentionDispatchId,
+          lateOrderCount: summary.lateOrderCount,
+        })
+      ) {
+        providerSummaries.push(summary);
+      }
     }
   }
+
+  const openDeliveryDates = [
+    ...new Set(
+      providerSummaries.filter((summary) => summary.lateOrderingOpen).map((s) => s.deliveryDate),
+    ),
+  ];
+
+  const primaryDeliveryDate = resolvePrimaryLateOrderDeliveryDate(openDeliveryDates, today);
+
+  const lateOrderProviders = (providers ?? [])
+    .filter((provider) => provider.accepts_late_orders)
+    .map((provider) => ({
+      id: provider.id,
+      name: provider.name,
+    }));
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Late Orders"
-        description="Create and manage HR late-order exceptions after the normal company cutoff."
+        description="Create HR late-order exceptions after the normal company cutoff and send supplemental provider emails."
       />
       <LateOrdersWorkspace
-        providerSummaries={providerSummaries.filter(
-          (summary) => summary.acceptsLateOrders || summary.lateOrders.length > 0,
-        )}
+        providerSummaries={providerSummaries}
+        lateOrderProviders={lateOrderProviders}
         employees={(employees ?? []).map((employee) => ({
           id: employee.id,
           name: employee.full_name?.trim() || "Unnamed employee",
         }))}
-        locations={locations ?? []}
-        defaultDeliveryDate={upcomingDeliveryDates[0] ?? today}
+        locations={(locations ?? []).map((location) => ({
+          id: location.id,
+          name: location.name,
+          address: null,
+          description: null,
+        }))}
+        primaryDeliveryDate={primaryDeliveryDate}
+        jamaicaToday={today}
       />
     </div>
   );
