@@ -13,6 +13,22 @@ describe("HR late-order UI", () => {
     assert.doesNotMatch(source, /Items JSON/i);
     assert.doesNotMatch(source, /menu_item_id payload/i);
     assert.match(source, /ProviderOrderForm/);
+    assert.doesNotMatch(source, /type="date"/);
+    assert.match(source, /allowDefaultLocationUpdate=\{false\}/);
+    assert.match(source, /providerCreationCycles/);
+    assert.match(source, /deliveryPickByProvider/);
+    assert.match(source, /stableSplitLayout/);
+  });
+
+  it("uses stable split layout in ProviderOrderForm for HR late orders", () => {
+    const formSource = readFileSync(
+      new URL("../components/provider-order-form.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(formSource, /stableSplitLayout/);
+    assert.match(formSource, /useSplitLayout/);
+    assert.match(formSource, /Select items to see line items/);
   });
 
   it("validates meal composition for HR late orders", () => {

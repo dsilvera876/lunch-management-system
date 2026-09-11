@@ -14,6 +14,8 @@ type Props = {
   defaultLocationName?: string | null;
   defaultLocationInactive?: boolean;
   preserveExistingLocation?: boolean;
+  /** When false, HR and similar flows pick a per-order location without updating profile defaults. */
+  allowDefaultLocationUpdate?: boolean;
 };
 
 export function OfficeLocationPicker({
@@ -22,6 +24,7 @@ export function OfficeLocationPicker({
   defaultLocationName,
   defaultLocationInactive = false,
   preserveExistingLocation = false,
+  allowDefaultLocationUpdate = true,
 }: Props) {
   const initialSelection = useMemo(() => {
     if (!defaultLocationId) {
@@ -65,6 +68,40 @@ export function OfficeLocationPicker({
     null;
 
   const needsExplicitSelection = initialSelection.length === 0;
+
+  if (!allowDefaultLocationUpdate) {
+    return (
+      <section className="mb-8">
+        <input type="hidden" name="officeLocationId" value={selectedLocationId} />
+        <Card padding="sm">
+          <h3 className="text-sm font-semibold">Delivery location for this order</h3>
+          <p className="mt-1 text-sm text-muted">
+            Choose where this order should be delivered. This does not change anyone&apos;s saved
+            default location.
+          </p>
+          <label htmlFor="officeLocationSelect" className="mt-4 block text-sm font-medium">
+            Delivery location
+          </label>
+          <select
+            id="officeLocationSelect"
+            value={selectedLocationId}
+            onChange={(event) => setSelectedLocationId(event.target.value)}
+            required
+            className={`${selectClassName} mt-2`}
+          >
+            <option value="" disabled>
+              Select a location
+            </option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {formatOfficeLocationLabel(location.name, location.address)}
+              </option>
+            ))}
+          </select>
+        </Card>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-8">

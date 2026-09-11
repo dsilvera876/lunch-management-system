@@ -57,6 +57,10 @@ type Props = {
   defaultOfficeLocationName?: string | null;
   defaultOfficeLocationInactive?: boolean;
   preserveExistingLocation?: boolean;
+  allowDefaultLocationUpdate?: boolean;
+  /** Keeps menu left / summary right on desktop even for standalone-only menus (e.g. HR late orders). */
+  stableSplitLayout?: boolean;
+  showSubsidyNote?: boolean;
 };
 
 function StandaloneItemCard({
@@ -117,6 +121,9 @@ export function ProviderOrderForm({
   defaultOfficeLocationName = null,
   defaultOfficeLocationInactive = false,
   preserveExistingLocation = false,
+  allowDefaultLocationUpdate = true,
+  stableSplitLayout = false,
+  showSubsidyNote = true,
 }: Props) {
   const grouped = useMemo(() => groupMenuItemsByType(menuItems), [menuItems]);
   const standaloneGrouped = useMemo(() => groupStandaloneItemsByCategory(grouped.standalone), [grouped.standalone]);
@@ -214,8 +221,18 @@ export function ProviderOrderForm({
     }
   }
 
+  const useSplitLayout = offersMeals || stableSplitLayout;
+
   return (
-    <form action={formAction} onSubmit={handleSubmit} className={offersMeals ? "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_384px]" : "max-w-2xl mx-auto"}>
+    <form
+      action={formAction}
+      onSubmit={handleSubmit}
+      className={
+        useSplitLayout
+          ? "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_384px]"
+          : "max-w-2xl mx-auto"
+      }
+    >
       <div className="flex flex-col">
         {providerId ? (
           <>
@@ -232,6 +249,7 @@ export function ProviderOrderForm({
             defaultLocationName={defaultOfficeLocationName}
             defaultLocationInactive={defaultOfficeLocationInactive}
             preserveExistingLocation={preserveExistingLocation}
+            allowDefaultLocationUpdate={allowDefaultLocationUpdate}
           />
         )}
 
@@ -395,8 +413,8 @@ export function ProviderOrderForm({
       </section>
       </div>
 
-      <div className={offersMeals ? "lg:sticky lg:top-8 lg:self-start" : "mt-8"}>
-        {orderTotal > 0 && (
+      <div className={useSplitLayout ? "lg:sticky lg:top-8 lg:self-start" : "mt-8"}>
+        {(orderTotal > 0 || stableSplitLayout) && (
           <Card className="mb-6" padding="sm">
             <h3 className="text-sm font-semibold">Order summary</h3>
             <dl className="mt-3 space-y-2 text-sm">
@@ -411,6 +429,12 @@ export function ProviderOrderForm({
                 </dd>
               </div>
             </dl>
+
+            {orderTotal === 0 && stableSplitLayout ? (
+              <p className="mt-4 text-sm text-muted">
+                Select items to see line items and your order total.
+              </p>
+            ) : null}
 
             {selectedMain && selectedSides.length > 0 && (
               <div className="mt-4 border-t border-border pt-4">
@@ -456,15 +480,19 @@ export function ProviderOrderForm({
               </div>
             )}
 
-            <div className="mt-4 flex justify-between gap-4 border-t border-border pt-4 text-sm font-semibold">
-              <span>Order total</span>
-              <span>{formatCurrency(orderTotal)}</span>
-            </div>
+            {orderTotal > 0 ? (
+              <div className="mt-4 flex justify-between gap-4 border-t border-border pt-4 text-sm font-semibold">
+                <span>Order total</span>
+                <span>{formatCurrency(orderTotal)}</span>
+              </div>
+            ) : null}
 
-            <p className="mt-3 text-xs text-muted">
-              Any daily lunch subsidy is calculated across all of your qualifying
-              orders for this delivery date, not per individual order.
-            </p>
+            {showSubsidyNote && orderTotal > 0 ? (
+              <p className="mt-3 text-xs text-muted">
+                Any daily lunch subsidy is calculated across all of your qualifying
+                orders for this delivery date, not per individual order.
+              </p>
+            ) : null}
           </Card>
         )}
 

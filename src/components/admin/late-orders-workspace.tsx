@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { selectClassName } from "@/components/ui/form-field";
 import { formatHumanDate } from "@/lib/format";
 import { canSendOutstandingSupplement } from "@/lib/late-orders";
+import type { HrLateOrderCreationCycle } from "@/lib/hr-late-order-create";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 
 type ProviderSummary = {
@@ -49,6 +50,7 @@ type Props = {
   locations: OfficeLocationOption[];
   primaryDeliveryDate: string;
   jamaicaToday: string;
+  providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
 };
 
 export function LateOrdersWorkspace({
@@ -58,6 +60,7 @@ export function LateOrdersWorkspace({
   locations,
   primaryDeliveryDate,
   jamaicaToday,
+  providerCreationCycles,
 }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -127,12 +130,12 @@ export function LateOrdersWorkspace({
           Use the frozen menu snapshot for the selected provider and delivery cycle.
         </p>
         <LateOrderCreatePanel
-          key={primaryDeliveryDate}
           employees={employees}
           locations={locations}
           providers={lateOrderProviders}
           defaultDeliveryDate={primaryDeliveryDate}
           jamaicaToday={jamaicaToday}
+          providerCreationCycles={providerCreationCycles}
           onCreated={(message) => setToast(message)}
         />
       </section>
@@ -287,6 +290,7 @@ function LateOrderCreatePanel({
   providers,
   defaultDeliveryDate,
   jamaicaToday,
+  providerCreationCycles,
   onCreated,
 }: {
   employees: Array<{ id: string; name: string }>;
@@ -294,11 +298,38 @@ function LateOrderCreatePanel({
   providers: Array<{ id: string; name: string }>;
   defaultDeliveryDate: string;
   jamaicaToday: string;
+  providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
   onCreated: (message: string) => void;
 }) {
   const [profileId, setProfileId] = useState(employees[0]?.id ?? "");
   const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
-  const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate);
+
+  const actionableCycles = useMemo(
+    () => providerCreationCycles[providerId] ?? [],
+    [providerCreationCycles, providerId],
+  );
+
+  const [deliveryPickByProvider, setDeliveryPickByProvider] = useState<
+    Record<string, string>
+  >({});
+
+  const deliveryDate = useMemo(() => {
+    if (actionableCycles.length === 0) {
+      return "";
+    }
+
+    const picked = deliveryPickByProvider[providerId];
+
+    if (picked && actionableCycles.some((cycle) => cycle.deliveryDate === picked)) {
+      return picked;
+    }
+
+    if (actionableCycles.some((cycle) => cycle.deliveryDate === defaultDeliveryDate)) {
+      return defaultDeliveryDate;
+    }
+
+    return actionableCycles[0]?.deliveryDate ?? "";
+  }, [actionableCycles, defaultDeliveryDate, deliveryPickByProvider, providerId]);
   const [menuItems, setMenuItems] = useState<HrLateOrderSnapshotMenuItem[]>([]);
   const [orderDate, setOrderDate] = useState("");
   const [menuStatus, setMenuStatus] = useState<string | null>(null);
@@ -307,6 +338,8 @@ function LateOrderCreatePanel({
   const [formKey, setFormKey] = useState(0);
 
   const providerName = providers.find((provider) => provider.id === providerId)?.name ?? "Provider";
+
+  const noActionableCycles = actionableCycles.length === 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -375,9 +408,11 @@ function LateOrderCreatePanel({
   }, [providerId, deliveryDate]);
 
   const creationDisabled =
+    noActionableCycles ||
     loadingMenu ||
     !providerId ||
     !profileId ||
+    !deliveryDate ||
     menuStatus !== "available" ||
     menuItems.length === 0;
 
@@ -434,15 +469,35 @@ function LateOrderCreatePanel({
           </select>
         </label>
 
-        <label className="text-xs text-muted">
-          Scheduled delivery date
-          <input
-            type="date"
-            value={deliveryDate}
-            onChange={(event) => setDeliveryDate(event.target.value)}
-            className={`${selectClassName} mt-0.5 block w-full text-sm`}
-          />
-        </label>
+        <div className="text-xs text-muted">
+          Scheduled delivery
+          {actionableCycles.length === 1 ? (
+            <p className="mt-0.5 text-sm font-medium text-foreground">
+              {formatHumanDate(actionableCycles[0]!.deliveryDate)}
+            </p>
+          ) : actionableCycles.length > 1 ? (
+            <select
+              value={deliveryDate}
+              onChange={(event) =>
+                setDeliveryPickByProvider((current) => ({
+                  ...current,
+                  [providerId]: event.target.value,
+                }))
+              }
+              className={`${selectClassName} mt-0.5 block w-full text-sm`}
+            >
+              {actionableCycles.map((cycle) => (
+                <option key={cycle.deliveryDate} value={cycle.deliveryDate}>
+                  {formatHumanDate(cycle.deliveryDate)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="mt-0.5 text-sm text-amber-800">
+              No open late-order delivery cycles for this provider.
+            </p>
+          )}
+        </div>
       </div>
 
       {orderDate ? (
@@ -484,11 +539,21 @@ function LateOrderCreatePanel({
           submitLabel="Create late order"
           pendingLabel="Creating late order…"
           officeLocations={locations}
+          allowDefaultLocationUpdate={false}
+          stableSplitLayout
+          showSubsidyNote={false}
         />
       ) : null}
 
-      {creationDisabled && !loadingMenu && !menuMessage ? (
-        <p className="text-sm text-muted">Choose a provider and delivery date to build a late order.</p>
+      {noActionableCycles ? (
+        <p className="text-sm text-muted">
+          Late-order creation is disabled until the company cutoff has passed and this provider&apos;s
+          late-order window is open.
+        </p>
+      ) : null}
+
+      {creationDisabled && !loadingMenu && !menuMessage && !noActionableCycles ? (
+        <p className="text-sm text-muted">Choose a provider with an open cycle to build a late order.</p>
       ) : null}
     </div>
   );

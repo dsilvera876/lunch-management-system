@@ -7,6 +7,10 @@ import {
   buildSnapshotOrderPayload,
   hasSelectedOrderItems,
 } from "@/lib/order-payload";
+import {
+  fetchHrLateOrderCreationCyclesForProvider,
+  isDeliveryDateAllowedForHrLateOrderCreation,
+} from "@/lib/hr-late-order-create";
 import { createClient } from "@/lib/supabase/server";
 
 export type HrLateOrderSnapshotMenuItem = {
@@ -137,6 +141,21 @@ export async function createHrLateOrderFormAction(
 
   if (!hasSelectedOrderItems(items)) {
     return { success: false, error: "Select at least one menu item." };
+  }
+
+  const supabase = await createClient();
+  const now = new Date();
+  const actionableCycles = await fetchHrLateOrderCreationCyclesForProvider(
+    supabase,
+    providerId,
+    now,
+  );
+
+  if (!isDeliveryDateAllowedForHrLateOrderCreation(actionableCycles, deliveryDate)) {
+    return {
+      success: false,
+      error: "Selected delivery cycle is not open for late orders for this provider.",
+    };
   }
 
   return createHrLateOrderAction({

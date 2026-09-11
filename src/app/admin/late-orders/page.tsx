@@ -1,11 +1,11 @@
 import { requireViewAllOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getJamaicaTodayDate } from "@/lib/datetime";
+import { getJamaicaTodayDate, getOrderDateForDeliveryDate } from "@/lib/datetime";
 import { getRelated } from "@/lib/format";
+import { listHrLateOrderCreationCycles } from "@/lib/hr-late-order-create";
 import {
   candidateLateOrderDeliveryDates,
   classifyLateOrderSnapshotWarning,
-  getOrderDateForDeliveryDate,
   resolvePrimaryLateOrderDeliveryDate,
   shouldShowLateOrderProviderSummary,
 } from "@/lib/late-order-cycle";
@@ -292,6 +292,48 @@ export default async function LateOrdersPage() {
       name: provider.name,
     }));
 
+  const orderDatesForCutoff = new Set<string>();
+
+  for (const deliveryDate of deliveryDatesToLoad) {
+    const orderDate = getOrderDateForDeliveryDate(deliveryDate);
+
+    if (orderDate) {
+      orderDatesForCutoff.add(orderDate);
+    }
+  }
+
+  const cutoffByOrderDate: Record<string, boolean> = {};
+
+  await Promise.all(
+    [...orderDatesForCutoff].map(async (orderDate) => {
+      const { data: companyDeadlinePassed } = await supabase.rpc("order_deadline_for_order_date", {
+        p_order_date: orderDate,
+      });
+
+      cutoffByOrderDate[orderDate] = companyDeadlinePassed
+        ? now.getTime() > new Date(String(companyDeadlinePassed)).getTime()
+        : false;
+    }),
+  );
+
+  const providerCreationCycles: Record<
+    string,
+    ReturnType<typeof listHrLateOrderCreationCycles>
+  > = {};
+
+  for (const provider of providers ?? []) {
+    providerCreationCycles[provider.id] = listHrLateOrderCreationCycles({
+      today,
+      now,
+      provider: {
+        acceptsLateOrders: provider.accepts_late_orders,
+        lateOrderDeadlineDay: provider.late_order_deadline_day,
+        lateOrderDeadlineTime: provider.late_order_deadline_time,
+      },
+      isCompanyCutoffPassed: (orderDate) => cutoffByOrderDate[orderDate] ?? false,
+    });
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -313,6 +355,7 @@ export default async function LateOrdersPage() {
         }))}
         primaryDeliveryDate={primaryDeliveryDate}
         jamaicaToday={today}
+        providerCreationCycles={providerCreationCycles}
       />
     </div>
   );
