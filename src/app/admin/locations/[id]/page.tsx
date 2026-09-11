@@ -2,7 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { toggleOfficeLocationActive, updateOfficeLocation } from "../actions";
+import {
+  deleteUnusedOfficeLocation,
+  toggleOfficeLocationActive,
+  updateOfficeLocation,
+} from "../actions";
+import { PermanentDeleteForm } from "@/components/permanent-delete-form";
+import { OFFICE_LOCATION_IN_USE_DELETION_MESSAGE } from "@/lib/unused-record-deletion";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -69,11 +75,33 @@ export default async function OfficeLocationDetailPage({
         </Alert>
       )}
 
-      {query.error && query.error !== "duplicate" && (
+      {query.error === "in-use" && (
         <Alert variant="error" className="mb-6">
-          Unable to complete that action.
+          {OFFICE_LOCATION_IN_USE_DELETION_MESSAGE}
         </Alert>
       )}
+
+      {query.error === "unauthorized" && (
+        <Alert variant="error" className="mb-6">
+          You are not authorized to delete office locations.
+        </Alert>
+      )}
+
+      {query.error === "delete" && (
+        <Alert variant="error" className="mb-6">
+          Unable to delete this office location.
+        </Alert>
+      )}
+
+      {query.error &&
+        query.error !== "duplicate" &&
+        query.error !== "in-use" &&
+        query.error !== "unauthorized" &&
+        query.error !== "delete" && (
+          <Alert variant="error" className="mb-6">
+            Unable to complete that action.
+          </Alert>
+        )}
 
       <Card className="max-w-2xl">
         <div className="mb-6 flex items-center gap-2">
@@ -130,6 +158,13 @@ export default async function OfficeLocationDetailPage({
             {location.is_active ? "Deactivate location" : "Activate location"}
           </Button>
         </form>
+
+        <PermanentDeleteForm
+          action={deleteUnusedOfficeLocation}
+          entityId={location.id}
+          entityLabel="office location"
+          confirmMessage="Delete this office location permanently? This action cannot be undone."
+        />
       </Card>
     </>
   );

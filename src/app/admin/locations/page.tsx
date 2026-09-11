@@ -16,6 +16,7 @@ type Props = {
   searchParams: Promise<{
     error?: string;
     created?: string;
+    deleted?: string;
   }>;
 };
 
@@ -43,6 +44,12 @@ export default async function OfficeLocationsPage({ searchParams }: Props) {
       {params.created && (
         <Alert variant="success" className="mb-6">
           Office location created successfully.
+        </Alert>
+      )}
+
+      {params.deleted && (
+        <Alert variant="success" className="mb-6">
+          Office location deleted permanently.
         </Alert>
       )}
 

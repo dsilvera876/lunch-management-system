@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { isProviderInUseDeletionError } from "@/lib/unused-record-deletion";
 
 export async function createProvider(formData: FormData) {
   await requireHrAdminOrOwner();
@@ -104,4 +105,35 @@ export async function toggleProviderActive(formData: FormData) {
   revalidatePath(`/admin/providers/${id}`);
 
   redirect(`/admin/providers/${id}?statusUpdated=1`);
+}
+
+export async function deleteUnusedProvider(formData: FormData) {
+  await requireHrAdminOrOwner();
+
+  const id = formData.get("id");
+
+  if (typeof id !== "string" || id.length === 0) {
+    redirect("/admin/providers?error=invalid");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_unused_lunch_provider", {
+    p_provider_id: id,
+  });
+
+  if (error) {
+    if (isProviderInUseDeletionError(error.message)) {
+      redirect(`/admin/providers/${id}?error=in-use`);
+    }
+
+    if (error.message.includes("Not authorized")) {
+      redirect(`/admin/providers/${id}?error=unauthorized`);
+    }
+
+    redirect(`/admin/providers/${id}?error=delete`);
+  }
+
+  revalidatePath("/admin/providers");
+  revalidatePath(`/admin/providers/${id}`);
+  redirect("/admin/providers?deleted=1");
 }

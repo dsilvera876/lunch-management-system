@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
+  deleteUnusedProvider,
   toggleProviderActive,
   updateProvider,
 } from "../actions";
+import { PermanentDeleteForm } from "@/components/permanent-delete-form";
+import { PROVIDER_IN_USE_DELETION_MESSAGE } from "@/lib/unused-record-deletion";
 import {
   createProviderMenuItem,
 } from "./actions";
@@ -215,9 +218,30 @@ export default async function ProviderDetailPage({
         </Alert>
       )}
 
+      {query.error === "in-use" && (
+        <Alert variant="error" className="mb-6">
+          {PROVIDER_IN_USE_DELETION_MESSAGE}
+        </Alert>
+      )}
+
+      {query.error === "unauthorized" && (
+        <Alert variant="error" className="mb-6">
+          You are not authorized to delete lunch providers.
+        </Alert>
+      )}
+
+      {query.error === "delete" && (
+        <Alert variant="error" className="mb-6">
+          Unable to delete this provider.
+        </Alert>
+      )}
+
       {query.error &&
         query.error !== "duplicate" &&
-        query.error !== "no-weekdays" && (
+        query.error !== "no-weekdays" &&
+        query.error !== "in-use" &&
+        query.error !== "unauthorized" &&
+        query.error !== "delete" && (
           <Alert variant="error" className="mb-6">
             Unable to complete that action.
           </Alert>
@@ -281,6 +305,13 @@ export default async function ProviderDetailPage({
                 {provider.active ? "Deactivate provider" : "Activate provider"}
               </button>
             </form>
+
+            <PermanentDeleteForm
+              action={deleteUnusedProvider}
+              entityId={provider.id}
+              entityLabel="provider"
+              confirmMessage="Delete this provider permanently? This action cannot be undone."
+            />
           </Card>
 
           <Card className="mt-6">

@@ -21,6 +21,7 @@ type Props = {
   searchParams: Promise<{
     error?: string;
     created?: string;
+    deleted?: string;
     "cutoff-updated"?: string;
   }>;
 };
@@ -80,6 +81,12 @@ export default async function ProvidersPage({ searchParams }: Props) {
       {params.created && (
         <Alert variant="success" className="mb-6">
           Provider created successfully.
+        </Alert>
+      )}
+
+      {params.deleted && (
+        <Alert variant="success" className="mb-6">
+          Provider deleted permanently.
         </Alert>
       )}
 

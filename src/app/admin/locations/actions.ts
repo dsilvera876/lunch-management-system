@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeOfficeLocationName } from "@/lib/office-locations";
+import { isOfficeLocationInUseDeletionError } from "@/lib/unused-record-deletion";
 
 export async function createOfficeLocation(formData: FormData) {
   await requireHrAdminOrOwner();
@@ -122,4 +123,35 @@ export async function toggleOfficeLocationActive(formData: FormData) {
   revalidatePath("/admin/locations");
   revalidatePath(`/admin/locations/${id}`);
   redirect(`/admin/locations/${id}?statusUpdated=1`);
+}
+
+export async function deleteUnusedOfficeLocation(formData: FormData) {
+  await requireHrAdminOrOwner();
+
+  const id = formData.get("id");
+
+  if (typeof id !== "string" || id.length === 0) {
+    redirect("/admin/locations?error=invalid");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_unused_office_location", {
+    p_office_location_id: id,
+  });
+
+  if (error) {
+    if (isOfficeLocationInUseDeletionError(error.message)) {
+      redirect(`/admin/locations/${id}?error=in-use`);
+    }
+
+    if (error.message.includes("Not authorized")) {
+      redirect(`/admin/locations/${id}?error=unauthorized`);
+    }
+
+    redirect(`/admin/locations/${id}?error=delete`);
+  }
+
+  revalidatePath("/admin/locations");
+  revalidatePath(`/admin/locations/${id}`);
+  redirect("/admin/locations?deleted=1");
 }
