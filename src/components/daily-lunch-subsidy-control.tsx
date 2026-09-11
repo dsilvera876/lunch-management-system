@@ -1,6 +1,7 @@
 "use client";
 
 import { FormField, inputClassName } from "@/components/ui/form-field";
+import { FormActionStatus } from "@/components/ui/form-action-status";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card } from "@/components/ui/card";
@@ -33,13 +34,17 @@ export function DailyLunchSubsidyControl({
         }
       />
 
-      {showUpdated && (
-        <p className="mb-4 text-sm text-primary">Daily lunch subsidy updated successfully.</p>
-      )}
+      {showUpdated ? (
+        <FormActionStatus variant="success" className="mb-4">
+          Daily lunch subsidy updated successfully.
+        </FormActionStatus>
+      ) : null}
 
-      {showError && (
-        <p className="mb-4 text-sm text-red-700">Unable to update daily lunch subsidy.</p>
-      )}
+      {showError ? (
+        <FormActionStatus variant="error" className="mb-4">
+          Unable to update daily lunch subsidy.
+        </FormActionStatus>
+      ) : null}
 
       {canEdit ? (
         <form action={updateDailyLunchSubsidy} className="flex flex-col gap-4 sm:flex-row sm:items-end">

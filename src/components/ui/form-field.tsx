@@ -30,3 +30,9 @@ export const textareaClassName =
   "block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted focus:border-primary focus:ring-1 focus:ring-primary";
 
 export const selectClassName = inputClassName;
+
+export const formControlLabelClassName = "block text-sm font-medium text-foreground";
+
+/** Matches select/input sizing; use for read-only displayed values. */
+export const readOnlyFieldClassName =
+  "block w-full min-h-10 rounded-lg border border-border bg-slate-50 px-3 py-2 text-sm text-foreground shadow-sm cursor-default";

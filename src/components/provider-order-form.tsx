@@ -19,6 +19,7 @@ import {
   type MenuItemType,
 } from "@/lib/menu-items";
 import { OfficeLocationPicker } from "@/components/office-location-picker";
+import { FormActionStatus } from "@/components/ui/form-action-status";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 import {
   calculateMealBundleSubtotal,
@@ -496,11 +497,11 @@ export function ProviderOrderForm({
           </Card>
         )}
 
-        {validationError && (
-          <p className="mb-4 text-sm text-red-600" role="alert">
+        {validationError ? (
+          <FormActionStatus variant="error" className="mb-4">
             {validationError}
-          </p>
-        )}
+          </FormActionStatus>
+        ) : null}
 
         <div className="sticky bottom-4 lg:static lg:bottom-auto z-10">
           <FormSubmitButton pendingText={pendingLabel} variant="primary" className="w-full shadow-md lg:shadow-none">

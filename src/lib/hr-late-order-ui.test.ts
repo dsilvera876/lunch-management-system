@@ -18,6 +18,8 @@ describe("HR late-order UI", () => {
     assert.match(source, /providerCreationCycles/);
     assert.match(source, /deliveryPickByProvider/);
     assert.match(source, /stableSplitLayout/);
+    assert.match(source, /ReadOnlyFormValue/);
+    assert.match(source, /FormActionStatus/);
   });
 
   it("uses stable split layout in ProviderOrderForm for HR late orders", () => {

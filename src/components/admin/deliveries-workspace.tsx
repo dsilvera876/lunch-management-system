@@ -23,6 +23,10 @@ import type { OperationalOrder } from "@/lib/operational-orders";
 import { markOrderDeliveredMutation } from "@/app/admin/deliveries/mutations";
 import type { DeliveryMutationResult } from "@/app/admin/deliveries/mutations";
 import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
+import {
+  formatFormActionError,
+  FormActionStatus,
+} from "@/components/ui/form-action-status";
 import { linkButtonClass } from "@/components/ui/button";
 import { selectClassName } from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -264,7 +268,10 @@ export function DeliveriesWorkspace({
   const [filters, setFilters] = useState<DeliveriesFilterState>(initialFilters);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
   const [, startTransition] = useTransition();
 
   const syncFilters = useCallback((next: DeliveriesFilterState) => {
@@ -288,12 +295,15 @@ export function DeliveriesWorkspace({
 
   const applyMutation = (result: DeliveryMutationResult) => {
     if (!result.success) {
-      setToast(result.error);
+      setFeedback({
+        variant: "error",
+        message: formatFormActionError("Unable to save delivery update", result.error),
+      });
       return;
     }
 
     setOrders((current) => patchDeliveryOrder(current, result.patch));
-    setToast("Saved");
+    setFeedback({ variant: "success", message: "Delivery update saved successfully." });
     setIssueOrderId(null);
     setPendingOrderId(null);
   };
@@ -304,20 +314,23 @@ export function DeliveriesWorkspace({
     }
 
     setPendingOrderId(order.id);
-    setToast(null);
+    setFeedback(null);
 
     startTransition(async () => {
       const result = await markOrderDeliveredMutation({ orderId: order.id });
 
       if (!result.success) {
         setPendingOrderId(null);
-        setToast(result.error);
+        setFeedback({
+          variant: "error",
+          message: formatFormActionError("Unable to mark order delivered", result.error),
+        });
         return;
       }
 
       setOrders((current) => patchDeliveryOrder(current, result.patch));
       setPendingOrderId(null);
-      setToast("Delivered");
+      setFeedback({ variant: "success", message: "Order marked delivered successfully." });
     });
   };
 
@@ -403,7 +416,11 @@ export function DeliveriesWorkspace({
           ))}
         </div>
 
-        {toast && <p className="text-xs text-muted">{toast}</p>}
+        {feedback ? (
+          <FormActionStatus variant={feedback.variant} className="mb-3">
+            {feedback.message}
+          </FormActionStatus>
+        ) : null}
       </div>
 
       {officeGroups.length === 0 ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   acknowledgeDispatchNotReceivedAction,
@@ -12,7 +13,16 @@ import {
 import { ProviderOrderForm } from "@/components/provider-order-form";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { selectClassName } from "@/components/ui/form-field";
+import {
+  formatFormActionError,
+  FormActionStatus,
+  type FormActionStatusVariant,
+} from "@/components/ui/form-action-status";
+import {
+  formControlLabelClassName,
+  selectClassName,
+} from "@/components/ui/form-field";
+import { ReadOnlyFormValue } from "@/components/ui/read-only-form-value";
 import { formatHumanDate } from "@/lib/format";
 import { canSendOutstandingSupplement } from "@/lib/late-orders";
 import type { HrLateOrderCreationCycle } from "@/lib/hr-late-order-create";
@@ -53,6 +63,11 @@ type Props = {
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
 };
 
+type WorkspaceFeedback = {
+  variant: FormActionStatusVariant;
+  message: string;
+} | null;
+
 export function LateOrdersWorkspace({
   providerSummaries,
   lateOrderProviders,
@@ -62,17 +77,31 @@ export function LateOrdersWorkspace({
   jamaicaToday,
   providerCreationCycles,
 }: Props) {
-  const [toast, setToast] = useState<string | null>(null);
+  const router = useRouter();
+  const [feedback, setFeedback] = useState<WorkspaceFeedback>(null);
   const [pending, startTransition] = useTransition();
 
   const handleSend = (providerId: string, deliveryDate: string) => {
-    setToast(null);
+    setFeedback(null);
     startTransition(async () => {
       const result = await sendProviderLateOrderSupplementAction({
         providerId,
         deliveryDate,
       });
-      setToast(result.success ? "Supplemental email sent." : result.error);
+
+      if (result.success) {
+        setFeedback({
+          variant: "success",
+          message: "Supplemental email sent successfully.",
+        });
+        router.refresh();
+        return;
+      }
+
+      setFeedback({
+        variant: "error",
+        message: formatFormActionError("Unable to send supplemental email", result.error),
+      });
     });
   };
 
@@ -85,10 +114,23 @@ export function LateOrdersWorkspace({
       return;
     }
 
-    setToast(null);
+    setFeedback(null);
     startTransition(async () => {
       const result = await acknowledgeDispatchNotReceivedAction({ dispatchId });
-      setToast(result.success ? "Review recorded. Manual retry is now available." : result.error);
+
+      if (result.success) {
+        setFeedback({
+          variant: "success",
+          message: "Review recorded. Manual retry is now available.",
+        });
+        router.refresh();
+        return;
+      }
+
+      setFeedback({
+        variant: "error",
+        message: formatFormActionError("Unable to record dispatch review", result.error),
+      });
     });
   };
 
@@ -101,10 +143,23 @@ export function LateOrdersWorkspace({
       return;
     }
 
-    setToast(null);
+    setFeedback(null);
     startTransition(async () => {
       const result = await acknowledgeDispatchReceivedAction({ dispatchId });
-      setToast(result.success ? "Dispatch marked as received without resending." : result.error);
+
+      if (result.success) {
+        setFeedback({
+          variant: "success",
+          message: "Dispatch marked as received without resending.",
+        });
+        router.refresh();
+        return;
+      }
+
+      setFeedback({
+        variant: "error",
+        message: formatFormActionError("Unable to update dispatch status", result.error),
+      });
     });
   };
 
@@ -122,7 +177,9 @@ export function LateOrdersWorkspace({
 
   return (
     <div className="space-y-6">
-      {toast ? <p className="text-sm text-muted">{toast}</p> : null}
+      {feedback ? (
+        <FormActionStatus variant={feedback.variant}>{feedback.message}</FormActionStatus>
+      ) : null}
 
       <section className="rounded-lg border border-border p-4">
         <h2 className="text-base font-semibold text-foreground">Create late order</h2>
@@ -136,7 +193,12 @@ export function LateOrdersWorkspace({
           defaultDeliveryDate={primaryDeliveryDate}
           jamaicaToday={jamaicaToday}
           providerCreationCycles={providerCreationCycles}
-          onCreated={(message) => setToast(message)}
+          onFeedback={(next) => {
+            setFeedback(next);
+            if (next?.variant === "success") {
+              router.refresh();
+            }
+          }}
         />
       </section>
 
@@ -291,7 +353,7 @@ function LateOrderCreatePanel({
   defaultDeliveryDate,
   jamaicaToday,
   providerCreationCycles,
-  onCreated,
+  onFeedback,
 }: {
   employees: Array<{ id: string; name: string }>;
   locations: OfficeLocationOption[];
@@ -299,7 +361,7 @@ function LateOrderCreatePanel({
   defaultDeliveryDate: string;
   jamaicaToday: string;
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
-  onCreated: (message: string) => void;
+  onFeedback: (feedback: WorkspaceFeedback) => void;
 }) {
   const [profileId, setProfileId] = useState(employees[0]?.id ?? "");
   const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
@@ -417,15 +479,25 @@ function LateOrderCreatePanel({
     menuItems.length === 0;
 
   const handleFormAction = async (formData: FormData) => {
+    onFeedback(null);
     formData.set("profileId", profileId);
     formData.set("deliveryDate", deliveryDate);
 
     const result = await createHrLateOrderFormAction(formData);
-    onCreated(result.success ? "Late order created." : result.error);
 
     if (result.success) {
+      onFeedback({
+        variant: "success",
+        message: "Late order created successfully.",
+      });
       setFormKey((value) => value + 1);
+      return;
     }
+
+    onFeedback({
+      variant: "error",
+      message: formatFormActionError("Unable to create late order", result.error),
+    });
   };
 
   if (providers.length === 0) {
@@ -438,13 +510,13 @@ function LateOrderCreatePanel({
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="text-xs text-muted">
-          Employee
+      <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
+        <label className="block space-y-1.5">
+          <span className={formControlLabelClassName}>Employee</span>
           <select
             value={profileId}
             onChange={(event) => setProfileId(event.target.value)}
-            className={`${selectClassName} mt-0.5 block w-full text-sm`}
+            className={`${selectClassName} block w-full`}
           >
             {employees.map((employee) => (
               <option key={employee.id} value={employee.id}>
@@ -454,12 +526,12 @@ function LateOrderCreatePanel({
           </select>
         </label>
 
-        <label className="text-xs text-muted">
-          Provider
+        <label className="block space-y-1.5">
+          <span className={formControlLabelClassName}>Provider</span>
           <select
             value={providerId}
             onChange={(event) => setProviderId(event.target.value)}
-            className={`${selectClassName} mt-0.5 block w-full text-sm`}
+            className={`${selectClassName} block w-full`}
           >
             {providers.map((provider) => (
               <option key={provider.id} value={provider.id}>
@@ -469,14 +541,19 @@ function LateOrderCreatePanel({
           </select>
         </label>
 
-        <div className="text-xs text-muted">
-          Scheduled delivery
+        <div className="block space-y-1.5">
+          <label htmlFor="scheduled-delivery-control" className={formControlLabelClassName}>
+            Scheduled delivery
+          </label>
           {actionableCycles.length === 1 ? (
-            <p className="mt-0.5 text-sm font-medium text-foreground">
-              {formatHumanDate(actionableCycles[0]!.deliveryDate)}
-            </p>
+            <ReadOnlyFormValue
+              id="scheduled-delivery-control"
+              value={formatHumanDate(actionableCycles[0]!.deliveryDate)}
+              showCalendarIcon
+            />
           ) : actionableCycles.length > 1 ? (
             <select
+              id="scheduled-delivery-control"
               value={deliveryDate}
               onChange={(event) =>
                 setDeliveryPickByProvider((current) => ({
@@ -484,7 +561,7 @@ function LateOrderCreatePanel({
                   [providerId]: event.target.value,
                 }))
               }
-              className={`${selectClassName} mt-0.5 block w-full text-sm`}
+              className={`${selectClassName} block w-full`}
             >
               {actionableCycles.map((cycle) => (
                 <option key={cycle.deliveryDate} value={cycle.deliveryDate}>
@@ -493,9 +570,10 @@ function LateOrderCreatePanel({
               ))}
             </select>
           ) : (
-            <p className="mt-0.5 text-sm text-amber-800">
-              No open late-order delivery cycles for this provider.
-            </p>
+            <ReadOnlyFormValue
+              id="scheduled-delivery-control"
+              value="No open delivery cycles"
+            />
           )}
         </div>
       </div>
@@ -512,9 +590,7 @@ function LateOrderCreatePanel({
       ) : null}
 
       {menuMessage ? (
-        <p className="text-sm text-amber-800" role="alert">
-          {menuMessage}
-        </p>
+        <FormActionStatus variant="warning">{menuMessage}</FormActionStatus>
       ) : null}
 
       {!creationDisabled ? (

@@ -4,6 +4,7 @@ import {
 } from "@/lib/settings";
 import { updateOrderCutoff } from "@/app/admin/actions";
 import { FormField, inputClassName } from "@/components/ui/form-field";
+import { FormActionStatus } from "@/components/ui/form-action-status";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -52,13 +53,17 @@ export function CutoffControl({
         </details>
       </div>
 
-      {showUpdated && (
-        <p className="mt-2 text-sm text-primary">Order cutoff updated successfully.</p>
-      )}
+      {showUpdated ? (
+        <FormActionStatus variant="success" className="mt-3">
+          Order cutoff updated successfully.
+        </FormActionStatus>
+      ) : null}
 
-      {showError && (
-        <p className="mt-2 text-sm text-red-700">Unable to update order cutoff.</p>
-      )}
+      {showError ? (
+        <FormActionStatus variant="error" className="mt-3">
+          Unable to update order cutoff.
+        </FormActionStatus>
+      ) : null}
     </div>
   );
 }
