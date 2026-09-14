@@ -24,6 +24,11 @@ import {
 } from "@/components/ui/form-field";
 import { ReadOnlyFormValue } from "@/components/ui/read-only-form-value";
 import { formatHumanDate } from "@/lib/format";
+import {
+  formatLateOrderRowDispatchLabel,
+  type LateOrderRowDispatchDisplay,
+} from "@/lib/late-order-per-order-status";
+import { formatLateOrderDispatchSentAt } from "@/lib/late-orders";
 import { canSendOutstandingSupplement } from "@/lib/late-orders";
 import type { HrLateOrderCreationCycle } from "@/lib/hr-late-order-create";
 import type { OfficeLocationOption } from "@/lib/office-locations";
@@ -49,7 +54,7 @@ type ProviderSummary = {
     id: string;
     employeeName: string;
     createdAt: string;
-    dispatched: boolean;
+    dispatchDisplay: LateOrderRowDispatchDisplay;
   }>;
 };
 
@@ -327,19 +332,34 @@ function ProviderLateOrderStatusCard({
 
       {summary.lateOrders.length > 0 ? (
         <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
-          {summary.lateOrders.map((order) => (
-            <li key={order.id} className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-foreground">{order.employeeName}</span>
-              <span className="text-muted">{new Date(order.createdAt).toLocaleString()}</span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs ${
-                  order.dispatched ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
-                }`}
-              >
-                {order.dispatched ? "Sent" : "Approved — not sent"}
-              </span>
-            </li>
-          ))}
+          {summary.lateOrders.map((order) => {
+            const label = formatLateOrderRowDispatchLabel(order.dispatchDisplay);
+            const sentAtLabel =
+              order.dispatchDisplay.kind === "sent" && order.dispatchDisplay.sentAt
+                ? formatLateOrderDispatchSentAt(order.dispatchDisplay.sentAt)
+                : null;
+            const badgeClass =
+              order.dispatchDisplay.kind === "sent"
+                ? "bg-emerald-50 text-emerald-800"
+                : order.dispatchDisplay.kind === "pending"
+                  ? "bg-sky-50 text-sky-900"
+                  : order.dispatchDisplay.kind === "attention_required"
+                    ? "bg-amber-50 text-amber-950"
+                    : order.dispatchDisplay.kind === "failed"
+                      ? "bg-red-50 text-red-900"
+                      : "bg-amber-50 text-amber-900";
+
+            return (
+              <li key={order.id} className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-foreground">{order.employeeName}</span>
+                <span className="text-muted">{new Date(order.createdAt).toLocaleString()}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${badgeClass}`}>
+                  {label}
+                  {sentAtLabel ? ` at ${sentAtLabel}` : null}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </article>

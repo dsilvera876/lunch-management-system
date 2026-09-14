@@ -17,6 +17,12 @@ import {
   isProviderLateOrderingOpen,
   type SupplementDispatchRecord,
 } from "@/lib/late-orders";
+import {
+  buildSentLateOrderDispatchMap,
+  countEligibleLateOrdersForSupplementSend,
+  resolveLateOrderRowDispatchDisplay,
+  type LateOrderDispatchMembershipRow,
+} from "@/lib/late-order-per-order-status";
 import { OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY } from "@/lib/operational-orders-data";
 import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
 import { PageHeader } from "@/components/ui/page-header";
@@ -112,17 +118,29 @@ export default async function LateOrdersPage() {
         deliveryDate,
       });
 
-      const { data: dispatchedRows } = await supabase
+      const { data: dispatchMembershipRows } = await supabase
         .from("provider_late_order_dispatch_orders")
-        .select("order_id, provider_late_order_dispatches!inner(provider_id, scheduled_delivery_date, status, sent_at)")
+        .select(
+          "order_id, provider_late_order_dispatches!inner(provider_id, scheduled_delivery_date, status, sent_at)",
+        )
         .eq("provider_late_order_dispatches.provider_id", provider.id)
-        .eq("provider_late_order_dispatches.scheduled_delivery_date", deliveryDate)
-        .eq("provider_late_order_dispatches.status", "sent")
-        .order("sent_at", { ascending: false })
-        .limit(1);
+        .eq("provider_late_order_dispatches.scheduled_delivery_date", deliveryDate);
 
-      const dispatchedOrderIds = new Set(
-        (dispatchedRows ?? []).map((row) => row.order_id as string),
+      const sentByOrderId = buildSentLateOrderDispatchMap(
+        (dispatchMembershipRows ?? []).map((row) => {
+          const dispatch = getRelated(
+            row.provider_late_order_dispatches as
+              | { status: string; sent_at: string | null }
+              | { status: string; sent_at: string | null }[]
+              | null,
+          );
+
+          return {
+            orderId: row.order_id as string,
+            dispatchStatus: dispatch?.status ?? "",
+            sentAt: (dispatch?.sent_at as string | null) ?? null,
+          } satisfies LateOrderDispatchMembershipRow;
+        }),
       );
 
       const { data: lateOrders } = await supabase
@@ -140,14 +158,14 @@ export default async function LateOrdersPage() {
         .eq("lunch_days.lunch_date", deliveryDate)
         .order("created_at", { ascending: false });
 
-      const approvedUnsent = (lateOrders ?? []).filter(
-        (order) => !dispatchedOrderIds.has(order.id as string),
-      ).length;
+      const lateOrderIds = (lateOrders ?? []).map((order) => order.id as string);
 
       const [{ data: dispatchRows }, { data: opportunityRow }] = await Promise.all([
         supabase
           .from("provider_late_order_dispatches")
-          .select("id, status, dispatch_type, sent_at, error_summary, created_at")
+          .select(
+            "id, status, dispatch_type, sent_at, error_summary, created_at, message_metadata",
+          )
           .eq("provider_id", provider.id)
           .eq("scheduled_delivery_date", deliveryDate)
           .order("created_at", { ascending: false })
@@ -159,6 +177,17 @@ export default async function LateOrdersPage() {
           .eq("scheduled_delivery_date", deliveryDate)
           .maybeSingle(),
       ]);
+
+      const dispatchSummariesForOrders = (dispatchRows ?? []).map((row) => ({
+        status: row.status as string,
+        messageMetadata: row.message_metadata,
+      }));
+
+      const approvedUnsent = countEligibleLateOrdersForSupplementSend(
+        lateOrderIds,
+        sentByOrderId,
+        dispatchSummariesForOrders,
+      );
 
       const latestDispatch: SupplementDispatchRecord | null = dispatchRows?.[0]
         ? {
@@ -239,12 +268,18 @@ export default async function LateOrdersPage() {
           const profile = getRelated(
             order.profiles as { full_name: string | null } | { full_name: string | null }[] | null,
           );
+          const orderId = order.id as string;
+          const dispatchDisplay = resolveLateOrderRowDispatchDisplay(
+            orderId,
+            sentByOrderId,
+            dispatchSummariesForOrders,
+          );
 
           return {
-            id: order.id as string,
+            id: orderId,
             employeeName: profile?.full_name?.trim() || "Employee",
             createdAt: order.created_at as string,
-            dispatched: dispatchedOrderIds.has(order.id as string),
+            dispatchDisplay,
           };
         }),
         lateOrderCount,

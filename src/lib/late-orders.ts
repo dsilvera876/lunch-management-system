@@ -39,6 +39,15 @@ export function parseTimeValue(value: string | null | undefined): string | null 
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${seconds.padStart(2, "0")}`;
 }
 
+export function formatLateOrderDispatchSentAt(sentAt: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: JAMAICA_TIME_ZONE,
+  }).format(new Date(sentAt));
+}
+
 export function formatLateOrderTimeLabel(time: string | null): string {
   if (!time) {
     return "—";
@@ -227,13 +236,7 @@ export function formatSupplementDispatchStatusLabel(input: {
   }
 
   if (input.latestDispatch?.status === "sent" && input.latestDispatch.sentAt) {
-    const sentLabel = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: JAMAICA_TIME_ZONE,
-    }).format(new Date(input.latestDispatch.sentAt));
-    return `Sent at ${sentLabel}`;
+    return `Sent at ${formatLateOrderDispatchSentAt(input.latestDispatch.sentAt)}`;
   }
 
   if (input.dispatchMode === "automatic") {

@@ -235,5 +235,15 @@ describe("automatic supplement dispatch helpers", () => {
       }),
       false,
     );
+    assert.equal(
+      canSendOutstandingSupplement({
+        approvedUnsentCount: 0,
+        primaryOrderEmail: "kitchen@example.com",
+        lateOrderingOpen: true,
+        hasBlockingDispatch: false,
+      }),
+      false,
+      "no send when every unsent order is pending, sent, or under review",
+    );
   });
 });
