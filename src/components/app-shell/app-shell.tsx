@@ -6,11 +6,12 @@ import { useState } from "react";
 import {
   getNavForRole,
   getPostLoginPath,
-  getRoleLabel,
   isNavActive,
   type NavGroup,
-  ACCOUNT_NAV,
 } from "@/lib/navigation";
+import { NavIcon } from "@/components/icons/line-icons";
+import { SidebarBrand } from "@/components/app-shell/sidebar-brand";
+import { TopHeader } from "@/components/app-shell/top-header";
 
 type Profile = {
   full_name: string | null;
@@ -31,19 +32,20 @@ function NavLinks({
   const isSidebar = variant === "sidebar";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {groups.map((group, index) => (
-        <div key={group.label} className={index > 0 ? (isSidebar ? "pt-6 border-t border-white/5" : "pt-6 border-t border-border") : ""}>
-          {group.label !== "LUNCH" && (
-            <h3
-              className={`mb-3 px-3 text-[11px] font-semibold uppercase tracking-widest ${
-                isSidebar ? "text-sidebar-muted/70" : "text-muted/70"
-              }`}
-            >
-              {group.label}
-            </h3>
-          )}
-          <ul className="space-y-1">
+        <div
+          key={group.label}
+          className={index > 0 ? (isSidebar ? "pt-5 border-t border-white/10" : "pt-5 border-t border-border") : ""}
+        >
+          <h3
+            className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+              isSidebar ? "text-sidebar-muted/90" : "text-muted"
+            }`}
+          >
+            {group.label}
+          </h3>
+          <ul className="space-y-0.5">
             {group.items.map((item) => {
               const active = isNavActive(pathname, item.href);
 
@@ -53,17 +55,30 @@ function NavLinks({
                     href={item.href}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-2.5 rounded-lg border-l-2 py-2 pl-[10px] pr-3 text-sm font-medium transition-colors ${
                       active
                         ? isSidebar
-                          ? "bg-white/10 text-white"
-                          : "bg-primary/10 text-primary"
+                          ? "border-primary bg-sidebar-active text-white"
+                          : "border-primary bg-primary/10 text-primary"
                         : isSidebar
-                          ? "text-sidebar-muted hover:bg-white/5 hover:text-white"
-                          : "text-foreground hover:bg-background"
+                          ? "border-transparent text-sidebar-muted hover:bg-white/5 hover:text-white"
+                          : "border-transparent text-foreground hover:bg-background"
                     }`}
                   >
-                    {item.label}
+                    <NavIcon
+                      id={item.icon}
+                      size={18}
+                      className={
+                        active
+                          ? isSidebar
+                            ? "shrink-0 text-accent"
+                            : "shrink-0 text-primary"
+                          : isSidebar
+                            ? "shrink-0 text-teal-400/45"
+                            : "shrink-0 text-muted"
+                      }
+                    />
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 </li>
               );
@@ -89,35 +104,17 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-sidebar text-sidebar-foreground lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-sidebar text-sidebar-foreground lg:flex lg:flex-col">
         <div className="border-b border-white/10 px-5 py-5">
-          <Link href={homeHref} className="block">
-            <span className="text-lg font-semibold text-white">
-              Lunch Management
-            </span>
-            <span className="mt-1 block text-xs text-sidebar-muted">
-              Internal ordering system
-            </span>
-          </Link>
+          <SidebarBrand homeHref={homeHref} />
         </div>
 
         <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 py-4">
           <NavLinks groups={navItems} pathname={pathname} />
         </nav>
 
-        <div className="border-t border-white/10 px-5 py-4">
-          <Link
-            href={ACCOUNT_NAV.href}
-            className="mb-3 block text-sm font-medium text-sidebar-muted transition-colors hover:text-white"
-          >
-            {ACCOUNT_NAV.label}
-          </Link>
-          <p className="truncate text-sm font-medium text-white">
-            {profile.full_name ?? "User"}
-          </p>
-          <p className="text-xs text-sidebar-muted">{getRoleLabel(profile.role)}</p>
-          <form action="/auth/signout" method="post" className="mt-3">
+        <div className="mt-auto border-t border-white/10 px-5 py-5 pb-6">
+          <form action="/auth/signout" method="post">
             <button
               type="submit"
               className="text-sm font-medium text-sidebar-muted underline-offset-2 hover:text-white hover:underline"
@@ -128,18 +125,9 @@ export function AppShell({
         </div>
       </aside>
 
-      {/* Mobile header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-surface lg:hidden">
+      <header className="border-b border-border bg-surface lg:hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Lunch Management
-            </p>
-            <p className="text-xs text-muted">
-              {profile.full_name ?? "User"} · {getRoleLabel(profile.role)}
-            </p>
-          </div>
-
+          <SidebarBrand homeHref={homeHref} variant="light" />
           <button
             type="button"
             aria-expanded={mobileOpen}
@@ -151,7 +139,7 @@ export function AppShell({
           </button>
         </div>
 
-        {mobileOpen && (
+        {mobileOpen ? (
           <nav
             id="mobile-nav"
             aria-label="Primary mobile"
@@ -163,31 +151,21 @@ export function AppShell({
               variant="light"
               onNavigate={() => setMobileOpen(false)}
             />
-            <div className="mt-6 border-t border-border px-3 pt-4">
-              <Link
-                href={ACCOUNT_NAV.href}
-                onClick={() => setMobileOpen(false)}
-                className="mb-3 block text-sm font-medium text-muted transition-colors hover:text-foreground"
+            <form action="/auth/signout" method="post" className="mt-5 border-t border-border pt-5 pb-2">
+              <button
+                type="submit"
+                className="text-sm font-medium text-muted underline-offset-2 hover:underline"
               >
-                {ACCOUNT_NAV.label}
-              </Link>
-              <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="text-sm font-medium text-muted underline-offset-2 hover:underline"
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
+                Sign out
+              </button>
+            </form>
           </nav>
-        )}
+        ) : null}
       </header>
 
       <div className="lg:pl-64">
-        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {children}
-        </main>
+        <TopHeader profile={profile} />
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>
   );

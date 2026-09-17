@@ -61,43 +61,42 @@ describe("capability helpers", () => {
 });
 
 describe("navigation by role", () => {
-  it("includes Home for staff without management groups", () => {
+  it("includes Dashboard for staff without management groups", () => {
     const nav = getNavForRole("staff");
-    const lunchGroup = nav.find((g) => g.label === "LUNCH");
-    assert.ok(lunchGroup?.items.some((item) => item.href === "/home"));
-    assert.ok(!nav.find((g) => g.label === "HR TOOLS"));
-    assert.ok(!nav.find((g) => g.label === "ACCOUNTS"));
+    const mainGroup = nav.find((g) => g.label === "MAIN");
+    assert.ok(mainGroup?.items.some((item) => item.href === "/home"));
+    assert.ok(!nav.find((g) => g.label === "ADMIN"));
   });
 
-  it("shows HR tools only for HR", () => {
+  it("shows HR tools items for HR", () => {
     const nav = getNavForRole("hr");
-    const hrGroup = nav.find((g) => g.label === "HR TOOLS");
-    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/todays-orders"));
-    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/late-orders"));
-    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/deliveries"));
-    assert.ok(hrGroup?.items.some((item) => item.label === "Order History"));
-    assert.ok(hrGroup?.items.some((item) => item.href === "/admin/locations"));
-    assert.equal(hrGroup?.items[0]?.href, "/admin/todays-orders");
+    const hrTools = nav.find((g) => g.label === "HR TOOLS");
+    assert.ok(hrTools?.items.some((item) => item.href === "/admin/todays-orders"));
+    assert.ok(hrTools?.items.some((item) => item.href === "/admin/late-orders"));
+    assert.ok(hrTools?.items.some((item) => item.href === "/admin/deliveries"));
+    assert.ok(hrTools?.items.some((item) => item.label === "Order History"));
+    assert.ok(hrTools?.items.some((item) => item.href === "/admin/settings"));
+    assert.ok(!hrTools?.items.some((item) => item.href === "/admin/locations"));
+    assert.ok(nav.find((g) => g.label === "MAIN")?.items.some((item) => item.href === "/financials"));
     assert.ok(!nav.find((g) => g.label === "ACCOUNTS"));
-    assert.ok(!nav.some((g) => g.label === "ADMIN"));
-    assert.ok(nav.find((g) => g.label === "LUNCH")?.items.some((item) => item.href === "/financials"));
+    assert.ok(!nav.find((g) => g.label === "ADMIN"));
   });
 
-  it("shows Accounts tools only for Accounts", () => {
+  it("shows Accounts group for Accounts", () => {
     const nav = getNavForRole("accounts");
-    const accountsGroup = nav.find((g) => g.label === "ACCOUNTS");
-    assert.ok(accountsGroup?.items.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(accountsGroup?.items.some((item) => item.href === "/admin/financials"));
-    assert.ok(!nav.find((g) => g.label === "HR TOOLS"));
-    assert.ok(!nav.some((g) => g.label === "ADMIN"));
-    assert.ok(nav.find((g) => g.label === "LUNCH")?.items.some((item) => item.href === "/my-orders"));
+    const accounts = nav.find((g) => g.label === "ACCOUNTS");
+    assert.ok(accounts?.items.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(accounts?.items.some((item) => item.href === "/admin/financials"));
+    assert.ok(!nav.find((g) => g.label === "ADMIN"));
+    assert.ok(nav.find((g) => g.label === "MAIN")?.items.some((item) => item.href === "/my-orders"));
   });
 
-  it("shows both HR and Accounts groups for Admin and Owner", () => {
+  it("shows ACCOUNTS, HR TOOLS, and ADMIN for Admin and Owner", () => {
     for (const role of ["admin", "owner"] as const) {
       const nav = getNavForRole(role);
-      assert.ok(nav.find((g) => g.label === "HR TOOLS"));
       assert.ok(nav.find((g) => g.label === "ACCOUNTS"));
+      assert.ok(nav.find((g) => g.label === "HR TOOLS"));
+      assert.ok(nav.find((g) => g.label === "ADMIN"));
     }
   });
 
@@ -112,9 +111,7 @@ describe("navigation by role", () => {
     assert.ok(accountsNav.find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
     assert.ok(adminNav.find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
     assert.ok(ownerNav.find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(!accountsNav.find((g) => g.label === "HR TOOLS")?.items.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(!staffNav.find((g) => g.label === "HR TOOLS"));
-    assert.ok(!staffNav.find((g) => g.label === "ACCOUNTS"));
+    assert.ok(!staffNav.find((g) => g.label === "ADMIN"));
   });
 
   it("does not duplicate Lunch Periods across navigation groups", () => {
@@ -140,9 +137,12 @@ describe("navigation by role", () => {
     assert.equal(canAccessRoute("owner", "/admin/lunch-periods"), true);
   });
 
-  it("includes user management for Admin", () => {
+  it("includes user management only under ADMIN for Admin", () => {
     const nav = getNavForRole("admin");
-    assert.ok(nav.find((g) => g.label === "ADMIN")?.items.some((item) => item.href === "/admin/users"));
+    const adminGroup = nav.find((g) => g.label === "ADMIN");
+    assert.ok(adminGroup?.items.some((item) => item.href === "/admin/users"));
+    assert.equal(adminGroup?.items.length, 1);
+    assert.ok(!adminGroup?.items.some((item) => item.href === "/admin"));
   });
 
   it("includes financial summaries for Accounts but not HR or staff admin routes", () => {
@@ -150,10 +150,21 @@ describe("navigation by role", () => {
     const accountsNav = getNavForRole("accounts");
     const staffNav = getNavForRole("staff");
 
-    assert.ok(!hrNav.find((g) => g.label === "ACCOUNTS"));
+    assert.ok(!hrNav.flatMap((group) => group.items).some((item) => item.href === "/admin/financials"));
     assert.ok(accountsNav.find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/financials"));
-    assert.ok(staffNav.find((g) => g.label === "LUNCH")?.items.some((item) => item.href === "/financials"));
-    assert.ok(!staffNav.find((g) => g.label === "ACCOUNTS"));
+    assert.ok(staffNav.find((g) => g.label === "MAIN")?.items.some((item) => item.href === "/financials"));
+    assert.equal(
+      staffNav.flatMap((group) => group.items).filter((item) => item.href === "/financials").length,
+      1,
+    );
+  });
+
+  it("allows HR settings hub for HR but not staff or accounts", () => {
+    assert.equal(canAccessRoute("hr", "/admin/settings"), true);
+    assert.equal(canAccessRoute("admin", "/admin/settings"), true);
+    assert.equal(canAccessRoute("staff", "/admin/settings"), false);
+    assert.equal(canAccessRoute("accounts", "/admin/settings"), false);
+    assert.equal(canAccessRoute("hr", "/admin/locations"), true);
   });
 
   it("restricts HR workflow routes to HR, Admin, and Owner", () => {
@@ -205,19 +216,20 @@ describe("navigation by role", () => {
 
   it("returns role-specific navigation", () => {
     const staffNav = getNavForRole("staff");
-    assert.ok(staffNav.find((g) => g.label === "LUNCH")?.items.some((item) => item.href === "/home"));
+    assert.ok(staffNav.find((g) => g.label === "MAIN")?.items.some((item) => item.href === "/home"));
 
     const hrNav = getNavForRole("hr");
     assert.ok(hrNav.find((g) => g.label === "HR TOOLS")?.items.some((item) => item.label === "Lunch Providers"));
+    assert.ok(hrNav.find((g) => g.label === "HR TOOLS")?.items.some((item) => item.label === "Settings"));
   });
 });
 
 describe("getPostLoginPath", () => {
-  it("sends staff-like roles to home and admin roles to dashboard", () => {
+  it("sends all roles to the staff dashboard", () => {
     assert.equal(getPostLoginPath("staff"), "/home");
     assert.equal(getPostLoginPath("hr"), "/home");
     assert.equal(getPostLoginPath("accounts"), "/home");
-    assert.equal(getPostLoginPath("admin"), "/admin");
-    assert.equal(getPostLoginPath("owner"), "/admin");
+    assert.equal(getPostLoginPath("admin"), "/home");
+    assert.equal(getPostLoginPath("owner"), "/home");
   });
 });

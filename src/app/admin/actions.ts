@@ -33,6 +33,7 @@ export async function updateOrderCutoff(formData: FormData) {
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/settings");
   revalidatePath("/admin/providers");
   revalidatePath("/lunch");
   revalidatePath("/home");

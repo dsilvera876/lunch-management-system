@@ -12,7 +12,7 @@ export default async function FinancialsPage() {
   return (
     <>
       <PageHeader
-        title="My Financials"
+        title="My Spend"
         description="Your lunch spending summaries based on order date."
       />
 

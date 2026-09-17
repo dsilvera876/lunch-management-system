@@ -139,6 +139,6 @@ describe("navigation visibility", () => {
     assert.ok(getNavForRole("admin").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
     assert.ok(getNavForRole("owner").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
     assert.ok(!getNavForRole("staff").find((g) => g.label === "HR TOOLS"));
-    assert.ok(!getNavForRole("staff").find((g) => g.label === "ACCOUNTS"));
+    assert.ok(!getNavForRole("staff").flatMap((g) => g.items).some((item) => item.href === "/admin/lunch-periods"));
   });
 });

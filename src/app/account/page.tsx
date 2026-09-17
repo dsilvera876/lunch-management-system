@@ -59,8 +59,8 @@ export default async function AccountPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader
-        title="Account"
-        description="Your profile information for the lunch management system."
+        title="Preferences"
+        description="Your profile and delivery settings for the lunch management system."
       />
 
       {params.message === "password-updated" && (

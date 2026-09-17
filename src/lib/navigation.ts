@@ -10,11 +10,13 @@ import {
   getRoleLabel,
   type UserRole,
 } from "@/lib/roles";
+import type { NavIconId } from "@/components/icons/line-icons";
 
 export type NavItem = {
   href: string;
   label: string;
   description?: string;
+  icon: NavIconId;
 };
 
 export type NavGroup = {
@@ -22,55 +24,108 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-const LUNCH_ITEMS: NavItem[] = [
-  { href: "/home", label: "Home", description: "Today's lunch overview" },
-  { href: "/lunch", label: "Today's Lunch", description: "Place a new order" },
-  { href: "/my-orders", label: "My Orders", description: "View your orders" },
-  { href: "/financials", label: "My Financials", description: "Your lunch spending summaries" },
-];
-
-const HR_ITEMS: NavItem[] = [
-  { href: "/admin/todays-orders", label: "Today's Orders", description: "Today's ordering cycle overview" },
-  { href: "/admin/late-orders", label: "Late Orders", description: "HR late-order exceptions" },
-  { href: "/admin/deliveries", label: "Deliveries", description: "Today's delivery reconciliation" },
-  { href: "/admin/orders", label: "Order History", description: "Historical order lookup" },
-  { href: "/admin/providers", label: "Lunch Providers", description: "Recurring menus" },
-  { href: "/admin/locations", label: "Office Locations", description: "Delivery locations" },
+const MAIN_ITEMS: NavItem[] = [
+  { href: "/home", label: "Dashboard", description: "Your lunch overview", icon: "dashboard" },
+  { href: "/lunch", label: "Today's Order", description: "Place a new order", icon: "utensils" },
+  { href: "/my-orders", label: "My Orders", description: "View your orders", icon: "receipt" },
+  { href: "/financials", label: "My Spend", description: "Your lunch spending summaries", icon: "wallet" },
+  { href: "/account", label: "Preferences", description: "Profile and delivery settings", icon: "sliders" },
 ];
 
 const ACCOUNTS_ITEMS: NavItem[] = [
-  { href: "/admin/lunch-periods", label: "Lunch Periods", description: "Payroll lunch periods" },
-  { href: "/admin/financials", label: "Financial Summaries", description: "Payroll lunch totals" },
+  {
+    href: "/admin/lunch-periods",
+    label: "Lunch Periods",
+    description: "Payroll lunch periods",
+    icon: "calendar",
+  },
+  {
+    href: "/admin/financials",
+    label: "Financial Reports",
+    description: "Payroll lunch totals",
+    icon: "chart",
+  },
+];
+
+const HR_TOOLS_ITEMS: NavItem[] = [
+  {
+    href: "/admin/todays-orders",
+    label: "Today's Orders",
+    description: "Today's ordering cycle overview",
+    icon: "clipboard",
+  },
+  {
+    href: "/admin/late-orders",
+    label: "Late Orders",
+    description: "HR late-order exceptions",
+    icon: "clock",
+  },
+  {
+    href: "/admin/deliveries",
+    label: "Deliveries",
+    description: "Today's delivery reconciliation",
+    icon: "truck",
+  },
+  {
+    href: "/admin/orders",
+    label: "Order History",
+    description: "Historical order lookup",
+    icon: "history",
+  },
+  {
+    href: "/admin/providers",
+    label: "Lunch Providers",
+    description: "Recurring menus",
+    icon: "storefront",
+  },
+  {
+    href: "/admin/settings",
+    label: "Settings",
+    description: "Office locations, cutoff, and lunch program configuration",
+    icon: "settings",
+  },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
-  { href: "/admin", label: "Dashboard", description: "Operations overview" },
-  { href: "/admin/users", label: "User Management", description: "Manage employee roles" },
+  {
+    href: "/admin/users",
+    label: "User Management",
+    description: "Manage employee roles",
+    icon: "users",
+  },
 ];
+
+/** Routes reached from HR Tools → Settings (for sidebar active state). */
+const HR_SETTINGS_ROUTE_PREFIXES = ["/admin/settings", "/admin/locations", "/admin/lunch-days"];
 
 export const ACCOUNT_NAV: NavItem = {
   href: "/account",
   label: "Account",
   description: "Profile and settings",
+  icon: "sliders",
 };
+
+function filterAccessible(role: UserRole, items: NavItem[]): NavItem[] {
+  return items.filter((item) => canAccessRoute(role, item.href));
+}
 
 export function getNavForRole(role: string): NavGroup[] {
   const groups: NavGroup[] = [];
   const userRole = role as UserRole;
 
-  groups.push({ label: "LUNCH", items: LUNCH_ITEMS });
+  groups.push({ label: "MAIN", items: MAIN_ITEMS });
 
-  const hrItems = HR_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
-  if (hrItems.length > 0) {
-    groups.push({ label: "HR TOOLS", items: hrItems });
-  }
-
-  const accountsItems = ACCOUNTS_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
+  const accountsItems = filterAccessible(userRole, ACCOUNTS_ITEMS);
   if (accountsItems.length > 0) {
     groups.push({ label: "ACCOUNTS", items: accountsItems });
   }
 
-  const adminItems = ADMIN_ITEMS.filter((item) => canAccessRoute(userRole, item.href));
+  const hrItems = filterAccessible(userRole, HR_TOOLS_ITEMS);
+  if (hrItems.length > 0) {
+    groups.push({ label: "HR TOOLS", items: hrItems });
+  }
+
+  const adminItems = filterAccessible(userRole, ADMIN_ITEMS);
   if (adminItems.length > 0) {
     groups.push({ label: "ADMIN", items: adminItems });
   }
@@ -78,11 +133,8 @@ export function getNavForRole(role: string): NavGroup[] {
   return groups;
 }
 
-export function getPostLoginPath(role: string): string {
-  if (canAccessAdminDashboard(role as UserRole)) {
-    return "/admin";
-  }
-
+export function getPostLoginPath(_role?: string): string {
+  void _role;
   return "/home";
 }
 
@@ -91,6 +143,12 @@ export { getRoleLabel };
 export function isNavActive(pathname: string, href: string): boolean {
   if (href === "/home" || href === "/admin") {
     return pathname === href;
+  }
+
+  if (href === "/admin/settings") {
+    return HR_SETTINGS_ROUTE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -103,6 +161,10 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 
   if (pathname === "/my-orders" || pathname === "/account" || pathname === "/financials") {
     return true;
+  }
+
+  if (pathname.startsWith("/admin/settings")) {
+    return canViewAllOrders(role);
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/lunch-days")) {

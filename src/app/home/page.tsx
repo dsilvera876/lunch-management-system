@@ -1,189 +1,88 @@
-import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { formatCurrency } from "@/lib/format";
-import { formatJamaicaWallClockTime } from "@/lib/settings";
+import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { getStaffFinancialDashboardResult } from "@/lib/financial-summaries";
 import {
-  getCurrentOrdersState,
-  getCurrentSpendState,
-  getLocationDisplay,
-  getProviderSetupMessage,
+  getLastFinalizedLunchPeriodSpend,
+  getTimeOfDayGreeting,
+  formatTimeRemainingUntilDeadline,
 } from "@/lib/home-dashboard";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ui/page-header";
-import { Card } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { linkButtonClass } from "@/components/ui/button";
+import { formatHumanDate } from "@/lib/format";
+import { getJamaicaTodayDate } from "@/lib/datetime";
 
 export default async function HomePage() {
   const profile = await requireProfile();
   const supabase = await createClient();
-  const [ctx, financialResult] = await Promise.all([
+  const today = getJamaicaTodayDate();
+
+  const [ctx, financialResult, recentOrdersResult] = await Promise.all([
     getStaffOrderingContext(profile.id),
     getStaffFinancialDashboardResult(supabase),
-  ]);
-
-  const activeOrdersCount = ctx.deliveryOrders.filter(
-    (order) => order.status === "submitted" || order.status === "fulfilled"
-  ).length;
-
-  const activeOrdersTotal = ctx.deliveryOrders
-    .filter((order) => order.status === "submitted" || order.status === "fulfilled")
-    .reduce((sum, order) => sum + order.total, 0);
-
-  const [
-    { data: profileRow, error: profileError },
-    { count: activeLocationCount, error: locationsError },
-  ] = await Promise.all([
     supabase
-      .from("profiles")
+      .from("orders")
       .select(`
-        default_office_location_id,
-        office_locations:default_office_location_id (
-          name,
-          is_active
+        id,
+        lunch_days!inner (
+          lunch_date,
+          lunch_providers ( name )
         )
       `)
-      .eq("id", profile.id)
-      .single(),
-    supabase
-      .from("office_locations")
-      .select("*", { count: "exact", head: true })
-      .eq("is_active", true),
+      .eq("profile_id", profile.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
-  if (profileError || locationsError) {
-    throw new Error("Unable to load Home delivery settings.", {
-      cause: profileError ?? locationsError,
-    });
-  }
+  const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "there";
+  const hasOrderForDelivery = ctx.deliveryOrders.some(
+    (order) => order.status === "submitted" || order.status === "fulfilled",
+  );
 
-  const defaultLocation = profileRow?.office_locations
-    ? Array.isArray(profileRow.office_locations)
-      ? profileRow.office_locations[0]
-      : profileRow.office_locations
-    : null;
+  const currentPeriod =
+    financialResult.status === "ready" ? financialResult.dashboard.current_period : null;
 
-  const defaultLocationName = defaultLocation?.is_active ? defaultLocation.name : null;
-  const currentOrders = getCurrentOrdersState(
-    activeOrdersCount,
-    activeOrdersTotal,
+  const lastPeriod = await getLastFinalizedLunchPeriodSpend(
+    supabase,
+    profile.id,
+    currentPeriod?.period_id ?? null,
   );
-  const currentSpend =
-    financialResult.status === "ready"
-      ? getCurrentSpendState(financialResult.dashboard)
-      : null;
-  const providerSetupMessage = getProviderSetupMessage(
-    ctx.availableProviders.length,
-  );
-  const locationDisplay = getLocationDisplay(
-    activeLocationCount ?? 0,
-    defaultLocationName,
-  );
+
+  const recentOrders =
+    recentOrdersResult.data?.map((order) => {
+      const lunchDay = Array.isArray(order.lunch_days) ? order.lunch_days[0] : order.lunch_days;
+      const provider = lunchDay?.lunch_providers
+        ? Array.isArray(lunchDay.lunch_providers)
+          ? lunchDay.lunch_providers[0]
+          : lunchDay.lunch_providers
+        : null;
+
+      return {
+        id: order.id as string,
+        providerName: provider?.name ?? "Lunch order",
+        deliveryDate: lunchDay?.lunch_date ?? today,
+      };
+    }) ?? [];
 
   return (
-    <>
-      <PageHeader
-        title={`Welcome, ${profile.full_name ?? "Staff"}`}
-        description="Your daily lunch ordering overview."
-      />
-
-      <div className="grid gap-6 md:grid-cols-3 mb-8">
-        <Card padding="md" className="flex flex-col">
-          <h2 className="text-lg font-semibold mb-4">Today&apos;s Lunch</h2>
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted">Status</span>
-              <StatusBadge status={ctx.orderingOpen ? "open" : "closed"} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted">Delivery</span>
-              <span className="text-sm font-medium">{ctx.deliveryDate ?? "N/A"}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted">Cutoff</span>
-              <span className="text-sm font-medium">
-                {formatJamaicaWallClockTime(ctx.cutoffTime)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted">Deliver to</span>
-              <span className="text-sm font-medium truncate max-w-[150px] text-right">
-                {locationDisplay}
-              </span>
-            </div>
-            {providerSetupMessage && (
-              <p className="text-sm text-muted">{providerSetupMessage}</p>
-            )}
-          </div>
-          <div className="mt-6">
-            <Link href="/lunch" className={linkButtonClass("primary") + " w-full justify-center"}>
-              View Today&apos;s Lunch
-            </Link>
-          </div>
-        </Card>
-
-        <Card padding="md" className="flex flex-col">
-          <h2 className="text-lg font-semibold mb-4">My Current Orders</h2>
-          <div className="flex-1 space-y-3">
-            {currentOrders.status === "empty" ? (
-              <p className="text-sm text-muted">No orders today</p>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted">Active orders</span>
-                  <span className="text-sm font-medium">{currentOrders.count}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted">Total</span>
-                  <span className="text-sm font-medium">
-                    {formatCurrency(currentOrders.total)}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="mt-6">
-            <Link href="/my-orders" className={linkButtonClass("secondary") + " w-full justify-center"}>
-              View My Orders
-            </Link>
-          </div>
-        </Card>
-
-        <Card padding="md" className="flex flex-col">
-          <h2 className="text-lg font-semibold mb-4">Current Spend</h2>
-          <div className="flex-1 space-y-3">
-            {!currentSpend ? (
-              <p className="text-sm text-red-700">
-                Financial summary unavailable
-              </p>
-            ) : currentSpend.status === "no-period" ? (
-              <p className="text-sm text-muted">No current lunch period</p>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted">Period deduction</span>
-                  <span className="text-sm font-medium">
-                    {formatCurrency(currentSpend.netDeduction)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted">Daily subsidy</span>
-                  <span className="text-sm font-medium">
-                    {formatCurrency(currentSpend.dailySubsidy)}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="mt-6">
-            <Link href="/financials" className={linkButtonClass("secondary") + " w-full justify-center"}>
-              View My Financials
-            </Link>
-          </div>
-        </Card>
-      </div>
-    </>
+    <StaffDashboard
+      greeting={getTimeOfDayGreeting()}
+      firstName={firstName}
+      displayDateLabel={formatHumanDate(today)}
+      orderingOpen={ctx.orderingOpen}
+      deliveryDate={ctx.deliveryDate}
+      cutoffTime={ctx.cutoffTime}
+      orderDeadline={ctx.orderDeadline}
+      timeRemainingLabel={formatTimeRemainingUntilDeadline(ctx.orderDeadline)}
+      hasOrderForDelivery={hasOrderForDelivery}
+      currentPeriodLabel={currentPeriod?.label ?? null}
+      currentPeriodSpend={
+        currentPeriod != null ? Number(currentPeriod.net_deduction) : null
+      }
+      lastPeriodLabel={lastPeriod?.label ?? null}
+      lastPeriodSpend={lastPeriod?.amount ?? null}
+      deliveryOrders={ctx.deliveryOrders}
+      recentOrders={recentOrders}
+    />
   );
 }

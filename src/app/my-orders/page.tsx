@@ -73,7 +73,7 @@ export default async function MyOrdersPage() {
           description="When you place lunch orders, each one will appear here individually."
           action={
             <Link href="/lunch" className={linkButtonClass("primary")}>
-              View Today&apos;s Lunch
+              Order lunch
             </Link>
           }
         />
