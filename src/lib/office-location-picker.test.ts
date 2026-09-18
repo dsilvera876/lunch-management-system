@@ -13,8 +13,9 @@ describe("OfficeLocationPicker", () => {
     assert.match(pickerSource, /Delivery location for this order/);
 
     const hrBranch =
-      pickerSource.split("if (!allowDefaultLocationUpdate)")[1]?.split("\n  }\n\n  return")[0] ??
-      "";
+      pickerSource
+        .split("if (!allowDefaultLocationUpdate)")[1]
+        ?.split("\n  }\n\n  const sectionClassName")[0] ?? "";
 
     assert.doesNotMatch(hrBranch, /Save as my default delivery location/);
     assert.doesNotMatch(hrBranch, /saveAsDefault/);

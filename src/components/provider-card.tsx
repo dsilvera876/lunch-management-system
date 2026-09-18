@@ -91,7 +91,7 @@ export function ProviderCard({
         {orderingOpen && (
           <div className="mt-4 sm:mt-0 shrink-0">
             <Link
-              href={`/lunch/providers/${id}`}
+              href={`/lunch?provider=${id}`}
               className={`${linkButtonClass("primary")} w-full sm:w-auto justify-center`}
             >
               View Menu

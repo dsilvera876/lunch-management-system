@@ -16,6 +16,10 @@ type Props = {
   preserveExistingLocation?: boolean;
   /** When false, HR and similar flows pick a per-order location without updating profile defaults. */
   allowDefaultLocationUpdate?: boolean;
+  /** Hide the “Deliver to” summary card; show selector only when changing or required. */
+  hideCollapsedSummary?: boolean;
+  expandSelector?: boolean;
+  onExpandSelectorChange?: (open: boolean) => void;
 };
 
 export function OfficeLocationPicker({
@@ -25,6 +29,9 @@ export function OfficeLocationPicker({
   defaultLocationInactive = false,
   preserveExistingLocation = false,
   allowDefaultLocationUpdate = true,
+  hideCollapsedSummary = false,
+  expandSelector = false,
+  onExpandSelectorChange,
 }: Props) {
   const initialSelection = useMemo(() => {
     if (!defaultLocationId) {
@@ -51,9 +58,26 @@ export function OfficeLocationPicker({
   ]);
 
   const [selectedLocationId, setSelectedLocationId] = useState(initialSelection);
-  const [isChanging, setIsChanging] = useState(
-    () => initialSelection.length === 0,
-  );
+  const [isChanging, setIsChanging] = useState(() => initialSelection.length === 0);
+
+  function collapseSelector() {
+    setIsChanging(false);
+    onExpandSelectorChange?.(false);
+  }
+
+  function setChanging(next: boolean) {
+    setIsChanging(next);
+    if (!next) {
+      onExpandSelectorChange?.(false);
+    }
+  }
+
+  function handleLocationChange(nextLocationId: string) {
+    setSelectedLocationId(nextLocationId);
+    if (hideCollapsedSummary && nextLocationId.length > 0) {
+      collapseSelector();
+    }
+  }
   const [saveAsDefault, setSaveAsDefault] = useState(
     () => defaultLocationId === null,
   );
@@ -68,6 +92,7 @@ export function OfficeLocationPicker({
     null;
 
   const needsExplicitSelection = initialSelection.length === 0;
+  const showSelector = needsExplicitSelection || isChanging || expandSelector;
 
   if (!allowDefaultLocationUpdate) {
     return (
@@ -103,8 +128,10 @@ export function OfficeLocationPicker({
     );
   }
 
+  const sectionClassName = hideCollapsedSummary ? "mb-0" : "mb-8";
+
   return (
-    <section className="mb-8">
+    <section className={sectionClassName}>
       <input
         type="hidden"
         name="officeLocationId"
@@ -114,7 +141,7 @@ export function OfficeLocationPicker({
         <input type="hidden" name="saveAsDefault" value="on" />
       ) : null}
 
-      {needsExplicitSelection && isChanging ? (
+      {needsExplicitSelection && showSelector ? (
         <Card padding="sm">
           <h3 className="text-sm font-semibold">
             Where should your lunch be delivered?
@@ -128,7 +155,7 @@ export function OfficeLocationPicker({
           <select
             id="officeLocationSelect"
             value={selectedLocationId}
-            onChange={(event) => setSelectedLocationId(event.target.value)}
+            onChange={(event) => handleLocationChange(event.target.value)}
             required
             className={`${selectClassName} mt-2`}
           >
@@ -153,7 +180,7 @@ export function OfficeLocationPicker({
             </label>
           )}
         </Card>
-      ) : isChanging ? (
+      ) : showSelector ? (
         <Card padding="sm">
           <h3 className="text-sm font-semibold">Change delivery location</h3>
           <label htmlFor="officeLocationSelect" className="mt-4 block text-sm font-medium">
@@ -162,7 +189,7 @@ export function OfficeLocationPicker({
           <select
             id="officeLocationSelect"
             value={selectedLocationId}
-            onChange={(event) => setSelectedLocationId(event.target.value)}
+            onChange={(event) => handleLocationChange(event.target.value)}
             required
             className={`${selectClassName} mt-2`}
           >
@@ -178,14 +205,14 @@ export function OfficeLocationPicker({
               className="text-sm font-medium text-primary underline-offset-2 hover:underline"
               onClick={() => {
                 setSelectedLocationId(initialSelection);
-                setIsChanging(false);
+                collapseSelector();
               }}
             >
               Use default
             </button>
           </div>
         </Card>
-      ) : (
+      ) : hideCollapsedSummary ? null : (
         <Card padding="sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -195,7 +222,7 @@ export function OfficeLocationPicker({
             <button
               type="button"
               className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-              onClick={() => setIsChanging(true)}
+              onClick={() => setChanging(true)}
             >
               Change
             </button>

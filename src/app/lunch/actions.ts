@@ -9,6 +9,7 @@ import {
   hasSelectedOrderItems,
 } from "@/lib/order-payload";
 import { createClient } from "@/lib/supabase/server";
+import type { SubmitProviderOrderResult } from "@/lib/submit-provider-order-result";
 function getOrderErrorCode(message: string) {
   const normalized = message.toLowerCase();
 
@@ -73,14 +74,17 @@ function getOrderErrorCode(message: string) {
   return "generic";
 }
 
-export async function submitProviderOrder(formData: FormData) {
+export async function submitProviderOrder(
+  formData: FormData,
+): Promise<SubmitProviderOrderResult> {
   await requireProfile();
 
   const providerId = formData.get("providerId");
   const orderDate = formData.get("orderDate");
+  const providerIdString = typeof providerId === "string" ? providerId : null;
 
   if (typeof providerId !== "string" || typeof orderDate !== "string") {
-    redirect("/lunch?error=invalid");
+    return { ok: false, errorCode: "invalid", providerId: providerIdString };
   }
 
   const order = buildProviderOrderPayload(formData);
@@ -89,18 +93,18 @@ export async function submitProviderOrder(formData: FormData) {
   const saveAsDefault = formData.get("saveAsDefault");
 
   if (!hasSelectedOrderItems(order)) {
-    redirect(`/lunch/providers/${providerId}?error=empty`);
+    return { ok: false, errorCode: "empty", providerId };
   }
 
   if (typeof officeLocationId !== "string" || officeLocationId.length === 0) {
-    redirect(`/lunch/providers/${providerId}?error=location`);
+    return { ok: false, errorCode: "location", providerId };
   }
 
   if (
     typeof specialInstructions === "string" &&
     specialInstructions.trim().length > 500
   ) {
-    redirect(`/lunch/providers/${providerId}?error=instructions`);
+    return { ok: false, errorCode: "instructions", providerId };
   }
 
   const supabase = await createClient();
@@ -116,7 +120,11 @@ export async function submitProviderOrder(formData: FormData) {
 
   if (error) {
     const errorCode = getOrderErrorCode(error.message);
-    redirect(`/lunch/providers/${providerId}?error=${errorCode}`);
+    return { ok: false, errorCode, providerId };
+  }
+
+  if (typeof orderId !== "string" || orderId.length === 0) {
+    return { ok: false, errorCode: "generic", providerId };
   }
 
   if (saveAsDefault === "on") {
@@ -126,10 +134,11 @@ export async function submitProviderOrder(formData: FormData) {
   }
 
   revalidatePath("/lunch");
+  revalidatePath("/my-orders");
   revalidatePath(`/lunch/providers/${providerId}`);
   revalidatePath(`/lunch/orders/${orderId}`);
 
-  redirect(`/lunch/orders/${orderId}?ordered=1`);
+  return { ok: true, orderId, providerId };
 }
 
 export async function submitLunchOrder(formData: FormData) {

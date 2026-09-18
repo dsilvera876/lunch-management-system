@@ -10,6 +10,8 @@ type Props = {
   confirmMessage?: string;
   className?: string;
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  disabled?: boolean;
+  forcePending?: boolean;
 };
 
 export function FormSubmitButton({
@@ -18,8 +20,11 @@ export function FormSubmitButton({
   confirmMessage,
   className = "",
   variant = "secondary",
+  disabled = false,
+  forcePending = false,
 }: Props) {
-  const { pending } = useFormStatus();
+  const { pending: formPending } = useFormStatus();
+  const pending = forcePending || formPending;
 
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
     if (confirmMessage && !window.confirm(confirmMessage)) {
@@ -30,7 +35,7 @@ export function FormSubmitButton({
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       onClick={handleClick}
       className={`${buttonClass(variant)} ${className}`}
     >

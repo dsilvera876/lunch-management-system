@@ -73,14 +73,14 @@ describe("unused record deletion UI", () => {
       new URL("../app/admin/late-orders/page.tsx", import.meta.url),
       "utf8",
     );
-    const lunchProviderPage = readFileSync(
-      new URL("../app/lunch/providers/[id]/page.tsx", import.meta.url),
+    const lunchPage = readFileSync(
+      new URL("../app/lunch/page.tsx", import.meta.url),
       "utf8",
     );
 
     assert.match(staffOrdering, /\.eq\("active", true\)/);
     assert.match(lateOrdersPage, /\.eq\("active", true\)/);
     assert.match(lateOrdersPage, /\.eq\("is_active", true\)/);
-    assert.match(lunchProviderPage, /\.eq\("is_active", true\)/);
+    assert.match(lunchPage, /\.eq\("is_active", true\)/);
   });
 });

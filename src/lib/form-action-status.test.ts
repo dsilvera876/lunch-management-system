@@ -63,10 +63,15 @@ describe("FormActionStatus", () => {
       new URL("../app/lunch/page.tsx", import.meta.url),
       "utf8",
     );
+    const lunchShell = readFileSync(
+      new URL("../components/lunch/lunch-ordering-shell.tsx", import.meta.url),
+      "utf8",
+    );
 
     assert.match(deliveries, /FormActionStatus/);
     assert.match(subsidy, /FormActionStatus/);
     assert.match(cutoff, /FormActionStatus/);
-    assert.match(lunchPage, /Alert variant="success"/);
+    assert.match(lunchPage, /Alert variant="error"/);
+    assert.match(lunchShell, /Order placed successfully/);
   });
 });
