@@ -3,6 +3,7 @@ import type { MenuItemType } from "@/lib/menu-items";
 import type { Weekday } from "@/lib/datetime";
 
 export type ProviderMenuItem = {
+  /** provider_menu_items.id — the only ID staff drafts and checkout RPCs may use */
   id: string;
   name: string;
   description: string | null;
@@ -30,6 +31,87 @@ type SnapshotMenuItem = {
   display_category: string | null;
   is_active: boolean;
 };
+
+type CatalogMenuItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  item_type: string;
+  unit_label: string;
+  display_category: string | null;
+  active: boolean;
+  provider_menu_item_weekdays: Array<{ weekday: number }>;
+};
+
+/**
+ * Staff ordering always submits provider_menu_items.id values.
+ * Snapshot rows (menu_items) are display-only metadata; never use menu_items.id for drafts.
+ */
+export function mapSnapshotMenuItemsForStaffOrder(
+  snapshotItems: SnapshotMenuItem[],
+  activeCatalogItems: CatalogMenuItem[],
+  orderWeekday: Weekday,
+): ProviderMenuItem[] {
+  const activeCatalogById = new Map(
+    activeCatalogItems
+      .filter((item) => item.active)
+      .map((item) => [item.id, item]),
+  );
+
+  const result: ProviderMenuItem[] = [];
+
+  for (const item of snapshotItems) {
+    if (!item.is_active || !item.provider_menu_item_id) {
+      continue;
+    }
+
+    const catalog = activeCatalogById.get(item.provider_menu_item_id);
+    if (!catalog) {
+      continue;
+    }
+
+    const availableToday = catalog.provider_menu_item_weekdays.some(
+      (day) => day.weekday === orderWeekday,
+    );
+    if (!availableToday) {
+      continue;
+    }
+
+    result.push({
+      id: item.provider_menu_item_id,
+      name: item.name,
+      description: item.description,
+      price: Number(item.price),
+      itemType: item.item_type as MenuItemType,
+      unitLabel: item.unit_label,
+      displayCategory: item.display_category,
+    });
+  }
+
+  return result;
+}
+
+export function mapCatalogMenuItemsForStaffOrder(
+  catalogItems: CatalogMenuItem[],
+  orderWeekday: Weekday,
+): ProviderMenuItem[] {
+  return catalogItems
+    .filter(
+      (item) =>
+        item.active &&
+        item.provider_menu_item_weekdays.some((day) => day.weekday === orderWeekday),
+    )
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      price: Number(item.price),
+      itemType: item.item_type as MenuItemType,
+      unitLabel: item.unit_label,
+      displayCategory: item.display_category,
+    }));
+}
 
 export async function loadProviderMenusForOrderDate(
   supabase: SupabaseClient,
@@ -89,9 +171,7 @@ export async function loadProviderMenusForOrderDate(
       continue;
     }
 
-    const items = (day.menu_items ?? []).filter(
-      (item: SnapshotMenuItem) => item.is_active,
-    ) as SnapshotMenuItem[];
+    const items = (day.menu_items ?? []) as SnapshotMenuItem[];
 
     if (items.length > 0) {
       snapshotByProvider.set(day.provider_id, items);
@@ -100,35 +180,12 @@ export async function loadProviderMenusForOrderDate(
 
   return providers
     .map((provider) => {
+      const catalogItems = (provider.provider_menu_items ?? []) as CatalogMenuItem[];
       const snapshotItems = snapshotByProvider.get(provider.id);
 
       const menuItems = snapshotItems?.length
-        ? snapshotItems.map((item) => ({
-            id: item.provider_menu_item_id ?? item.id,
-            name: item.name,
-            description: item.description,
-            price: Number(item.price),
-            itemType: item.item_type as MenuItemType,
-            unitLabel: item.unit_label,
-            displayCategory: item.display_category,
-          }))
-        : provider.provider_menu_items
-            .filter(
-              (item) =>
-                item.active &&
-                item.provider_menu_item_weekdays.some(
-                  (day) => day.weekday === orderWeekday,
-                ),
-            )
-            .map((item) => ({
-              id: item.id,
-              name: item.name,
-              description: item.description,
-              price: Number(item.price),
-              itemType: item.item_type as MenuItemType,
-              unitLabel: item.unit_label,
-              displayCategory: item.display_category,
-            }));
+        ? mapSnapshotMenuItemsForStaffOrder(snapshotItems, catalogItems, orderWeekday)
+        : mapCatalogMenuItemsForStaffOrder(catalogItems, orderWeekday);
 
       if (menuItems.length === 0) {
         return null;

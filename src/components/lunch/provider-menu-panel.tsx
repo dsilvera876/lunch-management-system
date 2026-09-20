@@ -3,7 +3,15 @@
 import { Card } from "@/components/ui/card";
 import { MenuItemRow } from "@/components/lunch/menu-item-row";
 import { summarizeMenuCounts } from "@/lib/lunch-menu-counts";
-import { isStandaloneInDraft, type ProviderDraft } from "@/lib/lunch-order-draft";
+import { SpecialInstructionsField } from "@/components/lunch/special-instructions-field";
+import { InlineQuantityControl } from "@/components/lunch/inline-quantity-control";
+import {
+  getStandaloneQuantity,
+  isStandaloneInDraft,
+  validateProviderDraft,
+  type ProviderDraft,
+} from "@/lib/lunch-order-draft";
+import { MEAL_INCOMPLETE_GUIDANCE } from "@/components/lunch/order-summary-panel";
 import {
   getMenuItemTypeLabel,
   groupMenuItemsByType,
@@ -34,6 +42,12 @@ type Props = {
   onRemoveSide: (itemId: string) => void;
   onAddStandalone: (itemId: string) => void;
   onRemoveStandalone: (itemId: string) => void;
+  specialInstructions: string;
+  onSpecialInstructionsChange: (value: string) => void;
+  onMealQuantityChange: (quantity: number) => void;
+  onStandaloneQuantityChange: (itemId: string, quantity: number) => void;
+  canAddToCart: boolean;
+  onAddToCart: () => void;
 };
 
 export function ProviderMenuPanel({
@@ -49,10 +63,18 @@ export function ProviderMenuPanel({
   onRemoveSide,
   onAddStandalone,
   onRemoveStandalone,
+  specialInstructions,
+  onSpecialInstructionsChange,
+  onMealQuantityChange,
+  onStandaloneQuantityChange,
+  canAddToCart,
+  onAddToCart,
 }: Props) {
   const grouped = groupMenuItemsByType(menuItems);
   const standaloneGrouped = groupStandaloneItemsByCategory(grouped.standalone);
   const countBadges = summarizeMenuCounts(menuItems);
+  const validation = validateProviderDraft(draft);
+  const mealComplete = draft.mainId !== null && draft.sideIds.length > 0;
 
   return (
     <div
@@ -122,6 +144,24 @@ export function ProviderMenuPanel({
                 />
               ))}
             </div>
+            {validation.mealIncomplete ? (
+              <p className="mt-2 text-sm text-amber-900" role="status">
+                {MEAL_INCOMPLETE_GUIDANCE}
+              </p>
+            ) : null}
+            {mealComplete ? (
+              <div className="mt-4 border-t border-border/60 pt-4">
+                <p className="text-xs font-medium text-muted">Meal quantity</p>
+                <div className="mt-2">
+                  <InlineQuantityControl
+                    label={`${providerName} meal quantity`}
+                    value={draft.mealQuantity}
+                    disabled={disabled}
+                    onChange={onMealQuantityChange}
+                  />
+                </div>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -129,21 +169,82 @@ export function ProviderMenuPanel({
           <section key={category} className="mt-6">
             <h3 className="text-sm font-semibold text-slate-900">{category}</h3>
             <div className="mt-1">
-              {items.map((item) => (
-                <MenuItemRow
-                  key={item.id}
-                  name={item.name}
-                  unitLabel={item.unitLabel}
-                  price={item.price}
-                  selected={isStandaloneInDraft(draft, item.id)}
-                  disabled={disabled}
-                  onAdd={() => onAddStandalone(item.id)}
-                  onRemove={() => onRemoveStandalone(item.id)}
-                />
-              ))}
+              {items.map((item) => {
+                const selected = isStandaloneInDraft(draft, item.id);
+                const quantity = getStandaloneQuantity(draft, item.id);
+
+                return (
+                  <div key={item.id}>
+                    <MenuItemRow
+                      name={item.name}
+                      unitLabel={item.unitLabel}
+                      price={item.price}
+                      selected={selected}
+                      disabled={disabled}
+                      onAdd={() => onAddStandalone(item.id)}
+                      onRemove={() => onRemoveStandalone(item.id)}
+                    />
+                    {selected ? (
+                      <div className="mb-3 ml-0 max-w-xs pl-0">
+                        <InlineQuantityControl
+                          label={item.name}
+                          value={quantity}
+                          disabled={disabled}
+                          onChange={(next) => onStandaloneQuantityChange(item.id, next)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </section>
         ))}
+
+        <div className="mt-6 border-t border-border pt-4">
+          <SpecialInstructionsField
+            value={specialInstructions}
+            onChange={onSpecialInstructionsChange}
+            disabled={disabled}
+          />
+        </div>
+
+        {!validation.valid && !validation.mealIncomplete && validation.message ? (
+          <p className="mt-3 text-sm text-amber-900" role="status">
+            {validation.message}
+          </p>
+        ) : null}
+
+        <div className="mt-6 border-t border-border pt-4">
+          <button
+            type="button"
+            disabled={disabled || !canAddToCart}
+            onClick={onAddToCart}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-primary/5 px-4 text-base font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden
+            >
+              <path
+                d="M6 6h15l-1.5 9h-11L4 4H2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="9" cy="20" r="1" />
+              <circle cx="18" cy="20" r="1" />
+            </svg>
+            Add to Lunch Cart
+          </button>
+          <p className="mt-2 text-center text-xs text-muted">
+            This will add your current selection to the lunch cart and clear this form.
+          </p>
+        </div>
       </Card>
     </div>
   );

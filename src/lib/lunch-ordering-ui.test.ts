@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import {
-  countMealIncompleteGuidanceInSummarySource,
-  getOrderSummaryCompositionGuidance,
-} from "./lunch-order-summary-ui";
+import { countMealIncompleteGuidanceInSummarySource } from "./lunch-order-summary-ui";
+import { validateLunchCheckout } from "./lunch-checkout";
 import {
   addSide,
   calculateDraftSubtotal,
   emptyProviderDraft,
   replaceMain,
-  validateProviderDraft,
 } from "./lunch-order-draft";
 
 describe("Today's Order UI contracts", () => {
@@ -28,19 +25,30 @@ describe("Today's Order UI contracts", () => {
     assert.doesNotMatch(source, /window\.location/);
   });
 
-  it("menu rows use + / − toggle with strong CTA styling", () => {
+  it("menu rows use + Add / − Remove with fixed-width CTA styling", () => {
     const source = readFileSync(
       new URL("../components/lunch/menu-item-row.tsx", import.meta.url),
+      "utf8",
+    );
+    const summarySource = readFileSync(
+      new URL("../components/lunch/inline-quantity-control.tsx", import.meta.url),
       "utf8",
     );
 
     assert.match(source, /Add \$\{label\}/);
     assert.match(source, /Remove \$\{label\}/);
+    assert.match(source, /MENU_ITEM_TOGGLE_LAYOUT_CLASS/);
+    assert.match(source, /min-w-\[6\.875rem\]/);
     assert.match(source, /MENU_ITEM_TOGGLE_ADD_CLASS/);
     assert.match(source, /bg-primary text-white/);
     assert.match(source, /MENU_ITEM_TOGGLE_REMOVE_CLASS/);
+    assert.match(source, /bg-primary\/45/);
+    assert.match(source, />Add</);
+    assert.match(source, />Remove</);
     assert.doesNotMatch(source, /Selected/);
     assert.doesNotMatch(source, /Added/);
+    assert.match(summarySource, /size-9/);
+    assert.doesNotMatch(summarySource, />Add</);
   });
 
   it("provider menu wires add and remove handlers for mains", () => {
@@ -53,6 +61,7 @@ describe("Today's Order UI contracts", () => {
     assert.match(source, /onRemoveMain/);
     assert.match(source, /onRemoveSide/);
     assert.match(source, /onRemoveStandalone/);
+    assert.match(source, /Add to Lunch Cart/);
   });
 
   it("order summary uses a stable meal total row and aligned grid", () => {
@@ -67,22 +76,21 @@ describe("Today's Order UI contracts", () => {
     assert.equal(countMealIncompleteGuidanceInSummarySource(summarySource), 1);
   });
 
-  it("does not duplicate meal-incomplete guidance in summary guidance slot", () => {
-    const draft = replaceMain(emptyProviderDraft(), "main-1");
-    const validation = validateProviderDraft(draft);
+  it("shows meal-incomplete guidance inline only for checkout validation", () => {
+    const providers = [
+      {
+        id: "provider-a",
+        name: "Alberries Caterors",
+        description: null,
+        menuItems: [{ id: "main-1", name: "Main", price: 850, itemType: "main" as const, unitLabel: "Each", displayCategory: null, description: null }],
+      },
+    ];
+    const checkout = validateLunchCheckout(providers, {
+      "provider-a": replaceMain(emptyProviderDraft(), "main-1"),
+    });
 
-    assert.equal(validation.mealIncomplete, true);
-    assert.equal(
-      getOrderSummaryCompositionGuidance(validation, false),
-      null,
-    );
-
-    const workspaceSource = readFileSync(
-      new URL("../components/lunch/lunch-ordering-workspace.tsx", import.meta.url),
-      "utf8",
-    );
-    assert.match(workspaceSource, /getOrderSummaryCompositionGuidance/);
-    assert.match(workspaceSource, /selectedOfficeLocationId/);
+    assert.equal(checkout.canSubmit, false);
+    assert.equal(checkout.guidanceMessage, null);
   });
 
   it("uses shared shell location state and compact popover picker", () => {
@@ -106,7 +114,7 @@ describe("Today's Order UI contracts", () => {
     assert.match(shellSource, /getOfficeLocationDisplayName/);
     assert.doesNotMatch(workspaceSource, /OrderLocationField/);
     assert.doesNotMatch(workspaceSource, /OfficeLocationPicker/);
-    assert.match(workspaceSource, /name="officeLocationId"/);
+    assert.match(workspaceSource, /officeLocationId: selectedOfficeLocationId/);
     assert.match(workspaceSource, /selectedOfficeLocationId/);
   });
 

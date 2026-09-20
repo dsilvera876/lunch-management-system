@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { emptyProviderDraft, replaceMain, addSide } from "./lunch-order-draft";
 import {
+  buildCheckoutSuccessToastBody,
   buildOrderPlacedToastBody,
   clearSubmittedProviderDraft,
 } from "./lunch-order-submit-ui";
@@ -44,35 +45,36 @@ describe("lunch order submit workflow", () => {
     assert.match(body, /September/);
   });
 
-  it("workspace submits via client handler and resets draft on confirmed success", () => {
+  it("workspace submits cart checkout and clears cart on success", () => {
     const workspaceSource = readFileSync(
       new URL("../components/lunch/lunch-ordering-workspace.tsx", import.meta.url),
       "utf8",
     );
 
-    assert.match(workspaceSource, /await submitProviderOrder/);
-    assert.match(workspaceSource, /clearSubmittedProviderDraft/);
-    assert.match(workspaceSource, /onOrderPlacedSuccess/);
-    assert.doesNotMatch(workspaceSource, /action=\{submitProviderOrder\}/);
+    assert.match(workspaceSource, /submitLunchCheckout/);
+    assert.match(workspaceSource, /setCart\(\[\]\)/);
+    assert.match(workspaceSource, /cartEntries: cart/);
+    assert.match(workspaceSource, /findUnfinishedWorkingDrafts/);
+    assert.match(workspaceSource, /onCheckoutSuccess/);
     assert.match(workspaceSource, /if \(result\.ok\)/);
     assert.match(workspaceSource, /setValidationError/);
   });
 
-  it("shows toast only from shell after success callback", () => {
+  it("builds checkout success toast with order and provider counts", () => {
+    const body = buildCheckoutSuccessToastBody(3, 2, "2026-09-21");
+    assert.match(body, /3 lunch orders from 2 providers/);
+    assert.match(body, /September/);
+  });
+
+  it("shows one checkout success toast from shell", () => {
     const shellSource = readFileSync(
       new URL("../components/lunch/lunch-ordering-shell.tsx", import.meta.url),
       "utf8",
     );
-    const toastSource = readFileSync(
-      new URL("../components/ui/toast.tsx", import.meta.url),
-      "utf8",
-    );
 
-    assert.match(shellSource, /showToast/);
-    assert.match(shellSource, /Order placed successfully/);
+    assert.match(shellSource, /Lunch order placed successfully/);
+    assert.match(shellSource, /buildCheckoutSuccessToastBody/);
     assert.match(shellSource, /View My Orders/);
-    assert.match(toastSource, /aria-live="polite"/);
-    assert.match(toastSource, /bottom-4/);
   });
 
   it("Today's Order page no longer lists current delivery orders", () => {
@@ -87,6 +89,7 @@ describe("lunch order submit workflow", () => {
 
     assert.doesNotMatch(lunchPageSource, /Your orders for this delivery/);
     assert.doesNotMatch(lunchPageSource, /OrderSummaryCard/);
-    assert.match(myOrdersSource, /my-orders|My Orders/i);
+    assert.match(myOrdersSource, /grouped by checkout/);
+    assert.match(myOrdersSource, /staff-my-orders-load/);
   });
 });

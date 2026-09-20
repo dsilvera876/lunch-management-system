@@ -52,7 +52,7 @@ function formatLinePrice(price: number): string {
   return price > 0 ? formatCurrency(price) : "Included";
 }
 
-function TrashButton({
+export function TrashButton({
   label,
   disabled,
   onClick,
@@ -77,7 +77,7 @@ function TrashButton({
   );
 }
 
-function OrderLineRow({
+export function OrderLineRow({
   name,
   unitLabel,
   price,

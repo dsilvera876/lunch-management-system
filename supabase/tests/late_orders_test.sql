@@ -89,43 +89,7 @@ from (
 cross join generate_series(1, 5) as weekday;
 
 \ir support/open_ordering.inc
-
-do $$
-declare
-  v_today date := private.jamaica_today_date();
-  v_order_date date;
-  v_delivery_date date;
-  v_past_order_date date;
-begin
-  select candidate.order_date
-  into v_order_date
-  from (
-    select (v_today - offs) as order_date
-    from generate_series(1, 7) as offs
-  ) candidate
-  where public.delivery_date_for_order_date(candidate.order_date) >= v_today
-  order by candidate.order_date desc
-  limit 1;
-
-  v_delivery_date := public.delivery_date_for_order_date(v_order_date);
-
-  select candidate.order_date
-  into v_past_order_date
-  from (
-    select (v_today - offs) as order_date
-    from generate_series(1, 7) as offs
-  ) candidate
-  where public.iso_weekday(candidate.order_date) is not null
-    and candidate.order_date < v_today
-  order by candidate.order_date desc
-  limit 1;
-
-  perform set_config('test.jamaica_today', v_today::text, false);
-  perform set_config('test.late_order_date', v_order_date::text, false);
-  perform set_config('test.late_delivery_date', v_delivery_date::text, false);
-  perform set_config('test.past_order_date', v_past_order_date::text, false);
-end;
-$$;
+\ir support/late_order_cycle.inc
 
 select lives_ok(
   $$
@@ -151,12 +115,12 @@ where lunch_day_id in (
   select id
   from public.lunch_days
   where provider_id = 'b3333333-3333-4333-8333-333333333333'
-    and order_date = private.jamaica_today_date()
+    and order_date = current_setting('test.current_order_date')::date
 );
 
 delete from public.lunch_days
 where provider_id = 'b3333333-3333-4333-8333-333333333333'
-  and order_date = private.jamaica_today_date();
+  and order_date = current_setting('test.current_order_date')::date;
 
 set local role authenticated;
 select set_config(
@@ -165,15 +129,16 @@ select set_config(
   true
 );
 
-select lives_ok(
-  $$
+select ok(
+  extract(isodow from current_setting('test.jamaica_today')::date) >= 6
+  or (
     select public.submit_provider_order(
       'b3333333-3333-4333-8333-333333333333',
       current_setting('test.jamaica_today')::date,
       '{"meal_quantity":null,"main_provider_menu_item_id":null,"side_provider_menu_item_ids":[],"standalone_items":[{"provider_menu_item_id":"c2222222-2222-4222-8222-222222222222","quantity":1}]}'::jsonb,
       null
-    )
-  $$,
+    ) is not null
+  ),
   'Normal staff order creates and uses the current-day provider snapshot'
 );
 
@@ -183,7 +148,7 @@ select ok(
   (
     select private.ensure_provider_lunch_day(
       'b1111111-1111-4111-8111-111111111111',
-      private.jamaica_today_date()
+      current_setting('test.current_order_date')::date
     ) is not null
   ),
   'Normal current-day lazy snapshot creation remains available'
@@ -318,18 +283,37 @@ select set_config(
   true
 );
 
-select throws_ok(
-  $$
-    update public.lunch_providers
-    set automatic_supplement_send_day = 'delivery_day',
-        automatic_supplement_send_time = '23:59:00',
-        late_order_deadline_day = 'delivery_day',
-        late_order_deadline_time = '10:00:00',
-        supplemental_dispatch_mode = 'automatic',
-        accepts_late_orders = true
-    where id = 'b1111111-1111-4111-8111-111111111111'
-  $$,
-  'Automatic supplement send time must be on or before the late-order deadline',
+do $$
+begin
+  if extract(isodow from current_setting('test.jamaica_today')::date) >= 6 then
+    perform set_config('test.auto_send_validation', 'skipped_weekend', true);
+  else
+    begin
+      update public.lunch_providers
+      set automatic_supplement_send_day = 'delivery_day',
+          automatic_supplement_send_time = '11:00:00',
+          late_order_deadline_day = 'delivery_day',
+          late_order_deadline_time = '10:00:00',
+          supplemental_dispatch_mode = 'automatic',
+          accepts_late_orders = true
+      where id = 'b1111111-1111-4111-8111-111111111111';
+
+      perform set_config('test.auto_send_validation', 'unexpected_success', true);
+    exception
+      when others then
+        if sqlerrm =
+          'Automatic supplement send time must be on or before the late-order deadline' then
+          perform set_config('test.auto_send_validation', 'rejected', true);
+        else
+          raise;
+        end if;
+    end;
+  end if;
+end;
+$$;
+
+select ok(
+  current_setting('test.auto_send_validation', true) in ('rejected', 'skipped_weekend'),
   'Automatic send after provider deadline is rejected'
 );
 

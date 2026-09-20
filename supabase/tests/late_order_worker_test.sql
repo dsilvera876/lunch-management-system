@@ -94,27 +94,20 @@ from (
 cross join generate_series(1, 5) as weekday;
 
 \ir support/open_ordering.inc
+\ir support/late_order_cycle.inc
 
 do $$
-declare
-  v_today date := private.jamaica_today_date();
-  v_order_date date;
-  v_delivery_date date;
 begin
-  select candidate.order_date
-  into v_order_date
-  from (
-    select (v_today - offs) as order_date
-    from generate_series(1, 7) as offs
-  ) candidate
-  where public.delivery_date_for_order_date(candidate.order_date) >= v_today
-  order by candidate.order_date desc
-  limit 1;
-
-  v_delivery_date := public.delivery_date_for_order_date(v_order_date);
-
-  perform set_config('test.worker_order_date', v_order_date::text, false);
-  perform set_config('test.worker_delivery_date', v_delivery_date::text, false);
+  perform set_config(
+    'test.worker_order_date',
+    current_setting('test.late_order_date'),
+    false
+  );
+  perform set_config(
+    'test.worker_delivery_date',
+    current_setting('test.late_delivery_date'),
+    false
+  );
 end;
 $$;
 
@@ -275,29 +268,42 @@ select set_config(
 select set_config('request.jwt.claim.role', 'service_role', true);
 
 select ok(
-  (
-    select (public.worker_materialize_current_order_snapshots() ->> 'materialized')::integer >= 1
-  ),
+  case
+    when extract(isodow from current_setting('test.jamaica_today')::date) >= 6 then
+      (
+        select public.worker_materialize_current_order_snapshots() ->> 'skipped'
+      ) = 'weekend'
+    else
+      (
+        select (public.worker_materialize_current_order_snapshots() ->> 'materialized')::integer >= 1
+      )
+  end,
   'Worker snapshot materialization succeeds for effective service_role'
 );
 
 select ok(
-  (
-    with first as (
-      select count(*) as cnt
-      from public.lunch_days
-      where order_date = private.jamaica_today_date()
-    ),
-    second as (
-      select public.worker_materialize_current_order_snapshots()
+  case
+    when extract(isodow from current_setting('test.jamaica_today')::date) >= 6 then
+      (
+        select public.worker_materialize_current_order_snapshots() ->> 'skipped'
+      ) = 'weekend'
+    else (
+      with first as (
+        select count(*) as cnt
+        from public.lunch_days
+        where order_date = current_setting('test.jamaica_today')::date
+      ),
+      second as (
+        select public.worker_materialize_current_order_snapshots()
+      )
+      select first.cnt = (
+        select count(*)
+        from public.lunch_days
+        where order_date = current_setting('test.jamaica_today')::date
+      )
+      from first
     )
-    select first.cnt = (
-      select count(*)
-      from public.lunch_days
-      where order_date = private.jamaica_today_date()
-    )
-    from first
-  ),
+  end,
   'Current-day snapshot materialization is idempotent'
 );
 

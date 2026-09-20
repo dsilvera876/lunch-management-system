@@ -275,7 +275,7 @@ select results_eq(
   'Multiple orders can reference the same generated provider cycle'
 );
 
-select throws_ok(
+select throws_like(
   $$
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
@@ -284,8 +284,7 @@ select throws_ok(
       null
     )
   $$,
-  'P0001',
-  'Menu item is invalid or inactive',
+  '%Menu item % for provider % is invalid or inactive%',
   'Mixed-provider items within one order are rejected'
 );
 
@@ -522,7 +521,7 @@ select set_config(
   true
 );
 
-select throws_ok(
+select throws_like(
   $$
     select public.submit_provider_order(
       'e1111111-1111-4111-8111-111111111111',
@@ -531,8 +530,7 @@ select throws_ok(
       null
     )
   $$,
-  'P0001',
-  'Menu item is invalid or inactive',
+  '%Menu item % for provider % is invalid or inactive%',
   'Deactivated recurring items are blocked from new submissions'
 );
 

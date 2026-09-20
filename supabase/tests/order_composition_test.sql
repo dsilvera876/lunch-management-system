@@ -255,7 +255,7 @@ select throws_ok(
   'Empty order is rejected'
 );
 
-select throws_ok(
+select throws_like(
   $$
     select public.submit_provider_order(
       'b1111111-1111-4111-8111-111111111111',
@@ -271,12 +271,11 @@ select throws_ok(
       null
     )
   $$,
-  'P0001',
-  'Menu item is invalid or inactive',
+  '%Menu item % for provider % is invalid or inactive%',
   'Cross-provider items are rejected'
 );
 
-select throws_ok(
+select throws_like(
   $$
     select public.submit_provider_order(
       'b1111111-1111-4111-8111-111111111111',
@@ -290,8 +289,7 @@ select throws_ok(
       null
     )
   $$,
-  'P0001',
-  'Menu item is invalid or inactive',
+  '%Menu item % for provider % is invalid or inactive%',
   'Unavailable weekday main is rejected'
 );
 

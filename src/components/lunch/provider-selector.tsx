@@ -5,6 +5,7 @@ import { NavIcon } from "@/components/icons/line-icons";
 export type ProviderTab = {
   id: string;
   name: string;
+  hasWorkingDraft?: boolean;
 };
 
 type Props = {
@@ -49,6 +50,13 @@ export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
                 className={selected ? "text-primary" : "text-teal-700/40"}
               />
               <span className="max-w-[12rem] truncate sm:max-w-none">{provider.name}</span>
+              {provider.hasWorkingDraft ? (
+                <span
+                  className="size-2 shrink-0 rounded-full bg-primary/70"
+                  title="Unadded selection"
+                  aria-label="Has an unadded selection"
+                />
+              ) : null}
             </button>
           );
         })}

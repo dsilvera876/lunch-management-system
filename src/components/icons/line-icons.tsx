@@ -209,6 +209,15 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+export function IconCircleX(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15 9 9 15M9 9l6 6" />
+    </LineIcon>
+  );
+}
+
 export type NavIconId =
   | "dashboard"
   | "utensils"

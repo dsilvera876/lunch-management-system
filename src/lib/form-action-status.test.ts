@@ -72,6 +72,6 @@ describe("FormActionStatus", () => {
     assert.match(subsidy, /FormActionStatus/);
     assert.match(cutoff, /FormActionStatus/);
     assert.match(lunchPage, /Alert variant="error"/);
-    assert.match(lunchShell, /Order placed successfully/);
+    assert.match(lunchShell, /Lunch order placed successfully/);
   });
 });

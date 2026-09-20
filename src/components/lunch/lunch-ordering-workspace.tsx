@@ -1,38 +1,40 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { submitProviderOrder } from "@/app/lunch/actions";
+import { useMemo, useState } from "react";
+import { submitLunchCheckout } from "@/app/lunch/actions";
 import { ProviderSelector } from "@/components/lunch/provider-selector";
 import { ProviderMenuPanel } from "@/components/lunch/provider-menu-panel";
-import { OrderSummaryPanel } from "@/components/lunch/order-summary-panel";
+import { LunchCartPanel } from "@/components/lunch/lunch-cart-panel";
 import { FormActionStatus } from "@/components/ui/form-action-status";
-import { hasSelectedOrderItems } from "@/lib/order-payload";
+import {
+  canAddDraftToCart,
+  createCartEntryFromDraft,
+  findUnfinishedWorkingDrafts,
+  formatUnfinishedDraftMessage,
+  type LunchCartEntry,
+} from "@/lib/lunch-cart";
 import {
   addSide,
   addStandalone,
-  calculateDraftSubtotal,
-  draftToProviderPayload,
   emptyProviderDraft,
   removeMain,
   removeSide,
   removeStandalone,
   replaceMain,
   setStandaloneQuantity,
-  validateProviderDraft,
   type ProviderDraft,
 } from "@/lib/lunch-order-draft";
+import { draftHasSelectedItems } from "@/lib/lunch-checkout";
 import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
-import { isValidSpecialInstructions } from "@/lib/menu-items";
-import { getOrderSummaryCompositionGuidance } from "@/lib/lunch-order-summary-ui";
-import { clearSubmittedProviderDraft } from "@/lib/lunch-order-submit-ui";
+import { validateLunchCart } from "@/lib/lunch-checkout";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 
-type OrderPlacedSuccess = {
-  providerId: string;
-  providerName: string;
-  orderId: string;
+type CheckoutSuccess = {
+  orderCount: number;
+  providerCount: number;
+  orderGroupId: string;
 };
 
 type Props = {
@@ -46,7 +48,7 @@ type Props = {
   selectedOfficeLocationId: string;
   saveAsDefault: boolean;
   onRequestLocationPicker: () => void;
-  onOrderPlacedSuccess: (payload: OrderPlacedSuccess) => void;
+  onCheckoutSuccess: (payload: CheckoutSuccess) => void;
 };
 
 export function LunchOrderingWorkspace({
@@ -60,7 +62,7 @@ export function LunchOrderingWorkspace({
   selectedOfficeLocationId,
   saveAsDefault,
   onRequestLocationPicker,
-  onOrderPlacedSuccess,
+  onCheckoutSuccess,
 }: Props) {
   const router = useRouter();
   const defaultId =
@@ -70,6 +72,7 @@ export function LunchOrderingWorkspace({
 
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(defaultId);
   const [drafts, setDrafts] = useState<Record<string, ProviderDraft>>({});
+  const [cart, setCart] = useState<LunchCartEntry[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -80,53 +83,68 @@ export function LunchOrderingWorkspace({
     ? (drafts[selectedProviderId] ?? emptyProviderDraft())
     : emptyProviderDraft();
 
+  const checkout = useMemo(() => validateLunchCart(providers, cart), [providers, cart]);
+
+  const unfinishedDrafts = useMemo(
+    () => findUnfinishedWorkingDrafts(providers, drafts),
+    [providers, drafts],
+  );
+
+  const providersById = useMemo(
+    () => new Map(providers.map((provider) => [provider.id, provider])),
+    [providers],
+  );
+
+  const providerTabs = useMemo(
+    () =>
+      providers.map((provider) => ({
+        id: provider.id,
+        name: provider.name,
+        hasWorkingDraft: draftHasSelectedItems(drafts[provider.id] ?? emptyProviderDraft()),
+      })),
+    [providers, drafts],
+  );
+
+  function updateDraftForProvider(providerId: string, next: ProviderDraft) {
+    setDrafts((current) => ({
+      ...current,
+      [providerId]: next,
+    }));
+    setValidationError(null);
+  }
+
   function updateDraft(next: ProviderDraft) {
     if (!selectedProviderId) {
       return;
     }
 
-    setDrafts((current) => ({
-      ...current,
-      [selectedProviderId]: next,
-    }));
-    setValidationError(null);
+    updateDraftForProvider(selectedProviderId, next);
   }
 
-  const menuItems = selectedProvider?.menuItems ?? [];
-  const selectedMain =
-    menuItems.find((item) => item.id === draft.mainId) ?? null;
-  const selectedSides = menuItems.filter((item) => draft.sideIds.includes(item.id));
-  const standaloneItems = menuItems
-    .filter((item) => (draft.standaloneQuantities[item.id] ?? 0) > 0)
-    .map((item) => ({
-      ...item,
-      quantity: draft.standaloneQuantities[item.id] ?? 0,
-    }));
+  function handleAddToCart() {
+    if (!selectedProvider || !canAddDraftToCart(draft)) {
+      return;
+    }
 
-  const orderSubtotal = calculateDraftSubtotal(draft, menuItems);
-  const validation = validateProviderDraft(draft);
-  const payload = draftToProviderPayload(draft);
-  const hasItems = hasSelectedOrderItems(payload);
+    const entry = createCartEntryFromDraft(selectedProvider, draft);
+    setCart((current) => [...current, entry]);
+    updateDraftForProvider(selectedProvider.id, emptyProviderDraft());
+  }
+
+  const checkoutGuidance =
+    unfinishedDrafts.length > 0
+      ? formatUnfinishedDraftMessage(unfinishedDrafts)
+      : checkout.guidanceMessage;
+
   const canSubmit =
     orderingOpen &&
-    hasItems &&
-    validation.valid &&
-    isValidSpecialInstructions(draft.specialInstructions);
-
-  const compositionGuidance = getOrderSummaryCompositionGuidance(validation, canSubmit);
+    cart.length > 0 &&
+    unfinishedDrafts.length === 0 &&
+    checkout.canSubmit &&
+    (officeLocations.length === 0 || selectedOfficeLocationId.length > 0);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!validation.valid) {
-      setValidationError(validation.message ?? "Complete your order before placing it.");
-      return;
-    }
-
-    if (!isValidSpecialInstructions(draft.specialInstructions)) {
-      setValidationError("Special instructions must be 500 characters or fewer.");
-      return;
-    }
 
     if (officeLocations.length > 0 && !selectedOfficeLocationId) {
       setValidationError("Choose a delivery location before placing your order.");
@@ -134,7 +152,16 @@ export function LunchOrderingWorkspace({
       return;
     }
 
-    if (!selectedProvider || !selectedProviderId) {
+    if (unfinishedDrafts.length > 0) {
+      setValidationError(formatUnfinishedDraftMessage(unfinishedDrafts));
+      return;
+    }
+
+    if (!checkout.canSubmit) {
+      setValidationError(
+        checkout.guidanceMessage ??
+          "Complete your lunch cart before placing your order.",
+      );
       return;
     }
 
@@ -142,72 +169,43 @@ export function LunchOrderingWorkspace({
     setValidationError(null);
 
     try {
-      const result = await submitProviderOrder(new FormData(event.currentTarget));
+      const result = await submitLunchCheckout({
+        orderDate,
+        officeLocationId: selectedOfficeLocationId,
+        saveAsDefault,
+        cartEntries: cart,
+      });
 
       if (result.ok) {
-        setDrafts((current) => clearSubmittedProviderDraft(current, result.providerId));
-        onOrderPlacedSuccess({
-          providerId: result.providerId,
-          providerName: selectedProvider.name,
-          orderId: result.orderId,
+        setCart([]);
+        onCheckoutSuccess({
+          orderCount: result.orderIds.length,
+          providerCount: new Set(result.providerIds).size,
+          orderGroupId: result.orderGroupId,
         });
         router.refresh();
         return;
       }
 
-      setValidationError(getLunchOrderErrorMessage(result.errorCode));
+      setValidationError(
+        result.message ??
+          (result.providerName
+            ? `${result.providerName}: ${getLunchOrderErrorMessage(result.errorCode)}`
+            : getLunchOrderErrorMessage(result.errorCode)),
+      );
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  function clearCurrentDraft() {
-    if (!selectedProviderId) {
-      return;
-    }
-
-    updateDraft(emptyProviderDraft());
   }
 
   if (!selectedProvider) {
     return null;
   }
 
-  const mealComplete = draft.mainId !== null && draft.sideIds.length > 0;
-
   return (
     <form onSubmit={handleSubmit}>
-      <input type="hidden" name="providerId" value={selectedProvider.id} />
-      <input type="hidden" name="orderDate" value={orderDate} />
-      {officeLocations.length > 0 ? (
-        <input type="hidden" name="officeLocationId" value={selectedOfficeLocationId} />
-      ) : null}
-      {saveAsDefault ? <input type="hidden" name="saveAsDefault" value="on" /> : null}
-      {draft.mainId ? (
-        <input type="hidden" name="mainProviderMenuItemId" value={draft.mainId} />
-      ) : null}
-      {mealComplete ? (
-        <input type="hidden" name="mealQuantity" value={draft.mealQuantity} />
-      ) : null}
-      {draft.sideIds.map((sideId) => (
-        <input key={sideId} type="hidden" name={`side:${sideId}`} value="on" />
-      ))}
-      {Object.entries(draft.standaloneQuantities).map(([itemId, quantity]) =>
-        quantity > 0 ? (
-          <input
-            key={itemId}
-            type="hidden"
-            name={`provider-quantity:${itemId}`}
-            value={quantity}
-          />
-        ) : null,
-      )}
-
       <ProviderSelector
-        providers={providers.map((provider) => ({
-          id: provider.id,
-          name: provider.name,
-        }))}
+        providers={providerTabs}
         selectedId={selectedProviderId}
         onSelect={setSelectedProviderId}
       />
@@ -226,38 +224,34 @@ export function LunchOrderingWorkspace({
           onRemoveSide={(sideId) => updateDraft(removeSide(draft, sideId))}
           onAddStandalone={(itemId) => updateDraft(addStandalone(draft, itemId))}
           onRemoveStandalone={(itemId) => updateDraft(removeStandalone(draft, itemId))}
-        />
-
-        <OrderSummaryPanel
-          providerName={selectedProvider.name}
-          main={selectedMain}
-          sides={selectedSides}
-          mealQuantity={draft.mealQuantity}
-          mealIncomplete={validation.mealIncomplete}
-          standaloneItems={standaloneItems}
-          orderSubtotal={orderSubtotal}
-          dailySubsidy={dailySubsidy}
-          existingOrderDateGross={existingOrderDateGross}
           specialInstructions={draft.specialInstructions}
-          guidanceMessage={!canSubmit ? compositionGuidance : null}
           onSpecialInstructionsChange={(value) =>
             updateDraft({ ...draft, specialInstructions: value })
           }
-          onClearAll={clearCurrentDraft}
-          onRemoveMain={() => updateDraft(removeMain(draft))}
-          onRemoveSide={(sideId) => updateDraft(removeSide(draft, sideId))}
           onMealQuantityChange={(quantity) =>
             updateDraft({ ...draft, mealQuantity: quantity })
           }
           onStandaloneQuantityChange={(itemId, quantity) =>
             updateDraft(setStandaloneQuantity(draft, itemId, quantity))
           }
-          onRemoveStandalone={(itemId) =>
-            updateDraft(removeStandalone(draft, itemId))
-          }
-          orderingOpen={orderingOpen}
+          canAddToCart={canAddDraftToCart(draft)}
+          onAddToCart={handleAddToCart}
+        />
+
+        <LunchCartPanel
+          cart={cart}
+          checkout={checkout}
+          providersById={providersById}
+          dailySubsidy={dailySubsidy}
+          existingOrderDateGross={existingOrderDateGross}
+          guidanceMessage={checkoutGuidance}
           canSubmit={canSubmit}
+          orderingOpen={orderingOpen}
           isSubmitting={isSubmitting}
+          onClearAll={() => setCart([])}
+          onRemoveEntry={(entryId) =>
+            setCart((current) => current.filter((entry) => entry.id !== entryId))
+          }
         />
       </div>
 

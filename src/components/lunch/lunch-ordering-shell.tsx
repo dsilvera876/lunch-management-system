@@ -8,7 +8,7 @@ import {
   getOfficeLocationDisplayName,
   resolveInitialOfficeLocationId,
 } from "@/lib/lunch-office-location-selection";
-import { buildOrderPlacedToastBody } from "@/lib/lunch-order-submit-ui";
+import { buildCheckoutSuccessToastBody } from "@/lib/lunch-order-submit-ui";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 
@@ -86,14 +86,14 @@ function LunchOrderingShellInner({
     setLocationPickerOpen(false);
   }
 
-  function handleOrderPlacedSuccess(payload: {
-    providerId: string;
-    providerName: string;
-    orderId: string;
-  }) {
+  function handleCheckoutSuccess(payload: { orderCount: number; providerCount: number }) {
     showToast({
-      title: "Order placed successfully",
-      body: buildOrderPlacedToastBody(payload.providerName, deliveryDate),
+      title: "Lunch order placed successfully",
+      body: buildCheckoutSuccessToastBody(
+        payload.orderCount,
+        payload.providerCount,
+        deliveryDate,
+      ),
       action: { label: "View My Orders", href: "/my-orders" },
     });
   }
@@ -130,7 +130,7 @@ function LunchOrderingShellInner({
         selectedOfficeLocationId={selectedLocationId}
         saveAsDefault={saveAsDefault}
         onRequestLocationPicker={() => setLocationPickerOpen(true)}
-        onOrderPlacedSuccess={handleOrderPlacedSuccess}
+        onCheckoutSuccess={handleCheckoutSuccess}
       />
     </>
   );

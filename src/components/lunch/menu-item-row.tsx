@@ -13,11 +13,11 @@ type Props = {
   onRemove: () => void;
 };
 
-export const MENU_ITEM_TOGGLE_BASE_CLASS =
-  "inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-base font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40";
+export const MENU_ITEM_TOGGLE_LAYOUT_CLASS =
+  "inline-flex h-9 min-w-[6.875rem] shrink-0 items-center justify-center gap-1 rounded-lg border border-transparent px-3 text-sm font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40";
 
-export const MENU_ITEM_TOGGLE_ADD_CLASS = `${MENU_ITEM_TOGGLE_BASE_CLASS} bg-primary text-white hover:bg-primary-hover`;
-export const MENU_ITEM_TOGGLE_REMOVE_CLASS = `${MENU_ITEM_TOGGLE_BASE_CLASS} bg-primary/45 text-white hover:bg-primary/60`;
+export const MENU_ITEM_TOGGLE_ADD_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} bg-primary text-white hover:bg-primary-hover`;
+export const MENU_ITEM_TOGGLE_REMOVE_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} bg-primary/45 text-white hover:bg-primary/60`;
 
 export function MenuItemRow({
   name,
@@ -48,7 +48,8 @@ export function MenuItemRow({
           className={MENU_ITEM_TOGGLE_REMOVE_CLASS}
           onClick={onRemove}
         >
-          −
+          <span aria-hidden="true">−</span>
+          <span>Remove</span>
         </button>
       ) : (
         <button
@@ -59,7 +60,8 @@ export function MenuItemRow({
           className={MENU_ITEM_TOGGLE_ADD_CLASS}
           onClick={onAdd}
         >
-          +
+          <span aria-hidden="true">+</span>
+          <span>Add</span>
         </button>
       )}
     </div>

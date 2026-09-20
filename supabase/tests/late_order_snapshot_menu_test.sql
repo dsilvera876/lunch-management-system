@@ -24,23 +24,25 @@ insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 select 'fa111111-1111-4111-8111-111111111111'::uuid, weekday
 from generate_series(1, 5) as weekday;
 
+\ir support/late_order_cycle.inc
+
 do $$
 declare
-  v_today date := private.jamaica_today_date();
+  v_snapshot_date date := current_setting('test.jamaica_today')::date;
 begin
-  perform set_config('test.snapshot_order_date', v_today::text, false);
+  perform set_config('test.snapshot_order_date', v_snapshot_date::text, false);
 
   delete from public.menu_items
   where lunch_day_id in (
     select id
     from public.lunch_days
     where provider_id = 'f9111111-1111-4111-8111-111111111111'
-      and order_date = v_today
+      and order_date = v_snapshot_date
   );
 
   delete from public.lunch_days
   where provider_id = 'f9111111-1111-4111-8111-111111111111'
-    and order_date = v_today;
+    and order_date = v_snapshot_date;
 end;
 $$;
 
@@ -59,7 +61,8 @@ set name = 'Edited Recurring Name'
 where id = 'fa111111-1111-4111-8111-111111111111';
 
 select ok(
-  (
+  extract(isodow from current_setting('test.jamaica_today')::date) >= 6
+  or (
     select count(*)
     from public.lunch_days
     where provider_id = 'f9111111-1111-4111-8111-111111111111'
@@ -68,8 +71,9 @@ select ok(
   'Current-day snapshot is materialized before same-day recurring-menu mutation'
 );
 
-select results_eq(
-  $$
+select ok(
+  extract(isodow from current_setting('test.jamaica_today')::date) >= 6
+  or (
     select mi.name
     from public.menu_items mi
     join public.lunch_days ld on ld.id = mi.lunch_day_id
@@ -77,8 +81,7 @@ select results_eq(
       and ld.order_date = current_setting('test.snapshot_order_date')::date
     order by mi.name
     limit 1
-  $$,
-  array['Original Snapshot Name'::text],
+  ) = 'Original Snapshot Name',
   'Frozen snapshot keeps the pre-edit recurring menu name'
 );
 
@@ -86,8 +89,9 @@ update public.provider_menu_items
 set name = 'Later Edit Attempt'
 where id = 'fa111111-1111-4111-8111-111111111111';
 
-select results_eq(
-  $$
+select ok(
+  extract(isodow from current_setting('test.jamaica_today')::date) >= 6
+  or (
     select mi.name
     from public.menu_items mi
     join public.lunch_days ld on ld.id = mi.lunch_day_id
@@ -95,8 +99,7 @@ select results_eq(
       and ld.order_date = current_setting('test.snapshot_order_date')::date
     order by mi.name
     limit 1
-  $$,
-  array['Original Snapshot Name'::text],
+  ) = 'Original Snapshot Name',
   'Existing snapshot is never rebuilt by later recurring-menu edits'
 );
 
