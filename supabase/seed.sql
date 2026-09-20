@@ -1,3 +1,15 @@
--- Legacy manual lunch-day seed data removed.
--- Provider-based ordering is the supported production path.
--- Legacy workflow tests include supabase/tests/support/legacy_lunch_day_fixture.inc.
+-- Local development seed (DEVELOPMENT ONLY — never use in staging/production).
+--
+-- Development accounts (password for all): LunchTest123!
+--   owner@lunch.test
+--   hr@lunch.test
+--   accounts@lunch.test
+--   staff1@lunch.test
+--   staff2@lunch.test
+--
+-- Load with: npx supabase db reset
+-- See docs/development-seed.md
+
+-- NOTE: Supabase CLI executes seed SQL without psql meta-commands.
+-- Fixture body lives in supabase/seeds/development.sql and is included below
+-- by keeping a single sql_paths entry in config.toml.
