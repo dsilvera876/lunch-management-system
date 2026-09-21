@@ -218,6 +218,26 @@ export function IconCircleX(props: IconProps) {
   );
 }
 
+export function IconInfo(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </LineIcon>
+  );
+}
+
+export function IconDownload(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M12 3v12" />
+      <path d="M8 11l4 4 4-4" />
+      <path d="M4 21h16" />
+    </LineIcon>
+  );
+}
+
 export type NavIconId =
   | "dashboard"
   | "utensils"

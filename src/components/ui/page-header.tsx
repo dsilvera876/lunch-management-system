@@ -4,11 +4,14 @@ type Props = {
   title: string;
   description?: string;
   actions?: ReactNode;
+  className?: string;
 };
 
-export function PageHeader({ title, description, actions }: Props) {
+export function PageHeader({ title, description, actions, className = "" }: Props) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div
+      className={`mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between ${className}`}
+    >
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
           {title}

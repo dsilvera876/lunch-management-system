@@ -83,7 +83,7 @@ select results_eq(
     select public.get_my_financial_dashboard() -> 'today'
   $$,
   array[
-    '{"gross": 0.00, "subsidy_used": 0.00, "net_deduction": 0.00}'::jsonb
+    '{"gross": 0.00, "subsidy_used": 0.00, "net_deduction": 0.00, "order_count": 0, "qualifying_order_days": 0}'::jsonb
   ],
   'A fresh user receives zero activity for today'
 );

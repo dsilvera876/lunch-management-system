@@ -8,6 +8,13 @@ export type FinancialAmountSummary = {
   net_deduction: string | number;
 };
 
+export type FinancialScopeAmountSummary = FinancialAmountSummary & {
+  qualifying_order_days?: number;
+  order_count?: number;
+  start_date?: string;
+  end_date?: string;
+};
+
 export type FinancialOrderLine = {
   order_id: string;
   order_date: string;
@@ -50,14 +57,24 @@ export type StaffCurrentPeriodSummary = FinancialAmountSummary & {
   daily_summary: FinancialDailySummary[];
 };
 
+export type StaffPreviousPeriodSummary = Omit<
+  StaffCurrentPeriodSummary,
+  "orders" | "daily_summary"
+> & {
+  orders?: FinancialOrderLine[];
+  daily_summary?: FinancialDailySummary[];
+};
+
 export type StaffFinancialDashboard = {
   daily_lunch_subsidy: string | number;
-  today: FinancialAmountSummary;
-  current_month: FinancialAmountSummary;
+  today: FinancialScopeAmountSummary;
+  current_week: FinancialScopeAmountSummary;
+  current_month: FinancialScopeAmountSummary;
   today_total: string | number;
   current_month_total: string | number;
   recent_months: FinancialMonthSummary[];
   current_period: StaffCurrentPeriodSummary | null;
+  previous_period: StaffPreviousPeriodSummary | null;
 };
 
 type FinancialRpcError = {

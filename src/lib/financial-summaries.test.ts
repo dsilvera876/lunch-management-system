@@ -10,12 +10,14 @@ import {
 
 const emptyDashboard: StaffFinancialDashboard = {
   daily_lunch_subsidy: 0,
-  today: { gross: 0, subsidy_used: 0, net_deduction: 0 },
-  current_month: { gross: 0, subsidy_used: 0, net_deduction: 0 },
+  today: { gross: 0, subsidy_used: 0, net_deduction: 0, qualifying_order_days: 0, order_count: 0 },
+  current_week: { gross: 0, subsidy_used: 0, net_deduction: 0, qualifying_order_days: 0, order_count: 0 },
+  current_month: { gross: 0, subsidy_used: 0, net_deduction: 0, qualifying_order_days: 0, order_count: 0 },
   today_total: 0,
   current_month_total: 0,
   recent_months: [],
   current_period: null,
+  previous_period: null,
 };
 
 function clientReturning(

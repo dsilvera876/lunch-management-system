@@ -8,23 +8,35 @@ import {
 } from "./home-dashboard";
 import type { StaffFinancialDashboard } from "./financial-summaries";
 
+const emptyScope = {
+  gross: 0,
+  subsidy_used: 0,
+  net_deduction: 0,
+  qualifying_order_days: 0,
+  order_count: 0,
+};
+
 const dashboardWithoutPeriod: StaffFinancialDashboard = {
   daily_lunch_subsidy: 500,
-  today: { gross: 0, subsidy_used: 0, net_deduction: 0 },
-  current_month: { gross: 0, subsidy_used: 0, net_deduction: 0 },
+  today: emptyScope,
+  current_week: emptyScope,
+  current_month: emptyScope,
   today_total: 0,
   current_month_total: 0,
   recent_months: [],
   current_period: null,
+  previous_period: null,
 };
 
 const dashboardWithPeriod: StaffFinancialDashboard = {
   daily_lunch_subsidy: 500,
-  today: { gross: 0, subsidy_used: 0, net_deduction: 0 },
-  current_month: { gross: 0, subsidy_used: 0, net_deduction: 0 },
+  today: emptyScope,
+  current_week: emptyScope,
+  current_month: emptyScope,
   today_total: 0,
   current_month_total: 0,
   recent_months: [],
+  previous_period: null,
   current_period: {
     period_id: "123",
     label: "Current Period",
