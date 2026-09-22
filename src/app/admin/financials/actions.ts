@@ -77,6 +77,7 @@ export async function updateDailyLunchSubsidy(formData: FormData) {
   }
 
   revalidatePath("/admin/financials");
+  revalidatePath("/admin/lunch-periods");
   revalidatePath("/financials");
   revalidatePath("/home");
 

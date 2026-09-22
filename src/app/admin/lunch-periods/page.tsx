@@ -1,11 +1,15 @@
 import { requireManageLunchPeriods } from "@/lib/auth";
 import {
+  getDailyLunchSubsidy,
+} from "@/lib/financial-summaries";
+import {
   getLatestLunchPeriod,
   getNextPeriodStartDate,
   listLunchPeriods,
 } from "@/lib/lunch-periods";
-import { canExportLunchPeriodSummaries } from "@/lib/roles";
+import { canExportLunchPeriodSummaries, canUpdateDailyLunchSubsidy } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
+import { DailyLunchSubsidySetting } from "@/components/daily-lunch-subsidy-control";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { LunchPeriodInfoCallout } from "@/components/admin/lunch-periods/lunch-period-info-callout";
@@ -19,6 +23,8 @@ type Props = {
     created?: string;
     updated?: string;
     current?: string;
+    "subsidy-updated"?: string;
+    "subsidy-error"?: string;
   }>;
 };
 
@@ -26,7 +32,10 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
   const profile = await requireManageLunchPeriods();
   const params = await searchParams;
   const supabase = await createClient();
-  const periods = await listLunchPeriods(supabase);
+  const [periods, dailyLunchSubsidy] = await Promise.all([
+    listLunchPeriods(supabase),
+    getDailyLunchSubsidy(supabase),
+  ]);
   const currentPeriod = periods.find((period) => period.is_current) ?? null;
   const latestPeriod = getLatestLunchPeriod(periods);
   const nextStartDate = latestPeriod
@@ -74,10 +83,19 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
         </Alert>
       ) : null}
 
-      <CurrentLunchPeriodSummary
-        period={currentPeriod}
-        canExport={canExportLunchPeriodSummaries(profile.role) && currentPeriod !== null}
-      />
+      <div className="mb-6 space-y-4">
+        <CurrentLunchPeriodSummary
+          period={currentPeriod}
+          canExport={canExportLunchPeriodSummaries(profile.role) && currentPeriod !== null}
+        />
+        <DailyLunchSubsidySetting
+          dailyLunchSubsidy={dailyLunchSubsidy}
+          canEdit={canUpdateDailyLunchSubsidy(profile.role)}
+          returnTo="/admin/lunch-periods"
+          showUpdated={Boolean(params["subsidy-updated"])}
+          showError={Boolean(params["subsidy-error"])}
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <AppendLunchPeriodCard isFirstPeriod={isFirstPeriod} nextStartDate={nextStartDate} />

@@ -41,7 +41,10 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
       return crumbs;
     }
 
-    const sectionLabel = LABELS[section] ?? section.replace(/-/g, " ");
+    const sectionLabel =
+      section === "financials"
+        ? "Financial Reports"
+        : (LABELS[section] ?? section.replace(/-/g, " "));
     crumbs.push({
       label: sectionLabel,
       href: segments.length === 2 ? undefined : `/admin/${section}`,

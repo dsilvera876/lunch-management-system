@@ -106,6 +106,7 @@ describe("lunch period admin presentation", () => {
     );
 
     assert.match(pageSource, /CurrentLunchPeriodSummary/);
+    assert.match(pageSource, /DailyLunchSubsidySetting/);
     assert.match(pageSource, /AppendLunchPeriodCard/);
     assert.match(pageSource, /LunchPeriodsTable/);
     assert.match(summarySource, /admin\/financials\/export\?periodId=/);
