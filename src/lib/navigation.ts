@@ -52,7 +52,7 @@ const HR_TOOLS_ITEMS: NavItem[] = [
     href: "/admin/todays-orders",
     label: "Today's Orders",
     description: "Today's ordering cycle overview",
-    icon: "clipboard",
+    icon: "utensils",
   },
   {
     href: "/admin/late-orders",

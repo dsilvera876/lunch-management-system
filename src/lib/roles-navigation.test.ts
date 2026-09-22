@@ -65,13 +65,17 @@ describe("navigation by role", () => {
     const nav = getNavForRole("staff");
     const mainGroup = nav.find((g) => g.label === "MAIN");
     assert.ok(mainGroup?.items.some((item) => item.href === "/home"));
+    const todaysOrder = mainGroup?.items.find((item) => item.href === "/lunch");
+    assert.equal(todaysOrder?.icon, "utensils");
     assert.ok(!nav.find((g) => g.label === "ADMIN"));
   });
 
   it("shows HR tools items for HR", () => {
     const nav = getNavForRole("hr");
     const hrTools = nav.find((g) => g.label === "HR TOOLS");
-    assert.ok(hrTools?.items.some((item) => item.href === "/admin/todays-orders"));
+    const todaysOrders = hrTools?.items.find((item) => item.href === "/admin/todays-orders");
+    assert.ok(todaysOrders);
+    assert.equal(todaysOrders?.icon, "utensils");
     assert.ok(hrTools?.items.some((item) => item.href === "/admin/late-orders"));
     assert.ok(hrTools?.items.some((item) => item.href === "/admin/deliveries"));
     assert.ok(hrTools?.items.some((item) => item.label === "Order History"));

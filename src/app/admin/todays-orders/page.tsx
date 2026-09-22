@@ -1,7 +1,6 @@
 import { requireViewAllOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
-import { formatHumanDate } from "@/lib/format";
 import { buildOperationalDeliveryReport } from "@/lib/operational-orders";
 import {
   failOperationalOrdersQuery,
@@ -9,9 +8,14 @@ import {
   parseOperationalOrderRow,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
-import { ProviderOperationalSection } from "@/components/admin/operational-orders";
-import { PageHeader } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  buildTodaysOrdersSummaryMetrics,
+  TODAYS_ORDERS_PAGE,
+} from "@/lib/todays-orders-presentation";
+import { TodaysOrdersPageHeader } from "@/components/admin/todays-orders/todays-orders-page-header";
+import { TodaysProviderOrdersCard } from "@/components/admin/todays-orders/todays-provider-orders-card";
+import { IconClipboard } from "@/components/icons/line-icons";
+import { TealIconWell } from "@/components/my-spend/teal-icon-well";
 import { Card } from "@/components/ui/card";
 
 export default async function TodaysOrdersPage() {
@@ -38,39 +42,28 @@ export default async function TodaysOrdersPage() {
     .filter((order): order is NonNullable<typeof order> => order !== null);
 
   const report = buildOperationalDeliveryReport(orders, orderDate);
+  const summaryMetrics = buildTodaysOrdersSummaryMetrics(report);
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={`Today's Orders — ${formatHumanDate(orderDate)}`}
-        description="Orders placed during today's normal ordering cycle (order date = today). Late orders attributed to prior order dates appear on Late Orders and Order History instead."
-      />
+      <TodaysOrdersPageHeader orderDate={orderDate} metrics={summaryMetrics} />
 
       {report.providers.length === 0 ? (
-        <EmptyState
-          title="No orders for today's ordering cycle"
-          description="Staff orders with today's order date will appear here."
-        />
+        <Card padding="sm" className="py-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <TealIconWell size="sm" className="shrink-0">
+              <IconClipboard aria-hidden />
+            </TealIconWell>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">No orders today</p>
+              <p className="mt-1 text-sm text-muted">{TODAYS_ORDERS_PAGE.emptyMessage}</p>
+            </div>
+          </div>
+        </Card>
       ) : (
         <div className="space-y-4">
-          <Card className="p-3 text-sm text-muted">
-            {report.totalOrders} order{report.totalOrders === 1 ? "" : "s"} across{" "}
-            {report.providers.length} provider{report.providers.length === 1 ? "" : "s"}
-          </Card>
-
           {report.providers.map((provider) => (
-            <ProviderOperationalSection
-              key={provider.providerId}
-              providerId={provider.providerId}
-              providerName={provider.providerName}
-              officeSummaries={provider.officeSummaries}
-              preparationSections={provider.preparationSections}
-              offices={provider.offices}
-              canReconcile={false}
-              returnTo="/admin/todays-orders"
-              deliveryDate={orderDate}
-              snapshotMenuItemsByLunchDay={{}}
-            />
+            <TodaysProviderOrdersCard key={provider.providerId} provider={provider} />
           ))}
         </div>
       )}

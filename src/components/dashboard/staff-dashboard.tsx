@@ -11,7 +11,7 @@ import {
   IconBag,
   IconChart,
   IconStarOutline,
-  IconUtensilsCrossed,
+  IconUtensils,
   IconWallet,
 } from "@/components/icons/line-icons";
 import { formatCurrency, formatHumanDate } from "@/lib/format";
@@ -82,7 +82,7 @@ export function StaffDashboard({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <IconUtensilsCrossed size={22} />
+                <IconUtensils size={22} />
               </span>
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Next Lunch Ordering</h2>

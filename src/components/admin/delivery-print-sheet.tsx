@@ -5,7 +5,6 @@ import { PrintDeliverySheetButton } from "@/components/admin/print-delivery-shee
 
 type Props = {
   document: DeliveryPrintDocument;
-  backHref: string;
 };
 
 function PrintOrderTable({
@@ -67,12 +66,13 @@ function PrintOrderTable({
               {lineIndex === 0 ? (
                 <td
                   rowSpan={rowCount}
-                  className="border border-gray-300 px-1 py-0.5 align-top"
+                  className="border border-gray-300 px-1 py-0.5 align-top text-left"
                 >
                   {row.notesHint ? (
-                    <span className="block text-[9px] text-gray-700">{row.notesHint}</span>
+                    <span className="block whitespace-pre-wrap text-[9px] leading-snug text-gray-700">
+                      {row.notesHint}
+                    </span>
                   ) : null}
-                  <span className="mt-1 block min-h-[0.9rem] border-b border-gray-400" />
                 </td>
               ) : null}
             </tr>
@@ -83,7 +83,7 @@ function PrintOrderTable({
   );
 }
 
-export function DeliveryPrintSheet({ document, backHref }: Props) {
+export function DeliveryPrintSheet({ document }: Props) {
   const generatedAt = new Intl.DateTimeFormat("en-JM", {
     timeZone: "America/Jamaica",
     dateStyle: "medium",
@@ -121,6 +121,16 @@ export function DeliveryPrintSheet({ document, backHref }: Props) {
           .delivery-print .provider-heading {
             break-after: avoid-page;
           }
+
+          .delivery-print-office-header {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+
+        .delivery-print-office-header {
+          background-color: #0f172a;
+          color: #f8fafc;
         }
 
         .delivery-print-box {
@@ -132,10 +142,21 @@ export function DeliveryPrintSheet({ document, backHref }: Props) {
         }
       `}</style>
 
-      <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-300 pb-2 print:hidden">
-        <Link href={backHref} className="text-sm font-medium text-primary hover:underline">
-          ← Back to Deliveries
-        </Link>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-300 pb-2 print:hidden">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Link
+            href="/admin/todays-orders"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            ← Today&apos;s Orders
+          </Link>
+          <Link
+            href="/admin/deliveries"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            ← Deliveries
+          </Link>
+        </div>
         <PrintDeliverySheetButton />
       </div>
 
@@ -153,10 +174,12 @@ export function DeliveryPrintSheet({ document, backHref }: Props) {
         <p className="text-sm text-gray-600">No qualifying orders for this delivery date.</p>
       ) : (
         document.offices.map((office) => (
-          <section key={office.name} className="mb-4 office-heading">
-            <h2 className="mb-1 text-[12px] font-semibold uppercase tracking-wide">
-              {office.name}
-            </h2>
+          <section key={office.name} className="office-heading mb-4">
+            <div className="delivery-print-office-header mb-0 w-full bg-sidebar px-2 py-1 text-sidebar-foreground">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide">
+                {office.name}
+              </h2>
+            </div>
 
             {office.providers.map((provider) => (
               <div key={`${office.name}-${provider.name}`} className="provider-heading">

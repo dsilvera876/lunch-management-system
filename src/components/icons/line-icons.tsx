@@ -37,10 +37,18 @@ export function IconDashboard(props: IconProps) {
 export function IconUtensils(props: IconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M8 3v8" />
-      <path d="M5 3v5a3 3 0 0 0 6 0V3" />
-      <path d="M16 3v18" />
-      <path d="M19 3v5a3 3 0 0 1-6 0V3" />
+      {/* Fork: four tines, shoulder, handle */}
+      <path d="M4 3v5.5" />
+      <path d="M5.67 3v5.5" />
+      <path d="M7.33 3v5.5" />
+      <path d="M9 3v5.5" />
+      <path d="M4 8.5h5" />
+      <path d="M6.5 8.5V21" />
+      {/* Knife: blade outline + handle */}
+      <path d="M16 3h3.5" />
+      <path d="M16 3l2 8" />
+      <path d="M19.5 3l-2 8" />
+      <path d="M17.5 11v10" />
     </LineIcon>
   );
 }

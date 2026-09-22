@@ -69,9 +69,6 @@ export default async function ProviderDeliveryPrintPage({ params, searchParams }
   assertDeliveriesPayloadSafe(document);
 
   return (
-    <DeliveryPrintSheet
-      document={document}
-      backHref={`/admin/deliveries?deliveryDate=${deliveryDate}&provider=${providerId}`}
-    />
+    <DeliveryPrintSheet document={document} />
   );
 }
