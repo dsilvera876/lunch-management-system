@@ -6,6 +6,7 @@ import { getBreadcrumbs } from "@/lib/breadcrumbs";
 import { getRoleLabel } from "@/lib/navigation";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ACCOUNT_NAV } from "@/lib/navigation";
+import { formatJamaicaHeaderDate, getJamaicaTodayDate } from "@/lib/datetime";
 
 type Props = {
   profile: {
@@ -29,6 +30,8 @@ function getInitials(name: string | null): string {
 export function TopHeader({ profile }: Props) {
   const pathname = usePathname();
   const breadcrumbs = getBreadcrumbs(pathname);
+  const jamaicaToday = getJamaicaTodayDate();
+  const headerDateLabel = formatJamaicaHeaderDate(jamaicaToday);
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
@@ -37,7 +40,13 @@ export function TopHeader({ profile }: Props) {
           <Breadcrumbs items={breadcrumbs} />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
+          <time
+            dateTime={jamaicaToday}
+            className="hidden whitespace-nowrap text-sm font-medium text-slate-600 md:inline"
+          >
+            {headerDateLabel}
+          </time>
           <button
             type="button"
             aria-label="Notifications"

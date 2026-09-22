@@ -21,6 +21,17 @@ export function getJamaicaTodayDate(): string {
   }).format(new Date());
 }
 
+/** Long-form Jamaica calendar date for shell chrome, e.g. "Monday, September 21, 2026". */
+export function formatJamaicaHeaderDate(calendarDate: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: JAMAICA_TIME_ZONE,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${calendarDate}T12:00:00-05:00`));
+}
+
 export function getJamaicaIsoWeekday(dateStr: string): Weekday | null {
   const weekdayName = new Intl.DateTimeFormat("en-US", {
     timeZone: JAMAICA_TIME_ZONE,

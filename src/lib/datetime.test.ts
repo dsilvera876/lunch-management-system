@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  formatJamaicaHeaderDate,
   getDeliveryDateForOrderDate,
   getJamaicaIsoWeekday,
   getOrderDateForDeliveryDate,
@@ -58,5 +59,11 @@ describe("business delivery calendar (TypeScript)", () => {
   it("does not map Thursday order dates to the following Monday", () => {
     assert.equal(getDeliveryDateForOrderDate("2026-09-10"), "2026-09-11");
     assert.notEqual(getDeliveryDateForOrderDate("2026-09-10"), "2026-09-14");
+  });
+});
+
+describe("formatJamaicaHeaderDate", () => {
+  it("formats a Jamaica calendar date with weekday, month, day, and year", () => {
+    assert.equal(formatJamaicaHeaderDate("2026-09-21"), "Monday, September 21, 2026");
   });
 });
