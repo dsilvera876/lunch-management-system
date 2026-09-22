@@ -238,6 +238,34 @@ export function IconDownload(props: IconProps) {
   );
 }
 
+export function IconCartPlus(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M6 6h12l-1 10H7L5 4H3" />
+      <path d="M9 20h.01M17 20h.01" />
+      <path d="M12 9v4M10 11h4" />
+    </LineIcon>
+  );
+}
+
+export function IconCartMinus(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M6 6h12l-1 10H7L5 4H3" />
+      <path d="M9 20h.01M17 20h.01" />
+      <path d="M10 11h4" />
+    </LineIcon>
+  );
+}
+
+export function IconCheck(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M5 12l4 4L19 6" />
+    </LineIcon>
+  );
+}
+
 export type NavIconId =
   | "dashboard"
   | "utensils"

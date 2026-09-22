@@ -25,9 +25,13 @@ describe("Today's Order UI contracts", () => {
     assert.doesNotMatch(source, /window\.location/);
   });
 
-  it("menu rows use + Add / − Remove with fixed-width CTA styling", () => {
+  it("menu rows use cart Add / Added with fixed-width CTA styling", () => {
     const source = readFileSync(
       new URL("../components/lunch/menu-item-row.tsx", import.meta.url),
+      "utf8",
+    );
+    const cartSource = readFileSync(
+      new URL("../components/lunch/lunch-cart-panel.tsx", import.meta.url),
       "utf8",
     );
     const summarySource = readFileSync(
@@ -36,17 +40,16 @@ describe("Today's Order UI contracts", () => {
     );
 
     assert.match(source, /Add \$\{label\}/);
-    assert.match(source, /Remove \$\{label\}/);
     assert.match(source, /MENU_ITEM_TOGGLE_LAYOUT_CLASS/);
-    assert.match(source, /min-w-\[6\.875rem\]/);
+    assert.match(source, /w-\[7\.25rem\]/);
     assert.match(source, /MENU_ITEM_TOGGLE_ADD_CLASS/);
-    assert.match(source, /bg-primary text-white/);
-    assert.match(source, /MENU_ITEM_TOGGLE_REMOVE_CLASS/);
-    assert.match(source, /bg-primary\/45/);
+    assert.match(source, /IconCartPlus/);
+    assert.match(source, /MENU_ITEM_TOGGLE_ADDED_CLASS/);
+    assert.match(source, /IconCheck/);
     assert.match(source, />Add</);
-    assert.match(source, />Remove</);
-    assert.doesNotMatch(source, /Selected/);
-    assert.doesNotMatch(source, /Added/);
+    assert.match(source, />Added</);
+    assert.doesNotMatch(source, />Remove</);
+    assert.match(cartSource, /IconCartMinus/);
     assert.match(summarySource, /size-9/);
     assert.doesNotMatch(summarySource, />Add</);
   });
@@ -58,10 +61,8 @@ describe("Today's Order UI contracts", () => {
     );
 
     assert.match(source, /onSelectMain/);
-    assert.match(source, /onRemoveMain/);
-    assert.match(source, /onRemoveSide/);
-    assert.match(source, /onRemoveStandalone/);
-    assert.match(source, /Add to Lunch Cart/);
+    assert.match(source, /onFinishOrder/);
+    assert.match(source, /Finish This Order/);
   });
 
   it("order summary uses a stable meal total row and aligned grid", () => {

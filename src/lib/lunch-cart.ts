@@ -90,15 +90,107 @@ export function formatUnfinishedDraftMessage(
   unfinished: UnfinishedWorkingDraft[],
 ): string {
   if (unfinished.length === 0) {
-    return "You have a lunch selection that has not been added to your Lunch Cart.";
+    return "Finish or clear your in-progress order before placing your checkout.";
   }
 
   if (unfinished.length === 1) {
-    return `${unfinished[0]!.providerName} has a selection that has not been added to your Lunch Cart.`;
+    return `Finish the in-progress order for ${unfinished[0]!.providerName} before placing your checkout.`;
   }
 
   const names = unfinished.map((entry) => entry.providerName).join(", ");
-  return `${names} have selections that have not been added to your Lunch Cart.`;
+  return `Finish the in-progress orders for ${names} before placing your checkout.`;
+}
+
+export type InProgressDraftDisplay = {
+  providerId: string;
+  providerName: string;
+  providerOrderIndex: number;
+  draft: ProviderDraft;
+};
+
+export type ProviderCartSection = {
+  providerId: string;
+  providerName: string;
+  completedEntries: Array<LunchCartEntry & { providerOrderIndex: number }>;
+  inProgress: InProgressDraftDisplay | null;
+};
+
+export function listInProgressDrafts(
+  providers: ProviderMenuBundle[],
+  drafts: Record<string, ProviderDraft>,
+  cart: LunchCartEntry[],
+): InProgressDraftDisplay[] {
+  const completedCountByProvider = new Map<string, number>();
+  for (const entry of cart) {
+    completedCountByProvider.set(
+      entry.providerId,
+      (completedCountByProvider.get(entry.providerId) ?? 0) + 1,
+    );
+  }
+
+  const inProgress: InProgressDraftDisplay[] = [];
+
+  for (const provider of providers) {
+    const draft = drafts[provider.id] ?? emptyProviderDraft();
+    if (!draftHasSelectedItems(draft)) {
+      continue;
+    }
+
+    inProgress.push({
+      providerId: provider.id,
+      providerName: provider.name,
+      providerOrderIndex: (completedCountByProvider.get(provider.id) ?? 0) + 1,
+      draft,
+    });
+  }
+
+  return inProgress;
+}
+
+export function buildProviderCartSections(
+  providers: ProviderMenuBundle[],
+  cart: LunchCartEntry[],
+  drafts: Record<string, ProviderDraft>,
+): ProviderCartSection[] {
+  const grouped = groupCartEntriesForDisplay(cart);
+  const groupById = new Map(grouped.map((group) => [group.providerId, group]));
+  const inProgressList = listInProgressDrafts(providers, drafts, cart);
+  const inProgressById = new Map(
+    inProgressList.map((entry) => [entry.providerId, entry]),
+  );
+
+  const sections: ProviderCartSection[] = [];
+
+  for (const provider of providers) {
+    const group = groupById.get(provider.id);
+    const inProgress = inProgressById.get(provider.id) ?? null;
+    const completedEntries = group?.entries ?? [];
+
+    if (completedEntries.length === 0 && !inProgress) {
+      continue;
+    }
+
+    sections.push({
+      providerId: provider.id,
+      providerName: provider.name,
+      completedEntries,
+      inProgress,
+    });
+  }
+
+  return sections;
+}
+
+export function hasVisibleCartContent(
+  cart: LunchCartEntry[],
+  drafts: Record<string, ProviderDraft>,
+  providers: ProviderMenuBundle[],
+): boolean {
+  if (cart.length > 0) {
+    return true;
+  }
+
+  return listInProgressDrafts(providers, drafts, cart).length > 0;
 }
 
 export function countDistinctProviders(cart: LunchCartEntry[]): number {

@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCartPlus, IconCheck } from "@/components/icons/line-icons";
 import { formatCurrency } from "@/lib/format";
 import { formatMenuItemLabel } from "@/lib/menu-items";
 
@@ -10,14 +11,15 @@ type Props = {
   selected: boolean;
   disabled?: boolean;
   onAdd: () => void;
-  onRemove: () => void;
 };
 
-export const MENU_ITEM_TOGGLE_LAYOUT_CLASS =
-  "inline-flex h-9 min-w-[6.875rem] shrink-0 items-center justify-center gap-1 rounded-lg border border-transparent px-3 text-sm font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40";
+export const MENU_ITEM_TOGGLE_WIDTH_CLASS = "w-[7.25rem]";
 
-export const MENU_ITEM_TOGGLE_ADD_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} bg-primary text-white hover:bg-primary-hover`;
-export const MENU_ITEM_TOGGLE_REMOVE_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} bg-primary/45 text-white hover:bg-primary/60`;
+export const MENU_ITEM_TOGGLE_LAYOUT_CLASS = `${MENU_ITEM_TOGGLE_WIDTH_CLASS} inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed`;
+
+export const MENU_ITEM_TOGGLE_ADD_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} border-primary bg-surface text-primary hover:bg-primary/5`;
+
+export const MENU_ITEM_TOGGLE_ADDED_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} border-border bg-slate-100 text-slate-500`;
 
 export function MenuItemRow({
   name,
@@ -26,7 +28,6 @@ export function MenuItemRow({
   selected,
   disabled = false,
   onAdd,
-  onRemove,
 }: Props) {
   const label = formatMenuItemLabel(name, unitLabel);
   const priceLabel = price > 0 ? formatCurrency(price) : "Included";
@@ -42,14 +43,12 @@ export function MenuItemRow({
       {selected ? (
         <button
           type="button"
-          disabled={disabled}
-          title={`Remove ${label}`}
-          aria-label={`Remove ${label}`}
-          className={MENU_ITEM_TOGGLE_REMOVE_CLASS}
-          onClick={onRemove}
+          disabled
+          aria-label={`${label} added to your order`}
+          className={MENU_ITEM_TOGGLE_ADDED_CLASS}
         >
-          <span aria-hidden="true">−</span>
-          <span>Remove</span>
+          <IconCheck size={16} aria-hidden />
+          <span>Added</span>
         </button>
       ) : (
         <button
@@ -60,7 +59,7 @@ export function MenuItemRow({
           className={MENU_ITEM_TOGGLE_ADD_CLASS}
           onClick={onAdd}
         >
-          <span aria-hidden="true">+</span>
+          <IconCartPlus size={16} aria-hidden />
           <span>Add</span>
         </button>
       )}

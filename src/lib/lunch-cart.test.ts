@@ -2,14 +2,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
+  buildProviderCartSections,
   canAddDraftToCart,
   countDistinctProviders,
   createCartEntryFromDraft,
   findUnfinishedWorkingDrafts,
   formatUnfinishedDraftMessage,
   groupCartEntriesForDisplay,
+  listInProgressDrafts,
   snapshotDraftForCart,
 } from "./lunch-cart";
+import {
+  removeMain,
+  removeSide,
+} from "./lunch-order-draft";
 import { validateLunchCart } from "./lunch-checkout";
 import {
   addSide,
@@ -139,8 +145,56 @@ describe("lunch cart", () => {
       { providerId: "provider-b", providerName: "Peel Good Fruits" },
     ];
 
-    assert.match(formatUnfinishedDraftMessage(one), /Alberries Caterors has a selection/);
-    assert.match(formatUnfinishedDraftMessage(many), /have selections that have not been added/);
+    assert.match(formatUnfinishedDraftMessage(one), /Finish the in-progress order for Alberries/);
+    assert.match(formatUnfinishedDraftMessage(many), /Finish the in-progress orders for/);
+  });
+
+  it("lists in-progress drafts with presentation-only order numbers", () => {
+    const cart = [
+      { ...createCartEntryFromDraft(providers[0]!, completeMealDraft()), id: "done-1" },
+    ];
+    const drafts = {
+      "provider-a": completeMealDraft("Second order"),
+      "provider-b": addStandalone(emptyProviderDraft(), "apple"),
+    };
+
+    const inProgress = listInProgressDrafts(providers, drafts, cart);
+    assert.equal(inProgress.length, 2);
+    assert.equal(inProgress[0]?.providerOrderIndex, 2);
+    assert.equal(inProgress[1]?.providerOrderIndex, 1);
+  });
+
+  it("builds cart sections with completed and in-progress orders per provider", () => {
+    const cart = [
+      { ...createCartEntryFromDraft(providers[0]!, completeMealDraft()), id: "done-1" },
+    ];
+    const drafts = { "provider-a": completeMealDraft("Next") };
+
+    const sections = buildProviderCartSections(providers, cart, drafts);
+    assert.equal(sections.length, 1);
+    assert.equal(sections[0]?.completedEntries.length, 1);
+    assert.equal(sections[0]?.inProgress?.providerOrderIndex, 2);
+  });
+
+  it("removing in-progress items updates draft state used by menu Added controls", () => {
+    let draft = completeMealDraft();
+    draft = removeSide(draft, "side-1");
+    assert.equal(canAddDraftToCart(draft), false);
+
+    draft = removeMain(draft);
+    assert.equal(findUnfinishedWorkingDrafts(providers, { "provider-a": draft }).length, 0);
+  });
+
+  it("finish order creates one cart entry and clears only that provider draft", () => {
+    const draft = completeMealDraft();
+    const entry = createCartEntryFromDraft(providers[0]!, draft);
+    const draftsAfter = {
+      "provider-a": emptyProviderDraft(),
+      "provider-b": addStandalone(emptyProviderDraft(), "apple"),
+    };
+
+    assert.equal(entry.providerId, "provider-a");
+    assert.equal(findUnfinishedWorkingDrafts(providers, draftsAfter).length, 1);
   });
 
   it("snapshotDraftForCart clones mutable draft fields", () => {
@@ -162,7 +216,8 @@ describe("lunch cart", () => {
 
     assert.match(workspaceSource, /LunchCartPanel/);
     assert.match(workspaceSource, /cartEntries/);
-    assert.match(menuSource, /Add to Lunch Cart/);
+    assert.match(menuSource, /Finish This Order/);
+    assert.match(menuSource, /IconCheck/);
     assert.doesNotMatch(workspaceSource, /CombinedOrderSummaryPanel/);
   });
 });

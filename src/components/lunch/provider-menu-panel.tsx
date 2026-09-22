@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck } from "@/components/icons/line-icons";
 import { Card } from "@/components/ui/card";
 import { MenuItemRow } from "@/components/lunch/menu-item-row";
 import { summarizeMenuCounts } from "@/lib/lunch-menu-counts";
@@ -37,17 +38,14 @@ type Props = {
   draft: ProviderDraft;
   disabled?: boolean;
   onSelectMain: (itemId: string) => void;
-  onRemoveMain: () => void;
   onAddSide: (itemId: string) => void;
-  onRemoveSide: (itemId: string) => void;
   onAddStandalone: (itemId: string) => void;
-  onRemoveStandalone: (itemId: string) => void;
   specialInstructions: string;
   onSpecialInstructionsChange: (value: string) => void;
   onMealQuantityChange: (quantity: number) => void;
   onStandaloneQuantityChange: (itemId: string, quantity: number) => void;
-  canAddToCart: boolean;
-  onAddToCart: () => void;
+  canFinishOrder: boolean;
+  onFinishOrder: () => void;
 };
 
 export function ProviderMenuPanel({
@@ -58,17 +56,14 @@ export function ProviderMenuPanel({
   draft,
   disabled = false,
   onSelectMain,
-  onRemoveMain,
   onAddSide,
-  onRemoveSide,
   onAddStandalone,
-  onRemoveStandalone,
   specialInstructions,
   onSpecialInstructionsChange,
   onMealQuantityChange,
   onStandaloneQuantityChange,
-  canAddToCart,
-  onAddToCart,
+  canFinishOrder,
+  onFinishOrder,
 }: Props) {
   const grouped = groupMenuItemsByType(menuItems);
   const standaloneGrouped = groupStandaloneItemsByCategory(grouped.standalone);
@@ -118,7 +113,6 @@ export function ProviderMenuPanel({
                   selected={draft.mainId === item.id}
                   disabled={disabled}
                   onAdd={() => onSelectMain(item.id)}
-                  onRemove={onRemoveMain}
                 />
               ))}
             </div>
@@ -140,7 +134,6 @@ export function ProviderMenuPanel({
                   selected={draft.sideIds.includes(item.id)}
                   disabled={disabled || !draft.mainId}
                   onAdd={() => onAddSide(item.id)}
-                  onRemove={() => onRemoveSide(item.id)}
                 />
               ))}
             </div>
@@ -182,7 +175,6 @@ export function ProviderMenuPanel({
                       selected={selected}
                       disabled={disabled}
                       onAdd={() => onAddStandalone(item.id)}
-                      onRemove={() => onRemoveStandalone(item.id)}
                     />
                     {selected ? (
                       <div className="mb-3 ml-0 max-w-xs pl-0">
@@ -218,31 +210,16 @@ export function ProviderMenuPanel({
         <div className="mt-6 border-t border-border pt-4">
           <button
             type="button"
-            disabled={disabled || !canAddToCart}
-            onClick={onAddToCart}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-primary/5 px-4 text-base font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled || !canFinishOrder}
+            onClick={onFinishOrder}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <path
-                d="M6 6h15l-1.5 9h-11L4 4H2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="9" cy="20" r="1" />
-              <circle cx="18" cy="20" r="1" />
-            </svg>
-            Add to Lunch Cart
+            <IconCheck size={20} aria-hidden />
+            Finish This Order
           </button>
           <p className="mt-2 text-center text-xs text-muted">
-            This will add your current selection to the lunch cart and clear this form.
+            Validates this order and moves it to completed in your lunch cart so you can start
+            another.
           </p>
         </div>
       </Card>

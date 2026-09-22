@@ -121,7 +121,11 @@ export function LunchOrderingWorkspace({
     updateDraftForProvider(selectedProviderId, next);
   }
 
-  function handleAddToCart() {
+  function getDraftForProvider(providerId: string): ProviderDraft {
+    return drafts[providerId] ?? emptyProviderDraft();
+  }
+
+  function handleFinishOrder() {
     if (!selectedProvider || !canAddDraftToCart(draft)) {
       return;
     }
@@ -178,6 +182,7 @@ export function LunchOrderingWorkspace({
 
       if (result.ok) {
         setCart([]);
+        setDrafts({});
         onCheckoutSuccess({
           orderCount: result.orderIds.length,
           providerCount: new Set(result.providerIds).size,
@@ -219,11 +224,8 @@ export function LunchOrderingWorkspace({
           draft={draft}
           disabled={!orderingOpen}
           onSelectMain={(itemId) => updateDraft(replaceMain(draft, itemId))}
-          onRemoveMain={() => updateDraft(removeMain(draft))}
           onAddSide={(itemId) => updateDraft(addSide(draft, itemId))}
-          onRemoveSide={(sideId) => updateDraft(removeSide(draft, sideId))}
           onAddStandalone={(itemId) => updateDraft(addStandalone(draft, itemId))}
-          onRemoveStandalone={(itemId) => updateDraft(removeStandalone(draft, itemId))}
           specialInstructions={draft.specialInstructions}
           onSpecialInstructionsChange={(value) =>
             updateDraft({ ...draft, specialInstructions: value })
@@ -234,12 +236,14 @@ export function LunchOrderingWorkspace({
           onStandaloneQuantityChange={(itemId, quantity) =>
             updateDraft(setStandaloneQuantity(draft, itemId, quantity))
           }
-          canAddToCart={canAddDraftToCart(draft)}
-          onAddToCart={handleAddToCart}
+          canFinishOrder={canAddDraftToCart(draft)}
+          onFinishOrder={handleFinishOrder}
         />
 
         <LunchCartPanel
           cart={cart}
+          drafts={drafts}
+          providers={providers}
           checkout={checkout}
           providersById={providersById}
           dailySubsidy={dailySubsidy}
@@ -251,6 +255,21 @@ export function LunchOrderingWorkspace({
           onClearAll={() => setCart([])}
           onRemoveEntry={(entryId) =>
             setCart((current) => current.filter((entry) => entry.id !== entryId))
+          }
+          onRemoveInProgressMain={(providerId) =>
+            updateDraftForProvider(providerId, removeMain(getDraftForProvider(providerId)))
+          }
+          onRemoveInProgressSide={(providerId, sideId) =>
+            updateDraftForProvider(
+              providerId,
+              removeSide(getDraftForProvider(providerId), sideId),
+            )
+          }
+          onRemoveInProgressStandalone={(providerId, itemId) =>
+            updateDraftForProvider(
+              providerId,
+              removeStandalone(getDraftForProvider(providerId), itemId),
+            )
           }
         />
       </div>
