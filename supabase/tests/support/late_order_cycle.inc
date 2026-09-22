@@ -15,8 +15,18 @@ declare
   v_order_date date;
   v_delivery_date date;
   v_past_order_date date;
-  v_provider_id uuid := 'b1111111-1111-4111-8111-111111111111';
+  v_provider_id uuid;
 begin
+  select p.id
+  into v_provider_id
+  from public.lunch_providers p
+  where p.accepts_late_orders is true
+  order by p.id
+  limit 1;
+
+  if v_provider_id is null then
+    v_provider_id := 'b1111111-1111-4111-8111-111111111111';
+  end if;
   if public.iso_weekday(v_today) is not null then
     v_current_order_date := v_today;
   else
@@ -82,6 +92,25 @@ begin
       and candidate.delivery_date > v_today
       and candidate.order_date <= v_today
       and now() > public.order_deadline_for_order_date(candidate.order_date)
+    order by candidate.order_date desc
+    limit 1;
+  end if;
+
+  -- Monday edge case: no prior weekday has delivery strictly after today; use prior
+  -- weekday delivering today (e.g. Friday -> Monday) without requiring provider setup.
+  if v_order_date is null then
+    select candidate.order_date, candidate.delivery_date
+    into v_order_date, v_delivery_date
+    from (
+      select
+        (v_today - offs) as order_date,
+        public.delivery_date_for_order_date((v_today - offs)) as delivery_date
+      from generate_series(1, 21) as offs
+    ) candidate
+    where public.iso_weekday(candidate.order_date) is not null
+      and candidate.delivery_date is not null
+      and candidate.order_date < v_today
+      and candidate.delivery_date = v_today
     order by candidate.order_date desc
     limit 1;
   end if;

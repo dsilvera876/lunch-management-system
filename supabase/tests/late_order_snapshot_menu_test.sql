@@ -24,6 +24,33 @@ insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 select 'fa111111-1111-4111-8111-111111111111'::uuid, weekday
 from generate_series(1, 5) as weekday;
 
+insert into public.lunch_providers (
+  id,
+  name,
+  active,
+  accepts_late_orders,
+  late_order_deadline_day,
+  late_order_deadline_time,
+  supplemental_dispatch_mode,
+  primary_order_email
+)
+values (
+  'b1111111-1111-4111-8111-111111111111',
+  'Snapshot Late Provider',
+  true,
+  true,
+  'delivery_day',
+  '23:59:00',
+  'manual',
+  'snapshot-late@example.com'
+)
+on conflict (id) do update
+set
+  accepts_late_orders = excluded.accepts_late_orders,
+  late_order_deadline_day = excluded.late_order_deadline_day,
+  late_order_deadline_time = excluded.late_order_deadline_time;
+
+\ir support/open_ordering.inc
 \ir support/late_order_cycle.inc
 
 do $$

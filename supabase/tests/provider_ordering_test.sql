@@ -2,6 +2,8 @@ begin;
 
 select plan(23);
 
+\ir support/reset_app_settings_baseline.inc
+
 insert into auth.users (id, email, raw_user_meta_data)
 values
 (

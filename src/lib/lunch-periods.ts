@@ -43,11 +43,85 @@ export function formatLunchPeriodDate(value: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+/** Admin-facing date label including year, e.g. Aug 15, 2026 */
+export function formatLunchPeriodAdminDate(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 export function formatLunchPeriodRange(
   startDate: string,
   endDate: string,
 ): string {
   return `${formatLunchPeriodDate(startDate)} – ${formatLunchPeriodDate(endDate)}`;
+}
+
+export function formatLunchPeriodAdminRange(
+  startDate: string,
+  endDate: string,
+): string {
+  return `${formatLunchPeriodAdminDate(startDate)} – ${formatLunchPeriodAdminDate(endDate)}`;
+}
+
+/**
+ * Compact admin range for summary headers (month/day abbreviated via UTC calendar parts).
+ * Same month+year: "Sep 1 – Sep 30, 2026"
+ * Same year, different months: "Aug 15 – Sep 18, 2026"
+ * Different years: full dates on both sides, e.g. "Dec 18, 2026 – Jan 22, 2027"
+ */
+export function formatLunchPeriodCompactAdminRange(
+  startDate: string,
+  endDate: string,
+): string {
+  const [startYear, startMonth] = startDate.split("-").map(Number);
+  const [endYear, endMonth] = endDate.split("-").map(Number);
+
+  if (startYear !== endYear) {
+    return `${formatLunchPeriodAdminDate(startDate)} – ${formatLunchPeriodAdminDate(endDate)}`;
+  }
+
+  if (startMonth === endMonth) {
+    return `${formatLunchPeriodDate(startDate)} – ${formatLunchPeriodDate(endDate)}, ${endYear}`;
+  }
+
+  return `${formatLunchPeriodDate(startDate)} – ${formatLunchPeriodDate(endDate)}, ${endYear}`;
+}
+
+/**
+ * Inclusive calendar-day count for a lunch period (start through end, UTC dates).
+ */
+export function countLunchPeriodDays(startDate: string, endDate: string): number {
+  const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
+  const startMs = Date.UTC(startYear, startMonth - 1, startDay);
+  const endMs = Date.UTC(endYear, endMonth - 1, endDay);
+
+  if (endMs < startMs) {
+    return 0;
+  }
+
+  return Math.floor((endMs - startMs) / 86_400_000) + 1;
+}
+
+export function isLunchPeriodDatesLocked(
+  period: LunchPeriod,
+  periods: LunchPeriod[],
+): boolean {
+  return !isLatestLunchPeriod(period, periods);
+}
+
+export type LunchPeriodAdminStatus = "active" | "locked";
+
+export function getLunchPeriodAdminStatus(
+  period: Pick<LunchPeriod, "is_current">,
+): LunchPeriodAdminStatus {
+  return period.is_current ? "active" : "locked";
 }
 
 export function formatLunchPeriodDisplay(

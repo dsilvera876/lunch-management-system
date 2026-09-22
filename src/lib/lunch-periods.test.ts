@@ -2,14 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  countLunchPeriodDays,
+  formatLunchPeriodAdminDate,
+  formatLunchPeriodCompactAdminRange,
   formatLunchPeriodRange,
   getLatestLunchPeriod,
+  getLunchPeriodAdminStatus,
   getNextPeriodStartDate,
   isLatestLunchPeriod,
+  isLunchPeriodDatesLocked,
   orderDateBelongsToPeriod,
   validateFirstLunchPeriodInput,
   validateNextLunchPeriodInput,
 } from "./lunch-periods";
+import { readFileSync } from "node:fs";
 import {
   canExportLunchPeriodSummaries,
   canManageLunchPeriods,
@@ -46,6 +52,64 @@ const samplePeriods = [
 describe("formatLunchPeriodRange", () => {
   it("formats a non-month-boundary range", () => {
     assert.equal(formatLunchPeriodRange("2026-08-03", "2026-08-27"), "Aug 3 – Aug 27");
+  });
+
+  it("formats admin dates with year", () => {
+    assert.equal(formatLunchPeriodAdminDate("2026-08-15"), "Aug 15, 2026");
+  });
+
+  it("counts inclusive calendar days in a period for admin display", () => {
+    assert.equal(countLunchPeriodDays("2026-08-15", "2026-09-18"), 35);
+  });
+
+  it("formats compact admin range for same month and year", () => {
+    assert.equal(
+      formatLunchPeriodCompactAdminRange("2026-09-01", "2026-09-30"),
+      "Sep 1 – Sep 30, 2026",
+    );
+  });
+
+  it("formats compact admin range across months in one year", () => {
+    assert.equal(
+      formatLunchPeriodCompactAdminRange("2026-08-15", "2026-09-18"),
+      "Aug 15 – Sep 18, 2026",
+    );
+  });
+
+  it("formats compact admin range across years with both years shown", () => {
+    assert.equal(
+      formatLunchPeriodCompactAdminRange("2026-12-18", "2027-01-22"),
+      "Dec 18, 2026 – Jan 22, 2027",
+    );
+  });
+});
+
+describe("lunch period admin presentation", () => {
+  it("marks only the current period as active", () => {
+    assert.equal(getLunchPeriodAdminStatus(samplePeriods[1]), "active");
+    assert.equal(getLunchPeriodAdminStatus(samplePeriods[0]), "locked");
+  });
+
+  it("locks historical period dates when a later period exists", () => {
+    assert.equal(isLunchPeriodDatesLocked(samplePeriods[0], samplePeriods), true);
+    assert.equal(isLunchPeriodDatesLocked(samplePeriods[1], samplePeriods), false);
+  });
+
+  it("wires export and append UI on the lunch periods page", () => {
+    const pageSource = readFileSync(
+      new URL("../app/admin/lunch-periods/page.tsx", import.meta.url),
+      "utf8",
+    );
+    const summarySource = readFileSync(
+      new URL("../components/admin/lunch-periods/current-lunch-period-summary.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(pageSource, /CurrentLunchPeriodSummary/);
+    assert.match(pageSource, /AppendLunchPeriodCard/);
+    assert.match(pageSource, /LunchPeriodsTable/);
+    assert.match(summarySource, /admin\/financials\/export\?periodId=/);
+    assert.match(summarySource, /Export to Excel/);
   });
 });
 

@@ -238,6 +238,15 @@ export function IconDownload(props: IconProps) {
   );
 }
 
+export function IconPlus(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </LineIcon>
+  );
+}
+
 export function IconCartPlus(props: IconProps) {
   return (
     <LineIcon {...props}>
