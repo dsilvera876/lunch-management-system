@@ -25,7 +25,8 @@ import {
 } from "@/lib/late-order-per-order-status";
 import { OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY } from "@/lib/operational-orders-data";
 import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
-import { PageHeader } from "@/components/ui/page-header";
+import { LateOrdersPageHeader } from "@/components/admin/late-orders/late-orders-page-header";
+import { formatProviderLateOrderCutoffLabel } from "@/lib/late-orders-presentation";
 
 function formatLateOrderDeadlineSummary(
   deadlineDay: string | null,
@@ -264,6 +265,7 @@ export default async function LateOrdersPage() {
         hasBlockingDispatch,
         attentionDispatchId,
         primaryOrderEmail: provider.primary_order_email,
+        cutoffTimeLabel: formatProviderLateOrderCutoffLabel(provider.late_order_deadline_time),
         lateOrders: (lateOrders ?? []).map((order) => {
           const profile = getRelated(
             order.profiles as { full_name: string | null } | { full_name: string | null }[] | null,
@@ -371,10 +373,7 @@ export default async function LateOrdersPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Late Orders"
-        description="Create HR late-order exceptions after the normal company cutoff and send supplemental provider emails."
-      />
+      <LateOrdersPageHeader />
       <LateOrdersWorkspace
         providerSummaries={providerSummaries}
         lateOrderProviders={lateOrderProviders}

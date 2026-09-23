@@ -10,7 +10,8 @@ describe("OfficeLocationPicker", () => {
     );
 
     assert.match(pickerSource, /allowDefaultLocationUpdate/);
-    assert.match(pickerSource, /Delivery location for this order/);
+    assert.match(pickerSource, /Delivery Location/);
+    assert.match(pickerSource, /does not change anyone/);
 
     const hrBranch =
       pickerSource

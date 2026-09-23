@@ -30,9 +30,14 @@ describe("FormActionStatus", () => {
     );
 
     assert.match(workspace, /FormActionStatus/);
-    assert.match(workspace, /Late order created successfully/);
-    assert.match(workspace, /Unable to create late order/);
-    assert.doesNotMatch(workspace, /Late order created\./);
+    assert.match(workspace, /showToast/);
+    assert.match(workspace, /LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE/);
+    assert.match(workspace, /formatLateOrderCreateErrorMessage/);
+    assert.match(workspace, /formatFormActionError\("Unable to send supplemental email"/);
+    assert.doesNotMatch(
+      workspace,
+      /setFeedback\(\{[\s\S]*Late order created successfully/,
+    );
   });
 
   it("renders single-cycle delivery as read-only styled field", () => {

@@ -10,8 +10,14 @@ import {
   sendProviderLateOrderSupplementAction,
   type HrLateOrderSnapshotMenuItem,
 } from "@/app/admin/late-orders/actions";
+import { LateOrderProviderStatusCard } from "@/components/admin/late-orders/late-order-provider-status-card";
 import { ProviderOrderForm } from "@/components/provider-order-form";
-import { Button } from "@/components/ui/button";
+import {
+  LateOrderSectionHeader,
+  lateOrderMajorCardClassName,
+} from "@/components/admin/late-orders/late-order-section-header";
+import { IconClipboard, IconClock } from "@/components/icons/line-icons";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   formatFormActionError,
@@ -24,14 +30,21 @@ import {
 } from "@/components/ui/form-field";
 import { ReadOnlyFormValue } from "@/components/ui/read-only-form-value";
 import { formatHumanDate } from "@/lib/format";
-import {
-  formatLateOrderRowDispatchLabel,
-  type LateOrderRowDispatchDisplay,
-} from "@/lib/late-order-per-order-status";
-import { formatLateOrderDispatchSentAt } from "@/lib/late-orders";
-import { canSendOutstandingSupplement } from "@/lib/late-orders";
+import type { LateOrderRowDispatchDisplay } from "@/lib/late-order-per-order-status";
 import type { HrLateOrderCreationCycle } from "@/lib/hr-late-order-create";
 import type { OfficeLocationOption } from "@/lib/office-locations";
+import { LateOrdersUnavailableCard } from "@/components/admin/late-orders/late-orders-unavailable-card";
+import {
+  formatLateOrderCreateErrorMessage,
+  hasActionableLateOrderCreationCycle,
+  LATE_ORDER_CREATE_SUCCESS_TOAST_DURATION_MS,
+  LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE,
+  LATE_ORDER_CYCLE_DATE_LOADING_LABEL,
+  resolveLateOrdersUnavailableReason,
+  shouldShowLateOrderFullWorkflow,
+  shouldShowLateOrderProviderStatusSection,
+} from "@/lib/late-orders-presentation";
+import { ToastProvider, useToast } from "@/components/ui/toast";
 
 type ProviderSummary = {
   providerId: string;
@@ -50,6 +63,7 @@ type ProviderSummary = {
   hasBlockingDispatch: boolean;
   attentionDispatchId: string | null;
   primaryOrderEmail: string | null;
+  cutoffTimeLabel: string;
   lateOrders: Array<{
     id: string;
     employeeName: string;
@@ -73,7 +87,15 @@ type WorkspaceFeedback = {
   message: string;
 } | null;
 
-export function LateOrdersWorkspace({
+export function LateOrdersWorkspace(props: Props) {
+  return (
+    <ToastProvider>
+      <LateOrdersWorkspaceInner {...props} />
+    </ToastProvider>
+  );
+}
+
+function LateOrdersWorkspaceInner({
   providerSummaries,
   lateOrderProviders,
   employees,
@@ -180,189 +202,84 @@ export function LateOrdersWorkspace({
     [providerSummaries],
   );
 
+  const lateOrderProviderIds = useMemo(
+    () => lateOrderProviders.map((provider) => provider.id),
+    [lateOrderProviders],
+  );
+
+  const hasActionableCreationCycle = useMemo(
+    () => hasActionableLateOrderCreationCycle(lateOrderProviderIds, providerCreationCycles),
+    [lateOrderProviderIds, providerCreationCycles],
+  );
+
+  const unavailableReason = resolveLateOrdersUnavailableReason({
+    lateOrderProviderCount: lateOrderProviders.length,
+    hasActionableCreationCycle,
+    statusSummaryCount: statusSummaries.length,
+  });
+
+  const showFullWorkflow = shouldShowLateOrderFullWorkflow(hasActionableCreationCycle);
+  const showProviderStatus = shouldShowLateOrderProviderStatusSection({
+    unavailableReason,
+    hasActionableCreationCycle,
+    statusSummaryCount: statusSummaries.length,
+  });
+
   return (
     <div className="space-y-6">
       {feedback ? (
         <FormActionStatus variant={feedback.variant}>{feedback.message}</FormActionStatus>
       ) : null}
 
-      <section className="rounded-lg border border-border p-4">
-        <h2 className="text-base font-semibold text-foreground">Create late order</h2>
-        <p className="mt-1 text-sm text-muted">
-          Use the frozen menu snapshot for the selected provider and delivery cycle.
-        </p>
-        <LateOrderCreatePanel
-          employees={employees}
-          locations={locations}
-          providers={lateOrderProviders}
-          defaultDeliveryDate={primaryDeliveryDate}
-          jamaicaToday={jamaicaToday}
-          providerCreationCycles={providerCreationCycles}
-          onFeedback={(next) => {
-            setFeedback(next);
-            if (next?.variant === "success") {
-              router.refresh();
-            }
-          }}
-        />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">Provider status</h2>
-        {statusSummaries.length === 0 ? (
-          <EmptyState
-            title="No actionable late-order cycles"
-            description="When a provider late-order window opens or approved orders need sending, they will appear here."
-          />
-        ) : (
-          statusSummaries.map((summary) => (
-            <ProviderLateOrderStatusCard
-              key={`${summary.providerId}-${summary.deliveryDate}`}
-              summary={summary}
-              pending={pending}
-              onSend={handleSend}
-              onAcknowledgeNotReceived={handleAcknowledgeNotReceived}
-              onAcknowledgeReceived={handleAcknowledgeReceived}
+      {unavailableReason ? (
+        <LateOrdersUnavailableCard reason={unavailableReason} />
+      ) : (
+        <>
+          {showFullWorkflow ? (
+            <LateOrderCreatePanel
+              employees={employees}
+              locations={locations}
+              providers={lateOrderProviders}
+              defaultDeliveryDate={primaryDeliveryDate}
+              jamaicaToday={jamaicaToday}
+              providerCreationCycles={providerCreationCycles}
+              onCreateSuccess={() => router.refresh()}
             />
-          ))
-        )}
-      </section>
+          ) : null}
+
+          {showProviderStatus ? (
+            <Card padding="sm" className={lateOrderMajorCardClassName}>
+              <LateOrderSectionHeader
+                icon={<IconClock aria-hidden />}
+                title={showFullWorkflow ? "3. Provider Status" : "Provider Status"}
+                description="Current late-order availability for each provider."
+              />
+              {statusSummaries.length === 0 ? (
+                <div className="mt-4">
+                  <EmptyState
+                    title="No actionable late-order cycles"
+                    description="When a provider late-order window opens or approved orders need sending, they will appear here."
+                  />
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {statusSummaries.map((summary) => (
+                    <LateOrderProviderStatusCard
+                      key={`${summary.providerId}-${summary.deliveryDate}`}
+                      summary={summary}
+                      pending={pending}
+                      onSend={handleSend}
+                      onAcknowledgeNotReceived={handleAcknowledgeNotReceived}
+                      onAcknowledgeReceived={handleAcknowledgeReceived}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+          ) : null}
+        </>
+      )}
     </div>
-  );
-}
-
-function ProviderLateOrderStatusCard({
-  summary,
-  pending,
-  onSend,
-  onAcknowledgeNotReceived,
-  onAcknowledgeReceived,
-}: {
-  summary: ProviderSummary;
-  pending: boolean;
-  onSend: (providerId: string, deliveryDate: string) => void;
-  onAcknowledgeNotReceived: (dispatchId: string) => void;
-  onAcknowledgeReceived: (dispatchId: string) => void;
-}) {
-  const canSend = canSendOutstandingSupplement({
-    approvedUnsentCount: summary.approvedUnsentCount,
-    primaryOrderEmail: summary.primaryOrderEmail,
-    lateOrderingOpen: summary.lateOrderingOpen,
-    hasBlockingDispatch: summary.hasBlockingDispatch,
-  });
-
-  const dispatchModeLabel =
-    summary.dispatchMode === "automatic" ? "Automatic supplemental sending" : "Manual supplemental sending";
-
-  return (
-    <article className="rounded-lg border border-border p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">{summary.providerName}</h3>
-            <span
-              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                summary.lateOrderingOpen
-                  ? "bg-teal-50 text-teal-800 ring-teal-200"
-                  : "bg-slate-100 text-slate-700 ring-slate-200"
-              }`}
-            >
-              {summary.lateOrderingOpen ? "Late orders open" : "Late orders closed"}
-            </span>
-          </div>
-          <p className="text-sm text-foreground">
-            Delivery: {formatHumanDate(summary.deliveryDate)}
-          </p>
-          <p className="text-sm text-muted">{summary.deadlineSummary}</p>
-          <p className="text-sm text-muted">{dispatchModeLabel}</p>
-          {summary.automaticScheduleLabel ? (
-            <p className="text-sm text-muted">{summary.automaticScheduleLabel}</p>
-          ) : null}
-          <p className="text-sm font-medium text-foreground">
-            {summary.approvedUnsentCount} approved late order
-            {summary.approvedUnsentCount === 1 ? "" : "s"} waiting to send
-          </p>
-          <p className="text-sm text-muted">{summary.supplementStatusLabel}</p>
-          {summary.snapshotWarningMessage ? (
-            <p className="text-sm text-amber-800">{summary.snapshotWarningMessage}</p>
-          ) : null}
-        </div>
-
-        <div className="space-y-2 text-right">
-          {canSend ? (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pending}
-                onClick={() => onSend(summary.providerId, summary.deliveryDate)}
-              >
-                Send outstanding supplement now
-              </Button>
-              {summary.dispatchMode === "automatic" ? (
-                <p className="text-xs text-muted">Manual send available until provider deadline</p>
-              ) : null}
-            </>
-          ) : null}
-          {summary.attentionDispatchId ? (
-            <div className="space-y-2">
-              <p className="text-xs text-amber-700">
-                Retrying may send a duplicate supplemental email. Confirm with the provider before retrying.
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pending}
-                onClick={() => onAcknowledgeNotReceived(summary.attentionDispatchId!)}
-              >
-                Confirm email was not received and allow retry
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pending}
-                onClick={() => onAcknowledgeReceived(summary.attentionDispatchId!)}
-              >
-                Confirm provider received email
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {summary.lateOrders.length > 0 ? (
-        <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
-          {summary.lateOrders.map((order) => {
-            const label = formatLateOrderRowDispatchLabel(order.dispatchDisplay);
-            const sentAtLabel =
-              order.dispatchDisplay.kind === "sent" && order.dispatchDisplay.sentAt
-                ? formatLateOrderDispatchSentAt(order.dispatchDisplay.sentAt)
-                : null;
-            const badgeClass =
-              order.dispatchDisplay.kind === "sent"
-                ? "bg-emerald-50 text-emerald-800"
-                : order.dispatchDisplay.kind === "pending"
-                  ? "bg-sky-50 text-sky-900"
-                  : order.dispatchDisplay.kind === "attention_required"
-                    ? "bg-amber-50 text-amber-950"
-                    : order.dispatchDisplay.kind === "failed"
-                      ? "bg-red-50 text-red-900"
-                      : "bg-amber-50 text-amber-900";
-
-            return (
-              <li key={order.id} className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">{order.employeeName}</span>
-                <span className="text-muted">{new Date(order.createdAt).toLocaleString()}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs ${badgeClass}`}>
-                  {label}
-                  {sentAtLabel ? ` at ${sentAtLabel}` : null}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-    </article>
   );
 }
 
@@ -373,7 +290,7 @@ function LateOrderCreatePanel({
   defaultDeliveryDate,
   jamaicaToday,
   providerCreationCycles,
-  onFeedback,
+  onCreateSuccess,
 }: {
   employees: Array<{ id: string; name: string }>;
   locations: OfficeLocationOption[];
@@ -381,8 +298,9 @@ function LateOrderCreatePanel({
   defaultDeliveryDate: string;
   jamaicaToday: string;
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
-  onFeedback: (feedback: WorkspaceFeedback) => void;
+  onCreateSuccess: () => void;
 }) {
+  const { showToast } = useToast();
   const [profileId, setProfileId] = useState(employees[0]?.id ?? "");
   const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
 
@@ -417,7 +335,8 @@ function LateOrderCreatePanel({
   const [menuStatus, setMenuStatus] = useState<string | null>(null);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
   const [loadingMenu, setLoadingMenu] = useState(false);
-  const [formKey, setFormKey] = useState(0);
+  /** Bumps menu-selection state inside ProviderOrderForm without remounting Order Details. */
+  const [menuSelectionEpoch, setMenuSelectionEpoch] = useState(0);
 
   const providerName = providers.find((provider) => provider.id === providerId)?.name ?? "Provider";
 
@@ -433,6 +352,9 @@ function LateOrderCreatePanel({
 
       setLoadingMenu(true);
       setMenuMessage(null);
+      setMenuItems([]);
+      setMenuStatus(null);
+      setMenuSelectionEpoch((value) => value + 1);
 
       const result = await loadHrLateOrderSnapshotMenuAction({
         providerId,
@@ -458,7 +380,6 @@ function LateOrderCreatePanel({
       if (result.status === "available" && result.menuItems.length > 0) {
         setMenuItems(result.menuItems);
         setMenuMessage(null);
-        setFormKey((value) => value + 1);
         return;
       }
 
@@ -489,8 +410,10 @@ function LateOrderCreatePanel({
     };
   }, [providerId, deliveryDate]);
 
-  const creationDisabled =
-    noActionableCycles ||
+  const showWorkflowForm =
+    !noActionableCycles && Boolean(providerId && profileId && deliveryDate);
+
+  const submitDisabled =
     loadingMenu ||
     !providerId ||
     !profileId ||
@@ -499,37 +422,29 @@ function LateOrderCreatePanel({
     menuItems.length === 0;
 
   const handleFormAction = async (formData: FormData) => {
-    onFeedback(null);
     formData.set("profileId", profileId);
     formData.set("deliveryDate", deliveryDate);
 
     const result = await createHrLateOrderFormAction(formData);
 
     if (result.success) {
-      onFeedback({
-        variant: "success",
-        message: "Late order created successfully.",
+      showToast({
+        title: LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE,
+        durationMs: LATE_ORDER_CREATE_SUCCESS_TOAST_DURATION_MS,
       });
-      setFormKey((value) => value + 1);
+      setMenuSelectionEpoch((value) => value + 1);
+      onCreateSuccess();
       return;
     }
 
-    onFeedback({
+    showToast({
       variant: "error",
-      message: formatFormActionError("Unable to create late order", result.error),
+      title: formatLateOrderCreateErrorMessage(result.error),
     });
   };
 
-  if (providers.length === 0) {
-    return (
-      <p className="mt-3 text-sm text-muted">
-        No providers are configured to accept late orders.
-      </p>
-    );
-  }
-
-  return (
-    <div className="mt-4 space-y-4">
+  const orderDetailsPrefix = (
+    <>
       <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
         <label className="block space-y-1.5">
           <span className={formControlLabelClassName}>Employee</span>
@@ -598,59 +513,68 @@ function LateOrderCreatePanel({
         </div>
       </div>
 
-      {orderDate ? (
-        <p className="text-xs text-muted">
-          Order cycle date: {formatHumanDate(orderDate)}
-          {orderDate === jamaicaToday ? " (current Jamaica order day)" : null}
-        </p>
-      ) : null}
+      <p className="min-h-5 text-sm leading-5 text-muted">
+        Order cycle date:{" "}
+        {loadingMenu ? (
+          LATE_ORDER_CYCLE_DATE_LOADING_LABEL
+        ) : orderDate ? (
+          <>
+            {formatHumanDate(orderDate)}
+            {orderDate === jamaicaToday ? " (current Jamaica order day)" : null}
+          </>
+        ) : (
+          "—"
+        )}
+      </p>
+    </>
+  );
 
-      {loadingMenu ? (
-        <p className="text-sm text-muted">Loading frozen menu snapshot…</p>
-      ) : null}
-
-      {menuMessage ? (
-        <FormActionStatus variant="warning">{menuMessage}</FormActionStatus>
-      ) : null}
-
-      {!creationDisabled ? (
-        <ProviderOrderForm
-          key={formKey}
-          providerId={providerId}
-          providerName={providerName}
-          orderDate={orderDate}
-          deliveryDate={deliveryDate}
-          menuItems={menuItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            price: item.price,
-            itemType: item.itemType,
-            unitLabel: item.unitLabel,
-            displayCategory: item.displayCategory,
-          }))}
-          formAction={handleFormAction}
-          mainFieldName="mainMenuItemId"
-          quantityFieldPrefix="quantity"
-          submitLabel="Create late order"
-          pendingLabel="Creating late order…"
-          officeLocations={locations}
-          allowDefaultLocationUpdate={false}
-          stableSplitLayout
-          showSubsidyNote={false}
-        />
-      ) : null}
-
+  return showWorkflowForm ? (
+    <ProviderOrderForm
+      providerId={providerId}
+      providerName={providerName}
+      orderDate={orderDate}
+      deliveryDate={deliveryDate}
+      menuItems={menuItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        itemType: item.itemType,
+        unitLabel: item.unitLabel,
+        displayCategory: item.displayCategory,
+      }))}
+      formAction={handleFormAction}
+      mainFieldName="mainMenuItemId"
+      quantityFieldPrefix="quantity"
+      submitLabel="Create late order"
+      pendingLabel="Creating late order…"
+      officeLocations={locations}
+      allowDefaultLocationUpdate={false}
+      stableSplitLayout
+      showSubsidyNote={false}
+      layoutVariant="late-order"
+      orderDetailsPrefix={orderDetailsPrefix}
+      menuLoading={loadingMenu}
+      submitDisabled={submitDisabled}
+      menuUnavailableMessage={!loadingMenu && menuMessage ? menuMessage : null}
+      menuSelectionEpoch={menuSelectionEpoch}
+    />
+  ) : (
+    <Card padding="sm" className={lateOrderMajorCardClassName}>
+      <LateOrderSectionHeader icon={<IconClipboard aria-hidden />} title="1. Order Details" />
+      <div className="mt-4 space-y-3">{orderDetailsPrefix}</div>
       {noActionableCycles ? (
-        <p className="text-sm text-muted">
-          Late-order creation is disabled until the company cutoff has passed and this provider&apos;s
-          late-order window is open.
+        <p className="mt-4 text-sm text-muted">
+          Late-order creation is disabled until the company cutoff has passed and this
+          provider&apos;s late-order window is open.
         </p>
       ) : null}
-
-      {creationDisabled && !loadingMenu && !menuMessage && !noActionableCycles ? (
-        <p className="text-sm text-muted">Choose a provider with an open cycle to build a late order.</p>
+      {!noActionableCycles && !deliveryDate ? (
+        <p className="mt-4 text-sm text-muted">
+          Choose a provider with an open cycle to build a late order.
+        </p>
       ) : null}
-    </div>
+    </Card>
   );
 }

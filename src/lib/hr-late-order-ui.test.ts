@@ -17,9 +17,24 @@ describe("HR late-order UI", () => {
     assert.match(source, /allowDefaultLocationUpdate=\{false\}/);
     assert.match(source, /providerCreationCycles/);
     assert.match(source, /deliveryPickByProvider/);
-    assert.match(source, /stableSplitLayout/);
+    assert.match(source, /layoutVariant="late-order"/);
+    assert.match(source, /loadHrLateOrderSnapshotMenuAction/);
     assert.match(source, /ReadOnlyFormValue/);
     assert.match(source, /FormActionStatus/);
+    assert.match(source, /ToastProvider/);
+    assert.match(source, /showToast/);
+    assert.match(source, /LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE/);
+    assert.doesNotMatch(source, /onFeedback/);
+    assert.doesNotMatch(source, /scrollTo/);
+    assert.match(source, /menuLoading=\{loadingMenu\}/);
+    assert.match(source, /submitDisabled=\{submitDisabled\}/);
+    assert.doesNotMatch(source, /Loading frozen menu snapshot/);
+    assert.match(source, /setMenuItems\(\[\]\)/);
+    assert.match(source, /showWorkflowForm/);
+    assert.match(source, /menuSelectionEpoch/);
+    assert.doesNotMatch(source, /key=\{formKey\}/);
+    assert.doesNotMatch(source, /setFormKey/);
+    assert.match(source, /Order cycle date:/);
   });
 
   it("uses stable split layout in ProviderOrderForm for HR late orders", () => {
@@ -28,9 +43,21 @@ describe("HR late-order UI", () => {
       "utf8",
     );
 
+    assert.match(formSource, /LateOrderMenuLoadingSkeleton/);
+    assert.match(formSource, /disabled=\{menuLoading \|\| submitDisabled\}/);
+    assert.match(formSource, /loading=\{menuLoading\}/);
+    assert.match(formSource, /menuSelectionEpoch/);
+    assert.match(formSource, /includeOrderDateField/);
     assert.match(formSource, /stableSplitLayout/);
+
+    const skeletonSource = readFileSync(
+      new URL("../components/admin/late-orders/late-order-menu-loading-skeleton.tsx", import.meta.url),
+      "utf8",
+    );
+    assert.match(skeletonSource, /aria-busy="true"/);
     assert.match(formSource, /useSplitLayout/);
-    assert.match(formSource, /Select items to see line items/);
+    assert.match(formSource, /Select items below to see line items/);
+    assert.match(formSource, /layoutVariant/);
   });
 
   it("validates meal composition for HR late orders", () => {

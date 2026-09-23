@@ -20,6 +20,10 @@ type Props = {
   hideCollapsedSummary?: boolean;
   expandSelector?: boolean;
   onExpandSelectorChange?: (open: boolean) => void;
+  /** Compact inset panel for HR late-order Order Details layout. */
+  embedded?: boolean;
+  /** Disables location select while provider menu is loading (shell stays mounted). */
+  selectDisabled?: boolean;
 };
 
 export function OfficeLocationPicker({
@@ -32,6 +36,8 @@ export function OfficeLocationPicker({
   hideCollapsedSummary = false,
   expandSelector = false,
   onExpandSelectorChange,
+  embedded = false,
+  selectDisabled = false,
 }: Props) {
   const initialSelection = useMemo(() => {
     if (!defaultLocationId) {
@@ -95,35 +101,47 @@ export function OfficeLocationPicker({
   const showSelector = needsExplicitSelection || isChanging || expandSelector;
 
   if (!allowDefaultLocationUpdate) {
-    return (
-      <section className="mb-8">
-        <input type="hidden" name="officeLocationId" value={selectedLocationId} />
-        <Card padding="sm">
-          <h3 className="text-sm font-semibold">Delivery location for this order</h3>
-          <p className="mt-1 text-sm text-muted">
-            Choose where this order should be delivered. This does not change anyone&apos;s saved
-            default location.
-          </p>
-          <label htmlFor="officeLocationSelect" className="mt-4 block text-sm font-medium">
-            Delivery location
-          </label>
-          <select
-            id="officeLocationSelect"
-            value={selectedLocationId}
-            onChange={(event) => setSelectedLocationId(event.target.value)}
-            required
-            className={`${selectClassName} mt-2`}
-          >
-            <option value="" disabled>
-              Select a location
+    const panelClass = embedded
+      ? "flex h-full min-h-[17rem] flex-col rounded-lg border border-border/80 bg-muted/20 p-3 sm:min-h-[18rem] sm:p-4"
+      : "";
+
+    const inner = (
+      <>
+        <h3 className="text-sm font-semibold text-slate-900">Delivery Location</h3>
+        <p className="mt-1 text-sm text-muted">
+          Choose where this order should be delivered. This does not change anyone&apos;s saved
+          default location.
+        </p>
+        <label htmlFor="officeLocationSelect" className="mt-3 block text-sm font-medium">
+          Delivery location
+        </label>
+        <select
+          id="officeLocationSelect"
+          value={selectedLocationId}
+          onChange={(event) => setSelectedLocationId(event.target.value)}
+          required={!selectDisabled}
+          disabled={selectDisabled}
+          aria-busy={selectDisabled || undefined}
+          className={`${selectClassName} mt-2 block w-full disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          <option value="" disabled>
+            Select a location
+          </option>
+          {locations.map((location) => (
+            <option key={location.id} value={location.id}>
+              {formatOfficeLocationLabel(location.name, location.address)}
             </option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {formatOfficeLocationLabel(location.name, location.address)}
-              </option>
-            ))}
-          </select>
-        </Card>
+          ))}
+        </select>
+      </>
+    );
+
+    return (
+      <section className={embedded ? "" : "mb-8"}>
+        {!selectDisabled ? (
+          <input type="hidden" name="officeLocationId" value={selectedLocationId} />
+        ) : null}
+        {embedded ? <div className={panelClass}>{inner}</div> : <Card padding="sm">{inner}</Card>}
       </section>
     );
   }
