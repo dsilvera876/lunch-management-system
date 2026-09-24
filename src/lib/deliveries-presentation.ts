@@ -40,6 +40,24 @@ export function resolveDeliveryStatusBadgeVariant(order: {
   return "pending";
 }
 
+export function orderHistoryTimelineDotClassName(
+  variant: DeliveryStatusBadgeVariant,
+): string {
+  switch (variant) {
+    case "delivered":
+      return "bg-emerald-500";
+    case "issue":
+      return "bg-amber-500";
+    case "resolved":
+      return "bg-teal-600";
+    case "cancelled":
+      return "bg-slate-300";
+    case "pending":
+    default:
+      return "bg-slate-400";
+  }
+}
+
 export function deliveryStatusBadgeClassName(
   variant: DeliveryStatusBadgeVariant,
 ): string {

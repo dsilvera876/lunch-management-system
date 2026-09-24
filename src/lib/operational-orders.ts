@@ -25,6 +25,7 @@ export type OperationalOrderItem = {
 
 export type OperationalOrder = {
   id: string;
+  profileId: string;
   status: OperationalOrderStatus;
   deliveryState: DeliveryState;
   financialDisposition: FinancialDisposition;

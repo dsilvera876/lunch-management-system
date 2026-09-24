@@ -75,14 +75,16 @@ async function saveOpenIssueDetails(input: {
   });
 }
 
-function IssuePanelForm({
+export function DeliveryIssuePanelForm({
   order,
   onClose,
   onMutated,
+  embedded = false,
 }: {
   order: OperationalOrder;
   onClose: () => void;
   onMutated: (result: DeliveryMutationResult) => boolean;
+  embedded?: boolean;
 }) {
   const [issueType, setIssueType] = useState(order.deliveryIssueType ?? "");
   const [resolutionType, setResolutionType] = useState(order.deliveryResolutionType ?? "");
@@ -110,6 +112,7 @@ function IssuePanelForm({
   return (
     <>
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        {!embedded ? (
         <div className="space-y-2 rounded-lg bg-muted/25 px-3 py-2.5 ring-1 ring-inset ring-border/70">
           <p className="text-sm">
             <span className="font-medium text-foreground">Provider</span>
@@ -127,6 +130,7 @@ function IssuePanelForm({
             </p>
           ) : null}
         </div>
+        ) : null}
 
         {showReportForm ? (
           <div className="space-y-3">
@@ -362,7 +366,7 @@ export function DeliveryIssuePanel({ order, open, onClose, onMutated }: Props) {
           </button>
         </div>
 
-        <IssuePanelForm
+        <DeliveryIssuePanelForm
           key={order.id}
           order={order}
           onClose={onClose}

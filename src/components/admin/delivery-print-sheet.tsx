@@ -15,20 +15,20 @@ function PrintOrderTable({
   tableKey: string;
 }) {
   return (
-    <table className="mb-2 w-full border-collapse border border-gray-300">
+    <table className="delivery-print-table mb-2 w-full border-collapse border border-gray-300 text-[13px] leading-snug">
       <thead>
         <tr className="bg-gray-100">
-          <th className="w-8 border border-gray-300 px-1 py-0.5 text-left font-semibold" />
-          <th className="w-[18%] border border-gray-300 px-1 py-0.5 text-left font-semibold">
+          <th className="w-9 border border-gray-300 px-1.5 py-1 text-left text-[13px] font-semibold" />
+          <th className="w-[18%] border border-gray-300 px-1.5 py-1 text-left text-[13px] font-semibold">
             Name
           </th>
-          <th className="border border-gray-300 px-1 py-0.5 text-left font-semibold">
+          <th className="border border-gray-300 px-1.5 py-1 text-left text-[13px] font-semibold">
             Order
           </th>
-          <th className="w-12 border border-gray-300 px-1 py-0.5 text-left font-semibold">
+          <th className="w-14 border border-gray-300 px-1.5 py-1 text-left text-[13px] font-semibold">
             Qty
           </th>
-          <th className="w-[22%] border border-gray-300 px-1 py-0.5 text-left font-semibold">
+          <th className="w-[22%] border border-gray-300 px-1.5 py-1 text-left text-[13px] font-semibold">
             Notes
           </th>
         </tr>
@@ -43,29 +43,29 @@ function PrintOrderTable({
                 <>
                   <td
                     rowSpan={rowCount}
-                    className="border border-gray-300 px-1 py-0.5 align-top"
+                    className="border border-gray-300 px-1.5 py-1 align-top"
                   />
                   <td
                     rowSpan={rowCount}
-                    className="border border-gray-300 px-1 py-0.5 align-top font-medium"
+                    className="border border-gray-300 px-1.5 py-1 align-top font-medium"
                   >
                     {row.employeeName}
                   </td>
                 </>
               ) : null}
-              <td className="border border-gray-300 px-1 py-0.5 align-top">
+              <td className="border border-gray-300 px-1.5 py-1 align-top">
                 {row.orderLines[lineIndex] ?? ""}
               </td>
-              <td className="border border-gray-300 px-1 py-0.5 align-top text-right">
+              <td className="border border-gray-300 px-1.5 py-1 align-top text-right">
                 {row.quantityLines[lineIndex] ?? ""}
               </td>
               {lineIndex === 0 ? (
                 <td
                   rowSpan={rowCount}
-                  className="border border-gray-300 px-1 py-0.5 align-top text-left"
+                  className="border border-gray-300 px-1.5 py-1 align-top text-left"
                 >
                   {row.notesHint ? (
-                    <span className="block whitespace-pre-wrap text-[9px] leading-snug text-gray-700">
+                    <span className="block whitespace-pre-wrap text-[12px] leading-snug text-gray-800">
                       {row.notesHint}
                     </span>
                   ) : null}
@@ -89,7 +89,7 @@ export function DeliveryPrintSheet({ document }: Props) {
   const showProviderSubheadings = document.providerName === null;
 
   return (
-    <div className="delivery-print mx-auto max-w-[11in] bg-white p-3 text-[10px] leading-tight text-black print:p-0">
+    <div className="delivery-print mx-auto max-w-[11in] bg-white p-3 text-[12px] leading-snug text-black print:p-0">
       <style>{`
         @page {
           size: landscape;
@@ -125,7 +125,7 @@ export function DeliveryPrintSheet({ document }: Props) {
         }
 
         .delivery-print-office-header {
-          background-color: #0f172a;
+          background-color: #132e6e;
           color: #f8fafc;
         }
 
@@ -150,13 +150,13 @@ export function DeliveryPrintSheet({ document }: Props) {
       </div>
 
       <header className="mb-3 border-b border-gray-300 pb-2">
-        <h1 className="text-base font-bold">
+        <h1 className="text-lg font-bold">
           {document.providerName ?? "All providers"}
         </h1>
-        <p className="text-[11px] text-gray-700">
+        <p className="text-sm text-gray-700">
           Delivery: {formatHumanDate(document.deliveryDate)}
         </p>
-        <p className="text-[10px] text-gray-500">Generated {generatedAt}</p>
+        <p className="text-xs text-gray-600">Generated {generatedAt}</p>
       </header>
 
       {document.offices.length === 0 ? (
@@ -164,8 +164,8 @@ export function DeliveryPrintSheet({ document }: Props) {
       ) : (
         document.offices.map((office) => (
           <section key={office.name} className="office-heading mb-4">
-            <div className="delivery-print-office-header mb-0 w-full bg-sidebar px-2 py-1 text-sidebar-foreground">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wide">
+            <div className="delivery-print-office-header mb-0 w-full px-2.5 py-1.5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide">
                 {office.name}
               </h2>
             </div>
@@ -173,7 +173,7 @@ export function DeliveryPrintSheet({ document }: Props) {
             {office.providers.map((provider) => (
               <div key={`${office.name}-${provider.name}`} className="provider-heading">
                 {showProviderSubheadings && (
-                  <h3 className="mb-0.5 text-[11px] font-semibold">{provider.name}</h3>
+                  <h3 className="mb-1 text-sm font-semibold">{provider.name}</h3>
                 )}
                 <PrintOrderTable
                   rows={provider.rows}

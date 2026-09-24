@@ -15,6 +15,7 @@ import type { MenuItemType } from "@/lib/menu-items";
 
 export type OperationalOrderRow = {
   id: string;
+  profile_id: string;
   status: string;
   delivery_state: string;
   financial_disposition: string;
@@ -80,6 +81,7 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
 
   return {
     id: row.id,
+    profileId: row.profile_id,
     status: row.status as OperationalOrderStatus,
     deliveryState: row.delivery_state as DeliveryState,
     financialDisposition: row.financial_disposition as FinancialDisposition,
@@ -144,6 +146,7 @@ export function markLateOrderDispatchState(
 
 export const OPERATIONAL_ORDERS_SELECT = `
   id,
+  profile_id,
   status,
   delivery_state,
   financial_disposition,

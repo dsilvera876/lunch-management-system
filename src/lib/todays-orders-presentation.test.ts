@@ -21,6 +21,7 @@ import {
 
 function makeOrder(overrides: Partial<OperationalOrder> & Pick<OperationalOrder, "id">): OperationalOrder {
   return {
+    profileId: "profile-1",
     status: "submitted",
     deliveryState: "pending",
     financialDisposition: "chargeable",

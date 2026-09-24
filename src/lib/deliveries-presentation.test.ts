@@ -6,6 +6,7 @@ import {
   DELIVERY_TOGGLE_ERROR_MESSAGE,
   deliveryStatusBadgeClassName,
   deliveriesOfficeCardClassName,
+  orderHistoryTimelineDotClassName,
   resolveDeliveryStatusBadgeVariant,
 } from "./deliveries-presentation";
 import {
@@ -32,6 +33,7 @@ function makeOrder(
 ) {
   return {
     id: "o1",
+    profileId: "profile-1",
     status: "submitted",
     deliveryState: "pending",
     financialDisposition: "chargeable",
@@ -70,6 +72,11 @@ describe("deliveries presentation", () => {
     );
     assert.match(deliveryStatusBadgeClassName("delivered"), /emerald/);
     assert.match(deliveryStatusBadgeClassName("issue"), /amber/);
+    assert.match(orderHistoryTimelineDotClassName("pending"), /slate/);
+    assert.match(orderHistoryTimelineDotClassName("delivered"), /emerald/);
+    assert.match(orderHistoryTimelineDotClassName("issue"), /amber/);
+    assert.match(orderHistoryTimelineDotClassName("resolved"), /teal/);
+    assert.match(orderHistoryTimelineDotClassName("cancelled"), /slate/);
     assert.match(deliveriesOfficeCardClassName, /border-t-4/);
   });
 

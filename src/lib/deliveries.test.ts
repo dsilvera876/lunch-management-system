@@ -26,6 +26,7 @@ function makeOrder(
   overrides: Partial<OperationalOrder> & Pick<OperationalOrder, "id">,
 ): OperationalOrder {
   return {
+    profileId: "profile-1",
     status: "submitted",
     deliveryState: "pending",
     financialDisposition: "chargeable",
@@ -560,8 +561,9 @@ describe("delivery print payload", () => {
       "utf8",
     );
 
-    assert.match(printSheet, /w-8 border border-gray-300/);
-    assert.match(printSheet, /<th className="w-8 border border-gray-300[^"]*" \/>/);
+    assert.match(printSheet, /w-9 border border-gray-300/);
+    assert.match(printSheet, /<th className="w-9 border border-gray-300[^"]*" \/>/);
+    assert.match(printSheet, /#132e6e/);
     assert.doesNotMatch(printSheet, /delivery-print-box/);
     assert.doesNotMatch(printSheet, /type="checkbox"/);
     assert.doesNotMatch(printSheet, /✓/);
