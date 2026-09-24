@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   applyDeliveriesFilters,
@@ -15,6 +16,7 @@ import {
   isDeliveryReconciled,
   patchDeliveryOrder,
   patchFromDelivered,
+  patchFromRevertedToPending,
   resolveInitialReconciliationFilter,
   sanitizeDeliveriesFiltersAfterDateChange,
 } from "./deliveries";
@@ -328,6 +330,17 @@ describe("delivery mutation state helpers", () => {
     assert.equal(next[0]?.financialDisposition, "chargeable");
     assert.equal(next[0]?.actualDeliveryDate, "2099-01-12");
   });
+
+  it("reverts a delivered order back to pending in local state", () => {
+    const orders = [
+      makeOrder({ id: "o1", deliveryState: "delivered", status: "fulfilled" }),
+    ];
+    const next = patchDeliveryOrder(orders, patchFromRevertedToPending(orders[0]!));
+
+    assert.equal(next[0]?.deliveryState, "pending");
+    assert.equal(next[0]?.status, "submitted");
+    assert.equal(next[0]?.actualDeliveryDate, null);
+  });
 });
 
 describe("deliveries filter state", () => {
@@ -531,6 +544,29 @@ describe("delivery print payload", () => {
     assert.equal(notedRow?.notesHint, "Lots of gravy on both");
     assert.equal(blankRow?.notesHint, null);
     assert.ok(!String(notedRow?.notesHint ?? "").startsWith("Staff:"));
+  });
+
+  it("renders delivery print sheets with a blank first column and no checkbox glyphs", () => {
+    const printSheet = readFileSync(
+      new URL("../components/admin/delivery-print-sheet.tsx", import.meta.url),
+      "utf8",
+    );
+    const providerPrintPage = readFileSync(
+      new URL("../app/admin/deliveries/provider/[providerId]/print/page.tsx", import.meta.url),
+      "utf8",
+    );
+    const allProviderPrintPage = readFileSync(
+      new URL("../app/admin/deliveries/print/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(printSheet, /w-8 border border-gray-300/);
+    assert.match(printSheet, /<th className="w-8 border border-gray-300[^"]*" \/>/);
+    assert.doesNotMatch(printSheet, /delivery-print-box/);
+    assert.doesNotMatch(printSheet, /type="checkbox"/);
+    assert.doesNotMatch(printSheet, /✓/);
+    assert.match(providerPrintPage, /DeliveryPrintSheet/);
+    assert.match(allProviderPrintPage, /DeliveryPrintSheet/);
   });
 
   it("rejects unsafe financial or private fields in delivery payloads", () => {

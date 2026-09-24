@@ -1,32 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   RECONCILIATION_FILTERS,
-  canMarkDelivered,
   canReportIssue,
-  getOperationalDisplayState,
+  canToggleDeliveryCheckbox,
+  countsForReconciliationFilter,
   type ReconciliationFilter,
 } from "@/lib/delivery-reconciliation";
 import {
-  applyDeliveriesFilters,
+  applyDeliveriesToolbarFilters,
+  captureDeliveryToggleSnapshot,
   computeDeliveryProgress,
-  replaceDeliveriesUrlInHistory,
-  formatMobileOrderLines,
-  getDeliveryDisplayLinePairs,
+  filterDeliveriesOrders,
+  formatDeliveryOrderDescription,
   groupOrdersByOfficeLocation,
   patchDeliveryOrder,
+  patchFromDelivered,
+  patchFromRevertedToPending,
+  replaceDeliveriesUrlInHistory,
   type DeliveriesFilterState,
 } from "@/lib/deliveries";
 import type { OperationalOrder } from "@/lib/operational-orders";
-import { markOrderDeliveredMutation } from "@/app/admin/deliveries/mutations";
-import type { DeliveryMutationResult } from "@/app/admin/deliveries/mutations";
-import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
+import { getJamaicaTodayDate } from "@/lib/datetime";
 import {
-  formatFormActionError,
-  FormActionStatus,
-} from "@/components/ui/form-action-status";
+  markOrderDeliveredMutation,
+  revertOrderDeliveryToPendingMutation,
+  type DeliveryMutationResult,
+} from "@/app/admin/deliveries/mutations";
+import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
+import { DeliveriesPageHeader } from "@/components/admin/deliveries-page-header";
+import {
+  DELIVERY_TOGGLE_ERROR_MESSAGE,
+  deliveriesOfficeCardClassName,
+  deliveryStatusBadgeClassName,
+  formatDeliveryStatusBadgeLabel,
+  resolveDeliveryStatusBadgeVariant,
+} from "@/lib/deliveries-presentation";
 import { linkButtonClass } from "@/components/ui/button";
 import { selectClassName } from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -39,8 +50,6 @@ const STATUS_LABELS: Record<ReconciliationFilter, string> = {
   resolved: "Resolved",
   cancelled: "Cancelled",
 };
-
-const DESKTOP_LINE_CLASS = "text-sm leading-tight";
 
 type Props = {
   initialOrders: OperationalOrder[];
@@ -59,99 +68,73 @@ function buildPrintHref(deliveryDate: string, providerId?: string): string {
   return `/admin/deliveries/print?deliveryDate=${deliveryDate}`;
 }
 
-function rowTone(order: OperationalOrder): string {
-  if (order.status === "cancelled") {
-    return "opacity-60";
-  }
-
-  if (order.deliveryState === "delivered" || order.deliveryState === "resolved") {
-    return "bg-emerald-50/40";
-  }
-
-  if (order.deliveryState === "issue_open") {
-    return "bg-rose-50/50";
-  }
-
-  return "";
-}
-
-function DeliveredControl({
+function DeliveryCheckbox({
   order,
   canReconcile,
-  pending,
-  onDeliver,
+  checked,
+  onToggle,
 }: {
   order: OperationalOrder;
   canReconcile: boolean;
-  pending: boolean;
-  onDeliver: () => void;
+  checked: boolean;
+  onToggle: (nextChecked: boolean) => void;
 }) {
-  const delivered =
-    order.deliveryState === "delivered" ||
-    (order.deliveryState === "resolved" && order.financialDisposition === "chargeable");
+  if (!canReconcile || !canToggleDeliveryCheckbox(order)) {
+    const readOnlyChecked =
+      order.deliveryState === "delivered" ||
+      (order.deliveryState === "resolved" &&
+        order.financialDisposition === "chargeable");
 
-  if (!canReconcile || !canMarkDelivered(order)) {
     return (
-      <span className="inline-flex min-h-9 min-w-9 items-center justify-center text-sm text-muted">
-        {delivered ? "✓" : order.deliveryState === "issue_open" ? "⚠" : "—"}
+      <span className="inline-flex min-h-8 min-w-8 items-center justify-center text-sm text-muted">
+        {readOnlyChecked ? "✓" : order.deliveryState === "issue_open" ? "⚠" : "—"}
       </span>
     );
   }
 
   return (
-    <button
-      type="button"
+    <input
+      type="checkbox"
       aria-label={`Mark ${order.employeeName} delivered`}
-      disabled={pending}
-      onClick={onDeliver}
-      className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-border bg-surface text-base hover:bg-muted/30 disabled:opacity-50"
+      checked={checked}
+      onChange={(event) => onToggle(event.target.checked)}
+      className="size-4 rounded border-border text-primary focus:ring-primary/30"
+    />
+  );
+}
+
+function DeliveryStatusBadge({ order }: { order: OperationalOrder }) {
+  const variant = resolveDeliveryStatusBadgeVariant(order);
+  const label = formatDeliveryStatusBadgeLabel(order);
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${deliveryStatusBadgeClassName(variant)}`}
     >
-      {pending ? "…" : "☐"}
-    </button>
+      {label}
+    </span>
   );
 }
 
 function DesktopOrderCell({ order }: { order: OperationalOrder }) {
-  const { orderLines } = getDeliveryDisplayLinePairs(order);
+  const description = formatDeliveryOrderDescription(order);
 
   return (
-    <div className="space-y-0">
-      {orderLines.map((line, index) => (
-        <div key={`${line}-${index}`} className={`${DESKTOP_LINE_CLASS} text-foreground`}>
-          {line}
-        </div>
-      ))}
+    <div className="min-w-0">
+      <p className="text-sm font-medium text-foreground">{description.primaryLine}</p>
+      {description.detailLine ? (
+        <p className="text-xs text-muted">{description.detailLine}</p>
+      ) : null}
     </div>
   );
 }
 
 function DesktopQtyCell({ order }: { order: OperationalOrder }) {
-  const { quantityLines } = getDeliveryDisplayLinePairs(order);
+  const description = formatDeliveryOrderDescription(order);
 
   return (
-    <div className="space-y-0">
-      {quantityLines.map((line, index) => (
-        <div
-          key={`${line}-${index}`}
-          className={`${DESKTOP_LINE_CLASS} text-center tabular-nums text-muted`}
-        >
-          {line}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MobileOrderCell({ order }: { order: OperationalOrder }) {
-  const lines = formatMobileOrderLines(order);
-
-  return (
-    <div className="space-y-0.5">
-      {lines.map((line, index) => (
-        <p key={`${line}-${index}`} className="text-sm text-foreground">
-          {line}
-        </p>
-      ))}
+    <div className="text-center text-sm tabular-nums text-muted">
+      {description.quantityLabel}
     </div>
   );
 }
@@ -160,29 +143,30 @@ function DeliveryRow({
   order,
   canReconcile,
   showProviderColumn,
-  rowPending,
-  onDeliver,
+  rowError,
+  onToggleDelivered,
   onIssue,
 }: {
   order: OperationalOrder;
   canReconcile: boolean;
   showProviderColumn: boolean;
-  rowPending: boolean;
-  onDeliver: () => void;
+  rowError: string | null;
+  onToggleDelivered: (nextChecked: boolean) => void;
   onIssue: () => void;
 }) {
-  const statusLabel = getOperationalDisplayState(order);
   const issueOpen = order.deliveryState === "issue_open";
+  const deliveredChecked = order.deliveryState === "delivered";
+  const issueActionLabel = issueOpen ? "View / Edit issue" : "Issue";
 
   return (
     <>
-      <tr className={`hidden border-b border-border md:table-row ${rowTone(order)}`}>
+      <tr className="hidden border-b border-border last:border-b-0 md:table-row">
         <td className="px-2 py-1.5 align-middle">
-          <DeliveredControl
+          <DeliveryCheckbox
             order={order}
             canReconcile={canReconcile}
-            pending={rowPending}
-            onDeliver={onDeliver}
+            checked={deliveredChecked}
+            onToggle={onToggleDelivered}
           />
         </td>
         <td className="px-2 py-1.5 align-middle text-sm font-medium text-foreground">
@@ -193,16 +177,20 @@ function DeliveryRow({
             </span>
           ) : null}
         </td>
-        {showProviderColumn && (
-          <td className="px-2 py-1.5 align-middle text-sm text-muted">{order.providerName}</td>
-        )}
+        {showProviderColumn ? (
+          <td className="px-2 py-1.5 align-middle text-sm text-muted">
+            {order.providerName}
+          </td>
+        ) : null}
         <td className="px-2 py-1.5 align-top">
           <DesktopOrderCell order={order} />
         </td>
         <td className="w-12 px-2 py-1.5 align-top">
           <DesktopQtyCell order={order} />
         </td>
-        <td className="px-2 py-1.5 align-middle text-sm text-muted">{statusLabel}</td>
+        <td className="px-2 py-1.5 align-middle">
+          <DeliveryStatusBadge order={order} />
+        </td>
         <td className="px-2 py-1.5 align-middle text-right">
           {(canReportIssue(order) || issueOpen) && canReconcile ? (
             <button
@@ -210,35 +198,41 @@ function DeliveryRow({
               onClick={onIssue}
               className="rounded-md px-2 py-1 text-sm font-medium text-primary hover:bg-primary/10"
             >
-              {issueOpen ? "View" : "Issue"}
+              {issueActionLabel}
             </button>
           ) : null}
         </td>
       </tr>
+      {rowError ? (
+        <tr className="hidden md:table-row">
+          <td
+            colSpan={showProviderColumn ? 7 : 6}
+            className="border-b border-border px-2 pb-2 text-xs text-red-700"
+          >
+            {rowError}
+          </td>
+        </tr>
+      ) : null}
 
-      <tr className={`md:hidden ${rowTone(order)}`}>
+      <tr className="md:hidden">
         <td colSpan={showProviderColumn ? 7 : 6} className="border-b border-border px-2 py-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">
                   {order.employeeName}
-                  {order.isLateOrder ? (
-                    <span className="ml-1 rounded bg-muted/40 px-1 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted">
-                      Late
-                    </span>
-                  ) : null}
                 </p>
-                <DeliveredControl
+                <DeliveryCheckbox
                   order={order}
                   canReconcile={canReconcile}
-                  pending={rowPending}
-                  onDeliver={onDeliver}
+                  checked={deliveredChecked}
+                  onToggle={onToggleDelivered}
                 />
               </div>
               <p className="text-xs text-muted">{order.providerName}</p>
-              <MobileOrderCell order={order} />
-              <p className="text-xs text-muted">{statusLabel}</p>
+              <DesktopOrderCell order={order} />
+              <DeliveryStatusBadge order={order} />
+              {rowError ? <p className="text-xs text-red-700">{rowError}</p> : null}
             </div>
             {(canReportIssue(order) || issueOpen) && canReconcile ? (
               <button
@@ -246,7 +240,7 @@ function DeliveryRow({
                 onClick={onIssue}
                 className="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-primary hover:bg-primary/10"
               >
-                {issueOpen ? "View" : "Issue"}
+                {issueActionLabel}
               </button>
             ) : null}
           </div>
@@ -266,22 +260,28 @@ export function DeliveriesWorkspace({
 }: Props) {
   const [orders, setOrders] = useState(initialOrders);
   const [filters, setFilters] = useState<DeliveriesFilterState>(initialFilters);
-  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{
-    variant: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [, startTransition] = useTransition();
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const toggleVersionRef = useRef(new Map<string, number>());
 
   const syncFilters = useCallback((next: DeliveriesFilterState) => {
     setFilters(next);
     replaceDeliveriesUrlInHistory(next);
   }, []);
 
-  const filteredOrders = useMemo(
-    () => applyDeliveriesFilters(orders, filters),
+  const toolbarOrders = useMemo(
+    () => applyDeliveriesToolbarFilters(orders, filters),
     [orders, filters],
+  );
+
+  const statusCounts = useMemo(
+    () => countsForReconciliationFilter(toolbarOrders),
+    [toolbarOrders],
+  );
+
+  const filteredOrders = useMemo(
+    () => filterDeliveriesOrders(toolbarOrders, filters.reconciliationStatus),
+    [toolbarOrders, filters.reconciliationStatus],
   );
 
   const officeGroups = useMemo(
@@ -295,161 +295,180 @@ export function DeliveriesWorkspace({
 
   const applyMutation = (result: DeliveryMutationResult) => {
     if (!result.success) {
-      setFeedback({
-        variant: "error",
-        message: formatFormActionError("Unable to save delivery update", result.error),
-      });
-      return;
+      return false;
     }
 
     setOrders((current) => patchDeliveryOrder(current, result.patch));
-    setFeedback({ variant: "success", message: "Delivery update saved successfully." });
     setIssueOrderId(null);
-    setPendingOrderId(null);
+    return true;
   };
 
-  const handleDeliver = (order: OperationalOrder) => {
-    if (!canReconcile || !canMarkDelivered(order)) {
+  const clearRowError = (orderId: string) => {
+    setRowErrors((current) => {
+      if (!current[orderId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[orderId];
+      return next;
+    });
+  };
+
+  const handleDeliveryToggle = (orderId: string, nextChecked: boolean) => {
+    if (!canReconcile) {
       return;
     }
 
-    setPendingOrderId(order.id);
-    setFeedback(null);
+    let rollbackSnapshot: ReturnType<typeof captureDeliveryToggleSnapshot> | null =
+      null;
 
-    startTransition(async () => {
-      const result = await markOrderDeliveredMutation({ orderId: order.id });
+    setOrders((current) => {
+      const order = current.find((entry) => entry.id === orderId);
+      if (!order || !canToggleDeliveryCheckbox(order)) {
+        return current;
+      }
+
+      rollbackSnapshot = captureDeliveryToggleSnapshot(order);
+      const optimisticPatch = nextChecked
+        ? patchFromDelivered(order, getJamaicaTodayDate())
+        : patchFromRevertedToPending(order);
+
+      return patchDeliveryOrder(current, optimisticPatch);
+    });
+
+    if (!rollbackSnapshot) {
+      return;
+    }
+
+    const version = (toggleVersionRef.current.get(orderId) ?? 0) + 1;
+    toggleVersionRef.current.set(orderId, version);
+    clearRowError(orderId);
+
+    void (async () => {
+      const result = nextChecked
+        ? await markOrderDeliveredMutation({ orderId })
+        : await revertOrderDeliveryToPendingMutation({ orderId });
+
+      if (toggleVersionRef.current.get(orderId) !== version) {
+        return;
+      }
 
       if (!result.success) {
-        setPendingOrderId(null);
-        setFeedback({
-          variant: "error",
-          message: formatFormActionError("Unable to mark order delivered", result.error),
-        });
+        setOrders((current) => patchDeliveryOrder(current, rollbackSnapshot!));
+        setRowErrors((current) => ({
+          ...current,
+          [orderId]: DELIVERY_TOGGLE_ERROR_MESSAGE,
+        }));
         return;
       }
 
       setOrders((current) => patchDeliveryOrder(current, result.patch));
-      setPendingOrderId(null);
-      setFeedback({ variant: "success", message: "Order marked delivered successfully." });
-    });
-  };
-
-  const handleProviderChange = (providerId: string) => {
-    syncFilters({ ...filters, providerId });
-  };
-
-  const handleOfficeChange = (officeLocation: string) => {
-    syncFilters({ ...filters, officeLocation });
-  };
-
-  const handleStatusChange = (reconciliationStatus: ReconciliationFilter) => {
-    syncFilters({ ...filters, reconciliationStatus });
+    })();
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2 border-b border-border pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold text-foreground">
-            Deliveries — {deliveryDateLabel}
-          </h1>
-          <p className="text-sm text-muted">
-            {overallProgress.reconciled} / {overallProgress.total} reconciled
-          </p>
-        </div>
+    <div className="space-y-3">
+      <DeliveriesPageHeader
+        deliveryDateLabel={deliveryDateLabel}
+        reconciled={overallProgress.reconciled}
+        total={overallProgress.total}
+      />
 
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-muted">
-            Provider
-            <select
-              value={filters.providerId}
-              onChange={(event) => handleProviderChange(event.target.value)}
-              className={`${selectClassName} mt-0.5 min-w-[8rem] text-sm`}
-            >
-              <option value="">All</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-xs text-muted">
-            Office
-            <select
-              value={filters.officeLocation}
-              onChange={(event) => handleOfficeChange(event.target.value)}
-              className={`${selectClassName} mt-0.5 min-w-[8rem] text-sm`}
-            >
-              <option value="">All</option>
-              {locationNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <Link
-            href={buildPrintHref(filters.deliveryDate, filters.providerId || undefined)}
-            className={`${linkButtonClass("secondary")} h-9 px-3 text-sm`}
+      <div className="flex flex-wrap items-end gap-2 border-b border-border pb-3">
+        <label className="text-xs text-muted">
+          Provider
+          <select
+            value={filters.providerId}
+            onChange={(event) =>
+              syncFilters({ ...filters, providerId: event.target.value })
+            }
+            className={`${selectClassName} mt-0.5 min-w-[9rem] text-sm`}
           >
-            Print
-          </Link>
-        </div>
+            <option value="">All</option>
+            {providers.map((provider) => (
+              <option key={provider.id} value={provider.id}>
+                {provider.name}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="flex flex-wrap gap-1">
-          {RECONCILIATION_FILTERS.map((filter) => (
+        <label className="text-xs text-muted">
+          Office
+          <select
+            value={filters.officeLocation}
+            onChange={(event) =>
+              syncFilters({ ...filters, officeLocation: event.target.value })
+            }
+            className={`${selectClassName} mt-0.5 min-w-[9rem] text-sm`}
+          >
+            <option value="">All</option>
+            {locationNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <Link
+          href={buildPrintHref(filters.deliveryDate, filters.providerId || undefined)}
+          className={`${linkButtonClass("secondary")} ml-auto h-9 px-3 text-sm`}
+        >
+          Print Delivery Sheet
+        </Link>
+      </div>
+
+      <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+        {RECONCILIATION_FILTERS.map((filter) => {
+          const selected = filters.reconciliationStatus === filter;
+          const count = statusCounts[filter];
+
+          return (
             <button
               key={filter}
               type="button"
-              onClick={() => handleStatusChange(filter)}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                filters.reconciliationStatus === filter
+              onClick={() => syncFilters({ ...filters, reconciliationStatus: filter })}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+                selected
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted/30 text-muted hover:bg-muted/50"
               }`}
             >
-              {STATUS_LABELS[filter]}
+              {STATUS_LABELS[filter]} {count}
             </button>
-          ))}
-        </div>
-
-        {feedback ? (
-          <FormActionStatus variant={feedback.variant} className="mb-3">
-            {feedback.message}
-          </FormActionStatus>
-        ) : null}
+          );
+        })}
       </div>
 
       {officeGroups.length === 0 ? (
         <EmptyState
           title="No orders match these filters"
-          description="Try another status filter or adjust the delivery date."
+          description="Try another status filter or adjust provider or office."
         />
       ) : (
         officeGroups.map((office) => (
-          <section key={office.name} className="space-y-1">
-            <div className="sticky top-0 z-10 flex items-baseline justify-between gap-2 bg-background/95 py-1 backdrop-blur-sm">
+          <section key={office.name} className={deliveriesOfficeCardClassName}>
+            <div className="flex items-baseline justify-between gap-2 border-b border-border px-3 py-2">
               <h2 className="text-sm font-semibold text-foreground">
-                {office.name} — {office.orders.length}{" "}
+                {office.name} · {office.orders.length}{" "}
                 {office.orders.length === 1 ? "order" : "orders"}
               </h2>
-              <p className="text-xs text-muted">
+              <p className="text-xs tabular-nums text-muted">
                 {office.progress.reconciled} / {office.progress.total} reconciled
               </p>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="hidden w-full min-w-[720px] border-collapse md:table">
-                <thead className="bg-muted/20 text-left text-xs uppercase tracking-wide text-muted">
+            <div className="overflow-x-auto">
+              <table className="hidden w-full min-w-[760px] border-collapse md:table">
+                <thead className="bg-muted/15 text-left text-[11px] uppercase tracking-wide text-muted">
                   <tr>
-                    <th className="px-2 py-1.5 font-medium">✓</th>
+                    <th className="w-10 px-2 py-1.5 font-medium">✓</th>
                     <th className="px-2 py-1.5 font-medium">Staff</th>
-                    {showProviderColumn && (
+                    {showProviderColumn ? (
                       <th className="px-2 py-1.5 font-medium">Provider</th>
-                    )}
+                    ) : null}
                     <th className="px-2 py-1.5 font-medium">Order</th>
                     <th className="w-12 px-2 py-1.5 text-center font-medium">Qty</th>
                     <th className="px-2 py-1.5 font-medium">Status</th>
@@ -463,8 +482,10 @@ export function DeliveriesWorkspace({
                       order={order}
                       canReconcile={canReconcile}
                       showProviderColumn={showProviderColumn}
-                      rowPending={pendingOrderId === order.id}
-                      onDeliver={() => handleDeliver(order)}
+                      rowError={rowErrors[order.id] ?? null}
+                      onToggleDelivered={(nextChecked) =>
+                        handleDeliveryToggle(order.id, nextChecked)
+                      }
                       onIssue={() => setIssueOrderId(order.id)}
                     />
                   ))}
@@ -479,8 +500,10 @@ export function DeliveriesWorkspace({
                       order={order}
                       canReconcile={canReconcile}
                       showProviderColumn={showProviderColumn}
-                      rowPending={pendingOrderId === order.id}
-                      onDeliver={() => handleDeliver(order)}
+                      rowError={rowErrors[order.id] ?? null}
+                      onToggleDelivered={(nextChecked) =>
+                        handleDeliveryToggle(order.id, nextChecked)
+                      }
                       onIssue={() => setIssueOrderId(order.id)}
                     />
                   ))}

@@ -52,10 +52,6 @@ describe("FormActionStatus", () => {
   });
 
   it("migrates representative client forms to shared feedback", () => {
-    const deliveries = readFileSync(
-      new URL("../components/admin/deliveries-workspace.tsx", import.meta.url),
-      "utf8",
-    );
     const subsidy = readFileSync(
       new URL("../components/daily-lunch-subsidy-control.tsx", import.meta.url),
       "utf8",
@@ -73,7 +69,6 @@ describe("FormActionStatus", () => {
       "utf8",
     );
 
-    assert.match(deliveries, /FormActionStatus/);
     assert.match(subsidy, /FormActionStatus/);
     assert.match(cutoff, /FormActionStatus/);
     assert.match(lunchPage, /Alert variant="error"/);

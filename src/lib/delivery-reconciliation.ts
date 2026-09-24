@@ -207,6 +207,20 @@ export function canMarkDelivered(input: {
   return input.status !== "cancelled" && input.deliveryState === "pending";
 }
 
+export function canUnmarkDelivered(input: {
+  status: string;
+  deliveryState: DeliveryState;
+}): boolean {
+  return input.status !== "cancelled" && input.deliveryState === "delivered";
+}
+
+export function canToggleDeliveryCheckbox(input: {
+  status: string;
+  deliveryState: DeliveryState;
+}): boolean {
+  return canMarkDelivered(input) || canUnmarkDelivered(input);
+}
+
 export function canReportIssue(input: {
   status: string;
 }): boolean {
@@ -215,6 +229,46 @@ export function canReportIssue(input: {
 
 export function canManageOpenIssue(deliveryState: DeliveryState): boolean {
   return deliveryState === "issue_open";
+}
+
+/** Resolution plans that complete reconciliation in one step (same semantics as Resolve no charge). */
+export const IMMEDIATE_NO_CHARGE_RESOLUTION_TYPE =
+  "no_replacement_no_charge" satisfies DeliveryResolutionType;
+
+export function isImmediateNoChargeResolution(
+  resolutionType: string | null | undefined,
+): boolean {
+  return resolutionType === IMMEDIATE_NO_CHARGE_RESOLUTION_TYPE;
+}
+
+export function getNewIssueReportPrimaryActionLabel(
+  resolutionType: string | null | undefined,
+): "Report & resolve" | "Report issue" {
+  return isImmediateNoChargeResolution(resolutionType)
+    ? "Report & resolve"
+    : "Report issue";
+}
+
+export function buildReportAndResolveNoChargePatch(input: {
+  orderId: string;
+  issueType: DeliveryIssueType;
+  hrNotes: string | null;
+}): {
+  id: string;
+  deliveryState: "resolved";
+  financialDisposition: "waived";
+  deliveryIssueType: DeliveryIssueType;
+  deliveryResolutionType: typeof IMMEDIATE_NO_CHARGE_RESOLUTION_TYPE;
+  hrDeliveryNotes: string | null;
+} {
+  return {
+    id: input.orderId,
+    deliveryState: "resolved",
+    financialDisposition: "waived",
+    deliveryIssueType: input.issueType,
+    deliveryResolutionType: IMMEDIATE_NO_CHARGE_RESOLUTION_TYPE,
+    hrDeliveryNotes: input.hrNotes,
+  };
 }
 
 export function formatFinalizationBlockedMessage(unreconciledCount: number): string {

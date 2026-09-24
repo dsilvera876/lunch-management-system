@@ -265,12 +265,9 @@ export function sanitizeDeliveriesFiltersAfterDateChange(
   };
 }
 
-export function applyDeliveriesFilters(
+export function applyDeliveriesToolbarFilters(
   orders: OperationalOrder[],
-  filters: Pick<
-    DeliveriesFilterState,
-    "providerId" | "officeLocation" | "reconciliationStatus"
-  >,
+  filters: Pick<DeliveriesFilterState, "providerId" | "officeLocation">,
 ): OperationalOrder[] {
   let filtered = orders;
 
@@ -285,7 +282,70 @@ export function applyDeliveriesFilters(
     );
   }
 
-  return filterDeliveriesOrders(filtered, filters.reconciliationStatus);
+  return filtered;
+}
+
+export function applyDeliveriesFilters(
+  orders: OperationalOrder[],
+  filters: Pick<
+    DeliveriesFilterState,
+    "providerId" | "officeLocation" | "reconciliationStatus"
+  >,
+): OperationalOrder[] {
+  return filterDeliveriesOrders(
+    applyDeliveriesToolbarFilters(orders, filters),
+    filters.reconciliationStatus,
+  );
+}
+
+export type DeliveryOrderDescription = {
+  primaryLine: string;
+  detailLine: string | null;
+  quantityLabel: string;
+};
+
+export function formatDeliveryOrderDescription(
+  order: OperationalOrder,
+): DeliveryOrderDescription {
+  const groups = buildOperationalOrderDetailGroups(order);
+
+  if (groups.mealQuantity && groups.mains.length > 0) {
+    const primaryLine = groups.mains[0]?.name ?? "Meal";
+    const detailLine =
+      groups.sides.length > 0
+        ? groups.sides.map((side) => side.name).join(" · ")
+        : null;
+
+    return {
+      primaryLine,
+      detailLine,
+      quantityLabel: String(groups.mealQuantity),
+    };
+  }
+
+  const display = buildDeliveryRowDisplay(order);
+
+  if (display.displayMode === "inline" && display.summaryText) {
+    return {
+      primaryLine: display.summaryText,
+      detailLine: null,
+      quantityLabel: display.quantityLines[0] ?? "—",
+    };
+  }
+
+  if (display.summaryLines.length <= 1) {
+    return {
+      primaryLine: display.summaryLines[0] ?? display.summaryText ?? "No items",
+      detailLine: null,
+      quantityLabel: display.quantityLines[0] ?? "—",
+    };
+  }
+
+  return {
+    primaryLine: display.summaryLines[0] ?? "Order",
+    detailLine: display.summaryLines.slice(1).join(" · "),
+    quantityLabel: display.quantityLines[0] ?? "—",
+  };
 }
 
 export function buildDeliveriesUrl(filters: DeliveriesFilterState): string {
@@ -432,6 +492,30 @@ export function patchFromDelivered(
     actualDeliveryDate,
     deliveryIssueType: null,
     deliveryResolutionType: null,
+  };
+}
+
+export function patchFromRevertedToPending(order: OperationalOrder): DeliveryOrderPatch {
+  return {
+    id: order.id,
+    deliveryState: "pending",
+    financialDisposition: "chargeable",
+    status: "submitted",
+    actualDeliveryDate: null,
+  };
+}
+
+export function captureDeliveryToggleSnapshot(
+  order: OperationalOrder,
+): DeliveryOrderPatch {
+  return {
+    id: order.id,
+    deliveryState: order.deliveryState,
+    financialDisposition: order.financialDisposition,
+    status: order.status,
+    actualDeliveryDate: order.actualDeliveryDate,
+    deliveryIssueType: order.deliveryIssueType,
+    deliveryResolutionType: order.deliveryResolutionType,
   };
 }
 

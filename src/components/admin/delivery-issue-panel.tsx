@@ -8,12 +8,15 @@ import {
   canReportIssue,
   getDeliveryIssueLabel,
   getDeliveryResolutionLabel,
+  getNewIssueReportPrimaryActionLabel,
+  isImmediateNoChargeResolution,
 } from "@/lib/delivery-reconciliation";
 import { buildDeliveryRowDisplay } from "@/lib/deliveries";
 import type { OperationalOrder } from "@/lib/operational-orders";
 import type { DeliveryMutationResult } from "@/app/admin/deliveries/mutations";
 import {
   confirmOrderDeliveryResolvedMutation,
+  reportAndResolveOrderDeliveryNoChargeMutation,
   reportOrderDeliveryIssueMutation,
   resolveOrderNoChargeMutation,
   updateOrderDeliveryResolutionMutation,
@@ -26,7 +29,7 @@ type Props = {
   order: OperationalOrder | null;
   open: boolean;
   onClose: () => void;
-  onMutated: (result: DeliveryMutationResult) => void;
+  onMutated: (result: DeliveryMutationResult) => boolean;
 };
 
 function OrderSummary({ order }: { order: OperationalOrder }) {
@@ -53,18 +56,43 @@ function OrderSummary({ order }: { order: OperationalOrder }) {
   );
 }
 
+async function saveOpenIssueDetails(input: {
+  orderId: string;
+  resolutionType: string;
+  hrNotes: string;
+}): Promise<DeliveryMutationResult> {
+  if (input.resolutionType.trim()) {
+    return updateOrderDeliveryResolutionMutation({
+      orderId: input.orderId,
+      resolutionType: input.resolutionType,
+      hrNotes: input.hrNotes,
+    });
+  }
+
+  return updateOrderHrDeliveryNotesMutation({
+    orderId: input.orderId,
+    hrNotes: input.hrNotes,
+  });
+}
+
 function IssuePanelForm({
   order,
+  onClose,
   onMutated,
 }: {
   order: OperationalOrder;
-  onMutated: (result: DeliveryMutationResult) => void;
+  onClose: () => void;
+  onMutated: (result: DeliveryMutationResult) => boolean;
 }) {
   const [issueType, setIssueType] = useState(order.deliveryIssueType ?? "");
   const [resolutionType, setResolutionType] = useState(order.deliveryResolutionType ?? "");
   const [hrNotes, setHrNotes] = useState(order.hrDeliveryNotes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const showReportForm = canReportIssue(order) && order.deliveryState !== "issue_open";
+  const showIssueActions = canManageOpenIssue(order.deliveryState);
+  const reportPrimaryLabel = getNewIssueReportPrimaryActionLabel(resolutionType);
 
   const runMutation = (task: () => Promise<DeliveryMutationResult>) => {
     setError(null);
@@ -79,188 +107,214 @@ function IssuePanelForm({
     });
   };
 
-  const showReportForm = canReportIssue(order) && order.deliveryState !== "issue_open";
-  const showIssueActions = canManageOpenIssue(order.deliveryState);
-
   return (
-    <div className="space-y-4 overflow-y-auto px-4 py-4">
-      <div className="space-y-1 text-sm">
-        <p className="text-muted">
-          <span className="font-medium text-foreground">Provider:</span> {order.providerName}
-        </p>
-        <OrderSummary order={order} />
-        {order.specialInstructions?.trim() && (
-          <p className="rounded-md bg-amber-50 px-2 py-1 text-amber-950">
-            Staff note: {order.specialInstructions}
+    <>
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <div className="space-y-2 rounded-lg bg-muted/25 px-3 py-2.5 ring-1 ring-inset ring-border/70">
+          <p className="text-sm">
+            <span className="font-medium text-foreground">Provider</span>
+            <span className="mt-0.5 block text-foreground">{order.providerName}</span>
           </p>
-        )}
+          <div className="text-sm">
+            <span className="font-medium text-foreground">Order</span>
+            <div className="mt-0.5">
+              <OrderSummary order={order} />
+            </div>
+          </div>
+          {order.specialInstructions?.trim() ? (
+            <p className="rounded-md bg-background/80 px-2 py-1.5 text-sm text-foreground ring-1 ring-inset ring-border/60">
+              <span className="font-medium">Staff note:</span> {order.specialInstructions}
+            </p>
+          ) : null}
+        </div>
+
+        {showReportForm ? (
+          <div className="space-y-3">
+            <label className="block text-sm">
+              <span className="font-medium">Issue type</span>
+              <select
+                value={issueType}
+                onChange={(event) => setIssueType(event.target.value)}
+                className={`${selectClassName} mt-1`}
+              >
+                <option value="">Select issue</option>
+                {DELIVERY_ISSUE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {getDeliveryIssueLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm">
+              <span className="font-medium">Resolution plan</span>
+              <select
+                value={resolutionType}
+                onChange={(event) => setResolutionType(event.target.value)}
+                className={`${selectClassName} mt-1`}
+              >
+                <option value="">Optional</option>
+                {DELIVERY_RESOLUTION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {getDeliveryResolutionLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm">
+              <span className="font-medium">HR notes (optional)</span>
+              <textarea
+                value={hrNotes}
+                onChange={(event) => setHrNotes(event.target.value)}
+                rows={3}
+                className={`${textareaClassName} mt-1`}
+                placeholder="Optional internal note"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {showIssueActions ? (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Issue details
+            </p>
+
+            {order.deliveryIssueType ? (
+              <div className="text-sm">
+                <span className="font-medium text-foreground">Issue</span>
+                <p className="mt-0.5 text-foreground">
+                  {getDeliveryIssueLabel(order.deliveryIssueType)}
+                </p>
+              </div>
+            ) : null}
+
+            <label className="block text-sm">
+              <span className="font-medium">Resolution plan</span>
+              <select
+                value={resolutionType}
+                onChange={(event) => setResolutionType(event.target.value)}
+                className={`${selectClassName} mt-1`}
+              >
+                <option value="">Select resolution</option>
+                {DELIVERY_RESOLUTION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {getDeliveryResolutionLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm">
+              <span className="font-medium">HR notes (optional)</span>
+              <textarea
+                value={hrNotes}
+                onChange={(event) => setHrNotes(event.target.value)}
+                rows={3}
+                className={`${textareaClassName} mt-1`}
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {error ? <p className="text-sm text-red-700">{error}</p> : null}
       </div>
 
-      {showReportForm && (
-        <div className="space-y-3 border-t border-border pt-3">
-          <label className="block text-sm">
-            <span className="font-medium">Issue type</span>
-            <select
-              value={issueType}
-              onChange={(event) => setIssueType(event.target.value)}
-              className={`${selectClassName} mt-1`}
-            >
-              <option value="">Select issue</option>
-              {DELIVERY_ISSUE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {getDeliveryIssueLabel(type)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium">Resolution plan</span>
-            <select
-              value={resolutionType}
-              onChange={(event) => setResolutionType(event.target.value)}
-              className={`${selectClassName} mt-1`}
-            >
-              <option value="">Optional</option>
-              {DELIVERY_RESOLUTION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {getDeliveryResolutionLabel(type)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium">HR notes</span>
-            <textarea
-              value={hrNotes}
-              onChange={(event) => setHrNotes(event.target.value)}
-              rows={3}
-              className={`${textareaClassName} mt-1`}
-              placeholder="Optional internal note"
-            />
-          </label>
-
-          <Button
-            type="button"
-            variant="primary"
-            disabled={pending || !issueType}
-            onClick={() =>
-              runMutation(() =>
-                reportOrderDeliveryIssueMutation({
-                  orderId: order.id,
-                  issueType,
-                  resolutionType: resolutionType || undefined,
-                  hrNotes,
-                }),
-              )
-            }
-          >
-            Report issue
-          </Button>
-        </div>
-      )}
-
-      {showIssueActions && (
-        <div className="space-y-3 border-t border-border pt-3">
-          {order.deliveryIssueType && (
-            <p className="text-sm">
-              <span className="font-medium">Issue:</span>{" "}
-              {getDeliveryIssueLabel(order.deliveryIssueType)}
-            </p>
-          )}
-
-          <label className="block text-sm">
-            <span className="font-medium">Resolution plan</span>
-            <select
-              value={resolutionType}
-              onChange={(event) => setResolutionType(event.target.value)}
-              className={`${selectClassName} mt-1`}
-            >
-              <option value="">Select resolution</option>
-              {DELIVERY_RESOLUTION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {getDeliveryResolutionLabel(type)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium">HR notes</span>
-            <textarea
-              value={hrNotes}
-              onChange={(event) => setHrNotes(event.target.value)}
-              rows={3}
-              className={`${textareaClassName} mt-1`}
-            />
-          </label>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={pending || !resolutionType}
-              onClick={() =>
-                runMutation(() =>
-                  updateOrderDeliveryResolutionMutation({
-                    orderId: order.id,
-                    resolutionType,
-                    hrNotes,
-                  }),
-                )
-              }
-            >
-              Update resolution
+      <div className="sticky bottom-0 space-y-3 border-t border-border bg-surface px-4 py-3">
+        {showReportForm ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>
+              Cancel
             </Button>
-
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={pending}
-              onClick={() =>
-                runMutation(() =>
-                  updateOrderHrDeliveryNotesMutation({
-                    orderId: order.id,
-                    hrNotes,
-                  }),
-                )
-              }
-            >
-              Save notes
-            </Button>
-
             <Button
               type="button"
               variant="primary"
-              disabled={pending}
+              disabled={pending || !issueType}
               onClick={() =>
                 runMutation(() =>
-                  confirmOrderDeliveryResolvedMutation({ orderId: order.id }),
+                  isImmediateNoChargeResolution(resolutionType)
+                    ? reportAndResolveOrderDeliveryNoChargeMutation({
+                        orderId: order.id,
+                        issueType,
+                        resolutionType,
+                        hrNotes,
+                      })
+                    : reportOrderDeliveryIssueMutation({
+                        orderId: order.id,
+                        issueType,
+                        resolutionType: resolutionType || undefined,
+                        hrNotes,
+                      }),
                 )
               }
             >
-              Confirm delivered
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={pending}
-              onClick={() =>
-                runMutation(() =>
-                  resolveOrderNoChargeMutation({ orderId: order.id, hrNotes }),
-                )
-              }
-            >
-              Resolve no charge
+              {reportPrimaryLabel}
             </Button>
           </div>
-        </div>
-      )}
+        ) : null}
 
-      {error && <p className="text-sm text-red-700">{error}</p>}
-    </div>
+        {showIssueActions ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={pending}
+                onClick={() =>
+                  runMutation(() =>
+                    saveOpenIssueDetails({
+                      orderId: order.id,
+                      resolutionType,
+                      hrNotes,
+                    }),
+                  )
+                }
+              >
+                Save changes
+              </Button>
+            </div>
+
+            <div className="space-y-2 border-t border-border/80 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Resolution
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-w-[9.5rem] flex-1 sm:flex-none"
+                  disabled={pending}
+                  onClick={() =>
+                    runMutation(() =>
+                      confirmOrderDeliveryResolvedMutation({ orderId: order.id }),
+                    )
+                  }
+                >
+                  Confirm delivered
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-w-[9.5rem] flex-1 sm:flex-none"
+                  disabled={pending}
+                  onClick={() =>
+                    runMutation(() =>
+                      resolveOrderNoChargeMutation({ orderId: order.id, hrNotes }),
+                    )
+                  }
+                >
+                  Resolve no charge
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -293,7 +347,7 @@ export function DeliveryIssuePanel({ order, open, onClose, onMutated }: Props) {
         onClick={onClose}
       />
 
-      <aside className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden border border-border bg-surface shadow-xl sm:max-h-full sm:rounded-l-xl">
+      <aside className="relative flex h-[min(92vh,100%)] w-full max-w-lg flex-col overflow-hidden border border-border bg-surface shadow-xl sm:rounded-l-xl">
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Delivery issue</h2>
@@ -308,7 +362,12 @@ export function DeliveryIssuePanel({ order, open, onClose, onMutated }: Props) {
           </button>
         </div>
 
-        <IssuePanelForm key={order.id} order={order} onMutated={onMutated} />
+        <IssuePanelForm
+          key={order.id}
+          order={order}
+          onClose={onClose}
+          onMutated={onMutated}
+        />
       </aside>
     </div>
   );

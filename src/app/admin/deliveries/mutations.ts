@@ -3,8 +3,10 @@
 import { requireFulfillOrders } from "@/lib/auth";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import {
+  buildReportAndResolveNoChargePatch,
   DELIVERY_ISSUE_TYPES,
   DELIVERY_RESOLUTION_TYPES,
+  isImmediateNoChargeResolution,
   type DeliveryIssueType,
   type DeliveryResolutionType,
 } from "@/lib/delivery-reconciliation";
@@ -54,6 +56,31 @@ async function runDeliveryMutation(
   }
 
   return { ok: true };
+}
+
+export async function revertOrderDeliveryToPendingMutation(input: {
+  orderId: string;
+}): Promise<DeliveryMutationResult> {
+  const result = await runDeliveryMutation((supabase) =>
+    supabase.rpc("revert_order_delivery_to_pending", {
+      p_order_id: input.orderId,
+    }),
+  );
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    patch: {
+      id: input.orderId,
+      deliveryState: "pending",
+      financialDisposition: "chargeable",
+      status: "submitted",
+      actualDeliveryDate: null,
+    },
+  };
 }
 
 export async function markOrderDeliveredMutation(input: {
@@ -123,6 +150,48 @@ export async function reportOrderDeliveryIssueMutation(input: {
       deliveryResolutionType: resolutionType,
       hrDeliveryNotes: hrNotes,
     },
+  };
+}
+
+export async function reportAndResolveOrderDeliveryNoChargeMutation(input: {
+  orderId: string;
+  issueType: string;
+  resolutionType?: string;
+  hrNotes?: string;
+}): Promise<DeliveryMutationResult> {
+  const issueType = readIssueType(input.issueType);
+
+  if (!issueType) {
+    return { success: false, error: "Invalid delivery issue type" };
+  }
+
+  if (!isImmediateNoChargeResolution(input.resolutionType ?? null)) {
+    return {
+      success: false,
+      error: "Report & resolve requires a no replacement / no charge resolution plan",
+    };
+  }
+
+  const hrNotes = input.hrNotes?.trim() || null;
+  const result = await runDeliveryMutation((supabase) =>
+    supabase.rpc("report_order_delivery_issue_resolved_no_charge", {
+      p_order_id: input.orderId,
+      p_issue_type: issueType,
+      p_hr_notes: hrNotes ?? undefined,
+    }),
+  );
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    patch: buildReportAndResolveNoChargePatch({
+      orderId: input.orderId,
+      issueType,
+      hrNotes,
+    }),
   };
 }
 

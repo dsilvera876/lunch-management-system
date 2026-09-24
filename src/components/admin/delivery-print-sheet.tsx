@@ -18,9 +18,7 @@ function PrintOrderTable({
     <table className="mb-2 w-full border-collapse border border-gray-300">
       <thead>
         <tr className="bg-gray-100">
-          <th className="w-8 border border-gray-300 px-1 py-0.5 text-left font-semibold">
-            ✓
-          </th>
+          <th className="w-8 border border-gray-300 px-1 py-0.5 text-left font-semibold" />
           <th className="w-[18%] border border-gray-300 px-1 py-0.5 text-left font-semibold">
             Name
           </th>
@@ -46,9 +44,7 @@ function PrintOrderTable({
                   <td
                     rowSpan={rowCount}
                     className="border border-gray-300 px-1 py-0.5 align-top"
-                  >
-                    <span className="delivery-print-box" aria-hidden="true" />
-                  </td>
+                  />
                   <td
                     rowSpan={rowCount}
                     className="border border-gray-300 px-1 py-0.5 align-top font-medium"
@@ -133,13 +129,6 @@ export function DeliveryPrintSheet({ document }: Props) {
           color: #f8fafc;
         }
 
-        .delivery-print-box {
-          display: inline-block;
-          width: 0.75rem;
-          height: 0.75rem;
-          border: 1px solid #444;
-          vertical-align: middle;
-        }
       `}</style>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-300 pb-2 print:hidden">

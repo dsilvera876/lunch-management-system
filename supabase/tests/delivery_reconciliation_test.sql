@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(32);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -249,6 +249,55 @@ select results_eq(
   $$,
   array[2::bigint],
   'Waived order stays excluded while chargeable orders remain included'
+);
+
+-- ============================================================
+-- One-step report + resolve no charge
+-- ============================================================
+
+select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+
+select public.submit_provider_order(
+  '88888888-8888-4888-8888-888888888888',
+  '2099-01-09'::date,
+  '{"meal_quantity":1,"main_provider_menu_item_id":"a1111111-1111-4111-8111-111111111111","side_provider_menu_item_ids":["a2222222-2222-4222-8222-222222222222"],"standalone_items":[]}'::jsonb,
+  'One step no charge',
+  'f0000000-0000-4000-8000-000000000001'
+);
+
+select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+
+select lives_ok(
+  $$ select public.report_order_delivery_issue_resolved_no_charge(
+    (select id from public.orders where special_instructions = 'One step no charge'),
+    'provider_cancelled',
+    'Cancelled by provider'
+  ) $$,
+  'HR can report and resolve no charge in one RPC'
+);
+
+select results_eq(
+  $$ select delivery_state from public.orders where special_instructions = 'One step no charge' $$,
+  array['resolved'::text],
+  'One-step no charge ends in resolved delivery state'
+);
+
+select results_eq(
+  $$ select financial_disposition from public.orders where special_instructions = 'One step no charge' $$,
+  array['waived'::text],
+  'One-step no charge ends in waived financial disposition'
+);
+
+select results_eq(
+  $$ select delivery_issue_type from public.orders where special_instructions = 'One step no charge' $$,
+  array['provider_cancelled'::text],
+  'One-step no charge retains issue type'
+);
+
+select results_eq(
+  $$ select delivery_resolution_type from public.orders where special_instructions = 'One step no charge' $$,
+  array['no_replacement_no_charge'::text],
+  'One-step no charge retains resolution type'
 );
 
 -- ============================================================
