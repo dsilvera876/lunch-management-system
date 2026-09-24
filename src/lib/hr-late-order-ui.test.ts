@@ -35,6 +35,12 @@ describe("HR late-order UI", () => {
     assert.doesNotMatch(source, /key=\{formKey\}/);
     assert.doesNotMatch(source, /setFormKey/);
     assert.match(source, /Order cycle date:/);
+    assert.match(source, /EmployeePicker/);
+    assert.match(source, /useState\(""\)/);
+    assert.doesNotMatch(source, /employees\[0\]/);
+    assert.match(source, /setProfileId\(""\)/);
+    assert.match(source, /resolveLateOrderMenuPresentation/);
+    assert.doesNotMatch(source, /This snapshot has no active menu items/);
   });
 
   it("uses stable split layout in ProviderOrderForm for HR late orders", () => {

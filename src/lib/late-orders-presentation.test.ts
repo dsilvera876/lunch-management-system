@@ -10,9 +10,14 @@ import {
   hasActionableLateOrderCreationCycle,
   LATE_ORDER_CREATE_SUCCESS_TOAST_DURATION_MS,
   LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE,
+  LATE_ORDER_EMPLOYEE_REQUIRED_MESSAGE,
+  LATE_ORDER_MENU_EMPTY_MESSAGE,
+  LATE_ORDER_MENU_LOAD_ERROR_MESSAGE,
   LATE_ORDER_MENU_LOADING_LABEL,
   LATE_ORDER_PROVIDER_MENU_LOADING_ANNOUNCEMENT,
   LATE_ORDER_MANAGE_PROVIDERS_HREF,
+  lateOrderMenuUnavailableMessage,
+  resolveLateOrderMenuPresentation,
   resolveLateOrdersUnavailableReason,
   shouldShowLateOrderFullWorkflow,
   shouldShowLateOrderProviderStatusSection,
@@ -142,8 +147,8 @@ describe("late orders presentation", () => {
 
   it("formats late-order create error messages for toast feedback", () => {
     assert.equal(
-      formatLateOrderCreateErrorMessage("Menu snapshot is unavailable."),
-      "Unable to create late order. Menu snapshot is unavailable.",
+      formatLateOrderCreateErrorMessage(LATE_ORDER_EMPLOYEE_REQUIRED_MESSAGE),
+      "Unable to create late order. Select an employee.",
     );
     assert.equal(formatLateOrderCreateErrorMessage(""), "Unable to create late order");
     assert.equal(LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE, "Late order created successfully.");
@@ -208,5 +213,83 @@ describe("late orders presentation", () => {
     assert.match(workspace, /min-h-5 text-sm leading-5 text-muted/);
     assert.match(workspace, /LATE_ORDER_CYCLE_DATE_LOADING_LABEL/);
     assert.match(form, /menuSelectionEpoch/);
+  });
+
+  it("resolves late-order menu presentation states", () => {
+    assert.equal(resolveLateOrderMenuPresentation({
+      loading: true,
+      loadSucceeded: false,
+      rpcStatus: null,
+      menuItemCount: 0,
+    }).kind, "loading");
+
+    assert.equal(resolveLateOrderMenuPresentation({
+      loading: false,
+      loadSucceeded: true,
+      rpcStatus: "available",
+      menuItemCount: 3,
+    }).kind, "ready");
+
+    assert.equal(resolveLateOrderMenuPresentation({
+      loading: false,
+      loadSucceeded: true,
+      rpcStatus: "available",
+      menuItemCount: 0,
+    }).kind, "empty");
+
+    assert.equal(
+      lateOrderMenuUnavailableMessage(
+        resolveLateOrderMenuPresentation({
+          loading: false,
+          loadSucceeded: true,
+          rpcStatus: "available",
+          menuItemCount: 0,
+        }),
+      ),
+      LATE_ORDER_MENU_EMPTY_MESSAGE,
+    );
+
+    assert.equal(
+      lateOrderMenuUnavailableMessage(
+        resolveLateOrderMenuPresentation({
+          loading: false,
+          loadSucceeded: false,
+          rpcStatus: "error",
+          menuItemCount: 0,
+        }),
+      ),
+      LATE_ORDER_MENU_LOAD_ERROR_MESSAGE,
+    );
+  });
+
+  it("keeps HR late-order employee and menu copy free of implementation terms", () => {
+    const workspace = readFileSync(
+      new URL("../components/admin/late-orders-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const actions = readFileSync(
+      new URL("../app/admin/late-orders/actions.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(workspace, /useState\(""\)/);
+    assert.match(workspace, /setProfileId\(""\)/);
+    assert.doesNotMatch(workspace, /employees\[0\]/);
+    assert.match(actions, /LATE_ORDER_EMPLOYEE_REQUIRED_MESSAGE/);
+    assert.match(workspace, /resolveLateOrderMenuPresentation/);
+    assert.match(workspace, /lateOrderMenuUnavailableMessage/);
+    assert.doesNotMatch(workspace, /This snapshot has no active menu items/);
+    assert.doesNotMatch(workspace, /Menu snapshot/);
+    assert.doesNotMatch(workspace, /frozen snapshot/i);
+    assert.doesNotMatch(workspace, /active menu items/i);
+    assert.equal(LATE_ORDER_MENU_LOADING_LABEL, "Loading menu…");
+    assert.equal(
+      LATE_ORDER_MENU_EMPTY_MESSAGE,
+      "No menu items are available for this provider and delivery date.",
+    );
+    assert.equal(
+      LATE_ORDER_MENU_LOAD_ERROR_MESSAGE,
+      "Unable to load the menu for this provider and delivery date.",
+    );
   });
 });

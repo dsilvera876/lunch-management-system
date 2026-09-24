@@ -119,7 +119,7 @@ export function classifyLateOrderSnapshotWarning(input: {
     return {
       kind: "historical_missing",
       message:
-        "Late ordering is unavailable for this delivery date because the menu snapshot for that order cycle was not captured.",
+        "Late ordering is unavailable for this delivery date because the saved menu for that order cycle was not recorded.",
     };
   }
 
@@ -127,7 +127,7 @@ export function classifyLateOrderSnapshotWarning(input: {
     return {
       kind: "current_pending",
       message:
-        "Today's menu snapshot is still being prepared. Choose this provider again in a moment, or create the late order once the snapshot is ready.",
+        "Today's menu is still being prepared. Choose this provider again in a moment, or create the late order once the menu is ready.",
     };
   }
 
@@ -142,6 +142,6 @@ export function classifyLateOrderSnapshotWarning(input: {
 
   return {
     kind: "future_unavailable",
-    message: "Menu snapshot is not available for this cycle yet.",
+    message: "The menu for this delivery date is not available yet.",
   };
 }

@@ -28,6 +28,12 @@ import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
 import { LateOrdersPageHeader } from "@/components/admin/late-orders/late-orders-page-header";
 import { formatProviderLateOrderCutoffLabel } from "@/lib/late-orders-presentation";
 
+type LateOrderEmployeeProfile = {
+  id: string;
+  full_name: string | null;
+  email: string;
+};
+
 function formatLateOrderDeadlineSummary(
   deadlineDay: string | null,
   deadlineTime: string | null,
@@ -47,7 +53,11 @@ export default async function LateOrdersPage() {
   const now = new Date();
   const deliveryDatesToLoad = candidateLateOrderDeliveryDates(today);
 
-  const [{ data: providers }, { data: employees }, { data: locations }] = await Promise.all([
+  const [
+    { data: providers },
+    { data: employeeRows, error: employeesError },
+    { data: locations },
+  ] = await Promise.all([
     supabase
       .from("lunch_providers")
       .select(
@@ -55,16 +65,19 @@ export default async function LateOrdersPage() {
       )
       .eq("active", true)
       .order("name", { ascending: true }),
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .order("full_name", { ascending: true }),
+    supabase.rpc("list_late_order_employee_profiles"),
     supabase
       .from("office_locations")
       .select("id, name")
       .eq("is_active", true)
       .order("name", { ascending: true }),
   ]);
+
+  if (employeesError) {
+    throw new Error("Unable to load employees for late orders.");
+  }
+
+  const employees = (employeeRows ?? []) as LateOrderEmployeeProfile[];
 
   const providerSummaries = [];
 
@@ -377,9 +390,10 @@ export default async function LateOrdersPage() {
       <LateOrdersWorkspace
         providerSummaries={providerSummaries}
         lateOrderProviders={lateOrderProviders}
-        employees={(employees ?? []).map((employee) => ({
+        employees={employees.map((employee) => ({
           id: employee.id,
           name: employee.full_name?.trim() || "Unnamed employee",
+          email: employee.email?.trim() ?? "",
         }))}
         locations={(locations ?? []).map((location) => ({
           id: location.id,

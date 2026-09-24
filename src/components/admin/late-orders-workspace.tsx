@@ -10,6 +10,7 @@ import {
   sendProviderLateOrderSupplementAction,
   type HrLateOrderSnapshotMenuItem,
 } from "@/app/admin/late-orders/actions";
+import { EmployeePicker } from "@/components/employee-picker";
 import { LateOrderProviderStatusCard } from "@/components/admin/late-orders/late-order-provider-status-card";
 import { ProviderOrderForm } from "@/components/provider-order-form";
 import {
@@ -40,6 +41,8 @@ import {
   LATE_ORDER_CREATE_SUCCESS_TOAST_DURATION_MS,
   LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE,
   LATE_ORDER_CYCLE_DATE_LOADING_LABEL,
+  lateOrderMenuUnavailableMessage,
+  resolveLateOrderMenuPresentation,
   resolveLateOrdersUnavailableReason,
   shouldShowLateOrderFullWorkflow,
   shouldShowLateOrderProviderStatusSection,
@@ -75,7 +78,7 @@ type ProviderSummary = {
 type Props = {
   providerSummaries: ProviderSummary[];
   lateOrderProviders: Array<{ id: string; name: string }>;
-  employees: Array<{ id: string; name: string }>;
+  employees: Array<{ id: string; name: string; email: string }>;
   locations: OfficeLocationOption[];
   primaryDeliveryDate: string;
   jamaicaToday: string;
@@ -292,7 +295,7 @@ function LateOrderCreatePanel({
   providerCreationCycles,
   onCreateSuccess,
 }: {
-  employees: Array<{ id: string; name: string }>;
+  employees: Array<{ id: string; name: string; email: string }>;
   locations: OfficeLocationOption[];
   providers: Array<{ id: string; name: string }>;
   defaultDeliveryDate: string;
@@ -301,7 +304,7 @@ function LateOrderCreatePanel({
   onCreateSuccess: () => void;
 }) {
   const { showToast } = useToast();
-  const [profileId, setProfileId] = useState(employees[0]?.id ?? "");
+  const [profileId, setProfileId] = useState("");
   const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
 
   const actionableCycles = useMemo(
@@ -333,7 +336,7 @@ function LateOrderCreatePanel({
   const [menuItems, setMenuItems] = useState<HrLateOrderSnapshotMenuItem[]>([]);
   const [orderDate, setOrderDate] = useState("");
   const [menuStatus, setMenuStatus] = useState<string | null>(null);
-  const [menuMessage, setMenuMessage] = useState<string | null>(null);
+  const [menuLoadSucceeded, setMenuLoadSucceeded] = useState(false);
   const [loadingMenu, setLoadingMenu] = useState(false);
   /** Bumps menu-selection state inside ProviderOrderForm without remounting Order Details. */
   const [menuSelectionEpoch, setMenuSelectionEpoch] = useState(0);
@@ -351,7 +354,7 @@ function LateOrderCreatePanel({
       }
 
       setLoadingMenu(true);
-      setMenuMessage(null);
+      setMenuLoadSucceeded(false);
       setMenuItems([]);
       setMenuStatus(null);
       setMenuSelectionEpoch((value) => value + 1);
@@ -370,39 +373,14 @@ function LateOrderCreatePanel({
       if (!result.success) {
         setMenuItems([]);
         setMenuStatus("error");
-        setMenuMessage(result.error);
+        setMenuLoadSucceeded(false);
         return;
       }
 
+      setMenuLoadSucceeded(true);
       setMenuStatus(result.status);
       setOrderDate(result.orderDate);
-
-      if (result.status === "available" && result.menuItems.length > 0) {
-        setMenuItems(result.menuItems);
-        setMenuMessage(null);
-        return;
-      }
-
-      setMenuItems([]);
-
-      if (result.status === "historical_unavailable") {
-        setMenuMessage(
-          "Late ordering is unavailable for this delivery date because the menu snapshot for that order cycle was not captured.",
-        );
-        return;
-      }
-
-      if (result.status === "future_unavailable") {
-        setMenuMessage("Menu snapshot is not available for this cycle yet.");
-        return;
-      }
-
-      if (result.status === "available" && result.menuItems.length === 0) {
-        setMenuMessage("This snapshot has no active menu items.");
-        return;
-      }
-
-      setMenuMessage("Unable to load menu for this provider and delivery date.");
+      setMenuItems(result.menuItems);
     })();
 
     return () => {
@@ -410,16 +388,24 @@ function LateOrderCreatePanel({
     };
   }, [providerId, deliveryDate]);
 
+  const menuPresentation = resolveLateOrderMenuPresentation({
+    loading: loadingMenu,
+    loadSucceeded: menuLoadSucceeded,
+    rpcStatus: menuStatus,
+    menuItemCount: menuItems.length,
+  });
+
+  const menuUnavailableMessage = lateOrderMenuUnavailableMessage(menuPresentation);
+
   const showWorkflowForm =
-    !noActionableCycles && Boolean(providerId && profileId && deliveryDate);
+    !noActionableCycles && Boolean(providerId && deliveryDate);
 
   const submitDisabled =
     loadingMenu ||
     !providerId ||
     !profileId ||
     !deliveryDate ||
-    menuStatus !== "available" ||
-    menuItems.length === 0;
+    menuPresentation.kind !== "ready";
 
   const handleFormAction = async (formData: FormData) => {
     formData.set("profileId", profileId);
@@ -432,6 +418,7 @@ function LateOrderCreatePanel({
         title: LATE_ORDER_CREATE_SUCCESS_TOAST_TITLE,
         durationMs: LATE_ORDER_CREATE_SUCCESS_TOAST_DURATION_MS,
       });
+      setProfileId("");
       setMenuSelectionEpoch((value) => value + 1);
       onCreateSuccess();
       return;
@@ -446,20 +433,18 @@ function LateOrderCreatePanel({
   const orderDetailsPrefix = (
     <>
       <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
-        <label className="block space-y-1.5">
-          <span className={formControlLabelClassName}>Employee</span>
-          <select
+        <div className="block space-y-1.5">
+          <span id="late-order-employee-label" className={formControlLabelClassName}>
+            Employee
+          </span>
+          <EmployeePicker
+            id="late-order-employee-picker"
+            aria-labelledby="late-order-employee-label"
+            employees={employees}
             value={profileId}
-            onChange={(event) => setProfileId(event.target.value)}
-            className={`${selectClassName} block w-full`}
-          >
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onValueChange={setProfileId}
+          />
+        </div>
 
         <label className="block space-y-1.5">
           <span className={formControlLabelClassName}>Provider</span>
@@ -557,7 +542,10 @@ function LateOrderCreatePanel({
       orderDetailsPrefix={orderDetailsPrefix}
       menuLoading={loadingMenu}
       submitDisabled={submitDisabled}
-      menuUnavailableMessage={!loadingMenu && menuMessage ? menuMessage : null}
+      menuUnavailableMessage={menuUnavailableMessage}
+      menuUnavailableVariant={
+        menuPresentation.kind === "load_error" ? "error" : "warning"
+      }
       menuSelectionEpoch={menuSelectionEpoch}
     />
   ) : (

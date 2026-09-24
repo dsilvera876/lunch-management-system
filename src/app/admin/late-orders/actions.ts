@@ -11,6 +11,7 @@ import {
   fetchHrLateOrderCreationCyclesForProvider,
   isDeliveryDateAllowedForHrLateOrderCreation,
 } from "@/lib/hr-late-order-create";
+import { LATE_ORDER_EMPLOYEE_REQUIRED_MESSAGE } from "@/lib/late-orders-presentation";
 import { createClient } from "@/lib/supabase/server";
 
 export type HrLateOrderSnapshotMenuItem = {
@@ -89,7 +90,10 @@ export async function loadHrLateOrderSnapshotMenuAction(input: {
       message: error.message,
       code: error.code,
     });
-    return { success: false, error: "Unable to load menu for this cycle." };
+    return {
+      success: false,
+      error: "Unable to load the menu for this provider and delivery date.",
+    };
   }
 
   const payload = data as {
@@ -136,6 +140,10 @@ export async function createHrLateOrderFormAction(
   const specialInstructionsRaw = formData.get("specialInstructions");
   const specialInstructions =
     typeof specialInstructionsRaw === "string" ? specialInstructionsRaw : "";
+
+  if (!profileId.trim()) {
+    return { success: false, error: LATE_ORDER_EMPLOYEE_REQUIRED_MESSAGE };
+  }
 
   const items = buildSnapshotOrderPayload(formData);
 

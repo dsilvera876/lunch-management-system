@@ -220,7 +220,7 @@ export function formatSupplementDispatchStatusLabel(input: {
   now: Date;
 }): string {
   if (input.snapshotMissing) {
-    return "Menu snapshot missing for this order cycle";
+    return "Menu not available for this order cycle";
   }
 
   if (input.latestDispatch?.status === "attention_required") {

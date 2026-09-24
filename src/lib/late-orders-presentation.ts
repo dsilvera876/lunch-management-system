@@ -144,6 +144,94 @@ export function buildLateOrderProviderStatusDisplay(input: {
 
 export const LATE_ORDER_MENU_LOADING_LABEL = "Loading menu…";
 
+export const LATE_ORDER_MENU_EMPTY_MESSAGE =
+  "No menu items are available for this provider and delivery date.";
+
+export const LATE_ORDER_MENU_LOAD_ERROR_MESSAGE =
+  "Unable to load the menu for this provider and delivery date.";
+
+export const LATE_ORDER_MENU_HISTORICAL_UNAVAILABLE_MESSAGE =
+  "Late ordering is unavailable for this delivery date because the saved menu for that order cycle was not recorded.";
+
+export const LATE_ORDER_MENU_FUTURE_UNAVAILABLE_MESSAGE =
+  "The menu for this delivery date is not available yet.";
+
+export const LATE_ORDER_MENU_INVALID_CYCLE_MESSAGE =
+  "This delivery date is not part of a valid order cycle.";
+
+export const LATE_ORDER_EMPLOYEE_REQUIRED_MESSAGE = "Select an employee.";
+
+export type LateOrderMenuPresentation =
+  | { kind: "loading" }
+  | { kind: "ready" }
+  | { kind: "empty" }
+  | { kind: "load_error" }
+  | { kind: "unavailable"; message: string };
+
+export function resolveLateOrderMenuPresentation(input: {
+  loading: boolean;
+  loadSucceeded: boolean;
+  rpcStatus: string | null;
+  menuItemCount: number;
+}): LateOrderMenuPresentation {
+  if (input.loading) {
+    return { kind: "loading" };
+  }
+
+  if (!input.loadSucceeded) {
+    return { kind: "load_error" };
+  }
+
+  if (input.rpcStatus === "historical_unavailable") {
+    return {
+      kind: "unavailable",
+      message: LATE_ORDER_MENU_HISTORICAL_UNAVAILABLE_MESSAGE,
+    };
+  }
+
+  if (input.rpcStatus === "future_unavailable") {
+    return {
+      kind: "unavailable",
+      message: LATE_ORDER_MENU_FUTURE_UNAVAILABLE_MESSAGE,
+    };
+  }
+
+  if (input.rpcStatus === "invalid_cycle") {
+    return {
+      kind: "unavailable",
+      message: LATE_ORDER_MENU_INVALID_CYCLE_MESSAGE,
+    };
+  }
+
+  if (input.rpcStatus === "available" && input.menuItemCount === 0) {
+    return { kind: "empty" };
+  }
+
+  if (input.menuItemCount > 0) {
+    return { kind: "ready" };
+  }
+
+  return { kind: "load_error" };
+}
+
+export function lateOrderMenuUnavailableMessage(
+  presentation: LateOrderMenuPresentation,
+): string | null {
+  switch (presentation.kind) {
+    case "loading":
+    case "ready":
+      return null;
+    case "empty":
+      return LATE_ORDER_MENU_EMPTY_MESSAGE;
+    case "load_error":
+      return LATE_ORDER_MENU_LOAD_ERROR_MESSAGE;
+    case "unavailable":
+      return presentation.message;
+    default:
+      return LATE_ORDER_MENU_LOAD_ERROR_MESSAGE;
+  }
+}
+
 export const LATE_ORDER_CYCLE_DATE_LOADING_LABEL = "Loading…";
 
 export const LATE_ORDER_PROVIDER_MENU_LOADING_ANNOUNCEMENT = "Loading provider menu.";

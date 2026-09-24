@@ -109,7 +109,8 @@ describe("snapshot warnings", () => {
     });
 
     assert.equal(warning.kind, "historical_missing");
-    assert.match(warning.message ?? "", /was not captured/);
+    assert.match(warning.message ?? "", /was not recorded/);
+    assert.doesNotMatch(warning.message ?? "", /snapshot/i);
     assert.doesNotMatch(warning.message ?? "", /Current-cycle/i);
   });
 });

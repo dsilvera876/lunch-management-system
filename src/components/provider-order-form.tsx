@@ -30,7 +30,10 @@ import {
   LATE_ORDER_PROVIDER_MENU_LOADING_ANNOUNCEMENT,
 } from "@/lib/late-orders-presentation";
 import { OfficeLocationPicker } from "@/components/office-location-picker";
-import { FormActionStatus } from "@/components/ui/form-action-status";
+import {
+  FormActionStatus,
+  type FormActionStatusVariant,
+} from "@/components/ui/form-action-status";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 import {
   calculateMealBundleSubtotal,
@@ -89,6 +92,7 @@ type Props = {
   menuLoading?: boolean;
   submitDisabled?: boolean;
   menuUnavailableMessage?: string | null;
+  menuUnavailableVariant?: FormActionStatusVariant;
   /** HR late-order: reset menu selections when provider/delivery menu reloads or after create. */
   menuSelectionEpoch?: number;
 };
@@ -159,6 +163,7 @@ export function ProviderOrderForm({
   menuLoading = false,
   submitDisabled = false,
   menuUnavailableMessage = null,
+  menuUnavailableVariant = "warning",
   menuSelectionEpoch = 0,
 }: Props) {
   const isLateOrderLayout = layoutVariant === "late-order";
@@ -617,7 +622,7 @@ export function ProviderOrderForm({
               screenReaderLabel={LATE_ORDER_PROVIDER_MENU_LOADING_ANNOUNCEMENT}
             />
           ) : menuUnavailableMessage ? (
-            <FormActionStatus variant="warning" className="mt-4">
+            <FormActionStatus variant={menuUnavailableVariant} className="mt-4">
               {menuUnavailableMessage}
             </FormActionStatus>
           ) : null}
