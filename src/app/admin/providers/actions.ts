@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { parseProviderIconKey } from "@/lib/provider-icons";
 import { isProviderInUseDeletionError } from "@/lib/unused-record-deletion";
 
 export async function createProvider(formData: FormData) {
@@ -22,9 +23,12 @@ export async function createProvider(formData: FormData) {
 
   const supabase = await createClient();
 
+  const iconKey = parseProviderIconKey(formData.get("iconKey"));
+
   const { error } = await supabase.from("lunch_providers").insert({
     name: name.trim(),
     description: description.trim() || null,
+    icon_key: iconKey,
     active: true,
   });
 
@@ -56,6 +60,8 @@ export async function updateProvider(formData: FormData) {
     redirect("/admin/providers?error=invalid");
   }
 
+  const iconKey = parseProviderIconKey(formData.get("iconKey"));
+
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -63,21 +69,23 @@ export async function updateProvider(formData: FormData) {
     .update({
       name: name.trim(),
       description: description.trim() || null,
+      icon_key: iconKey,
     })
     .eq("id", id);
 
   if (error) {
     if (error.code === "23505") {
-      redirect(`/admin/providers/${id}?error=duplicate`);
+      redirect(`/admin/providers/${id}/edit?error=duplicate`);
     }
 
-    redirect(`/admin/providers/${id}?error=update`);
+    redirect(`/admin/providers/${id}/edit?error=update`);
   }
 
   revalidatePath("/admin/providers");
   revalidatePath(`/admin/providers/${id}`);
+  revalidatePath(`/admin/providers/${id}/edit`);
 
-  redirect(`/admin/providers/${id}?updated=1`);
+  redirect(`/admin/providers/${id}/edit?updated=1`);
 }
 
 export async function toggleProviderActive(formData: FormData) {
@@ -98,13 +106,14 @@ export async function toggleProviderActive(formData: FormData) {
     .eq("id", id);
 
   if (error) {
-    redirect(`/admin/providers/${id}?error=status`);
+    redirect(`/admin/providers/${id}/edit?error=status`);
   }
 
   revalidatePath("/admin/providers");
   revalidatePath(`/admin/providers/${id}`);
+  revalidatePath(`/admin/providers/${id}/edit`);
 
-  redirect(`/admin/providers/${id}?statusUpdated=1`);
+  redirect(`/admin/providers/${id}/edit?statusUpdated=1`);
 }
 
 export async function deleteUnusedProvider(formData: FormData) {
@@ -123,17 +132,18 @@ export async function deleteUnusedProvider(formData: FormData) {
 
   if (error) {
     if (isProviderInUseDeletionError(error.message)) {
-      redirect(`/admin/providers/${id}?error=in-use`);
+      redirect(`/admin/providers/${id}/edit?error=in-use`);
     }
 
     if (error.message.includes("Not authorized")) {
-      redirect(`/admin/providers/${id}?error=unauthorized`);
+      redirect(`/admin/providers/${id}/edit?error=unauthorized`);
     }
 
-    redirect(`/admin/providers/${id}?error=delete`);
+    redirect(`/admin/providers/${id}/edit?error=delete`);
   }
 
   revalidatePath("/admin/providers");
   revalidatePath(`/admin/providers/${id}`);
+  revalidatePath(`/admin/providers/${id}/edit`);
   redirect("/admin/providers?deleted=1");
 }

@@ -57,11 +57,11 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
   };
 
   if (acceptsLateOrders && (!settings.lateOrderDeadlineDay || !settings.lateOrderDeadlineTime)) {
-    redirect(`/admin/providers/${id}?error=late-settings`);
+    redirect(`/admin/providers/${id}/edit?error=late-settings`);
   }
 
   if (settings.primaryOrderEmail && !isValidProviderOrderEmail(settings.primaryOrderEmail)) {
-    redirect(`/admin/providers/${id}?error=late-email`);
+    redirect(`/admin/providers/${id}/edit?error=late-email`);
   }
 
   const orderDate = getJamaicaTodayDate();
@@ -75,7 +75,7 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
     );
 
     if (validationError) {
-      redirect(`/admin/providers/${id}?error=late-schedule`);
+      redirect(`/admin/providers/${id}/edit?error=late-schedule`);
     }
   }
 
@@ -94,9 +94,10 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
     .eq("id", id);
 
   if (error) {
-    redirect(`/admin/providers/${id}?error=late-update`);
+    redirect(`/admin/providers/${id}/edit?error=late-update`);
   }
 
   revalidatePath(`/admin/providers/${id}`);
-  redirect(`/admin/providers/${id}?lateUpdated=1`);
+  revalidatePath(`/admin/providers/${id}/edit`);
+  redirect(`/admin/providers/${id}/edit?lateUpdated=1`);
 }

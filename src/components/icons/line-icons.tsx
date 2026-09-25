@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode, SVGProps } from "react";
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+export type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
 function LineIcon({
   size = 20,
@@ -79,6 +79,15 @@ export function IconSliders(props: IconProps) {
       <circle cx="8" cy="6" r="2" />
       <circle cx="14" cy="12" r="2" />
       <circle cx="10" cy="18" r="2" />
+    </LineIcon>
+  );
+}
+
+export function IconPencil(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </LineIcon>
   );
 }

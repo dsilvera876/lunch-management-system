@@ -17,20 +17,17 @@ describe("unused record deletion UI", () => {
     assert.match(formSource, /FormSubmitButton/);
     assert.match(formSource, /Delete permanently/);
 
-    const providerDetail = readFileSync(
-      new URL("../app/admin/providers/[id]/page.tsx", import.meta.url),
+    const providerDangerZone = readFileSync(
+      new URL("../components/admin/lunch-providers/provider-danger-zone.tsx", import.meta.url),
       "utf8",
     );
-    assert.match(providerDetail, /cannot be undone/i);
+    assert.match(providerDangerZone, /cannot be undone/i);
+    assert.match(providerDangerZone, /Permanent deletion unavailable/);
   });
 
   it("uses shared FormActionStatus banners for delete outcomes", () => {
-    const providerPage = readFileSync(
-      new URL("../app/admin/providers/page.tsx", import.meta.url),
-      "utf8",
-    );
-    const providerDetail = readFileSync(
-      new URL("../app/admin/providers/[id]/page.tsx", import.meta.url),
+    const providerEdit = readFileSync(
+      new URL("../app/admin/providers/[id]/edit/page.tsx", import.meta.url),
       "utf8",
     );
     const locationDetail = readFileSync(
@@ -38,10 +35,22 @@ describe("unused record deletion UI", () => {
       "utf8",
     );
 
-    assert.match(providerPage, /deleted permanently/);
-    assert.match(providerPage, /Alert variant="success"/);
-    assert.match(providerDetail, /PROVIDER_IN_USE_DELETION_MESSAGE/);
-    assert.match(providerDetail, /Alert variant="error"/);
+    assert.match(providerEdit, /PROVIDER_IN_USE_DELETION_MESSAGE/);
+    assert.match(providerEdit, /Alert variant="error"/);
+    assert.match(
+      readFileSync(
+        new URL("../components/admin/lunch-providers/provider-danger-zone.tsx", import.meta.url),
+        "utf8",
+      ),
+      /canDeletePermanently/,
+    );
+    assert.match(
+      readFileSync(
+        new URL("../components/admin/lunch-providers/providers-overview.tsx", import.meta.url),
+        "utf8",
+      ),
+      /PROVIDER_SUCCESS_TOAST\.deleted/,
+    );
     assert.match(locationDetail, /OFFICE_LOCATION_IN_USE_DELETION_MESSAGE/);
   });
 
@@ -57,6 +66,12 @@ describe("unused record deletion UI", () => {
 
     assert.match(providerActions, /delete_unused_lunch_provider/);
     assert.match(locationActions, /delete_unused_office_location/);
+
+    const providerMenuActions = readFileSync(
+      new URL("../app/admin/providers/[id]/actions.ts", import.meta.url),
+      "utf8",
+    );
+    assert.match(providerMenuActions, /delete_unused_provider_menu_item/);
   });
 
   it("documents dependency-safe error messages", () => {

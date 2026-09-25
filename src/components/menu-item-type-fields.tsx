@@ -1,9 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import {
   DEFAULT_UNIT_LABEL,
   DISPLAY_CATEGORIES,
   MENU_ITEM_TYPES,
   normalizeDisplayCategory,
+  type MenuItemType,
 } from "@/lib/menu-items";
+import { ITEM_TYPE_FIELD_HINTS } from "@/lib/manage-menu-form";
 import { FormField, inputClassName, selectClassName } from "@/components/ui/form-field";
 
 type Props = {
@@ -26,13 +31,19 @@ export function MenuItemTypeFields({
   const normalizedDefaultCategory =
     normalizeDisplayCategory(defaultDisplayCategory) ?? "";
 
+  const [itemType, setItemType] = useState(defaultItemType);
+  const hint =
+    ITEM_TYPE_FIELD_HINTS[itemType as MenuItemType] ??
+    ITEM_TYPE_FIELD_HINTS.standalone;
+
   return (
     <>
       <FormField label="Item type" htmlFor={itemTypeId}>
         <select
           id={itemTypeId}
           name="itemType"
-          defaultValue={defaultItemType}
+          value={itemType}
+          onChange={(event) => setItemType(event.target.value)}
           required
           className={selectClassName}
         >
@@ -42,9 +53,7 @@ export function MenuItemTypeFields({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-muted">
-          {MENU_ITEM_TYPES.find((type) => type.value === defaultItemType)?.description}
-        </p>
+        <p className="mt-0.5 text-xs text-muted">{hint}</p>
       </FormField>
 
       <FormField label="Selling unit" htmlFor={unitLabelId}>
@@ -57,8 +66,8 @@ export function MenuItemTypeFields({
           placeholder="Each, Bottle, 1/4 LB, 1 LB"
           className={inputClassName}
         />
-        <p className="mt-1 text-xs text-muted">
-          Price is per unit. Example: quantity 4 at 1/4 LB means four quarter-pound units.
+        <p className="mt-0.5 text-xs text-muted">
+          Price is per unit; e.g. 4 × ¼ LB = four units.
         </p>
       </FormField>
 
@@ -76,10 +85,6 @@ export function MenuItemTypeFields({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-muted">
-          No category is stored as unset. “Other” is a distinct category.
-          Ignored for mains and sides.
-        </p>
       </FormField>
     </>
   );

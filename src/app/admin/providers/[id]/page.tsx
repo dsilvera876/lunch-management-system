@@ -1,49 +1,17 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHrAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  deleteUnusedProvider,
-  toggleProviderActive,
-  updateProvider,
-} from "../actions";
-import { PermanentDeleteForm } from "@/components/permanent-delete-form";
-import { PROVIDER_IN_USE_DELETION_MESSAGE } from "@/lib/unused-record-deletion";
-import {
-  createProviderMenuItem,
-} from "./actions";
-import { PageHeader } from "@/components/ui/page-header";
-import { Card } from "@/components/ui/card";
+import { ManageMenuWorkspace } from "@/components/admin/lunch-providers/manage-menu-workspace";
+import type { MenuItemType } from "@/lib/menu-items";
 import { Alert } from "@/components/ui/alert";
-import { SectionHeader } from "@/components/ui/section-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  FormField,
-  inputClassName,
-  textareaClassName,
-} from "@/components/ui/form-field";
-import { linkButtonClass } from "@/components/ui/button";
-import { WeekdayPicker } from "@/components/weekday-picker";
-import { MenuItemTypeFields } from "@/components/menu-item-type-fields";
-import { MenuItemAdminCard } from "@/components/menu-item-admin-card";
-import { ProviderLateOrderSettings } from "@/components/admin/provider-late-order-settings";
-import {
-  groupMenuItemsByType,
-  groupStandaloneItemsByCategory,
-  type MenuItemType,
-} from "@/lib/menu-items";
 
 type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     error?: string;
-    updated?: string;
     menuCreated?: string;
     menuUpdated?: string;
     menuToggled?: string;
-    statusUpdated?: string;
-    lateUpdated?: string;
   }>;
 };
 
@@ -59,7 +27,7 @@ type MenuItemRow = {
   provider_menu_item_weekdays: Array<{ weekday: number }>;
 };
 
-export default async function ProviderDetailPage({
+export default async function ProviderManageMenuPage({
   params,
   searchParams,
 }: Props) {
@@ -71,9 +39,7 @@ export default async function ProviderDetailPage({
 
   const { data: provider, error } = await supabase
     .from("lunch_providers")
-    .select(
-      "id, name, description, active, accepts_late_orders, late_order_deadline_day, late_order_deadline_time, supplemental_dispatch_mode, automatic_supplement_send_day, automatic_supplement_send_time, primary_order_email",
-    )
+    .select("id, name, active, icon_key")
     .eq("id", id)
     .single();
 
@@ -105,106 +71,38 @@ export default async function ProviderDetailPage({
 
   const items = (menuItems ?? []) as MenuItemRow[];
 
-  const groupedItems = groupMenuItemsByType(
-    items.map((item) => ({
-      ...item,
-      itemType: item.item_type as MenuItemType,
-    }))
-  );
+  const providerMenuItemIds = items.map((item) => item.id);
+  let usedProviderMenuItemIds: string[] = [];
 
-  const standaloneGrouped = groupStandaloneItemsByCategory(
-    groupedItems.standalone.map((item) => ({
-      ...item,
-      displayCategory: item.display_category,
-    }))
-  );
+  if (providerMenuItemIds.length > 0) {
+    const { data: usedRows, error: usedError } = await supabase
+      .from("menu_items")
+      .select("provider_menu_item_id")
+      .in("provider_menu_item_id", providerMenuItemIds);
 
-  const sortItems = (a: MenuItemRow, b: MenuItemRow) => {
-    if (a.active !== b.active) return a.active ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  };
+    if (usedError) {
+      throw new Error("Unable to load provider menu item history.");
+    }
 
-  const renderItem = (item: MenuItemRow) => {
-    const weekdays = item.provider_menu_item_weekdays.map(
-      (row) => row.weekday,
-    );
+    usedProviderMenuItemIds = [
+      ...new Set(
+        (usedRows ?? [])
+          .map((row) => row.provider_menu_item_id)
+          .filter((value): value is string => typeof value === "string"),
+      ),
+    ];
+  }
 
-    return (
-      <MenuItemAdminCard
-        key={item.id}
-        providerId={provider.id}
-        item={{
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          price: item.price,
-          itemType: item.item_type,
-          unitLabel: item.unit_label,
-          displayCategory: item.display_category,
-          active: item.active,
-          weekdays,
-        }}
-      />
-    );
-  };
+  const flashSuccess = query.menuCreated
+    ? ("menuCreated" as const)
+    : query.menuUpdated
+      ? ("menuUpdated" as const)
+      : query.menuToggled
+        ? ("menuToggled" as const)
+        : undefined;
 
   return (
     <>
-      <PageHeader
-        title={provider.name}
-        description="Manage provider settings and recurring menu items."
-        actions={
-          <Link href="/admin/providers" className={linkButtonClass("ghost")}>
-            All providers
-          </Link>
-        }
-      />
-
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <StatusBadge status={provider.active ? "active" : "inactive"} />
-        <span className="text-sm text-muted">
-          {provider.active
-            ? "Visible to staff when menu items are available."
-            : "Hidden from staff ordering."}
-        </span>
-      </div>
-
-      {query.updated && (
-        <Alert variant="success" className="mb-6">
-          Provider settings saved.
-        </Alert>
-      )}
-
-      {query.menuCreated && (
-        <Alert variant="success" className="mb-6">
-          Menu item added.
-        </Alert>
-      )}
-
-      {query.menuUpdated && (
-        <Alert variant="success" className="mb-6">
-          Menu item updated.
-        </Alert>
-      )}
-
-      {query.menuToggled && (
-        <Alert variant="success" className="mb-6">
-          Menu item status updated.
-        </Alert>
-      )}
-
-      {query.statusUpdated && (
-        <Alert variant="success" className="mb-6">
-          Provider status updated.
-        </Alert>
-      )}
-
-      {query.lateUpdated && (
-        <Alert variant="success" className="mb-6">
-          Late-order settings saved.
-        </Alert>
-      )}
-
       {query.error === "duplicate" && (
         <Alert variant="error" className="mb-6">
           A menu item with that name already exists for this provider.
@@ -213,213 +111,40 @@ export default async function ProviderDetailPage({
 
       {query.error === "no-weekdays" && (
         <Alert variant="error" className="mb-6">
-          Select at least one weekday. Menu items must be available on one or
-          more order days (Mon–Fri).
-        </Alert>
-      )}
-
-      {query.error === "in-use" && (
-        <Alert variant="error" className="mb-6">
-          {PROVIDER_IN_USE_DELETION_MESSAGE}
-        </Alert>
-      )}
-
-      {query.error === "unauthorized" && (
-        <Alert variant="error" className="mb-6">
-          You are not authorized to delete lunch providers.
-        </Alert>
-      )}
-
-      {query.error === "delete" && (
-        <Alert variant="error" className="mb-6">
-          Unable to delete this provider.
+          Select at least one weekday. Menu items must be available on one or more order
+          days (Mon–Fri).
         </Alert>
       )}
 
       {query.error &&
         query.error !== "duplicate" &&
-        query.error !== "no-weekdays" &&
-        query.error !== "in-use" &&
-        query.error !== "unauthorized" &&
-        query.error !== "delete" && (
+        query.error !== "no-weekdays" && (
           <Alert variant="error" className="mb-6">
             Unable to complete that action.
           </Alert>
         )}
 
-      <div className="grid gap-10 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        <section>
-          <SectionHeader
-            title="Provider settings"
-            description="Name, description, and availability."
-          />
-
-          <Card>
-            <form action={updateProvider} className="grid gap-4">
-              <input type="hidden" name="id" value={provider.id} />
-
-              <FormField label="Name" htmlFor="name">
-                <input
-                  id="name"
-                  name="name"
-                  defaultValue={provider.name}
-                  required
-                  className={inputClassName}
-                />
-              </FormField>
-
-              <FormField label="Description" htmlFor="description">
-                <textarea
-                  id="description"
-                  name="description"
-                  rows={3}
-                  defaultValue={provider.description ?? ""}
-                  className={textareaClassName}
-                />
-              </FormField>
-
-              <button type="submit" className={linkButtonClass("primary")}>
-                Save settings
-              </button>
-            </form>
-
-            <form
-              action={toggleProviderActive}
-              className="mt-6 border-t border-border pt-6"
-            >
-              <input type="hidden" name="id" value={provider.id} />
-              <input
-                type="hidden"
-                name="active"
-                value={String(provider.active)}
-              />
-              <p className="mb-3 text-sm text-muted">
-                {provider.active
-                  ? "Deactivating hides this provider from staff ordering."
-                  : "Activating makes this provider visible when menu items are available."}
-              </p>
-              <button
-                type="submit"
-                className={linkButtonClass(provider.active ? "danger" : "secondary")}
-              >
-                {provider.active ? "Deactivate provider" : "Activate provider"}
-              </button>
-            </form>
-
-            <PermanentDeleteForm
-              action={deleteUnusedProvider}
-              entityId={provider.id}
-              entityLabel="provider"
-              confirmMessage="Delete this provider permanently? This action cannot be undone."
-            />
-          </Card>
-
-          <Card className="mt-6">
-            <SectionHeader
-              title="Late orders"
-              description="Provider-specific late-order deadlines and supplemental email settings."
-            />
-            <ProviderLateOrderSettings
-              providerId={provider.id}
-              settings={{
-                acceptsLateOrders: provider.accepts_late_orders,
-                lateOrderDeadlineDay: provider.late_order_deadline_day,
-                lateOrderDeadlineTime: provider.late_order_deadline_time,
-                supplementalDispatchMode: provider.supplemental_dispatch_mode,
-                automaticSupplementSendDay: provider.automatic_supplement_send_day,
-                automaticSupplementSendTime: provider.automatic_supplement_send_time,
-                primaryOrderEmail: provider.primary_order_email,
-              }}
-            />
-          </Card>
-        </section>
-
-        <section>
-          <SectionHeader
-            title="Recurring menu"
-            description="Menu items staff can order on selected weekdays."
-          />
-
-          <details className="group mb-6 rounded-xl border border-border bg-surface shadow-sm open:bg-surface">
-            <summary className="flex cursor-pointer items-center justify-between px-5 py-4 font-medium text-foreground hover:bg-black/5 list-none">
-              <span>Add menu item</span>
-              <span className="text-muted group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            <div className="border-t border-border p-5">
-              <form action={createProviderMenuItem} className="grid gap-4">
-                <input type="hidden" name="providerId" value={provider.id} />
-
-                <FormField label="Name" htmlFor="itemName">
-                  <input id="itemName" name="name" required className={inputClassName} />
-                </FormField>
-
-                <FormField label="Description" htmlFor="itemDescription">
-                  <textarea
-                    id="itemDescription"
-                    name="description"
-                    rows={2}
-                    className={textareaClassName}
-                  />
-                </FormField>
-
-                <FormField label="Price" htmlFor="itemPrice">
-                  <input
-                    id="itemPrice"
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    className={inputClassName}
-                  />
-                </FormField>
-
-                <MenuItemTypeFields />
-
-                <WeekdayPicker />
-
-                <button type="submit" className={linkButtonClass("primary")}>
-                  Save menu item
-                </button>
-              </form>
-            </div>
-          </details>
-
-          {items.length === 0 ? (
-            <EmptyState
-              title="No menu items yet"
-              description="Add a recurring menu item above to make this provider available for ordering."
-            />
-          ) : (
-            <div className="space-y-8">
-              {groupedItems.main.length > 0 && (
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Mains</h3>
-                  <div className="space-y-4">
-                    {groupedItems.main.sort(sortItems).map(renderItem)}
-                  </div>
-                </div>
-              )}
-              {groupedItems.side.length > 0 && (
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Sides</h3>
-                  <div className="space-y-4">
-                    {groupedItems.side.sort(sortItems).map(renderItem)}
-                  </div>
-                </div>
-              )}
-              {Object.entries(standaloneGrouped).sort(([a], [b]) => a.localeCompare(b)).map(([category, catItems]) => (
-                <div key={category}>
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{category}</h3>
-                  <div className="space-y-4">
-                    {catItems.sort(sortItems).map(renderItem)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+      <ManageMenuWorkspace
+        flashSuccess={flashSuccess}
+        usedProviderMenuItemIds={usedProviderMenuItemIds}
+        provider={{
+          id: provider.id,
+          name: provider.name,
+          active: provider.active,
+          iconKey: provider.icon_key,
+        }}
+        menuItems={items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          itemType: item.item_type as MenuItemType,
+          unitLabel: item.unit_label,
+          displayCategory: item.display_category,
+          active: item.active,
+          weekdays: item.provider_menu_item_weekdays.map((row) => row.weekday),
+        }))}
+      />
     </>
   );
 }
