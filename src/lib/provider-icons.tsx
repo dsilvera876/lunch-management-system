@@ -69,21 +69,21 @@ export function getProviderIconLabel(key: ProviderIconKey): string {
   return LABEL_BY_KEY.get(key) ?? "Utensils";
 }
 
-/** Semantic artwork sizes for provider PNGs (width/height passed to Next Image). */
+/** Semantic artwork bounding box (square wrapper side length in px). */
 export type ProviderIconSize = "small" | "medium" | "large" | "picker";
 
 export const PROVIDER_ICON_ARTWORK_PX: Record<ProviderIconSize, number> = {
   small: 26,
-  medium: 34,
-  large: 40,
+  medium: 28,
+  large: 34,
   picker: 36,
 };
 
 /** Teal well dimensions paired with artwork sizes for prominent provider identity. */
 export const PROVIDER_ICON_WELL_CLASS: Record<Exclude<ProviderIconSize, "picker">, string> = {
   small: "size-9 rounded-lg",
-  medium: "size-11 rounded-xl",
-  large: "size-12 rounded-xl",
+  medium: "size-10 rounded-xl",
+  large: "size-11 rounded-xl",
 };
 
 export function getProviderIconArtworkPx(size: ProviderIconSize): number {
@@ -104,16 +104,21 @@ export function ProviderIcon({
 }) {
   const key = parseProviderIconKey(iconKey);
   const label = getProviderIconLabel(key);
-  const px = typeof size === "number" ? size : getProviderIconArtworkPx(size);
+  const artworkPx = typeof size === "number" ? size : getProviderIconArtworkPx(size);
 
   return (
-    <Image
-      src={getProviderIconAssetPath(key)}
-      alt={alt ?? label}
-      width={px}
-      height={px}
-      className={`pointer-events-none shrink-0 object-contain ${className}`.trim()}
-    />
+    <span
+      className={`relative inline-block shrink-0 ${className}`.trim()}
+      style={{ width: artworkPx, height: artworkPx }}
+    >
+      <Image
+        src={getProviderIconAssetPath(key)}
+        alt={alt ?? label}
+        fill
+        sizes={`${artworkPx}px`}
+        className="pointer-events-none object-contain"
+      />
+    </span>
   );
 }
 
@@ -131,13 +136,11 @@ export function ProviderIconWell({
   const key = parseProviderIconKey(iconKey);
   const label = alt ?? getProviderIconLabel(key);
   const wellClass = PROVIDER_ICON_WELL_CLASS[size];
-  const artworkPx = getProviderIconArtworkPx(size);
-
   return (
     <span
       className={`flex shrink-0 items-center justify-center bg-primary/10 text-primary ${wellClass} ${className ?? ""}`.trim()}
     >
-      <ProviderIcon iconKey={key} size={artworkPx} alt={label} />
+      <ProviderIcon iconKey={key} size={size} alt={label} />
     </span>
   );
 }

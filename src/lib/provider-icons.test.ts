@@ -7,6 +7,7 @@ import {
   PROVIDER_ICON_DEFINITIONS,
   PROVIDER_ICON_KEYS,
   PROVIDER_ICON_ARTWORK_PX,
+  PROVIDER_ICON_WELL_CLASS,
   getProviderIconArtworkPx,
   getProviderIconAssetPath,
   getProviderIconLabel,
@@ -61,12 +62,25 @@ describe("provider icon registry", () => {
 
   it("exposes centralized artwork size variants", () => {
     assert.equal(PROVIDER_ICON_ARTWORK_PX.small, 26);
-    assert.equal(PROVIDER_ICON_ARTWORK_PX.medium, 34);
-    assert.equal(PROVIDER_ICON_ARTWORK_PX.large, 40);
+    assert.equal(PROVIDER_ICON_ARTWORK_PX.medium, 28);
+    assert.equal(PROVIDER_ICON_ARTWORK_PX.large, 34);
     assert.equal(PROVIDER_ICON_ARTWORK_PX.picker, 36);
-    assert.equal(getProviderIconArtworkPx("medium"), 34);
-    assert.ok(getProviderIconArtworkPx("picker") >= 34);
-    assert.ok(getProviderIconArtworkPx("picker") <= 38);
+    assert.equal(getProviderIconArtworkPx("medium"), 28);
+    assert.equal(getProviderIconArtworkPx("large"), 34);
+    assert.equal(getProviderIconArtworkPx("picker"), 36);
+    assert.match(PROVIDER_ICON_WELL_CLASS.medium, /size-10/);
+    assert.match(PROVIDER_ICON_WELL_CLASS.large, /size-11/);
+  });
+
+  it("renders artwork in a square wrapper with fill and object-contain", () => {
+    const source = readFileSync(new URL("./provider-icons.tsx", import.meta.url), "utf8");
+
+    assert.match(source, /relative inline-block shrink-0/);
+    assert.match(source, /fill/);
+    assert.match(source, /object-contain/);
+    assert.match(source, /width: artworkPx, height: artworkPx/);
+    assert.doesNotMatch(source, /width=\{artworkPx\}/);
+    assert.doesNotMatch(source, /height=\{artworkPx\}/);
   });
 });
 
