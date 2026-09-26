@@ -30,8 +30,8 @@ describe("unused record deletion UI", () => {
       new URL("../app/admin/providers/[id]/edit/page.tsx", import.meta.url),
       "utf8",
     );
-    const locationDetail = readFileSync(
-      new URL("../app/admin/locations/[id]/page.tsx", import.meta.url),
+    const locationEditor = readFileSync(
+      new URL("../components/admin/office-locations-editor-panel.tsx", import.meta.url),
       "utf8",
     );
 
@@ -51,7 +51,8 @@ describe("unused record deletion UI", () => {
       ),
       /PROVIDER_SUCCESS_TOAST\.deleted/,
     );
-    assert.match(locationDetail, /OFFICE_LOCATION_IN_USE_DELETION_MESSAGE/);
+    assert.match(locationEditor, /officeLocationDeleteErrorMessage/);
+    assert.match(locationEditor, /isOfficeLocationDeleteBlockedMessage/);
   });
 
   it("calls hardened delete RPCs from server actions", () => {

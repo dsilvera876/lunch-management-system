@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
   admin: "Administration",
   providers: "Lunch Providers",
   locations: "Office Locations",
-  users: "Users & Teams",
+  users: "User Management",
   "lunch-periods": "Lunch Periods",
   "late-orders": "Late Orders",
   deliveries: "Deliveries",
@@ -20,6 +20,14 @@ const LABELS: Record<string, string> = {
   "todays-orders": "Today's Orders",
   settings: "Settings",
 };
+
+function adminSectionLabel(section: string): string {
+  if (section === "financials") {
+    return "Financial Reports";
+  }
+
+  return LABELS[section] ?? section.replace(/-/g, " ");
+}
 
 export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const crumbs: BreadcrumbItem[] = [{ label: "Home", href: "/home" }];
@@ -32,18 +40,47 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const segments = pathname.split("/").filter(Boolean);
 
   if (segments[0] === "admin") {
-    crumbs.push({ label: "Administration", href: "/admin" });
     const section = segments[1];
 
     if (!section) {
-      crumbs[crumbs.length - 1] = { label: "Dashboard" };
+      crumbs.push({ label: "Administration" });
       return crumbs;
     }
 
-    const sectionLabel =
-      section === "financials"
-        ? "Financial Reports"
-        : (LABELS[section] ?? section.replace(/-/g, " "));
+    if (section === "settings") {
+      crumbs.push({ label: "Settings" });
+      return crumbs;
+    }
+
+    if (section === "locations") {
+      crumbs.push({ label: "Settings", href: "/admin/settings" });
+      crumbs.push({ label: "Office Locations" });
+      return crumbs;
+    }
+
+    if (section === "providers") {
+      crumbs.push({ label: "Lunch Providers", href: "/admin/providers" });
+
+      if (segments.length === 2) {
+        crumbs[crumbs.length - 1] = { label: "Lunch Providers" };
+        return crumbs;
+      }
+
+      if (segments[2] === "edit") {
+        crumbs.push({ label: "Edit provider" });
+        return crumbs;
+      }
+
+      if (segments.length > 2 && segments[2] !== "print") {
+        crumbs.push({ label: "Manage menu" });
+      }
+
+      return crumbs;
+    }
+
+    const sectionLabel = adminSectionLabel(section);
+
+    crumbs.push({ label: "Administration" });
     crumbs.push({
       label: sectionLabel,
       href: segments.length === 2 ? undefined : `/admin/${section}`,
