@@ -14,7 +14,6 @@ const LABELS: Record<string, string> = {
   locations: "Office Locations",
   users: "Users & Teams",
   "lunch-periods": "Lunch Periods",
-  "lunch-days": "Lunch Days",
   "late-orders": "Late Orders",
   deliveries: "Deliveries",
   orders: "Order History",

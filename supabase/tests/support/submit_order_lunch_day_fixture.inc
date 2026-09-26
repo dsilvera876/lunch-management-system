@@ -1,26 +1,42 @@
--- Legacy manual lunch day fixture for pgTAP tests only (not deployed).
--- Included via \ir from tests that exercise legacy submit_order workflows.
+-- Provider-linked lunch day snapshot for pgTAP submit_order / order tests.
+-- Replaces legacy manual lunch days (provider_id IS NULL).
 
 reset role;
+
+insert into public.lunch_providers (id, name, active)
+values (
+  '90000000-0000-0000-0000-000000000099',
+  'Submit Order Test Provider',
+  true
+)
+on conflict (id) do update
+set active = excluded.active;
 
 insert into public.lunch_days (
   id,
   lunch_date,
+  order_date,
+  provider_id,
   order_deadline,
   status,
   notes
 )
 values (
   '10000000-0000-0000-0000-000000000001',
-  current_date + 1,
-  now() + interval '1 day',
+  public.delivery_date_for_order_date('2099-01-01'::date),
+  '2099-01-01'::date,
+  '90000000-0000-0000-0000-000000000099',
+  public.order_deadline_for_order_date('2099-01-01'::date),
   'open',
-  'Legacy dev/test lunch day fixture'
+  'Provider snapshot lunch day test fixture'
 )
 on conflict (id) do update
 set
   status = excluded.status,
-  order_deadline = excluded.order_deadline;
+  order_deadline = excluded.order_deadline,
+  provider_id = excluded.provider_id,
+  order_date = excluded.order_date,
+  lunch_date = excluded.lunch_date;
 
 insert into public.menu_items (
   id,
@@ -66,6 +82,7 @@ values
 on conflict (id) do update
 set
   is_active = true,
-  price = excluded.price;
+  price = excluded.price,
+  lunch_day_id = excluded.lunch_day_id;
 
 \ir office_location_fixture.inc

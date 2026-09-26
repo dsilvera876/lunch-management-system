@@ -1,6 +1,6 @@
 begin;
 
-select plan(4);
+select plan(3);
 
 -- Create users
 insert into auth.users (id, email, raw_user_meta_data)
@@ -37,7 +37,7 @@ select set_config(
   true
 );
 
-select lives_ok(
+select throws_ok(
   $$
     insert into public.lunch_days (
       lunch_date,
@@ -50,28 +50,9 @@ select lives_ok(
       'open'
     )
   $$,
-  'Admin can create lunch days'
-);
-
-select lives_ok(
-  $$
-    insert into public.menu_items (
-      lunch_day_id,
-      name,
-      price,
-      item_type,
-      unit_label
-    )
-    select
-      id,
-      'Admin Test Meal',
-      15.00,
-      'standalone',
-      'Each'
-    from public.lunch_days
-    where lunch_date = current_date + 10
-  $$,
-  'Admin can create menu items'
+  '23502',
+  null,
+  'Manual lunch days without a provider are blocked'
 );
 
 -- ============================================================
@@ -113,12 +94,14 @@ reset role;
 
 reset role;
 
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 update public.lunch_days
 set
   status = 'open',
-  order_deadline = now() - interval '1 minute'
+  order_date = '2020-01-06'::date,
+  lunch_date = public.delivery_date_for_order_date('2020-01-06'::date),
+  order_deadline = public.order_deadline_for_order_date('2020-01-06'::date)
 where id = '10000000-0000-0000-0000-000000000001';
 
 set local role authenticated;

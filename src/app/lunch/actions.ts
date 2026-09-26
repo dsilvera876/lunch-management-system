@@ -290,46 +290,6 @@ export async function submitLunchCheckout(
   };
 }
 
-export async function submitLunchOrder(formData: FormData) {
-  await requireProfile();
-
-  const lunchDayId = formData.get("lunchDayId");
-
-  if (typeof lunchDayId !== "string") {
-    redirect("/lunch?error=invalid");
-  }
-
-  const order = buildSnapshotOrderPayload(formData);
-  const officeLocationId = formData.get("officeLocationId");
-
-  if (!hasSelectedOrderItems(order)) {
-    redirect(`/lunch/${lunchDayId}?error=empty`);
-  }
-
-  if (typeof officeLocationId !== "string" || officeLocationId.length === 0) {
-    redirect(`/lunch/${lunchDayId}?error=location`);
-  }
-
-  const supabase = await createClient();
-
-  const { data: orderId, error } = await supabase.rpc("submit_order", {
-    p_lunch_day_id: lunchDayId,
-    p_items: order,
-    p_office_location_id: officeLocationId,
-  });
-
-  if (error) {
-    const errorCode = getOrderErrorCode(error.message);
-    redirect(`/lunch/${lunchDayId}?error=${errorCode}`);
-  }
-
-  revalidatePath("/lunch");
-  revalidatePath(`/lunch/${lunchDayId}`);
-  revalidatePath(`/lunch/orders/${orderId}`);
-
-  redirect(`/lunch/orders/${orderId}?ordered=1`);
-}
-
 export async function updateLunchOrder(formData: FormData) {
   await requireProfile();
 

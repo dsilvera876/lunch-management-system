@@ -364,7 +364,7 @@ select results_eq(
 
 reset role;
 
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 update public.lunch_days
 set

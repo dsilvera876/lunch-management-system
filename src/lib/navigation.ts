@@ -1,6 +1,5 @@
 import {
   canAccessAdminDashboard,
-  canManageLegacyLunchDays,
   canManageLunchPeriods,
   canManageProviders,
   canManageOfficeLocations,
@@ -96,7 +95,7 @@ const ADMIN_ITEMS: NavItem[] = [
 ];
 
 /** Routes reached from HR Tools → Settings (for sidebar active state). */
-const HR_SETTINGS_ROUTE_PREFIXES = ["/admin/settings", "/admin/locations", "/admin/lunch-days"];
+const HR_SETTINGS_ROUTE_PREFIXES = ["/admin/settings", "/admin/locations"];
 
 export const ACCOUNT_NAV: NavItem = {
   href: "/account",
@@ -167,8 +166,12 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return canViewAllOrders(role);
   }
 
-  if (pathname === "/admin" || pathname.startsWith("/admin/lunch-days")) {
-    return canAccessAdminDashboard(role) || canManageLegacyLunchDays(role);
+  if (pathname.startsWith("/admin/lunch-days")) {
+    return false;
+  }
+
+  if (pathname === "/admin") {
+    return canAccessAdminDashboard(role);
   }
 
   if (pathname.startsWith("/admin/providers")) {

@@ -5,7 +5,7 @@ select plan(6);
 -- Ensure seeded lunch day is open with a future deadline for this test run.
 reset role;
 
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 -- ------------------------------------------------------------
 -- Create two test users.

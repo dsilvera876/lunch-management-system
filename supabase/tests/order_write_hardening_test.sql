@@ -47,7 +47,7 @@ from public.provider_menu_items
 where provider_id = 'c1111111-1111-4111-8111-111111111111';
 
 \ir support/open_ordering.inc
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 select ok(
   not has_function_privilege(

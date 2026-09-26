@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { formatDeadline } from "@/lib/format";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { loadProviderMenusForOrderDate } from "@/lib/staff-provider-menu";
 import { getDailyLunchSubsidy } from "@/lib/financial-summaries";
@@ -8,13 +6,10 @@ import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
 import { getOrderingClosedReason } from "@/lib/ordering-ui";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionHeader } from "@/components/ui/section-header";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { OrderingStatusBar } from "@/components/lunch/ordering-status-bar";
 import { LunchOrderingShell } from "@/components/lunch/lunch-ordering-shell";
-import { Card } from "@/components/ui/card";
-import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{
@@ -29,39 +24,21 @@ export default async function LunchPage({ searchParams }: Props) {
   const ctx = await getStaffOrderingContext(profile.id);
   const supabase = await createClient();
 
-  const [{ data: legacyLunchDays }, { data: profileRow }, dailySubsidy] =
-    await Promise.all([
-      supabase
-        .from("lunch_days")
-        .select(`
-          id,
-          lunch_date,
-          order_deadline,
-          notes,
-          menu_items (
-            id,
-            is_active
-          )
-        `)
-        .eq("status", "open")
-        .is("provider_id", null)
-        .gt("order_deadline", new Date().toISOString())
-        .order("lunch_date", { ascending: true }),
-
-      supabase
-        .from("profiles")
-        .select(`
+  const [{ data: profileRow }, dailySubsidy] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(`
           default_office_location_id,
           office_locations:default_office_location_id (
             name,
             is_active
           )
         `)
-        .eq("id", profile.id)
-        .single(),
+      .eq("id", profile.id)
+      .single(),
 
-      getDailyLunchSubsidy(supabase),
-    ]);
+    getDailyLunchSubsidy(supabase),
+  ]);
 
   const defaultLocation = profileRow?.office_locations
     ? Array.isArray(profileRow.office_locations)
@@ -152,40 +129,6 @@ export default async function LunchPage({ searchParams }: Props) {
       {!ctx.orderingOpen && closedReason ? (
         <EmptyState title={closedReason.title} description={closedReason.description} />
       ) : null}
-
-      {legacyLunchDays && legacyLunchDays.length > 0 && (
-        <section className="mt-10 border-t border-border pt-8">
-          <SectionHeader
-            title="Legacy open lunches"
-            description="Manually configured lunch days (being phased out)."
-          />
-          <div className="space-y-3">
-            {legacyLunchDays.map((day) => {
-              const activeItems = day.menu_items.filter((item) => item.is_active);
-
-              return (
-                <Card key={day.id} padding="sm">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-medium">{day.lunch_date}</p>
-                      <p className="text-sm text-muted">
-                        {activeItems.length} items · Order by{" "}
-                        {formatDeadline(day.order_deadline)}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/lunch/${day.id}`}
-                      className={linkButtonClass("secondary")}
-                    >
-                      Place an order
-                    </Link>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </>
   );
 }

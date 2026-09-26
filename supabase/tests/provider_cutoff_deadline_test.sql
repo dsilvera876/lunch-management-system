@@ -252,30 +252,32 @@ select throws_ok(
   'Moving the cutoff earlier is enforced even when stored deadline is later'
 );
 
--- Legacy lunch days keep their explicit stored deadline.
+-- Provider-linked snapshot days follow HR cutoff via order_date, not stored order_deadline.
 
 reset role;
 
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 update public.lunch_days
 set
   status = 'open',
-  order_deadline = now() + interval '1 day'
+  order_deadline = timestamptz '2099-12-31 23:59:59+00'
 where id = '10000000-0000-0000-0000-000000000001';
 
 update public.app_settings
 set order_cutoff_time = '16:00:00'
 where id = 1;
 
-select ok(
-  public.effective_order_deadline('10000000-0000-0000-0000-000000000001')
-    = (
-      select order_deadline
-      from public.lunch_days
-      where id = '10000000-0000-0000-0000-000000000001'
-    ),
-  'Legacy lunch days keep their explicit stored order_deadline'
+select results_eq(
+  $$
+    select to_char(
+      public.effective_order_deadline('10000000-0000-0000-0000-000000000001')
+        at time zone 'America/Jamaica',
+      'HH24:MI:SS'
+    )
+  $$,
+  array['16:00:00'::text],
+  'Provider-linked lunch day effective deadline follows HR cutoff via order_date'
 );
 
 select * from finish();

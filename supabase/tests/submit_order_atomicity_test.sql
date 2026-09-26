@@ -5,7 +5,7 @@ select plan(3);
 -- Ensure seeded lunch day is open with a future deadline for this test run.
 reset role;
 
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 -- Create test user. Profile is created automatically by trigger.
 insert into auth.users (id, email, raw_user_meta_data)

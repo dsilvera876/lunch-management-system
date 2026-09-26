@@ -13,9 +13,8 @@ select is_empty(
     select 1
     from public.lunch_days
     where provider_id is null
-      and order_date is null
   $$,
-  'Cleanup migration removes legacy manual lunch days'
+  'Decommission migration removes legacy manual lunch days'
 );
 
 select is_empty(
@@ -93,12 +92,12 @@ select isnt_empty(
 );
 
 -- ============================================================
--- Financial summaries exclude legacy NULL-order-date rows
+-- Financial summaries include provider-linked lunch days with order dates
 -- ============================================================
 
 reset role;
 
-\ir support/legacy_lunch_day_fixture.inc
+\ir support/submit_order_lunch_day_fixture.inc
 
 insert into public.orders (id, profile_id, lunch_day_id, status)
 values (
@@ -121,21 +120,20 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'd0333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select results_eq(
-  $$ select public.financial_total_for_profile('d0333333-3333-4333-8333-333333333333', '2099-01-01'::date, '2099-12-31'::date) $$,
-  array[10.00::numeric],
-  'Financial summaries include only provider-based orders with order dates'
+  $$ select public.financial_total_for_profile('d0333333-3333-4333-8333-333333333333', '2099-01-01'::date, '2099-01-01'::date) $$,
+  array[12.00::numeric],
+  'Financial summaries include provider-linked orders with order dates'
 );
 
-select results_eq(
+select is_empty(
   $$
-    select count(*)::bigint
+    select 1
     from public.orders o
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where o.profile_id = 'd0333333-3333-4333-8333-333333333333'
       and ld.provider_id is null
   $$,
-  array[1::bigint],
-  'Legacy manual order may exist for non-financial workflows but is excluded from totals'
+  'No legacy manual lunch day orders remain after decommission'
 );
 
 select * from finish();

@@ -57,7 +57,7 @@ describe("FormActionStatus", () => {
       "utf8",
     );
     const cutoff = readFileSync(
-      new URL("../components/cutoff-control.tsx", import.meta.url),
+      new URL("../components/admin/order-cutoff-settings-card.tsx", import.meta.url),
       "utf8",
     );
     const lunchPage = readFileSync(

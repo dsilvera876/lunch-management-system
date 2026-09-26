@@ -1,41 +1,25 @@
-import Link from "next/link";
+import type { ReactNode } from "react";
 import { requireHrAdminOrOwner } from "@/lib/auth";
-import { canManageCutoff, canManageLegacyLunchDays } from "@/lib/roles";
+import { canManageCutoff } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
-import { CutoffControl } from "@/components/cutoff-control";
+import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
+import { OrderCutoffSettingsCard } from "@/components/admin/order-cutoff-settings-card";
+import { SettingsOperationsCard } from "@/components/admin/settings-operations-card";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card } from "@/components/ui/card";
-import { NavIcon } from "@/components/icons/line-icons";
-import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{
     error?: string;
     "cutoff-updated"?: string;
+    cutoffDraft?: string;
   }>;
 };
 
-type SettingsLink = {
-  href: string;
-  title: string;
-  description: string;
-  icon: "map-pin" | "storefront" | "calendar";
-};
-
-const SETTINGS_LINKS: SettingsLink[] = [
-  {
-    href: "/admin/locations",
-    title: "Office Locations",
-    description: "Manage delivery locations and office addresses used when ordering.",
-    icon: "map-pin",
-  },
-  {
-    href: "/admin/providers",
-    title: "Provider order emails",
-    description: "Configure each provider’s primary order email on the provider detail page.",
-    icon: "storefront",
-  },
-];
+function SettingsSectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{children}</h2>
+  );
+}
 
 export default async function HrSettingsPage({ searchParams }: Props) {
   const profile = await requireHrAdminOrOwner();
@@ -48,69 +32,56 @@ export default async function HrSettingsPage({ searchParams }: Props) {
     .eq("id", 1)
     .single();
 
-  const showLegacyLunchDays = canManageLegacyLunchDays(profile.role);
+  const showCutoffError =
+    params.error === "cutoff-update" || params.error === "invalid-cutoff";
+  const errorKind =
+    params.error === "invalid-cutoff"
+      ? ("invalid-cutoff" as const)
+      : params.error === "cutoff-update"
+        ? ("cutoff-update" as const)
+        : undefined;
 
   return (
-    <>
+    <HrSettingsWorkspace flashCutoffUpdated={Boolean(params["cutoff-updated"])}>
       <PageHeader
         title="Settings"
-        description="Lunch program configuration for office locations, ordering cutoff, and provider communications."
+        description="Configure ordering and operational settings."
       />
 
-      {canManageCutoff(profile.role) ? (
-        <Card padding="md" className="mb-6 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Ordering cutoff time</h2>
-          <p className="mt-1 text-sm text-muted">
-            Daily deadline for staff lunch orders. Changes apply to the ordering workflow immediately.
-          </p>
-          <div className="mt-4">
-            <CutoffControl
+      <div className="space-y-8">
+        {canManageCutoff(profile.role) ? (
+          <section>
+            <SettingsSectionLabel>Ordering</SettingsSectionLabel>
+            <OrderCutoffSettingsCard
               cutoffTime={settings?.order_cutoff_time ?? "16:00:00"}
               returnTo="/admin/settings"
-              showUpdated={Boolean(params["cutoff-updated"])}
-              showError={params.error === "cutoff-update" || params.error === "invalid-cutoff"}
+              cutoffDraft={params.cutoffDraft}
+              showError={showCutoffError}
+              errorKind={errorKind}
+            />
+          </section>
+        ) : null}
+
+        <section>
+          <SettingsSectionLabel>Operations</SettingsSectionLabel>
+          <div className="grid gap-4 md:grid-cols-2">
+            <SettingsOperationsCard
+              href="/admin/locations"
+              title="Office Locations"
+              description="Manage delivery locations and office addresses used when ordering."
+              actionLabel="Manage locations"
+              icon="map-pin"
+            />
+            <SettingsOperationsCard
+              href="/admin/providers"
+              title="Provider communications"
+              description="Provider order-email settings are managed on each provider."
+              actionLabel="Manage providers"
+              icon="storefront"
             />
           </div>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {SETTINGS_LINKS.map((item) => (
-          <Card key={item.href} padding="md" className="shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <NavIcon id={item.icon} size={20} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold text-slate-900">{item.title}</h2>
-                <p className="mt-1 text-sm text-muted">{item.description}</p>
-                <Link href={item.href} className={`${linkButtonClass("secondary")} mt-4`}>
-                  Open
-                </Link>
-              </div>
-            </div>
-          </Card>
-        ))}
-
-        {showLegacyLunchDays ? (
-          <Card padding="md" className="shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <NavIcon id="calendar" size={20} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold text-slate-900">Legacy lunch days</h2>
-                <p className="mt-1 text-sm text-muted">
-                  Manual lunch days for legacy ordering flows without a recurring provider menu.
-                </p>
-                <Link href="/admin/lunch-days" className={`${linkButtonClass("secondary")} mt-4`}>
-                  Open
-                </Link>
-              </div>
-            </div>
-          </Card>
-        ) : null}
+        </section>
       </div>
-    </>
+    </HrSettingsWorkspace>
   );
 }

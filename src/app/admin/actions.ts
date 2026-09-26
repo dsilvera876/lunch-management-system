@@ -18,7 +18,14 @@ export async function updateOrderCutoff(formData: FormData) {
       : "/admin";
 
   if (typeof cutoffTime !== "string" || !/^\d{2}:\d{2}$/.test(cutoffTime)) {
-    redirect(appendSearchParams(redirectPath, { error: "invalid-cutoff" }));
+    redirect(
+      appendSearchParams(redirectPath, {
+        error: "invalid-cutoff",
+        ...(typeof cutoffTime === "string" && /^\d{1,2}:\d{2}$/.test(cutoffTime)
+          ? { cutoffDraft: cutoffTime }
+          : {}),
+      }),
+    );
   }
 
   const supabase = await createClient();
@@ -29,7 +36,12 @@ export async function updateOrderCutoff(formData: FormData) {
     .eq("id", 1);
 
   if (error) {
-    redirect(appendSearchParams(redirectPath, { error: "cutoff-update" }));
+    redirect(
+      appendSearchParams(redirectPath, {
+        error: "cutoff-update",
+        cutoffDraft: cutoffTime,
+      }),
+    );
   }
 
   revalidatePath("/admin");

@@ -16,7 +16,7 @@ describe("lunch order submit workflow", () => {
     );
     const submitBlock =
       actionsSource.split("export async function submitProviderOrder")[1]?.split(
-        "export async function submitLunchOrder",
+        "export async function updateLunchOrder",
       )[0] ?? "";
 
     assert.match(submitBlock, /Promise<SubmitProviderOrderResult>/);
@@ -89,6 +89,8 @@ describe("lunch order submit workflow", () => {
 
     assert.doesNotMatch(lunchPageSource, /Your orders for this delivery/);
     assert.doesNotMatch(lunchPageSource, /OrderSummaryCard/);
+    assert.doesNotMatch(lunchPageSource, /Legacy open lunches/);
+    assert.doesNotMatch(lunchPageSource, /provider_id.*null/);
     assert.match(myOrdersSource, /grouped by checkout/);
     assert.match(myOrdersSource, /staff-my-orders-load/);
   });
