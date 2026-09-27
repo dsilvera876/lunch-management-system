@@ -49,6 +49,10 @@ export function canManageRoles(role: UserRole): boolean {
   return role === "admin" || role === "owner";
 }
 
+export function canManageAuthSettings(role: UserRole): boolean {
+  return role === "admin" || role === "owner";
+}
+
 export function canManageStaffAccounts(role: UserRole): boolean {
   return role === "hr";
 }

@@ -49,6 +49,25 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     }
 
     if (section === "settings") {
+      const subSection = segments[2];
+
+      if (subSection === "system") {
+        crumbs.push({ label: "Admin Settings" });
+        return crumbs;
+      }
+
+      if (subSection === "authentication") {
+        crumbs.push({ label: "Admin Settings", href: "/admin/settings/system" });
+        crumbs.push({ label: "Authentication" });
+        return crumbs;
+      }
+
+      if (subSection === "email-delivery") {
+        crumbs.push({ label: "Admin Settings", href: "/admin/settings/system" });
+        crumbs.push({ label: "Email Delivery" });
+        return crumbs;
+      }
+
       crumbs.push({ label: "Settings" });
       return crumbs;
     }

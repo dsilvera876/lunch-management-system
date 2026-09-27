@@ -3,6 +3,7 @@ import {
   canManageLunchPeriods,
   canManageProviders,
   canManageOfficeLocations,
+  canManageAuthSettings,
   canManageRoles,
   canManageStaffAccounts,
   canManageEmployeeIds,
@@ -106,10 +107,19 @@ const ADMIN_ITEMS: NavItem[] = [
     description: "Manage employee roles",
     icon: "users",
   },
+  {
+    href: "/admin/settings/system",
+    label: "Admin Settings",
+    description: "Authentication, email delivery, and system configuration",
+    icon: "settings",
+  },
 ];
 
-/** Routes reached from HR Tools → Settings (for sidebar active state). */
-const HR_SETTINGS_ROUTE_PREFIXES = ["/admin/settings", "/admin/locations"];
+const ADMIN_SYSTEM_SETTINGS_PREFIXES = [
+  "/admin/settings/system",
+  "/admin/settings/authentication",
+  "/admin/settings/email-delivery",
+];
 
 export const ACCOUNT_NAV: NavItem = {
   href: "/account",
@@ -160,9 +170,16 @@ export function isNavActive(pathname: string, href: string): boolean {
     return pathname === href;
   }
 
-  if (href === "/admin/settings") {
-    return HR_SETTINGS_ROUTE_PREFIXES.some(
+  if (href === "/admin/settings/system") {
+    return ADMIN_SYSTEM_SETTINGS_PREFIXES.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
+  }
+
+  if (href === "/admin/settings") {
+    return (
+      pathname === "/admin/settings" ||
+      pathname.startsWith("/admin/locations")
     );
   }
 
@@ -178,7 +195,15 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return true;
   }
 
-  if (pathname.startsWith("/admin/settings")) {
+  if (
+    pathname.startsWith("/admin/settings/system") ||
+    pathname.startsWith("/admin/settings/email-delivery") ||
+    pathname.startsWith("/admin/settings/authentication")
+  ) {
+    return canManageAuthSettings(role);
+  }
+
+  if (pathname === "/admin/settings") {
     return canViewAllOrders(role);
   }
 

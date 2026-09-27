@@ -10,6 +10,11 @@
 
 create extension if not exists pgcrypto with schema extensions;
 
+-- Local company-email signup domain (configure production domains in staging/hosted DB).
+insert into private.signup_email_domains (domain, active)
+values ('lunch.test', true)
+on conflict (domain) do update set active = true;
+
 -- ------------------------------------------------------------
 -- Helpers (dropped at end of this file)
 -- ------------------------------------------------------------

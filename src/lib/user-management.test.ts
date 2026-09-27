@@ -202,6 +202,38 @@ describe("user management workspace wiring", () => {
     assert.match(hrDrawer, /Deactivate user/);
   });
 
+  it("enables HR pending approvals entry point with count and approvals view", () => {
+    const page = readFileSync(
+      new URL("../app/admin/users/page.tsx", import.meta.url),
+      "utf8",
+    );
+    const signupWorkspace = readFileSync(
+      new URL("../components/admin/hr-signup-requests-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(page, /Pending approvals/);
+    assert.doesNotMatch(page, /Pending approvals[\s\S]*disabled/);
+    assert.match(page, /count_pending_signup_requests/);
+    assert.match(page, /view=approvals/);
+    assert.match(page, /HrSignupRequestsWorkspace/);
+    assert.match(signupWorkspace, /Retry invitation/);
+  });
+
+  it("does not expose signup approval controls on Admin role-management page", () => {
+    const page = readFileSync(
+      new URL("../app/admin/users/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    const adminBranch = page.split("if (!canManageRoles(profile.role))")[1] ?? "";
+
+    assert.match(page, /UserManagementWorkspace/);
+    assert.match(page, /canManageStaffAccounts\(profile\.role\)/);
+    assert.doesNotMatch(adminBranch, /Pending approvals/);
+    assert.doesNotMatch(adminBranch, /HrSignupRequestsWorkspace/);
+  });
+
   it("wires Accounts Employee ID management without HR lifecycle controls", () => {
     const workspace = readFileSync(
       new URL("../components/admin/employee-id-management-workspace.tsx", import.meta.url),

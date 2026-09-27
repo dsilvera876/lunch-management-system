@@ -168,12 +168,23 @@ describe("navigation by role", () => {
     assert.equal(canAccessRoute("owner", "/admin/lunch-periods"), true);
   });
 
-  it("includes user management only under ADMIN for Admin", () => {
-    const nav = getNavForRole("admin");
-    const adminGroup = nav.find((g) => g.label === "ADMIN");
-    assert.ok(adminGroup?.items.some((item) => item.href === "/admin/users"));
-    assert.equal(adminGroup?.items.length, 1);
-    assert.ok(!adminGroup?.items.some((item) => item.href === "/admin"));
+  it("includes user management and admin settings under ADMIN for Admin and Owner", () => {
+    for (const role of ["admin", "owner"] as const) {
+      const nav = getNavForRole(role);
+      const adminGroup = nav.find((g) => g.label === "ADMIN");
+      assert.ok(adminGroup?.items.some((item) => item.href === "/admin/users"));
+      assert.ok(adminGroup?.items.some((item) => item.href === "/admin/settings/system"));
+      assert.equal(adminGroup?.items.length, 2);
+    }
+  });
+
+  it("does not show Admin Settings for HR, Accounts, or Staff", () => {
+    for (const role of ["hr", "accounts", "staff"] as const) {
+      const nav = getNavForRole(role);
+      const navText = JSON.stringify(nav);
+      assert.doesNotMatch(navText, /\/admin\/settings\/system/);
+      assert.equal(canAccessRoute(role, "/admin/settings/system"), false);
+    }
   });
 
   it("includes financial summaries for Accounts but not HR or staff admin routes", () => {
