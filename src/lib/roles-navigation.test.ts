@@ -14,6 +14,8 @@ import {
   canManageProviders,
   canManageOfficeLocations,
   canManageRoles,
+  canManageStaffAccounts,
+  canManageEmployeeIds,
   canViewAllFinancialSummaries,
   canViewAllOrders,
   getRoleLabel,
@@ -68,6 +70,31 @@ describe("navigation by role", () => {
     const todaysOrder = mainGroup?.items.find((item) => item.href === "/lunch");
     assert.equal(todaysOrder?.icon, "utensils");
     assert.ok(!nav.find((g) => g.label === "ADMIN"));
+  });
+
+  it("shows Users for HR but not Admin user management group", () => {
+    const nav = getNavForRole("hr");
+    const hrTools = nav.find((g) => g.label === "HR TOOLS");
+    assert.ok(hrTools?.items.some((item) => item.href === "/admin/users"));
+    assert.ok(!nav.find((g) => g.label === "ADMIN"));
+    assert.equal(canAccessRoute("hr", "/admin/users"), true);
+    assert.equal(canAccessRoute("admin", "/admin/users"), true);
+    assert.equal(canAccessRoute("staff", "/admin/users"), false);
+  });
+
+  it("shows Employee IDs for Accounts only", () => {
+    const accountsNav = getNavForRole("accounts");
+    assert.ok(
+      accountsNav
+        .find((g) => g.label === "ACCOUNTS")
+        ?.items.some((item) => item.href === "/admin/employee-ids"),
+    );
+    assert.equal(canAccessRoute("accounts", "/admin/employee-ids"), true);
+    assert.equal(canAccessRoute("hr", "/admin/employee-ids"), false);
+    assert.equal(canAccessRoute("admin", "/admin/employee-ids"), false);
+    assert.equal(canManageEmployeeIds("accounts"), true);
+    assert.equal(canManageStaffAccounts("hr"), true);
+    assert.equal(canManageStaffAccounts("accounts"), false);
   });
 
   it("shows HR tools items for HR", () => {

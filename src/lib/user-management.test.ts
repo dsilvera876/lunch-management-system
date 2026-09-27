@@ -158,7 +158,7 @@ describe("user management workspace wiring", () => {
       "utf8",
     );
 
-    assert.match(page, /canTransferOwnership=\{isOwner\(profile\.role\)\}/);
+    assert.match(page, /canTransferOwnership=\{isOwner\(adminProfile\.role\)\}/);
     assert.match(workspace, /canTransferOwnership \?/);
     assert.match(ownership, /EmployeePicker/);
     assert.match(ownership, /transferOwnershipInline/);
@@ -173,8 +173,48 @@ describe("user management workspace wiring", () => {
     assert.equal(crumbs[0]?.href, "/home");
     assert.equal(crumbs[1]?.label, "Administration");
     assert.equal(crumbs[1]?.href, undefined);
-    assert.equal(crumbs[2]?.label, "User Management");
+    assert.equal(crumbs[2]?.label, "Users");
     assert.equal(crumbs[2]?.href, undefined);
     assert.ok(!crumbs.some((crumb) => crumb.href === "/admin"));
+  });
+
+  it("wires HR users workspace with Employee ID column and lifecycle RPCs", () => {
+    const hrWorkspace = readFileSync(
+      new URL("../components/admin/hr-users-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const hrDrawer = readFileSync(
+      new URL("../components/admin/hr-user-details-drawer.tsx", import.meta.url),
+      "utf8",
+    );
+    const page = readFileSync(
+      new URL("../app/admin/users/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(page, /HrUsersWorkspace/);
+    assert.match(page, /search_staff_directory/);
+    assert.match(hrWorkspace, /Employee ID/);
+    assert.match(hrWorkspace, /data-testid="hr-users-table"/);
+    assert.match(hrDrawer, /updateStaffNameInline/);
+    assert.match(hrDrawer, /setStaffEmployeeIdInline/);
+    assert.match(hrDrawer, /Role is view-only for HR/);
+    assert.match(hrDrawer, /Deactivate user/);
+  });
+
+  it("wires Accounts Employee ID management without HR lifecycle controls", () => {
+    const workspace = readFileSync(
+      new URL("../components/admin/employee-id-management-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const page = readFileSync(
+      new URL("../app/admin/employee-ids/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(page, /search_employee_id_directory/);
+    assert.match(workspace, /data-testid="employee-id-management-table"/);
+    assert.doesNotMatch(workspace, /Deactivate user/);
+    assert.doesNotMatch(workspace, /updateStaffNameInline/);
   });
 });

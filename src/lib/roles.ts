@@ -49,6 +49,14 @@ export function canManageRoles(role: UserRole): boolean {
   return role === "admin" || role === "owner";
 }
 
+export function canManageStaffAccounts(role: UserRole): boolean {
+  return role === "hr";
+}
+
+export function canManageEmployeeIds(role: UserRole): boolean {
+  return role === "hr" || role === "accounts";
+}
+
 export function canManageLunchPeriods(role: UserRole): boolean {
   return role === "accounts" || role === "admin" || role === "owner";
 }

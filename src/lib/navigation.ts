@@ -4,6 +4,8 @@ import {
   canManageProviders,
   canManageOfficeLocations,
   canManageRoles,
+  canManageStaffAccounts,
+  canManageEmployeeIds,
   canViewAllFinancialSummaries,
   canViewAllOrders,
   getRoleLabel,
@@ -44,6 +46,12 @@ const ACCOUNTS_ITEMS: NavItem[] = [
     description: "Payroll lunch totals",
     icon: "chart",
   },
+  {
+    href: "/admin/employee-ids",
+    label: "Employee IDs",
+    description: "Assign payroll Employee IDs",
+    icon: "users",
+  },
 ];
 
 const HR_TOOLS_ITEMS: NavItem[] = [
@@ -82,6 +90,12 @@ const HR_TOOLS_ITEMS: NavItem[] = [
     label: "Settings",
     description: "Office locations, cutoff, and lunch program configuration",
     icon: "settings",
+  },
+  {
+    href: "/admin/users",
+    label: "Users",
+    description: "Staff records and Employee IDs",
+    icon: "users",
   },
 ];
 
@@ -124,7 +138,9 @@ export function getNavForRole(role: string): NavGroup[] {
     groups.push({ label: "HR TOOLS", items: hrItems });
   }
 
-  const adminItems = filterAccessible(userRole, ADMIN_ITEMS);
+  const adminItems = filterAccessible(userRole, ADMIN_ITEMS).filter(
+    (item) => item.href !== "/admin/users" || canManageRoles(userRole),
+  );
   if (adminItems.length > 0) {
     groups.push({ label: "ADMIN", items: adminItems });
   }
@@ -200,7 +216,11 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
   }
 
   if (pathname.startsWith("/admin/users")) {
-    return canManageRoles(role);
+    return canManageRoles(role) || canManageStaffAccounts(role);
+  }
+
+  if (pathname.startsWith("/admin/employee-ids")) {
+    return canManageEmployeeIds(role) && !canManageStaffAccounts(role);
   }
 
   return false;

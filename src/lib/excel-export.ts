@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 
 import type {
+  EmployeeIdLunchPeriodExport,
   LunchPeriodFinancialSummary,
   StaffExportPayload,
 } from "@/lib/financial-summaries";
@@ -255,6 +256,132 @@ export async function buildManagementWorkbook(
   }
 
   setCurrencyColumn(ordersSheet, 9, 2);
+  autosizeColumns(periodSheet);
+  autosizeColumns(employeeSheet);
+  autosizeColumns(dailySheet);
+  autosizeColumns(ordersSheet);
+
+  return workbook.xlsx.writeBuffer();
+}
+
+export async function buildEmployeeIdManagementWorkbook(
+  payload: EmployeeIdLunchPeriodExport,
+): Promise<ExcelJS.Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const periodSheet = workbook.addWorksheet("Period");
+  const employeeSheet = workbook.addWorksheet("Employee Summary");
+  const dailySheet = workbook.addWorksheet("Daily Summary");
+  const ordersSheet = workbook.addWorksheet("Orders");
+
+  applyHeaderRow(periodSheet, [
+    "Period",
+    "Start",
+    "End",
+    "Status",
+    "Daily subsidy used for calculations",
+    "Total gross",
+    "Total subsidy used",
+    "Total net deduction",
+  ]);
+
+  periodSheet.addRow([
+    payload.period.label,
+    payload.period.start_date,
+    payload.period.end_date,
+    payload.period.status,
+    Number(payload.daily_lunch_subsidy),
+    Number(payload.grand_gross),
+    Number(payload.grand_subsidy_used),
+    Number(payload.grand_net_deduction),
+  ]);
+
+  for (const columnIndex of [5, 6, 7, 8]) {
+    setCurrencyColumn(periodSheet, columnIndex, 2);
+  }
+
+  applyHeaderRow(employeeSheet, [
+    "Employee",
+    "Email",
+    "Employee ID",
+    "Order count",
+    "Qualifying order days",
+    "Gross",
+    "Subsidy used",
+    "Net deduction",
+  ]);
+
+  for (const employee of payload.employees) {
+    employeeSheet.addRow([
+      employee.employee_name ?? "",
+      employee.employee_email ?? "",
+      employee.employee_id ?? "",
+      employee.order_count,
+      employee.qualifying_order_days,
+      Number(employee.gross),
+      Number(employee.subsidy_used),
+      Number(employee.net_deduction),
+    ]);
+  }
+
+  for (const columnIndex of [6, 7, 8]) {
+    setCurrencyColumn(employeeSheet, columnIndex, 2);
+  }
+
+  applyHeaderRow(dailySheet, [
+    "Employee",
+    "Employee ID",
+    "Order date",
+    "Gross",
+    "Subsidy used",
+    "Net deduction",
+    "Orders",
+  ]);
+
+  for (const day of payload.daily_summary) {
+    dailySheet.addRow([
+      day.employee_name ?? "",
+      day.employee_id ?? "",
+      day.order_date,
+      Number(day.gross),
+      Number(day.subsidy_used),
+      Number(day.net_deduction),
+      day.order_count,
+    ]);
+  }
+
+  for (const columnIndex of [4, 5, 6]) {
+    setCurrencyColumn(dailySheet, columnIndex, 2);
+  }
+
+  applyHeaderRow(ordersSheet, [
+    "Employee",
+    "Employee ID",
+    "Order date",
+    "Delivery date",
+    "Delivery location",
+    "Location address",
+    "Provider",
+    "Order ID",
+    "Status",
+    "Order total",
+  ]);
+
+  for (const order of payload.orders) {
+    ordersSheet.addRow([
+      order.employee_name ?? "",
+      order.employee_id ?? "",
+      order.order_date,
+      order.delivery_date,
+      order.office_location_name ?? "",
+      order.office_location_address ?? "",
+      order.provider_name ?? "",
+      order.order_id,
+      order.order_status,
+      Number(order.order_total),
+    ]);
+  }
+
+  setCurrencyColumn(ordersSheet, 10, 2);
   autosizeColumns(periodSheet);
   autosizeColumns(employeeSheet);
   autosizeColumns(dailySheet);

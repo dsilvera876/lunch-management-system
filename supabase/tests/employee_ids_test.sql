@@ -113,8 +113,8 @@ select throws_ok(
 
 select throws_ok(
   $$ select public.set_employee_id('e6666666-6666-4666-8666-666666666666', '0054') $$,
-  '23505',
-  null,
+  'P0001',
+  'Employee ID 0054 is already assigned to another user',
   'duplicate 0054 is rejected'
 );
 

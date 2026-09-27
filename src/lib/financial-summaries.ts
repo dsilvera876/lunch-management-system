@@ -111,6 +111,42 @@ export type ManagementEmployeeSummary = FinancialAmountSummary & {
   period_total: string | number;
 };
 
+export type EmployeeIdExportEmployeeSummary = FinancialAmountSummary & {
+  profile_id: string;
+  employee_id: string | null;
+  employee_name: string | null;
+  employee_email: string | null;
+  order_count: number;
+  qualifying_order_days: number;
+  period_total: string | number;
+};
+
+export type EmployeeIdExportOrderLine = FinancialOrderLine & {
+  profile_id: string;
+  employee_id: string | null;
+  employee_name: string | null;
+  employee_email: string | null;
+};
+
+export type EmployeeIdExportDailySummary = FinancialDailySummary & {
+  profile_id: string;
+  employee_id: string | null;
+  employee_name: string | null;
+  employee_email: string | null;
+};
+
+export type EmployeeIdLunchPeriodExport = {
+  daily_lunch_subsidy: string | number;
+  period: LunchPeriodFinancialSummary["period"];
+  employees: EmployeeIdExportEmployeeSummary[];
+  orders: EmployeeIdExportOrderLine[];
+  daily_summary: EmployeeIdExportDailySummary[];
+  grand_total: string | number;
+  grand_gross: string | number;
+  grand_subsidy_used: string | number;
+  grand_net_deduction: string | number;
+};
+
 export type ManagementOrderLine = FinancialOrderLine & {
   employee_id: string;
   employee_name: string | null;
@@ -254,6 +290,24 @@ export async function getManagementExportPayload(
   }
 
   return data as LunchPeriodFinancialSummary;
+}
+
+export async function getEmployeeIdManagementExportPayload(
+  supabase: SupabaseClient,
+  periodId: string,
+): Promise<EmployeeIdLunchPeriodExport> {
+  const { data, error } = await supabase.rpc(
+    "get_lunch_period_employee_id_export_data",
+    {
+      p_period_id: periodId,
+    },
+  );
+
+  if (error) {
+    throw new Error(error.message || "Unable to load export data.");
+  }
+
+  return data as EmployeeIdLunchPeriodExport;
 }
 
 export function sumNumericValues(values: Array<string | number>): number {

@@ -9,6 +9,8 @@ import {
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canManageStaffAccounts,
+  canManageEmployeeIds,
   canUpdateDailyLunchSubsidy,
   canViewAllFinancialSummaries,
   canViewAllOrders,
@@ -17,10 +19,13 @@ import {
   type UserRole,
 } from "@/lib/roles";
 
+export type AccountStatus = "active" | "inactive";
+
 export type Profile = {
   id: string;
   full_name: string | null;
   role: UserRole;
+  account_status: AccountStatus;
 };
 
 export async function getCurrentProfile(): Promise<Profile | null> {
@@ -37,7 +42,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, full_name, role")
+    .select("id, full_name, role, account_status")
     .eq("id", userId)
     .single();
 
@@ -45,7 +50,13 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     return null;
   }
 
-  return profile as Profile;
+  const row = profile as Profile;
+
+  if (row.account_status === "inactive") {
+    return null;
+  }
+
+  return row;
 }
 
 export async function getCurrentUserRole(): Promise<UserRole | null> {
@@ -147,6 +158,26 @@ export async function requireManageRoles(): Promise<Profile> {
   return profile;
 }
 
+export async function requireManageStaffAccounts(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canManageStaffAccounts(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
+export async function requireManageEmployeeIds(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canManageEmployeeIds(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
 export async function requireManageCutoff(): Promise<Profile> {
   const profile = await requireProfile();
 
@@ -222,6 +253,8 @@ export {
   canManageLunchPeriods,
   canManageProviders,
   canManageRoles,
+  canManageStaffAccounts,
+  canManageEmployeeIds,
   canViewAllFinancialSummaries,
   canViewAllOrders,
   isOwner,

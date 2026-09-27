@@ -2,14 +2,18 @@ import { NextResponse } from "next/server";
 
 import { requireExportFinancialSummaries } from "@/lib/auth";
 import {
+  buildEmployeeIdManagementWorkbook,
   buildManagementExportFilename,
   buildManagementWorkbook,
 } from "@/lib/excel-export";
-import { getManagementExportPayload } from "@/lib/financial-summaries";
+import {
+  getEmployeeIdManagementExportPayload,
+  getManagementExportPayload,
+} from "@/lib/financial-summaries";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  await requireExportFinancialSummaries();
+  const profile = await requireExportFinancialSummaries();
   const periodId = new URL(request.url).searchParams.get("periodId");
 
   if (!periodId) {
@@ -19,12 +23,35 @@ export async function GET(request: Request) {
   const supabase = await createClient();
 
   try {
-    const payload = await getManagementExportPayload(supabase, periodId);
-    const buffer = await buildManagementWorkbook(payload);
+    const filenameParts =
+      profile.role === "accounts"
+        ? await (async () => {
+            const payload = await getEmployeeIdManagementExportPayload(
+              supabase,
+              periodId,
+            );
+            const buffer = await buildEmployeeIdManagementWorkbook(payload);
+            return {
+              buffer,
+              startDate: payload.period.start_date,
+              endDate: payload.period.end_date,
+            };
+          })()
+        : await (async () => {
+            const payload = await getManagementExportPayload(supabase, periodId);
+            const buffer = await buildManagementWorkbook(payload);
+            return {
+              buffer,
+              startDate: payload.period.start_date,
+              endDate: payload.period.end_date,
+            };
+          })();
+
     const filename = buildManagementExportFilename(
-      payload.period.start_date,
-      payload.period.end_date,
+      filenameParts.startDate,
+      filenameParts.endDate,
     );
+    const buffer = filenameParts.buffer;
 
     return new NextResponse(buffer, {
       headers: {
