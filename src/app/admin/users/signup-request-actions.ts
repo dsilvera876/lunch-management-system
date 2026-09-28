@@ -5,10 +5,11 @@ import { requireManageStaffAccounts } from "@/lib/auth";
 import { getApplicationOrigin } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { sendAccountSetupEmail } from "@/lib/mail/account-setup-email";
+import { buildAccountSetupEmailContent } from "@/lib/mail/account-setup-email";
+import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
 import {
   orchestrateSignupRequestInvite,
-  type AccountSetupEmailClient,
+  type AccountSetupEmailQueueClient,
   type AdminInviteClient,
   type SignupInviteDbClient,
   type SignupRequestInviteState,
@@ -131,17 +132,6 @@ function createInviteDbClient(
         p_invite_error: message,
       });
     },
-    async recordInviteDelivered(requestId) {
-      const { error } = await supabase.rpc("record_signup_invite_delivered", {
-        p_request_id: requestId,
-      });
-
-      if (error) {
-        return { ok: false, errorMessage: error.message };
-      }
-
-      return { ok: true };
-    },
     async linkProfile(requestId, profileId) {
       const { error } = await supabase.rpc("link_signup_request_profile", {
         p_request_id: requestId,
@@ -210,9 +200,34 @@ function createAdminInviteClient(service: ReturnType<typeof createServiceClient>
   };
 }
 
-function createAccountSetupEmailClient(): AccountSetupEmailClient {
+function createAccountSetupQueueClient(
+  service: ReturnType<typeof createServiceClient>,
+): AccountSetupEmailQueueClient {
   return {
-    sendAccountSetupEmail: sendAccountSetupEmail,
+    async enqueueAccountSetupInvite(input) {
+      const content = buildAccountSetupEmailContent({
+        to: input.to,
+        fullName: input.fullName,
+        setupUrl: input.setupUrl,
+      });
+
+      const result = await enqueueEmailDelivery(service, {
+        messageType: "account_setup_invite",
+        recipientEmail: input.to,
+        subject: content.subject,
+        textBody: content.text,
+        htmlBody: content.html,
+        correlationType: "signup_request",
+        correlationId: input.requestId,
+        supersedeActive: true,
+      });
+
+      if (!result.success) {
+        return { ok: false, errorMessage: result.error };
+      }
+
+      return { ok: true };
+    },
   };
 }
 
@@ -229,7 +244,7 @@ async function runSignupInviteOrchestration(input: {
   const result = await orchestrateSignupRequestInvite({
     db: createInviteDbClient(supabase, service),
     admin: createAdminInviteClient(service),
-    email: createAccountSetupEmailClient(),
+    queue: createAccountSetupQueueClient(service),
     requestId: input.requestId,
     employeeIdInput: input.employeeId,
     redirectTo,

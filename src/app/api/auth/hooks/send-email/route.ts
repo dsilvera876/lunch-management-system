@@ -2,7 +2,7 @@ import { Webhook } from "standardwebhooks";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  processAuthSendEmailHook,
+  enqueueAuthSendEmailHook,
   type AuthSendEmailHookPayload,
 } from "@/lib/mail/process-auth-send-email-hook";
 
@@ -44,7 +44,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await processAuthSendEmailHook(verified);
+  const enqueueStarted = performance.now();
+  const result = await enqueueAuthSendEmailHook(verified);
+  const enqueueDurationMs = Math.round(performance.now() - enqueueStarted);
+
+  console.info(
+    `auth-send-email-hook enqueue_duration_ms=${enqueueDurationMs} outcome=${result.success ? "ok" : "error"}`,
+  );
+
   if (!result.success) {
     return NextResponse.json(
       { error: { message: sanitizeHookError(result.error) } },

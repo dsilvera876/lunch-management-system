@@ -34,12 +34,13 @@ export type AdminInviteClient = {
   }>;
 };
 
-export type AccountSetupEmailClient = {
-  sendAccountSetupEmail: (input: {
+export type AccountSetupEmailQueueClient = {
+  enqueueAccountSetupInvite: (input: {
+    requestId: string;
     to: string;
     fullName: string;
     setupUrl: string;
-  }) => Promise<{ success: true } | { success: false; error: string }>;
+  }) => Promise<{ ok: boolean; errorMessage?: string }>;
 };
 
 export type SignupInviteDbClient = {
@@ -63,7 +64,6 @@ export type SignupInviteDbClient = {
   lookupProfileIdByEmail: (email: string) => Promise<string | null>;
   waitForProfileId: (userId: string) => Promise<string | null>;
   recordInviteFailure: (requestId: string, message: string) => Promise<void>;
-  recordInviteDelivered: (requestId: string) => Promise<{ ok: boolean; errorMessage?: string }>;
   linkProfile: (requestId: string, profileId: string) => Promise<{ ok: boolean; errorMessage?: string }>;
   setEmployeeId: (profileId: string, employeeId: string) => Promise<{ ok: boolean; errorMessage?: string }>;
 };
@@ -89,8 +89,9 @@ function isAlreadyRegisteredError(message: string): boolean {
 }
 
 async function sendGeneratedInviteLink(input: {
+  requestId: string;
   admin: AdminInviteClient;
-  email: AccountSetupEmailClient;
+  queue: AccountSetupEmailQueueClient;
   emailAddress: string;
   fullName: string;
   redirectTo: string;
@@ -114,49 +115,51 @@ async function sendGeneratedInviteLink(input: {
     applicationOrigin: getApplicationOrigin(),
   });
 
-  const sent = await input.email.sendAccountSetupEmail({
+  const queued = await input.queue.enqueueAccountSetupInvite({
+    requestId: input.requestId,
     to: input.emailAddress,
     fullName: input.fullName,
     setupUrl,
   });
 
-  if (!sent.success) {
-    return { profileId: link.data.user.id, errorMessage: sent.error };
+  if (!queued.ok) {
+    return { profileId: link.data.user.id, errorMessage: queued.errorMessage ?? "Queue failed" };
   }
 
   return { profileId: link.data.user.id, errorMessage: null };
 }
 
 async function deliverAccountSetupInvite(input: {
+  requestId: string;
   admin: AdminInviteClient;
-  email: AccountSetupEmailClient;
+  queue: AccountSetupEmailQueueClient;
   emailAddress: string;
   fullName: string;
   redirectTo: string;
-}): Promise<{ profileId: string | null; errorMessage: string | null; delivered: boolean }> {
+}): Promise<{ profileId: string | null; errorMessage: string | null; inviteTriggered: boolean }> {
   const invited = await input.admin.inviteUserByEmail(input.emailAddress, {
     data: { full_name: input.fullName },
     redirectTo: input.redirectTo,
   });
 
   if (!invited.error && invited.data.user?.id) {
-    return { profileId: invited.data.user.id, errorMessage: null, delivered: true };
+    return { profileId: invited.data.user.id, errorMessage: null, inviteTriggered: true };
   }
 
   const inviteErrorMessage = invited.error?.message ?? "Invite failed";
 
   if (isAlreadyRegisteredError(inviteErrorMessage)) {
     const direct = await sendGeneratedInviteLink(input);
-    return { ...direct, delivered: direct.errorMessage === null };
+    return { ...direct, inviteTriggered: direct.errorMessage === null };
   }
 
-  return { profileId: null, errorMessage: inviteErrorMessage, delivered: false };
+  return { profileId: null, errorMessage: inviteErrorMessage, inviteTriggered: false };
 }
 
 export async function orchestrateSignupRequestInvite(input: {
   db: SignupInviteDbClient;
   admin: AdminInviteClient;
-  email: AccountSetupEmailClient;
+  queue: AccountSetupEmailQueueClient;
   requestId: string;
   employeeIdInput: string;
   redirectTo: string;
@@ -223,22 +226,20 @@ export async function orchestrateSignupRequestInvite(input: {
   const needsDelivery =
     profileId === null || signupRequestNeedsInvitationRetry(stateAfterApproval);
 
-  let inviteDelivered = false;
-
   if (needsDelivery) {
     if (profileId !== null) {
       const direct = await sendGeneratedInviteLink({
+        requestId: input.requestId,
         admin: input.admin,
-        email: input.email,
+        queue: input.queue,
         emailAddress: email,
         fullName,
         redirectTo: input.redirectTo,
       });
 
       profileId = direct.profileId ?? profileId;
-      inviteDelivered = direct.errorMessage === null;
 
-      if (!inviteDelivered) {
+      if (direct.errorMessage !== null) {
         await input.db.recordInviteFailure(
           input.requestId,
           sanitizeInviteErrorMessage(direct.errorMessage ?? "Invite failed"),
@@ -251,8 +252,9 @@ export async function orchestrateSignupRequestInvite(input: {
       }
     } else {
       const delivered = await deliverAccountSetupInvite({
+        requestId: input.requestId,
         admin: input.admin,
-        email: input.email,
+        queue: input.queue,
         emailAddress: email,
         fullName,
         redirectTo: input.redirectTo,
@@ -264,9 +266,7 @@ export async function orchestrateSignupRequestInvite(input: {
         profileId = delivered.profileId;
       }
 
-      inviteDelivered = delivered.delivered;
-
-      if (!inviteDelivered || profileId === null) {
+      if (!delivered.inviteTriggered || profileId === null) {
         await input.db.recordInviteFailure(
           input.requestId,
           sanitizeInviteErrorMessage(delivered.errorMessage ?? "Invite failed"),
@@ -277,19 +277,6 @@ export async function orchestrateSignupRequestInvite(input: {
           recoverable: true,
         };
       }
-    }
-
-    const deliveryRecorded = await input.db.recordInviteDelivered(input.requestId);
-    if (!deliveryRecorded.ok) {
-      await input.db.recordInviteFailure(
-        input.requestId,
-        sanitizeInviteErrorMessage(deliveryRecorded.errorMessage ?? "Delivery state update failed"),
-      );
-      return {
-        success: true,
-        warning:
-          "Invitation email was sent, but delivery tracking did not complete. You can retry linking from the approved list if needed.",
-      };
     }
   }
 

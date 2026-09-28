@@ -15,7 +15,9 @@ Routine provider or sender changes do **not** require application redeployment o
 3. **Auth redirect URLs** — include `APP_ORIGIN` confirm routes (see `deploy/STAGING.md`).
 4. Configure SMTP only in **Admin → Settings → Email delivery** (not Dashboard SMTP).
 
-When email delivery is **disabled** or **misconfigured**, the Send Email hook returns a non-success HTTP status so Auth does not treat the message as sent. HR invitation retry and test email follow the same fail-closed rules.
+The Send Email hook **enqueues** mail in `private.email_delivery_queue` and returns HTTP 200 immediately (well under Supabase’s 5s hook limit). A background worker (`npm run worker:mail-queue`) performs SMTP delivery using the same Admin-managed configuration.
+
+If enqueue fails, the hook returns a non-success HTTP status so Auth does not treat the message as sent. If SMTP fails later, the worker retries with backoff and updates signup invite state (`invite_last_error` / `invite_sent_at`). Admin **Send test email** remains synchronous for immediate feedback.
 
 ## Self-hosted Supabase
 

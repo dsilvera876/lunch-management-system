@@ -6,7 +6,7 @@ import {
   orchestrateSignupRequestInvite,
   sanitizeInviteErrorMessage,
   signupRequestNeedsInvitationRetry,
-  type AccountSetupEmailClient,
+  type AccountSetupEmailQueueClient,
   type AdminInviteClient,
   type SignupInviteDbClient,
 } from "./signup-request-invite";
@@ -37,7 +37,6 @@ function createDb(overrides: Partial<SignupInviteDbClient> = {}): SignupInviteDb
     lookupProfileIdByEmail: async () => null,
     waitForProfileId: async (userId) => userId,
     recordInviteFailure: async () => undefined,
-    recordInviteDelivered: async () => ({ ok: true }),
     linkProfile: async () => ({ ok: true }),
     setEmployeeId: async () => ({ ok: true }),
   };
@@ -60,11 +59,11 @@ function createAdmin(overrides: Partial<AdminInviteClient> = {}): AdminInviteCli
   return { ...base, ...overrides };
 }
 
-function createEmail(
-  overrides: Partial<AccountSetupEmailClient> = {},
-): AccountSetupEmailClient {
-  const base: AccountSetupEmailClient = {
-    sendAccountSetupEmail: async () => ({ success: true }),
+function createQueue(
+  overrides: Partial<AccountSetupEmailQueueClient> = {},
+): AccountSetupEmailQueueClient {
+  const base: AccountSetupEmailQueueClient = {
+    enqueueAccountSetupInvite: async () => ({ ok: true }),
   };
 
   return { ...base, ...overrides };
@@ -94,7 +93,7 @@ describe("signup request invite orchestration", () => {
   it("uses inviteUserByEmail for new-user approval", async () => {
     let inviteCalls = 0;
     let generateCalls = 0;
-    let emailCalls = 0;
+    let queueCalls = 0;
 
     const result = await orchestrateSignupRequestInvite({
       requestId: "req-1",
@@ -111,10 +110,10 @@ describe("signup request invite orchestration", () => {
           return { data: { user: { id: "user-1" }, tokenHash: INVITE_TOKEN_HASH }, error: null };
         },
       }),
-      email: createEmail({
-        sendAccountSetupEmail: async () => {
-          emailCalls += 1;
-          return { success: true };
+      queue: createQueue({
+        enqueueAccountSetupInvite: async () => {
+          queueCalls += 1;
+          return { ok: true };
         },
       }),
     });
@@ -122,31 +121,23 @@ describe("signup request invite orchestration", () => {
     assert.equal(result.success, true);
     assert.equal(inviteCalls, 1);
     assert.equal(generateCalls, 0);
-    assert.equal(emailCalls, 0);
+    assert.equal(queueCalls, 0);
   });
 
-  it("records delivery only after inviteUserByEmail succeeds", async () => {
-    let deliveredRecorded = false;
-
+  it("does not mark invite_sent_at during HR approval when Auth hook will queue delivery", async () => {
     const result = await orchestrateSignupRequestInvite({
       requestId: "req-1",
       employeeIdInput: "",
       redirectTo: INVITE_REDIRECT,
-      db: createDb({
-        recordInviteDelivered: async () => {
-          deliveredRecorded = true;
-          return { ok: true };
-        },
-      }),
+      db: createDb(),
       admin: createAdmin(),
-      email: createEmail(),
+      queue: createQueue(),
     });
 
     assert.equal(result.success, true);
-    assert.equal(deliveredRecorded, true);
   });
 
-  it("existing-user retry generates link and sends it through the email adapter", async () => {
+  it("existing-user retry generates link and enqueues account setup mail", async () => {
     const previousOrigin = process.env.APP_ORIGIN;
     process.env.APP_ORIGIN = "https://example.test";
 
@@ -182,10 +173,10 @@ describe("signup request invite orchestration", () => {
           };
         },
       }),
-      email: createEmail({
-        sendAccountSetupEmail: async (payload) => {
+      queue: createQueue({
+        enqueueAccountSetupInvite: async (payload) => {
           sentSetupUrl = payload.setupUrl;
-          return { success: true };
+          return { ok: true };
         },
       }),
     });
@@ -201,25 +192,19 @@ describe("signup request invite orchestration", () => {
     assert.match(sentSetupUrl ?? "", /next=%2Faccount%2Fupdate-password%3Finvite%3D1/);
   });
 
-  it("does not record delivery when generateLink succeeds but email send fails", async () => {
-    let deliveredRecorded = false;
-
+  it("does not mark invite_sent_at when queue enqueue fails on retry path", async () => {
     const result = await orchestrateSignupRequestInvite({
       requestId: "req-1",
       employeeIdInput: "",
       redirectTo: INVITE_REDIRECT,
       db: createDb({
         lookupProfileIdByEmail: async () => "existing-profile",
-        recordInviteDelivered: async () => {
-          deliveredRecorded = true;
-          return { ok: true };
-        },
       }),
       admin: createAdmin(),
-      email: createEmail({
-        sendAccountSetupEmail: async () => ({
-          success: false,
-          error: "Email provider unavailable",
+      queue: createQueue({
+        enqueueAccountSetupInvite: async () => ({
+          ok: false,
+          errorMessage: "Email provider unavailable",
         }),
       }),
     });
@@ -228,7 +213,6 @@ describe("signup request invite orchestration", () => {
     if (result.success) {
       throw new Error("expected failure");
     }
-    assert.equal(deliveredRecorded, false);
     assert.equal(result.error, INVITE_DELIVERY_FAILURE_MESSAGE);
   });
 
@@ -264,7 +248,7 @@ describe("signup request invite orchestration", () => {
         lookupProfileIdByEmail: async () => "existing-profile",
       }),
       admin: createAdmin(),
-      email: createEmail(),
+      queue: createQueue(),
     });
 
     assert.equal(result.success, true);
@@ -273,7 +257,7 @@ describe("signup request invite orchestration", () => {
 
   it("links an existing auth profile instead of creating another user", async () => {
     let inviteCalls = 0;
-    let sentEmail = false;
+    let queuedEmail = false;
 
     const result = await orchestrateSignupRequestInvite({
       requestId: "req-1",
@@ -288,17 +272,17 @@ describe("signup request invite orchestration", () => {
           return { data: { user: null }, error: { message: "User already registered" } };
         },
       }),
-      email: createEmail({
-        sendAccountSetupEmail: async () => {
-          sentEmail = true;
-          return { success: true };
+      queue: createQueue({
+        enqueueAccountSetupInvite: async () => {
+          queuedEmail = true;
+          return { ok: true };
         },
       }),
     });
 
     assert.equal(result.success, true);
     assert.equal(inviteCalls, 0);
-    assert.equal(sentEmail, true);
+    assert.equal(queuedEmail, true);
   });
 
   it("records invite failure and returns recoverable HR message", async () => {
@@ -323,7 +307,7 @@ describe("signup request invite orchestration", () => {
           error: { message: "Email provider unavailable" },
         }),
       }),
-      email: createEmail(),
+      queue: createQueue(),
     });
 
     assert.equal(result.success, false);
@@ -335,8 +319,7 @@ describe("signup request invite orchestration", () => {
     assert.equal(result.recoverable, true);
   });
 
-  it("clears delivery errors after successful direct send", async () => {
-    let deliveredRecorded = false;
+  it("links profile after successful retry enqueue without setting invite_sent_at", async () => {
     let linkedProfileId: string | null = null;
 
     const result = await orchestrateSignupRequestInvite({
@@ -345,10 +328,6 @@ describe("signup request invite orchestration", () => {
       redirectTo: INVITE_REDIRECT,
       db: createDb({
         lookupProfileIdByEmail: async () => "existing-profile",
-        recordInviteDelivered: async () => {
-          deliveredRecorded = true;
-          return { ok: true };
-        },
         linkProfile: async (_requestId, profileId) => {
           linkedProfileId = profileId;
           return { ok: true };
@@ -360,11 +339,10 @@ describe("signup request invite orchestration", () => {
           error: null,
         }),
       }),
-      email: createEmail(),
+      queue: createQueue(),
     });
 
     assert.equal(result.success, true);
-    assert.equal(deliveredRecorded, true);
     assert.equal(linkedProfileId, "existing-profile");
   });
 
@@ -380,7 +358,7 @@ describe("signup request invite orchestration", () => {
         }),
       }),
       admin: createAdmin(),
-      email: createEmail(),
+      queue: createQueue(),
     });
 
     assert.equal(result.success, true);
@@ -390,31 +368,24 @@ describe("signup request invite orchestration", () => {
     assert.match(result.warning ?? "", /Employee ID could not be saved/i);
   });
 
-  it("does not record delivery when account setup email send fails", async () => {
-    let deliveredRecorded = false;
-
+  it("returns recoverable failure when retry enqueue fails", async () => {
     const result = await orchestrateSignupRequestInvite({
       requestId: "req-1",
       employeeIdInput: "",
       redirectTo: INVITE_REDIRECT,
       db: createDb({
         lookupProfileIdByEmail: async () => "existing-profile",
-        recordInviteDelivered: async () => {
-          deliveredRecorded = true;
-          return { ok: true };
-        },
       }),
       admin: createAdmin(),
-      email: createEmail({
-        sendAccountSetupEmail: async () => ({
-          success: false,
-          error: "Email delivery is disabled.",
+      queue: createQueue({
+        enqueueAccountSetupInvite: async () => ({
+          ok: false,
+          errorMessage: "Email delivery is disabled.",
         }),
       }),
     });
 
     assert.equal(result.success, false);
-    assert.equal(deliveredRecorded, false);
   });
 
   it("returns a warning instead of a red error when linking fails after invite delivery", async () => {
@@ -429,7 +400,7 @@ describe("signup request invite orchestration", () => {
         linkProfile: async () => ({ ok: false, errorMessage: "profile trigger lag" }),
       }),
       admin: createAdmin(),
-      email: createEmail(),
+      queue: createQueue(),
     });
 
     process.env.APP_ORIGIN = previousOrigin;

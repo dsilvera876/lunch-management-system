@@ -1,8 +1,9 @@
 import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
+import { processEmailDeliveryQueue } from "@/lib/mail/process-email-delivery-queue";
 
-type WorkerTask = "snapshots" | "automatic-dispatch" | "all";
+type WorkerTask = "snapshots" | "automatic-dispatch" | "mail-queue" | "all";
 
 type WorkerOptions = {
   task: WorkerTask;
@@ -19,7 +20,12 @@ function parseArgs(argv: string[]): WorkerOptions {
 
     if (arg.startsWith("--task=")) {
       const value = arg.slice("--task=".length) as WorkerTask;
-      if (value === "snapshots" || value === "automatic-dispatch" || value === "all") {
+      if (
+        value === "snapshots" ||
+        value === "automatic-dispatch" ||
+        value === "mail-queue" ||
+        value === "all"
+      ) {
         task = value;
       } else {
         throw new Error(`Unknown worker task: ${value}`);
@@ -193,6 +199,17 @@ function assertWorkerEnvironment(): void {
   getSupabaseSecretKey();
 }
 
+async function runMailQueue(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processEmailDeliveryQueue(supabase, { batchSize: 25, dryRun });
+
+  console.log(
+    `Email queue processed: claimed=${result.claimed} sent=${result.sent} retried=${result.retried} failed=${result.failed}`,
+  );
+
+  return result.failed;
+}
+
 async function main(): Promise<void> {
   assertWorkerEnvironment();
   const options = parseArgs(process.argv.slice(2));
@@ -203,6 +220,13 @@ async function main(): Promise<void> {
 
   if (options.task === "automatic-dispatch" || options.task === "all") {
     await runAutomaticDispatch(options.dryRun);
+  }
+
+  if (options.task === "mail-queue" || options.task === "all") {
+    const failures = await runMailQueue(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
   }
 }
 

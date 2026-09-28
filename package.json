@@ -10,6 +10,7 @@
     "worker": "tsx src/worker/run.ts",
     "worker:snapshots": "tsx src/worker/run.ts --task=snapshots",
     "worker:automatic-dispatch": "tsx src/worker/run.ts --task=automatic-dispatch",
+    "worker:mail-queue": "tsx src/worker/run.ts --task=mail-queue",
     "worker:dry-run": "tsx src/worker/run.ts --dry-run"
   },
   "dependencies": {

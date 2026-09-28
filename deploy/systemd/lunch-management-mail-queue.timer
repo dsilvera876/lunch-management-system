@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Lunch Management email delivery queue worker every minute
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=60s
+AccuracySec=15s
+Unit=lunch-management-mail-queue.service
+
+[Install]
+WantedBy=timers.target

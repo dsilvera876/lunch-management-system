@@ -1,8 +1,10 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { buildAuthConfirmUrl, buildAuthEmailContent } from "@/lib/mail/auth-email-templates";
+import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
 import type { SendEmailResult } from "@/lib/mail/email-delivery-types";
-import type { MailServiceDependencies } from "@/lib/mail/mail-service";
-import { sendEmail } from "@/lib/mail/mail-service";
 import { getApplicationOrigin } from "@/lib/request-origin";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export type AuthSendEmailHookPayload = {
   user: {
@@ -20,7 +22,12 @@ export type AuthSendEmailHookPayload = {
   };
 };
 
-function buildRecipientMessages(payload: AuthSendEmailHookPayload): Array<{
+export type AuthHookEnqueueDependencies = {
+  getServiceClient?: () => SupabaseClient;
+  enqueue?: typeof enqueueEmailDelivery;
+};
+
+export function buildAuthSendEmailHookMessages(payload: AuthSendEmailHookPayload): Array<{
   to: string;
   tokenHash: string;
   actionType: string;
@@ -56,12 +63,14 @@ function buildRecipientMessages(payload: AuthSendEmailHookPayload): Array<{
   ];
 }
 
-export async function processAuthSendEmailHook(
+export async function enqueueAuthSendEmailHook(
   payload: AuthSendEmailHookPayload,
-  dependencies: MailServiceDependencies = {},
+  dependencies: AuthHookEnqueueDependencies = {},
 ): Promise<SendEmailResult> {
   const applicationOrigin = getApplicationOrigin();
-  const messages = buildRecipientMessages(payload);
+  const messages = buildAuthSendEmailHookMessages(payload);
+  const supabase = dependencies.getServiceClient?.() ?? createServiceClient();
+  const enqueue = dependencies.enqueue ?? enqueueEmailDelivery;
 
   for (const message of messages) {
     const confirmUrl = buildAuthConfirmUrl({
@@ -77,20 +86,26 @@ export async function processAuthSendEmailHook(
       otpCode: message.otpCode,
     });
 
-    const result = await sendEmail(
-      {
-        to: message.to,
-        subject: content.subject,
-        text: content.text,
-        html: content.html,
-      },
-      dependencies,
-    );
+    const result = await enqueue(supabase, {
+      messageType: "auth_hook",
+      recipientEmail: message.to,
+      subject: content.subject,
+      textBody: content.text,
+      htmlBody: content.html,
+    });
 
     if (!result.success) {
-      return result;
+      return { success: false, error: result.error };
     }
   }
 
   return { success: true };
+}
+
+/** @deprecated Use enqueueAuthSendEmailHook — Auth hooks must not send SMTP synchronously. */
+export async function processAuthSendEmailHook(
+  payload: AuthSendEmailHookPayload,
+  dependencies: AuthHookEnqueueDependencies = {},
+): Promise<SendEmailResult> {
+  return enqueueAuthSendEmailHook(payload, dependencies);
 }

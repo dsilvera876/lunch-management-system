@@ -8,7 +8,7 @@ import {
   isDirectSupabaseVerifyUrl,
   mapAuthEmailOtpType,
 } from "@/lib/mail/auth-email-templates";
-import { processAuthSendEmailHook } from "@/lib/mail/process-auth-send-email-hook";
+import { enqueueAuthSendEmailHook } from "@/lib/mail/process-auth-send-email-hook";
 import { getBreadcrumbs } from "@/lib/breadcrumbs";
 import { canAccessRoute, getNavForRole } from "@/lib/navigation";
 import { canManageAuthSettings } from "@/lib/roles";
@@ -136,13 +136,12 @@ describe("auth and email admin settings", () => {
     assert.match(form, /leave blank to keep/i);
   });
 
-  it("routes auth hook payloads through the generic mail service", async () => {
+  it("routes auth hook payloads through the email queue without SMTP", async () => {
     const previousOrigin = process.env.APP_ORIGIN;
     process.env.APP_ORIGIN = "https://example.test";
 
     let capturedSubject: string | null = null;
-
-    const result = await processAuthSendEmailHook(
+    const result = await enqueueAuthSendEmailHook(
       {
         user: { email: "user@example.test" },
         email_data: {
@@ -156,22 +155,10 @@ describe("auth and email admin settings", () => {
         },
       },
       {
-        loadRuntimeConfig: async () => ({
-          providerType: "smtp",
-          providerName: "Test",
-          smtpHost: "smtp.example.test",
-          smtpPort: 587,
-          smtpSecurity: "starttls",
-          smtpUsername: "user",
-          smtpPassword: "pass",
-          fromEmail: "noreply@example.test",
-          fromName: "LMS",
-          replyToEmail: null,
-          enabled: true,
-        }),
-        sendSmtp: async (_config, input) => {
+        getServiceClient: () => ({}) as never,
+        enqueue: async (_client, input) => {
           capturedSubject = input.subject;
-          return { success: true };
+          return { success: true, queueId: "queue-1" };
         },
       },
     );
@@ -182,11 +169,11 @@ describe("auth and email admin settings", () => {
     assert.match(capturedSubject ?? "", /password/i);
   });
 
-  it("fails auth hook processing when email delivery is disabled", async () => {
+  it("fails auth hook processing when queue enqueue fails", async () => {
     const previousOrigin = process.env.APP_ORIGIN;
     process.env.APP_ORIGIN = "https://example.test";
 
-    const result = await processAuthSendEmailHook(
+    const result = await enqueueAuthSendEmailHook(
       {
         user: { email: "user@example.test" },
         email_data: {
@@ -200,20 +187,8 @@ describe("auth and email admin settings", () => {
         },
       },
       {
-        loadRuntimeConfig: async () => ({
-          providerType: "smtp",
-          providerName: "Local",
-          smtpHost: "127.0.0.1",
-          smtpPort: 1025,
-          smtpSecurity: "none",
-          smtpUsername: "",
-          smtpPassword: "secret",
-          fromEmail: "noreply@lunch.test",
-          fromName: "LMS",
-          replyToEmail: null,
-          enabled: false,
-        }),
-        sendSmtp: async () => ({ success: true }),
+        getServiceClient: () => ({}) as never,
+        enqueue: async () => ({ success: false, error: "Queue insert failed" }),
       },
     );
 
@@ -223,7 +198,7 @@ describe("auth and email admin settings", () => {
     if (result.success) {
       throw new Error("expected failure");
     }
-    assert.match(result.error, /disabled/i);
+    assert.match(result.error, /queue insert failed/i);
   });
 
   it("maps invite hook payloads to internal invite confirmation URLs", async () => {
@@ -232,7 +207,7 @@ describe("auth and email admin settings", () => {
 
     let capturedText: string | null = null;
 
-    const result = await processAuthSendEmailHook(
+    const result = await enqueueAuthSendEmailHook(
       {
         user: { email: "external@gmail.com" },
         email_data: {
@@ -246,22 +221,10 @@ describe("auth and email admin settings", () => {
         },
       },
       {
-        loadRuntimeConfig: async () => ({
-          providerType: "smtp",
-          providerName: "Test",
-          smtpHost: "smtp.example.test",
-          smtpPort: 587,
-          smtpSecurity: "starttls",
-          smtpUsername: "user",
-          smtpPassword: "pass",
-          fromEmail: "noreply@example.test",
-          fromName: "LMS",
-          replyToEmail: null,
-          enabled: true,
-        }),
-        sendSmtp: async (_config, input) => {
-          capturedText = input.text;
-          return { success: true };
+        getServiceClient: () => ({}) as never,
+        enqueue: async (_client, input) => {
+          capturedText = input.textBody;
+          return { success: true, queueId: "queue-1" };
         },
       },
     );

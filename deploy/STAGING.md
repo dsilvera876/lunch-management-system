@@ -575,7 +575,16 @@ The worker code still derives the authoritative Jamaica order date in the databa
 cd /var/www/lunch-management-system
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:snapshots
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:automatic-dispatch
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:mail-queue
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
+```
+
+Enable the mail queue timer so Auth hook enqueue returns within Supabase’s 5s limit while SMTP sends asynchronously:
+
+```bash
+sudo cp deploy/systemd/lunch-management-mail-queue.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now lunch-management-mail-queue.timer
 ```
 
 **Local development:** run `supabase status` and copy the **Secret** key (`sb_secret_...`) into a local `worker.env` (or export `SUPABASE_URL` + `SUPABASE_SECRET_KEY`). Do not use the legacy JWT `service_role` key for the worker. Normal app auth continues to use `.env.local` publishable credentials only.

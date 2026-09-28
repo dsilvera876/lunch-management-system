@@ -6,29 +6,13 @@ export type SendAccountSetupEmailInput = {
   setupUrl: string;
 };
 
-export type SendAccountSetupEmailResult =
-  | { success: true }
-  | { success: false; error: string };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-export async function sendAccountSetupEmail(
-  input: SendAccountSetupEmailInput,
-): Promise<SendAccountSetupEmailResult> {
-  const recipient = input.to.trim();
+export function buildAccountSetupEmailContent(input: SendAccountSetupEmailInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
   const displayName = input.fullName.trim() || "there";
   const setupUrl = input.setupUrl.trim();
-
-  if (!recipient || !setupUrl) {
-    return { success: false, error: "Invalid account setup email payload." };
-  }
-
   const subject = "Complete your Lunch Management System account setup";
   const text = [
     `Hello ${displayName},`,
@@ -48,11 +32,38 @@ export async function sendAccountSetupEmail(
     "<p>If you did not request access, you can ignore this email.</p>",
   ].join("");
 
+  return { subject, text, html };
+}
+
+export type SendAccountSetupEmailResult =
+  | { success: true }
+  | { success: false; error: string };
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export async function sendAccountSetupEmail(
+  input: SendAccountSetupEmailInput,
+): Promise<SendAccountSetupEmailResult> {
+  const recipient = input.to.trim();
+  const setupUrl = input.setupUrl.trim();
+
+  if (!recipient || !setupUrl) {
+    return { success: false, error: "Invalid account setup email payload." };
+  }
+
+  const content = buildAccountSetupEmailContent(input);
+
   const result = await sendEmail({
     to: recipient,
-    subject,
-    text,
-    html,
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
   });
 
   if (!result.success) {
