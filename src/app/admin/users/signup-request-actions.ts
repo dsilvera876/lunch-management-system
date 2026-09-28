@@ -186,13 +186,15 @@ function createAdminInviteClient(service: ReturnType<typeof createServiceClient>
         options,
       });
 
-      const properties = result.data?.properties as { action_link?: string } | undefined;
-      const actionLink = properties?.action_link?.trim();
+      const properties = result.data?.properties as
+        | { hashed_token?: string; action_link?: string }
+        | undefined;
+      const tokenHash = properties?.hashed_token?.trim() ?? "";
 
-      if (result.error || !result.data?.user?.id || !actionLink) {
+      if (result.error || !result.data?.user?.id || !tokenHash) {
         return {
           data: result.data?.user?.id
-            ? { user: { id: result.data.user.id }, actionLink: actionLink ?? "" }
+            ? { user: { id: result.data.user.id }, tokenHash }
             : null,
           error: {
             message: result.error?.message ?? "Invite link could not be generated.",
@@ -201,7 +203,7 @@ function createAdminInviteClient(service: ReturnType<typeof createServiceClient>
       }
 
       return {
-        data: { user: { id: result.data.user.id }, actionLink },
+        data: { user: { id: result.data.user.id }, tokenHash },
         error: null,
       };
     },
@@ -222,7 +224,7 @@ async function runSignupInviteOrchestration(input: {
 
   const supabase = await createClient();
   const service = createServiceClient();
-  const redirectTo = `${getApplicationOrigin()}/auth/confirm?type=signup`;
+  const redirectTo = `${getApplicationOrigin()}/account/update-password?invite=1`;
 
   const result = await orchestrateSignupRequestInvite({
     db: createInviteDbClient(supabase, service),

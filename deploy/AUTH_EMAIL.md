@@ -63,3 +63,20 @@ Same semantics as production: **Admin → Settings → Email delivery** must be 
 Workers and supplemental order email use the same mail service and database configuration (service role).
 
 Never commit real secrets or hook keys.
+
+## Auth link safety (invite, signup, recovery)
+
+- User-facing Auth links always use **`APP_ORIGIN/auth/confirm`** with `token_hash`, `type`, and a safe internal `next` route. They **never** point at `https://<project>.supabase.co/auth/v1/verify`.
+- **`APP_ORIGIN`** is the internal staging/production app URL. A public Tailscale Funnel hostname is only for the **Send Email webhook** (`/api/auth/hooks/send-email`), not for links in email bodies.
+- **EmailOtpType mapping** in our Send Email hook:
+  - `invite` → `type=invite` → password setup (`/account/update-password?invite=1`)
+  - `signup` / `email` → `type=signup` or `type=email` → post-login handling
+  - `recovery` → `type=recovery` → password reset flow
+  - `email_change` → `type=email_change`
+  - `magiclink` → `type=magiclink`
+- The `/auth/confirm` route calls `supabase.auth.verifyOtp({ token_hash, type })` server-side and then redirects to `next` when present.
+- Token hashes must not appear in application logs.
+
+## SMTP link tracking
+
+The application SMTP transport (Nodemailer) does **not** enable click/open tracking or rewrite links. If your organization uses a relay such as SMTP2GO, **disable click/link tracking** for Auth mail so confirmation URLs are not prefetched or rewritten by the provider.

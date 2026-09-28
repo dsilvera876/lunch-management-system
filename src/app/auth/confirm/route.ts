@@ -4,9 +4,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import {
   getAuthConfirmFailurePath,
   getAuthConfirmSuccessPath,
+  resolveSafeAuthConfirmNextPath,
 } from "@/lib/auth-recovery";
 import { getPostLoginPath } from "@/lib/navigation";
-import { getExternalUrl } from "@/lib/request-origin";
+import { getApplicationOrigin, getExternalUrl } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -34,9 +35,16 @@ export async function GET(request: NextRequest) {
 
   revalidatePath("/", "layout");
 
-  const successPath = getAuthConfirmSuccessPath(type);
+  const nextParam = request.nextUrl.searchParams.get("next");
+  const safeNext = resolveSafeAuthConfirmNextPath(
+    nextParam,
+    getApplicationOrigin(),
+  );
+  const defaultSuccessPath = getAuthConfirmSuccessPath(type);
+  const successPath =
+    safeNext ?? (defaultSuccessPath === "post-login" ? null : defaultSuccessPath);
 
-  if (successPath !== "post-login") {
+  if (successPath) {
     return NextResponse.redirect(getExternalUrl(request, successPath));
   }
 

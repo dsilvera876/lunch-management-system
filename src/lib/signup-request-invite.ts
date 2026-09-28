@@ -1,4 +1,6 @@
 import { mapSetEmployeeIdError, validateEmployeeIdField } from "@/lib/employee-id";
+import { buildAuthConfirmUrl } from "@/lib/mail/auth-email-templates";
+import { getApplicationOrigin } from "@/lib/request-origin";
 
 export const INVITE_DELIVERY_FAILURE_MESSAGE =
   "User approved, but the account setup email could not be sent. You can retry the invitation.";
@@ -27,7 +29,7 @@ export type AdminInviteClient = {
     email: string,
     options: { data: { full_name: string }; redirectTo: string },
   ) => Promise<{
-    data: { user: { id: string }; actionLink: string } | null;
+    data: { user: { id: string }; tokenHash: string } | null;
     error: { message: string } | null;
   }>;
 };
@@ -98,17 +100,24 @@ async function sendGeneratedInviteLink(input: {
     redirectTo: input.redirectTo,
   });
 
-  if (link.error || !link.data?.actionLink || !link.data.user?.id) {
+  if (link.error || !link.data?.tokenHash || !link.data.user?.id) {
     return {
       profileId: link.data?.user?.id ?? null,
       errorMessage: link.error?.message ?? "Invite link could not be generated.",
     };
   }
 
+  const setupUrl = buildAuthConfirmUrl({
+    tokenHash: link.data.tokenHash,
+    actionType: "invite",
+    redirectTo: input.redirectTo,
+    applicationOrigin: getApplicationOrigin(),
+  });
+
   const sent = await input.email.sendAccountSetupEmail({
     to: input.emailAddress,
     fullName: input.fullName,
-    setupUrl: link.data.actionLink,
+    setupUrl,
   });
 
   if (!sent.success) {
@@ -277,9 +286,9 @@ export async function orchestrateSignupRequestInvite(input: {
         sanitizeInviteErrorMessage(deliveryRecorded.errorMessage ?? "Delivery state update failed"),
       );
       return {
-        success: false,
-        error: INVITE_DELIVERY_FAILURE_MESSAGE,
-        recoverable: true,
+        success: true,
+        warning:
+          "Invitation email was sent, but delivery tracking did not complete. You can retry linking from the approved list if needed.",
       };
     }
   }
@@ -301,9 +310,8 @@ export async function orchestrateSignupRequestInvite(input: {
       sanitizeInviteErrorMessage(linkResult.errorMessage ?? "Link failed"),
     );
     return {
-      success: false,
-      error: LINK_FAILURE_MESSAGE,
-      recoverable: true,
+      success: true,
+      warning: LINK_FAILURE_MESSAGE,
     };
   }
 

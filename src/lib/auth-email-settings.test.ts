@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { buildAuthConfirmUrl, buildAuthEmailContent } from "@/lib/mail/auth-email-templates";
+import {
+  buildAuthConfirmUrl,
+  buildAuthEmailContent,
+  isDirectSupabaseVerifyUrl,
+  mapAuthEmailOtpType,
+} from "@/lib/mail/auth-email-templates";
 import { processAuthSendEmailHook } from "@/lib/mail/process-auth-send-email-hook";
 import { getBreadcrumbs } from "@/lib/breadcrumbs";
 import { canAccessRoute, getNavForRole } from "@/lib/navigation";
@@ -219,6 +224,79 @@ describe("auth and email admin settings", () => {
       throw new Error("expected failure");
     }
     assert.match(result.error, /disabled/i);
+  });
+
+  it("maps invite hook payloads to internal invite confirmation URLs", async () => {
+    const previousOrigin = process.env.APP_ORIGIN;
+    process.env.APP_ORIGIN = "https://example.test";
+
+    let capturedText: string | null = null;
+
+    const result = await processAuthSendEmailHook(
+      {
+        user: { email: "external@gmail.com" },
+        email_data: {
+          token: "",
+          token_hash: "invite-hash-value",
+          token_new: "",
+          token_hash_new: "",
+          redirect_to: "https://example.test/account/update-password?invite=1",
+          email_action_type: "invite",
+          site_url: "https://example.test",
+        },
+      },
+      {
+        loadRuntimeConfig: async () => ({
+          providerType: "smtp",
+          providerName: "Test",
+          smtpHost: "smtp.example.test",
+          smtpPort: 587,
+          smtpSecurity: "starttls",
+          smtpUsername: "user",
+          smtpPassword: "pass",
+          fromEmail: "noreply@example.test",
+          fromName: "LMS",
+          replyToEmail: null,
+          enabled: true,
+        }),
+        sendSmtp: async (_config, input) => {
+          capturedText = input.text;
+          return { success: true };
+        },
+      },
+    );
+
+    process.env.APP_ORIGIN = previousOrigin;
+
+    assert.equal(result.success, true);
+    assert.match(capturedText ?? "", /type=invite/);
+    assert.doesNotMatch(capturedText ?? "", /type=signup/);
+    assert.match(capturedText ?? "", /invite-hash-value/);
+    assert.doesNotMatch(capturedText ?? "", /supabase\.co\/auth\/v1\/verify/);
+    assert.doesNotMatch(capturedText ?? "", /redirect_to=/);
+    assert.match(capturedText ?? "", /next=%2Faccount%2Fupdate-password%3Finvite%3D1/);
+  });
+
+  it("maps auth email action types to Supabase EmailOtpType values explicitly", () => {
+    assert.equal(mapAuthEmailOtpType("invite"), "invite");
+    assert.equal(mapAuthEmailOtpType("signup"), "signup");
+    assert.equal(mapAuthEmailOtpType("recovery"), "recovery");
+    assert.equal(mapAuthEmailOtpType("email"), "email");
+    assert.equal(mapAuthEmailOtpType("magiclink"), "magiclink");
+    assert.equal(mapAuthEmailOtpType("email_change"), "email_change");
+  });
+
+  it("rejects direct Supabase verify links in auth email templates", () => {
+    assert.equal(
+      isDirectSupabaseVerifyUrl(
+        "https://project.supabase.co/auth/v1/verify?token=abc&type=invite",
+      ),
+      true,
+    );
+    assert.equal(
+      isDirectSupabaseVerifyUrl("https://example.test/auth/confirm?type=invite&token_hash=abc"),
+      false,
+    );
   });
 
   it("builds auth confirm URLs without logging tokens in templates", () => {

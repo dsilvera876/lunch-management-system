@@ -11,6 +11,9 @@ export const PASSWORD_RESET_SUCCESS_MESSAGE =
 export const PASSWORD_RESET_INVALID_LINK_MESSAGE =
   "This password reset link is invalid or has expired.";
 
+export const ACCOUNT_SETUP_INVALID_LINK_MESSAGE =
+  "Your account setup link is invalid or has expired.";
+
 export const PASSWORD_UPDATED_MESSAGE =
   "Your password has been updated. Sign in with your new password.";
 
@@ -30,6 +33,10 @@ export function getAuthConfirmSuccessPath(type: EmailOtpType): string | "post-lo
     return appendSearchParams(UPDATE_PASSWORD_PATH, { recovery: "1" });
   }
 
+  if (type === "invite") {
+    return appendSearchParams(UPDATE_PASSWORD_PATH, { invite: "1" });
+  }
+
   return "post-login";
 }
 
@@ -38,12 +45,23 @@ export function getAuthConfirmFailurePath(type: EmailOtpType | null): string {
     return appendSearchParams(FORGOT_PASSWORD_PATH, { error: "invalid-link" });
   }
 
+  if (type === "invite") {
+    return appendSearchParams("/login", { error: "setup-link" });
+  }
+
   return appendSearchParams("/login", { error: "confirmation" });
 }
 
-export function getPasswordUpdateRedirectPath(isRecovery: boolean): string {
+export function getPasswordUpdateRedirectPath(
+  isRecovery: boolean,
+  isInvite = false,
+): string {
   if (isRecovery) {
     return appendSearchParams("/login", { message: "password-updated" });
+  }
+
+  if (isInvite) {
+    return "/home";
   }
 
   return appendSearchParams("/account", { message: "password-updated" });
@@ -61,10 +79,46 @@ export function getPasswordResetRequestErrorPath(code: "invalid-email" | "tempor
 export function getPasswordUpdateErrorPath(
   isRecovery: boolean,
   code: "invalid" | "policy" | "mismatch" | "update",
+  isInvite = false,
 ): string {
-  const basePath = isRecovery
-    ? appendSearchParams(UPDATE_PASSWORD_PATH, { recovery: "1" })
-    : UPDATE_PASSWORD_PATH;
+  const basePath =
+    isRecovery
+      ? appendSearchParams(UPDATE_PASSWORD_PATH, { recovery: "1" })
+      : isInvite
+        ? appendSearchParams(UPDATE_PASSWORD_PATH, { invite: "1" })
+        : UPDATE_PASSWORD_PATH;
 
   return appendSearchParams(basePath, { error: code });
+}
+
+export function resolveSafeAuthConfirmNextPath(
+  nextParam: string | null,
+  origin: string,
+): string | null {
+  const trimmed = nextParam?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const url = trimmed.startsWith("/")
+      ? new URL(trimmed, origin)
+      : new URL(trimmed);
+
+    if (url.origin !== new URL(origin).origin) {
+      return null;
+    }
+
+    if (url.pathname === "/auth/confirm" || url.pathname.startsWith("/auth/confirm/")) {
+      return null;
+    }
+
+    if (url.pathname.includes("..")) {
+      return null;
+    }
+
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return null;
+  }
 }

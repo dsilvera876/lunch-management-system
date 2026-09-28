@@ -69,9 +69,23 @@ function HrUsersHeaderActions({
         Bulk import
       </Button>
       <Link href="/admin/users?view=approvals">
-        <Button type="button" variant="primary">
-          Pending approvals
-          {pendingCount > 0 ? ` (${pendingCount})` : ""}
+        <Button
+          type="button"
+          variant="secondary"
+          aria-label={
+            pendingCount > 0
+              ? `Pending approvals, ${pendingCount} request${pendingCount === 1 ? "" : "s"} pending`
+              : "Pending approvals"
+          }
+        >
+          <span className="inline-flex items-center gap-2">
+            Pending approvals
+            {pendingCount > 0 ? (
+              <span className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-400/80">
+                {pendingCount}
+              </span>
+            ) : null}
+          </span>
         </Button>
       </Link>
     </>

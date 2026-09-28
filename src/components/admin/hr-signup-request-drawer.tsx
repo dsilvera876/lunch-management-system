@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { AdminSlideOver } from "@/components/admin/lunch-providers/admin-slide-over";
 import { validateEmployeeIdField } from "@/lib/employee-id";
+import { resolveSignupDrawerActionOutcome } from "@/lib/hr-signup-request-action-result";
 import {
   signupRequestNeedsInvitationResume,
   type SignupRequestRow,
@@ -36,6 +37,7 @@ export function HrSignupRequestDrawer({ request, open, onClose, onUpdated }: Pro
   const [employeeId, setEmployeeId] = useState(() => request?.requested_employee_id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const resumeInvite = request ? signupRequestNeedsInvitationResume(request) : false;
@@ -48,6 +50,7 @@ export function HrSignupRequestDrawer({ request, open, onClose, onUpdated }: Pro
     setEmployeeId("");
     setError(null);
     setWarning(null);
+    setSuccessMessage(null);
     onClose();
   }
 
@@ -58,20 +61,22 @@ export function HrSignupRequestDrawer({ request, open, onClose, onUpdated }: Pro
 
     setError(null);
     setWarning(null);
+    setSuccessMessage(null);
     startTransition(async () => {
       const result = await rejectSignupRequest({ requestId: request!.request_id });
       if (!result.success) {
         setError(result.error);
         return;
       }
-      onUpdated();
       resetAndClose();
+      onUpdated();
     });
   }
 
   function runApprovalOrRetry() {
     setError(null);
     setWarning(null);
+    setSuccessMessage(null);
     const validation = validateEmployeeIdField(employeeId);
     if (!validation.ok) {
       setError(validation.message);
@@ -85,22 +90,32 @@ export function HrSignupRequestDrawer({ request, open, onClose, onUpdated }: Pro
         employeeId,
       });
 
-      if (!result.success) {
-        setError(result.error);
+      const outcome = resolveSignupDrawerActionOutcome(result);
+
+      if (outcome.kind === "error") {
+        setError(outcome.error);
+        if (outcome.refreshList) {
+          onUpdated();
+        }
+        return;
+      }
+
+      if (outcome.kind === "partial") {
+        setWarning(outcome.warning);
         onUpdated();
         return;
       }
 
-      if (result.warning) {
-        setWarning(result.warning);
-        onUpdated();
-        return;
-      }
-
-      onUpdated();
+      setSuccessMessage(
+        resumeInvite ? "Invitation sent successfully." : "Request approved and invitation sent.",
+      );
       resetAndClose();
+      onUpdated();
     });
   }
+
+  const approveLabel = resumeInvite ? "Retry invitation" : "Approve request";
+  const approvePendingLabel = resumeInvite ? "Retrying invitation…" : "Approving…";
 
   return (
     <AdminSlideOver
@@ -117,6 +132,12 @@ export function HrSignupRequestDrawer({ request, open, onClose, onUpdated }: Pro
         {error ? (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}
+          </p>
+        ) : null}
+
+        {successMessage ? (
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+            {successMessage}
           </p>
         ) : null}
 
@@ -191,15 +212,11 @@ export function HrSignupRequestDrawer({ request, open, onClose, onUpdated }: Pro
           </Button>
           {!resumeInvite ? (
             <Button type="button" variant="secondary" onClick={handleReject} disabled={isPending}>
-              {isPending ? "Working…" : "Reject request"}
+              {isPending ? "Rejecting…" : "Reject request"}
             </Button>
           ) : null}
           <Button type="button" variant="primary" onClick={runApprovalOrRetry} disabled={isPending}>
-            {isPending
-              ? "Working…"
-              : resumeInvite
-                ? "Retry invitation"
-                : "Approve request"}
+            {isPending ? approvePendingLabel : approveLabel}
           </Button>
         </div>
       </div>

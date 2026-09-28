@@ -13,6 +13,7 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 type Props = {
   searchParams: Promise<{
     recovery?: string;
+    invite?: string;
     error?: string;
   }>;
 };
@@ -20,8 +21,9 @@ type Props = {
 export default async function UpdatePasswordPage({ searchParams }: Props) {
   const params = await searchParams;
   const isRecovery = params.recovery === "1";
+  const isInvite = params.invite === "1";
 
-  if (!isRecovery) {
+  if (!isRecovery && !isInvite) {
     await requireProfile();
   } else {
     const { createClient } = await import("@/lib/supabase/server");
@@ -32,7 +34,7 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
 
     if (!user) {
       const { redirect } = await import("next/navigation");
-      redirect(FORGOT_PASSWORD_PATH);
+      redirect(isInvite ? "/login?error=setup-link" : FORGOT_PASSWORD_PATH);
     }
   }
 
@@ -58,6 +60,7 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
 
       <form action={updatePassword} className="mt-6 space-y-4">
         {isRecovery && <input type="hidden" name="recovery" value="1" />}
+        {isInvite && <input type="hidden" name="invite" value="1" />}
 
         <FormField
           label="New password"
@@ -115,12 +118,16 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
     </>
   );
 
-  if (isRecovery) {
+  if (isRecovery || isInvite) {
     return (
       <AuthLayout>
-        <h1 className="text-xl font-semibold">Choose a new password</h1>
+        <h1 className="text-xl font-semibold">
+          {isInvite ? "Set your password" : "Choose a new password"}
+        </h1>
         <p className="mt-2 text-sm text-muted">
-          Enter and confirm your new password to finish resetting your account.
+          {isInvite
+            ? "Choose a password to finish setting up your Lunch Management System account."
+            : "Enter and confirm your new password to finish resetting your account."}
         </p>
         {form}
       </AuthLayout>

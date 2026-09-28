@@ -4,7 +4,11 @@ import { AuthLayout } from "@/components/auth-layout";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { FORGOT_PASSWORD_PATH, PASSWORD_UPDATED_MESSAGE } from "@/lib/auth-recovery";
+import {
+  ACCOUNT_SETUP_INVALID_LINK_MESSAGE,
+  FORGOT_PASSWORD_PATH,
+  PASSWORD_UPDATED_MESSAGE,
+} from "@/lib/auth-recovery";
 
 type Props = {
   searchParams: Promise<{
@@ -35,6 +39,13 @@ export default async function LoginPage({ searchParams }: Props) {
       {params.error === "confirmation" && (
         <Alert variant="error" className="mt-4">
           Email confirmation link is invalid or has expired.
+        </Alert>
+      )}
+
+      {params.error === "setup-link" && (
+        <Alert variant="error" className="mt-4">
+          {ACCOUNT_SETUP_INVALID_LINK_MESSAGE} Contact HR to request a new invitation if your
+          access was approved.
         </Alert>
       )}
 

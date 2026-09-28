@@ -47,6 +47,17 @@ describe("auth recovery helpers", () => {
     assert.equal(getAuthConfirmSuccessPath("signup"), "post-login");
   });
 
+  it("routes invite confirmation to password setup", () => {
+    assert.equal(
+      getAuthConfirmSuccessPath("invite"),
+      "/account/update-password?invite=1",
+    );
+  });
+
+  it("routes invalid invite links to login setup-link messaging", () => {
+    assert.equal(getAuthConfirmFailurePath("invite"), "/login?error=setup-link");
+  });
+
   it("rejects missing token hash with login confirmation error", () => {
     assert.equal(getAuthConfirmFailurePath(null), "/login?error=confirmation");
   });

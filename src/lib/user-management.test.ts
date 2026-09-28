@@ -213,11 +213,25 @@ describe("user management workspace wiring", () => {
     );
 
     assert.match(page, /Pending approvals/);
+    assert.match(page, /aria-label=\{[\s\S]*request.*pending/);
+    assert.match(page, /bg-amber-100/);
     assert.doesNotMatch(page, /Pending approvals[\s\S]*disabled/);
     assert.match(page, /count_pending_signup_requests/);
     assert.match(page, /view=approvals/);
     assert.match(page, /HrSignupRequestsWorkspace/);
     assert.match(signupWorkspace, /Retry invitation/);
+  });
+
+  it("blocks double-submit and shows approving progress in the signup drawer", () => {
+    const drawer = readFileSync(
+      new URL("../components/admin/hr-signup-request-drawer.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(drawer, /disabled=\{isPending\}/);
+    assert.match(drawer, /Approving…/);
+    assert.match(drawer, /resolveSignupDrawerActionOutcome/);
+    assert.match(drawer, /resetAndClose\(\);\s*\n\s*onUpdated\(\)/);
   });
 
   it("does not expose signup approval controls on Admin role-management page", () => {

@@ -1,3 +1,5 @@
+import { appendSearchParams } from "@/lib/redirect-url";
+import { UPDATE_PASSWORD_PATH } from "@/lib/auth-recovery";
 import { getApplicationOrigin } from "@/lib/request-origin";
 
 export type AuthEmailActionType =
@@ -28,16 +30,67 @@ const SUBJECTS: Record<string, string> = {
 export function mapAuthEmailOtpType(actionType: AuthEmailActionType): string {
   switch (actionType) {
     case "invite":
-      return "signup";
+      return "invite";
     case "magiclink":
       return "magiclink";
     case "recovery":
       return "recovery";
     case "email_change":
       return "email_change";
+    case "email":
+      return "email";
     case "signup":
     default:
       return "signup";
+  }
+}
+
+function tryParseInternalPath(redirectTo: string | undefined, origin: string): string | null {
+  const trimmed = redirectTo?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const url = trimmed.startsWith("/")
+      ? new URL(trimmed, origin)
+      : new URL(trimmed);
+
+    if (url.origin !== new URL(origin).origin) {
+      return null;
+    }
+
+    if (url.pathname === "/auth/confirm" || url.pathname.startsWith("/auth/confirm/")) {
+      return null;
+    }
+
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveAuthConfirmNextPath(input: {
+  actionType: AuthEmailActionType;
+  redirectTo?: string;
+  applicationOrigin?: string;
+}): string {
+  const origin = input.applicationOrigin ?? getApplicationOrigin();
+  const fromRedirect = tryParseInternalPath(input.redirectTo, origin);
+  if (fromRedirect) {
+    return fromRedirect;
+  }
+
+  switch (input.actionType) {
+    case "invite":
+      return appendSearchParams(UPDATE_PASSWORD_PATH, { invite: "1" });
+    case "recovery":
+      return appendSearchParams(UPDATE_PASSWORD_PATH, { recovery: "1" });
+    case "signup":
+    case "email":
+    case "magiclink":
+    default:
+      return "/home";
   }
 }
 
@@ -51,10 +104,24 @@ export function buildAuthConfirmUrl(input: {
   const url = new URL("/auth/confirm", origin);
   url.searchParams.set("token_hash", input.tokenHash);
   url.searchParams.set("type", mapAuthEmailOtpType(input.actionType));
-  if (input.redirectTo?.trim()) {
-    url.searchParams.set("redirect_to", input.redirectTo.trim());
-  }
+  url.searchParams.set(
+    "next",
+    resolveAuthConfirmNextPath({
+      actionType: input.actionType,
+      redirectTo: input.redirectTo,
+      applicationOrigin: origin,
+    }),
+  );
   return url.toString();
+}
+
+export function isDirectSupabaseVerifyUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.pathname.includes("/auth/v1/verify");
+  } catch {
+    return false;
+  }
 }
 
 export function buildAuthEmailContent(input: AuthEmailTemplateInput): {

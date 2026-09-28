@@ -13,17 +13,19 @@ export async function updatePassword(formData: FormData) {
   const password = formData.get("password");
   const confirmPassword = formData.get("confirmPassword");
   const recoveryFlag = formData.get("recovery");
+  const inviteFlag = formData.get("invite");
   const isRecovery = recoveryFlag === "1";
+  const isInvite = inviteFlag === "1";
 
   if (typeof password !== "string" || typeof confirmPassword !== "string") {
-    redirect(getPasswordUpdateErrorPath(isRecovery, "invalid"));
+    redirect(getPasswordUpdateErrorPath(isRecovery, "invalid", isInvite));
   }
 
   const validation = validatePasswordUpdate(password, confirmPassword);
 
   if (!validation.ok) {
     const errorCode = validation.code === "missing" ? "invalid" : validation.code;
-    redirect(getPasswordUpdateErrorPath(isRecovery, errorCode));
+    redirect(getPasswordUpdateErrorPath(isRecovery, errorCode, isInvite));
   }
 
   const supabase = await createClient();
@@ -39,7 +41,7 @@ export async function updatePassword(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
-    redirect(getPasswordUpdateErrorPath(isRecovery, "update"));
+    redirect(getPasswordUpdateErrorPath(isRecovery, "update", isInvite));
   }
 
   if (isRecovery) {
@@ -48,5 +50,5 @@ export async function updatePassword(formData: FormData) {
 
   revalidatePath("/", "layout");
 
-  redirect(getPasswordUpdateRedirectPath(isRecovery));
+  redirect(getPasswordUpdateRedirectPath(isRecovery, isInvite));
 }
