@@ -6,6 +6,15 @@ import { requireManageRoles, requireOwner } from "@/lib/auth";
 import { isAssignableRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import type { ManageableUserRecord } from "@/lib/user-management-presentation";
+import {
+  emailsMatchForDeletionConfirmation,
+  type UserDeletionEligibility,
+  type UserDeletionReasonCategory,
+} from "@/lib/user-deletion";
+import {
+  fetchUserDeletionEligibility,
+  permanentlyDeleteUserAccountOrchestrated,
+} from "@/lib/permanent-user-deletion";
 
 export type UpdateManageableUserInlineResult =
   | { success: true; user: ManageableUserRecord }
@@ -190,6 +199,88 @@ export async function assignUserRole(formData: FormData) {
   revalidatePath("/admin/users");
   revalidatePath("/", "layout");
   redirect("/admin/users?updated=1");
+}
+
+export type GetUserDeletionEligibilityResult =
+  | { success: true; eligibility: UserDeletionEligibility }
+  | { success: false; error: "invalid" | "unauthorized" };
+
+export async function getUserDeletionEligibilityInline(
+  profileId: string,
+): Promise<GetUserDeletionEligibilityResult> {
+  await requireManageRoles();
+
+  if (typeof profileId !== "string" || profileId.length === 0) {
+    return { success: false, error: "invalid" };
+  }
+
+  const supabase = await createClient();
+  const eligibility = await fetchUserDeletionEligibility(supabase, profileId);
+
+  if (!eligibility) {
+    return { success: false, error: "invalid" };
+  }
+
+  return { success: true, eligibility };
+}
+
+export type PermanentlyDeleteUserInlineResult =
+  | { success: "complete"; profileId: string }
+  | { success: "partial"; profileId: string; message: string }
+  | {
+      success: false;
+      error: "invalid" | "unauthorized" | "ineligible" | "auth" | "database" | "confirm_email";
+      message: string;
+    };
+
+function isDeletionReasonCategory(value: string): value is UserDeletionReasonCategory {
+  return value === "test_account" || value === "duplicate_error" || value === "other";
+}
+
+export async function permanentlyDeleteUserInline(input: {
+  profileId: string;
+  confirmEmail: string;
+  accountEmail: string;
+  reasonCategory: string;
+  reasonNote?: string;
+}): Promise<PermanentlyDeleteUserInlineResult> {
+  await requireManageRoles();
+
+  const { profileId, confirmEmail, accountEmail, reasonCategory, reasonNote } = input;
+
+  if (typeof profileId !== "string" || profileId.length === 0) {
+    return { success: false, error: "invalid", message: "User not found." };
+  }
+
+  if (!emailsMatchForDeletionConfirmation(confirmEmail, accountEmail)) {
+    return {
+      success: false,
+      error: "confirm_email",
+      message: "Type the user's email address exactly to confirm deletion.",
+    };
+  }
+
+  if (!isDeletionReasonCategory(reasonCategory)) {
+    return { success: false, error: "invalid", message: "Choose a valid deletion reason." };
+  }
+
+  const supabase = await createClient();
+
+  const result = await permanentlyDeleteUserAccountOrchestrated({
+    supabase,
+    profileId,
+    reasonCategory,
+    reasonNote,
+  });
+
+  if (result.success === false) {
+    return result;
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
+
+  return result;
 }
 
 export async function transferOwnership(formData: FormData) {

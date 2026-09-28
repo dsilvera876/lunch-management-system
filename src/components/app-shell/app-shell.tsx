@@ -12,6 +12,7 @@ import {
 import { NavIcon } from "@/components/icons/line-icons";
 import { SidebarBrand } from "@/components/app-shell/sidebar-brand";
 import { TopHeader } from "@/components/app-shell/top-header";
+import { buildAppNotifications } from "@/lib/app-notification-sources";
 
 type Profile = {
   full_name: string | null;
@@ -92,11 +93,14 @@ function NavLinks({
 
 export function AppShell({
   profile,
+  hrPendingSignupCount = 0,
   children,
 }: {
   profile: Profile;
+  hrPendingSignupCount?: number;
   children: React.ReactNode;
 }) {
+  const headerNotifications = buildAppNotifications(hrPendingSignupCount);
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navItems = getNavForRole(profile.role);
@@ -164,7 +168,7 @@ export function AppShell({
       </header>
 
       <div className="lg:pl-64">
-        <TopHeader profile={profile} />
+        <TopHeader profile={profile} notifications={headerNotifications} />
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>

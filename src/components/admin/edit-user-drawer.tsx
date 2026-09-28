@@ -14,12 +14,16 @@ import type { AssignableRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { useToast } from "@/components/ui/toast";
+import { UserPermanentDeleteSection } from "@/components/admin/user-permanent-delete-section";
 
 type Props = {
   user: ManageableUserRecord | null;
   open: boolean;
+  viewerId: string;
+  viewerRole: string;
   onClose: () => void;
   onUserUpdated: (user: ManageableUserRecord) => void;
+  onUserDeleted: (profileId: string) => void;
 };
 
 function updateErrorMessage(error: "invalid" | "assign" | "profile"): string {
@@ -33,7 +37,15 @@ function updateErrorMessage(error: "invalid" | "assign" | "profile"): string {
   }
 }
 
-export function EditUserDrawer({ user, open, onClose, onUserUpdated }: Props) {
+export function EditUserDrawer({
+  user,
+  open,
+  viewerId,
+  viewerRole,
+  onClose,
+  onUserUpdated,
+  onUserDeleted,
+}: Props) {
   const { showToast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -161,6 +173,23 @@ export function EditUserDrawer({ user, open, onClose, onUserUpdated }: Props) {
               {error}
             </p>
           ) : null}
+
+          <UserPermanentDeleteSection
+            user={user}
+            viewerId={viewerId}
+            viewerRole={viewerRole}
+            onDeleted={(profileId) => {
+              onUserDeleted(profileId);
+              onClose();
+            }}
+            onError={(message) => setError(message)}
+            onSuccess={() =>
+              showToast({
+                title: USER_MANAGEMENT_TOAST.permanentlyDeleted,
+                durationMs: USER_MANAGEMENT_SUCCESS_TOAST_DURATION_MS,
+              })
+            }
+          />
         </form>
       ) : null}
     </AdminSlideOver>

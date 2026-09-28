@@ -4,6 +4,9 @@ import { Suspense } from "react";
 import "./globals.css";
 import { AppShellWrapper } from "@/components/app-shell/app-shell-wrapper";
 import { getCurrentProfile } from "@/lib/auth";
+import { getHrPendingSignupApprovalCount } from "@/lib/hr-pending-signup-approvals";
+import { createClient } from "@/lib/supabase/server";
+import type { UserRole } from "@/lib/roles";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,6 +29,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const profile = await getCurrentProfile();
+  let hrPendingSignupCount = 0;
+
+  if (profile?.role === "hr") {
+    const supabase = await createClient();
+    hrPendingSignupCount = await getHrPendingSignupApprovalCount(
+      supabase,
+      profile.role as UserRole,
+    );
+  }
 
   return (
     <html lang="en">
@@ -33,7 +45,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Suspense fallback={children}>
-          <AppShellWrapper profile={profile}>{children}</AppShellWrapper>
+          <AppShellWrapper profile={profile} hrPendingSignupCount={hrPendingSignupCount}>
+            {children}
+          </AppShellWrapper>
         </Suspense>
       </body>
     </html>

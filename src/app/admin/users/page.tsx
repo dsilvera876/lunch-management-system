@@ -71,7 +71,7 @@ function HrUsersHeaderActions({
       <Link href="/admin/users?view=approvals">
         <Button
           type="button"
-          variant="secondary"
+          variant={pendingCount > 0 ? "primary" : "secondary"}
           aria-label={
             pendingCount > 0
               ? `Pending approvals, ${pendingCount} request${pendingCount === 1 ? "" : "s"} pending`
@@ -81,7 +81,7 @@ function HrUsersHeaderActions({
           <span className="inline-flex items-center gap-2">
             Pending approvals
             {pendingCount > 0 ? (
-              <span className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-950 ring-1 ring-amber-400/80">
+              <span className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">
                 {pendingCount}
               </span>
             ) : null}

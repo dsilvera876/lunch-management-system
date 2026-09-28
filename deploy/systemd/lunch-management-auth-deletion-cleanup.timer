@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Lunch Management Auth deletion cleanup worker every 5 minutes
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=5min
+Persistent=true
+AccuracySec=1min
+Unit=lunch-management-auth-deletion-cleanup.service
+
+[Install]
+WantedBy=timers.target

@@ -12,6 +12,7 @@ import {
   displayUserName,
   filterManageableUsers,
   mergeManageableUser,
+  removeManageableUser,
   paginateUsers,
   userDirectoryCountLabel,
   type ManageableUserRecord,
@@ -85,6 +86,12 @@ function UserManagementWorkspaceContent({
 
   function handleUserUpdated(user: ManageableUserRecord) {
     setUsers((current) => mergeManageableUser(current, user));
+  }
+
+  function handleUserDeleted(profileId: string) {
+    setUsers((current) => removeManageableUser(current, profileId));
+    setSelectedUserId(null);
+    setDrawerOpen(false);
   }
 
   function handleOwnershipTransferred(previousOwnerId: string, newOwnerId: string) {
@@ -237,8 +244,11 @@ function UserManagementWorkspaceContent({
         key={selectedUserId ?? "closed"}
         user={selectedUser}
         open={drawerOpen}
+        viewerId={viewerId}
+        viewerRole={viewerRole}
         onClose={closeEditor}
         onUserUpdated={handleUserUpdated}
+        onUserDeleted={handleUserDeleted}
       />
     </>
   );

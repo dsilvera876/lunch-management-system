@@ -98,6 +98,10 @@ describe("async auth email delivery", () => {
           };
         }
 
+        if (name === "worker_should_deliver_email_queue_message") {
+          return { data: true, error: null };
+        }
+
         if (name === "worker_complete_email_delivery") {
           assert.equal(args?.p_outcome, "sent");
           return { data: null, error: null };

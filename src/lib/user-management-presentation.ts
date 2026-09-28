@@ -15,6 +15,7 @@ export const USER_DIRECTORY_PAGE_SIZE = 25;
 export const USER_MANAGEMENT_TOAST = {
   updated: "User updated.",
   ownershipTransferred: "Ownership transferred.",
+  permanentlyDeleted: "Account permanently deleted.",
 } as const;
 
 export const USER_MANAGEMENT_SUCCESS_TOAST_DURATION_MS = 4500;
@@ -67,6 +68,13 @@ export function paginateUsers<T>(
     totalPages,
     slice: users.slice(start, start + pageSize),
   };
+}
+
+export function removeManageableUser(
+  users: ManageableUserRecord[],
+  profileId: string,
+): ManageableUserRecord[] {
+  return users.filter((user) => user.id !== profileId);
 }
 
 export function mergeManageableUser(

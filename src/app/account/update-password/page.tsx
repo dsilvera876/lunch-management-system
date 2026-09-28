@@ -90,37 +90,43 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
           />
         </FormField>
 
-        <FormSubmitButton pendingText="Saving..." variant="primary" className="w-full">
-          Update password
+        <FormSubmitButton
+          pendingText={isInvite ? "Setting password..." : "Saving..."}
+          variant="primary"
+          className="w-full"
+        >
+          {isInvite ? "Set password" : "Update password"}
         </FormSubmitButton>
       </form>
 
-      <p className="mt-4 text-center text-sm text-muted">
-        {isRecovery ? (
-          <>
-            Link expired?{" "}
-            <Link
-              href={FORGOT_PASSWORD_PATH}
-              className="font-medium text-primary underline-offset-2 hover:underline"
-            >
-              Request a new reset link
-            </Link>
-          </>
-        ) : (
+      {isRecovery ? (
+        <p className="mt-4 text-center text-sm text-muted">
+          Link expired?{" "}
+          <Link
+            href={FORGOT_PASSWORD_PATH}
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            Request a new reset link
+          </Link>
+        </p>
+      ) : null}
+
+      {!isRecovery && !isInvite ? (
+        <p className="mt-4 text-center text-sm text-muted">
           <Link
             href="/account"
             className="font-medium text-primary underline-offset-2 hover:underline"
           >
             Back to account
           </Link>
-        )}
-      </p>
+        </p>
+      ) : null}
     </>
   );
 
   if (isRecovery || isInvite) {
     return (
-      <AuthLayout>
+      <AuthLayout variant="onboarding">
         <h1 className="text-xl font-semibold">
           {isInvite ? "Set your password" : "Choose a new password"}
         </h1>

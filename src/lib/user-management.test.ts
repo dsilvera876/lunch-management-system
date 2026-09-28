@@ -214,7 +214,8 @@ describe("user management workspace wiring", () => {
 
     assert.match(page, /Pending approvals/);
     assert.match(page, /aria-label=\{[\s\S]*request.*pending/);
-    assert.match(page, /bg-amber-100/);
+    assert.match(page, /bg-red-600/);
+    assert.match(page, /variant=\{pendingCount > 0 \? "primary" : "secondary"\}/);
     assert.doesNotMatch(page, /Pending approvals[\s\S]*disabled/);
     assert.match(page, /count_pending_signup_requests/);
     assert.match(page, /view=approvals/);

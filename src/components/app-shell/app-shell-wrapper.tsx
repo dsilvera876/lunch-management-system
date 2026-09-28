@@ -16,9 +16,11 @@ const AUTH_PATHS = ["/login", "/signup", FORGOT_PASSWORD_PATH];
 
 export function AppShellWrapper({
   profile,
+  hrPendingSignupCount = 0,
   children,
 }: {
   profile: Profile | null;
+  hrPendingSignupCount?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -27,7 +29,10 @@ export function AppShellWrapper({
   const previousPathnameRef = useRef<string | null>(null);
   const isRecoveryPasswordPage =
     pathname === UPDATE_PASSWORD_PATH && searchParams.get("recovery") === "1";
-  const isAuthPage = AUTH_PATHS.includes(pathname) || isRecoveryPasswordPage;
+  const isInvitePasswordPage =
+    pathname === UPDATE_PASSWORD_PATH && searchParams.get("invite") === "1";
+  const isAuthPage =
+    AUTH_PATHS.includes(pathname) || isRecoveryPasswordPage || isInvitePasswordPage;
   const isPrintDeliverySheet =
     (pathname.includes("/admin/orders/provider/") ||
       pathname.includes("/admin/deliveries/")) &&
@@ -63,5 +68,9 @@ export function AppShellWrapper({
     return <>{children}</>;
   }
 
-  return <AppShell profile={profile}>{children}</AppShell>;
+  return (
+    <AppShell profile={profile} hrPendingSignupCount={hrPendingSignupCount}>
+      {children}
+    </AppShell>
+  );
 }

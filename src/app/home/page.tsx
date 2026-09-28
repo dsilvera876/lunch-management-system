@@ -1,5 +1,10 @@
 import { requireProfile } from "@/lib/auth";
+import { HrPendingApprovalsAlert } from "@/components/dashboard/hr-pending-approvals-alert";
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
+import {
+  buildHrPendingSignupApprovalAlert,
+  getHrPendingSignupApprovalCount,
+} from "@/lib/hr-pending-signup-approvals";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { getStaffFinancialDashboardResult } from "@/lib/financial-summaries";
 import {
@@ -15,6 +20,14 @@ export default async function HomePage() {
   const profile = await requireProfile();
   const supabase = await createClient();
   const today = getJamaicaTodayDate();
+
+  const pendingSignupApprovalCount =
+    profile.role === "hr"
+      ? await getHrPendingSignupApprovalCount(supabase, profile.role)
+      : 0;
+  const hrPendingApprovalsAlert = buildHrPendingSignupApprovalAlert(
+    pendingSignupApprovalCount,
+  );
 
   const [ctx, financialResult, recentOrdersResult] = await Promise.all([
     getStaffOrderingContext(profile.id),
@@ -65,7 +78,11 @@ export default async function HomePage() {
     }) ?? [];
 
   return (
-    <StaffDashboard
+    <div className="space-y-6">
+      {hrPendingApprovalsAlert ? (
+        <HrPendingApprovalsAlert alert={hrPendingApprovalsAlert} />
+      ) : null}
+      <StaffDashboard
       greeting={getTimeOfDayGreeting()}
       firstName={firstName}
       displayDateLabel={formatHumanDate(today)}
@@ -83,6 +100,7 @@ export default async function HomePage() {
       lastPeriodSpend={lastPeriod?.amount ?? null}
       deliveryOrders={ctx.deliveryOrders}
       recentOrders={recentOrders}
-    />
+      />
+    </div>
   );
 }

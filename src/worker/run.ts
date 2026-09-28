@@ -2,8 +2,14 @@ import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 import { processEmailDeliveryQueue } from "@/lib/mail/process-email-delivery-queue";
+import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 
-type WorkerTask = "snapshots" | "automatic-dispatch" | "mail-queue" | "all";
+type WorkerTask =
+  | "snapshots"
+  | "automatic-dispatch"
+  | "mail-queue"
+  | "auth-deletion-cleanup"
+  | "all";
 
 type WorkerOptions = {
   task: WorkerTask;
@@ -24,6 +30,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "snapshots" ||
         value === "automatic-dispatch" ||
         value === "mail-queue" ||
+        value === "auth-deletion-cleanup" ||
         value === "all"
       ) {
         task = value;
@@ -210,6 +217,17 @@ async function runMailQueue(dryRun: boolean): Promise<number> {
   return result.failed;
 }
 
+async function runAuthDeletionCleanup(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processAuthUserDeletionCleanup(supabase, { batchSize: 10, dryRun });
+
+  console.log(
+    `Auth deletion cleanup: claimed=${result.claimed} succeeded=${result.succeeded} retried=${result.retried} terminal_failed=${result.terminalFailed}`,
+  );
+
+  return result.terminalFailed;
+}
+
 async function main(): Promise<void> {
   assertWorkerEnvironment();
   const options = parseArgs(process.argv.slice(2));
@@ -224,6 +242,13 @@ async function main(): Promise<void> {
 
   if (options.task === "mail-queue" || options.task === "all") {
     const failures = await runMailQueue(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
+  if (options.task === "auth-deletion-cleanup" || options.task === "all") {
+    const failures = await runAuthDeletionCleanup(options.dryRun);
     if (failures > 0) {
       process.exitCode = 1;
     }

@@ -4,15 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getBreadcrumbs } from "@/lib/breadcrumbs";
 import { getRoleLabel } from "@/lib/navigation";
+import { HeaderNotifications } from "@/components/app-shell/header-notifications";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ACCOUNT_NAV } from "@/lib/navigation";
 import { formatJamaicaHeaderDate, getJamaicaTodayDate } from "@/lib/datetime";
+import type { AppNotificationItem } from "@/lib/app-notification-sources";
 
 type Props = {
   profile: {
     full_name: string | null;
     role: string;
   };
+  notifications?: AppNotificationItem[];
 };
 
 function getInitials(name: string | null): string {
@@ -27,7 +30,7 @@ function getInitials(name: string | null): string {
     .join("");
 }
 
-export function TopHeader({ profile }: Props) {
+export function TopHeader({ profile, notifications = [] }: Props) {
   const pathname = usePathname();
   const breadcrumbs = getBreadcrumbs(pathname);
   const jamaicaToday = getJamaicaTodayDate();
@@ -47,30 +50,7 @@ export function TopHeader({ profile }: Props) {
           >
             {headerDateLabel}
           </time>
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative inline-flex size-10 items-center justify-center rounded-lg border border-border bg-surface text-primary/70 hover:bg-background hover:text-primary"
-          >
-            <span className="sr-only">Notifications</span>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              aria-hidden
-            >
-              <path d="M15 17H9l-1 4h8z" strokeLinecap="round" strokeLinejoin="round" />
-              <path
-                d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="absolute right-2.5 top-2 size-2 rounded-full bg-primary" />
-          </button>
+          <HeaderNotifications items={notifications} />
 
           <Link
             href={ACCOUNT_NAV.href}

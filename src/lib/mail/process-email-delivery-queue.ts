@@ -56,6 +56,31 @@ export async function processEmailDeliveryQueue(
   }
 
   for (const row of rows) {
+    const { data: shouldDeliver, error: shouldDeliverError } = await supabase.rpc(
+      "worker_should_deliver_email_queue_message",
+      { p_queue_id: row.id },
+    );
+
+    if (shouldDeliverError) {
+      throw new Error(
+        `Email queue delivery validation failed: ${shouldDeliverError.message}`,
+      );
+    }
+
+    if (shouldDeliver !== true) {
+      const { error: completeError } = await supabase.rpc("worker_complete_email_delivery", {
+        p_queue_id: row.id,
+        p_outcome: "failed",
+        p_error: "Delivery cancelled: account or signup context no longer valid.",
+      });
+
+      if (completeError) {
+        throw new Error(`Email queue skip finalize failed: ${completeError.message}`);
+      }
+
+      result.failed += 1;
+      continue;
+    }
 
     const sendResult = await sendEmail(
       {

@@ -576,6 +576,7 @@ cd /var/www/lunch-management-system
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:snapshots
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:automatic-dispatch
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:mail-queue
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:auth-deletion-cleanup
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
 ```
 
@@ -587,6 +588,36 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now lunch-management-mail-queue.timer
 ```
 
+Enable the Auth deletion cleanup timer so pending `auth.admin.deleteUser` retries complete after partial permanent deletes (no SMTP credentials required):
+
+```bash
+sudo cp deploy/systemd/lunch-management-auth-deletion-cleanup.service /etc/systemd/system/
+sudo cp deploy/systemd/lunch-management-auth-deletion-cleanup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now lunch-management-auth-deletion-cleanup.timer
+```
+
+Verification:
+
+```bash
+sudo systemctl status lunch-management-auth-deletion-cleanup.timer
+sudo systemctl list-timers | grep lunch-management
+```
+
+Manual execution for troubleshooting:
+
+```bash
+sudo systemctl start lunch-management-auth-deletion-cleanup.service
+```
+
+Logs:
+
+```bash
+sudo journalctl -u lunch-management-auth-deletion-cleanup.service -n 100 --no-pager
+```
+
+The service reads **`/etc/lunch-management/worker.env`** (same as other workers). Required variables include **`SUPABASE_URL`** and **`SUPABASE_SECRET_KEY`**. Do not add `SMTP2GO_*` to this unit; Auth cleanup does not send mail.
+
 **Local development:** run `supabase status` and copy the **Secret** key (`sb_secret_...`) into a local `worker.env` (or export `SUPABASE_URL` + `SUPABASE_SECRET_KEY`). Do not use the legacy JWT `service_role` key for the worker. Normal app auth continues to use `.env.local` publishable credentials only.
 
 ### Logs and maintenance
@@ -594,10 +625,13 @@ sudo systemctl enable --now lunch-management-mail-queue.timer
 ```bash
 journalctl -u lunch-management-snapshot.service -n 100 --no-pager
 journalctl -u lunch-management-late-orders-worker.service -n 100 --no-pager
+journalctl -u lunch-management-mail-queue.service -n 100 --no-pager
+journalctl -u lunch-management-auth-deletion-cleanup.service -n 100 --no-pager
 journalctl -u lunch-management-snapshot.timer -n 20 --no-pager
 journalctl -u lunch-management-late-orders-worker.timer -n 20 --no-pager
 sudo systemctl disable --now lunch-management-snapshot.timer
 sudo systemctl disable --now lunch-management-late-orders-worker.timer
+sudo systemctl disable --now lunch-management-auth-deletion-cleanup.timer
 ```
 
 ### Operational notes
