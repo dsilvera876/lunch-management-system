@@ -12,8 +12,11 @@ import {
   USER_IMPORT_MAX_BYTES,
   USER_IMPORT_MAX_ROWS,
 } from "@/lib/user-import-csv";
+import { IconArrowRight, IconClipboard } from "@/components/icons/line-icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+
+const WORKFLOW_MAX_WIDTH = "mx-auto w-full max-w-4xl";
 
 type Props = {
   initialBatchId?: string | null;
@@ -116,43 +119,62 @@ function ImportStepIndicator({ currentStep }: { currentStep: WizardStep }) {
   ];
 
   return (
-    <nav aria-label="Bulk import progress" className="mb-6">
-      <ol className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0">
+    <nav aria-label="Bulk import progress" className="mb-6 w-full">
+      <ol className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
         {steps.map((step, index) => {
           const isComplete = currentStep > step.id;
           const isCurrent = currentStep === step.id;
 
           return (
-            <li key={step.id} className="flex flex-1 items-center gap-2 sm:gap-0">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ring-inset ${
-                    isCurrent
-                      ? "bg-primary text-white ring-primary"
-                      : isComplete
-                        ? "bg-teal-50 text-teal-900 ring-teal-200"
-                        : "bg-surface text-muted ring-border"
-                  }`}
-                  aria-current={isCurrent ? "step" : undefined}
-                >
-                  {isComplete ? "✓" : step.id}
-                </span>
-                <span
-                  className={`text-sm font-medium ${
-                    isCurrent ? "text-foreground" : "text-muted"
-                  }`}
-                >
-                  {step.label}
-                </span>
+            <li
+              key={step.id}
+              className="flex flex-1 items-center sm:flex-col sm:items-center sm:px-1"
+            >
+              <div className="flex w-full items-center sm:justify-center">
+                {index > 0 ? (
+                  <div
+                    className={`mr-2 hidden h-px flex-1 sm:mr-0 sm:block sm:w-full sm:max-w-[4.5rem] ${
+                      currentStep > step.id - 1 ? "bg-teal-300" : "bg-border"
+                    }`}
+                    aria-hidden
+                  />
+                ) : (
+                  <div className="hidden flex-1 sm:block sm:max-w-[4.5rem]" aria-hidden />
+                )}
+
+                <div className="flex shrink-0 flex-col items-center gap-2 sm:min-w-[7.5rem]">
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ring-1 ring-inset ${
+                      isCurrent
+                        ? "bg-primary text-white ring-primary"
+                        : isComplete
+                          ? "bg-teal-50 text-teal-900 ring-teal-200"
+                          : "bg-surface text-muted ring-border"
+                    }`}
+                    aria-current={isCurrent ? "step" : undefined}
+                  >
+                    {isComplete ? "✓" : step.id}
+                  </span>
+                  <span
+                    className={`text-center text-sm font-medium leading-snug ${
+                      isCurrent ? "text-foreground" : "text-muted"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+
+                {index < steps.length - 1 ? (
+                  <div
+                    className={`ml-2 hidden h-px flex-1 sm:ml-0 sm:block sm:w-full sm:max-w-[4.5rem] ${
+                      currentStep > step.id ? "bg-teal-300" : "bg-border"
+                    }`}
+                    aria-hidden
+                  />
+                ) : (
+                  <div className="hidden flex-1 sm:block sm:max-w-[4.5rem]" aria-hidden />
+                )}
               </div>
-              {index < steps.length - 1 ? (
-                <div
-                  className={`mx-3 hidden h-px flex-1 sm:block ${
-                    currentStep > step.id ? "bg-teal-300" : "bg-border"
-                  }`}
-                  aria-hidden
-                />
-              ) : null}
             </li>
           );
         })}
@@ -209,12 +231,14 @@ function ResultStatusChip({ status }: { status: string }) {
 export function HrBulkImportWorkspace({ initialBatchId }: Props) {
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadErrorRef = useRef<HTMLDivElement>(null);
   const [batchId, setBatchId] = useState<string | null>(initialBatchId ?? null);
   const [validation, setValidation] = useState<Record<string, unknown> | null>(null);
   const [batchStatus, setBatchStatus] = useState<Record<string, unknown> | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const summary = (validation?.summary ?? {}) as Record<string, number | boolean>;
@@ -266,7 +290,8 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     setValidation(null);
     setBatchStatus(null);
     setSelectedFile(null);
-    setError(null);
+    setUploadError(null);
+    setConfirmError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -274,7 +299,7 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
 
   function assignSelectedFile(file: File | null) {
     setSelectedFile(file);
-    setError(null);
+    setUploadError(null);
     if (fileInputRef.current && file) {
       const dataTransfer = new DataTransfer();
       dataTransfer.items.add(file);
@@ -292,7 +317,7 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
       return;
     }
     if (file.size > USER_IMPORT_MAX_BYTES) {
-      setError(`CSV file is too large. Maximum size is ${MAX_FILE_LABEL}.`);
+      setUploadError(`This file exceeds the ${MAX_FILE_LABEL} limit.`);
       assignSelectedFile(null);
       return;
     }
@@ -305,11 +330,11 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
-      setError("Please choose a CSV file (.csv).");
+      setUploadError("Please choose a CSV file (.csv).");
       return;
     }
     if (file.size > USER_IMPORT_MAX_BYTES) {
-      setError(`CSV file is too large. Maximum size is ${MAX_FILE_LABEL}.`);
+      setUploadError(`This file exceeds the ${MAX_FILE_LABEL} limit.`);
       return;
     }
     assignSelectedFile(file);
@@ -341,12 +366,21 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     }
   }, [initialBatchId]);
 
+  useEffect(() => {
+    if (!uploadError || !uploadErrorRef.current) {
+      return;
+    }
+
+    uploadErrorRef.current.focus({ preventScroll: false });
+    uploadErrorRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [uploadError]);
+
   function handleValidate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setUploadError(null);
 
     if (!selectedFile) {
-      setError("Choose a CSV file before validating.");
+      setUploadError("Choose a CSV file before validating.");
       fileInputRef.current?.focus();
       return;
     }
@@ -357,10 +391,11 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     startTransition(async () => {
       const result = await previewUserImportCsv(formData);
       if (!result.success) {
-        setError(result.error);
+        setUploadError(result.error);
         return;
       }
 
+      setUploadError(null);
       setBatchId(result.batchId);
       setValidation(result.validation);
       setBatchStatus(null);
@@ -371,9 +406,10 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     if (!batchId) return;
 
     startTransition(async () => {
+      setConfirmError(null);
       const result = await confirmUserImportBatch(batchId);
       if (!result.success) {
-        setError(result.error);
+        setConfirmError(result.error);
         return;
       }
 
@@ -385,43 +421,52 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
   const errorCount = Number(summary.errors ?? 0);
 
   return (
-    <div className="space-y-6">
+    <div className={`${WORKFLOW_MAX_WIDTH} space-y-6`} data-testid="bulk-import-workflow">
       <ImportStepIndicator currentStep={currentStep} />
-
-      {error ? (
-        <div
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
-          role="alert"
-        >
-          {error}
-        </div>
-      ) : null}
 
       {currentStep === 1 ? (
         <Card padding="md" className="shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="max-w-2xl">
+            <div className="max-w-xl">
               <h2 className="text-lg font-semibold text-foreground">Upload CSV</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted">
-                Upload a CSV to create and invite staff accounts for launch. Existing users are
-                matched by email and updated safely without changing their role.
+                Choose a CSV file containing the staff you want to import.
               </p>
             </div>
-            <Button type="button" variant="secondary" onClick={downloadTemplate} className="shrink-0">
-              Download CSV template
-            </Button>
+            <div className="flex shrink-0 flex-col items-start sm:items-end">
+              <Button type="button" variant="secondary" onClick={downloadTemplate}>
+                Download CSV template
+              </Button>
+              <p className="mt-2 max-w-xs text-left text-xs text-muted sm:text-right">
+                CSV columns:{" "}
+                <code className="rounded bg-muted/40 px-1 py-0.5 text-[11px]">full_name</code>,{" "}
+                <code className="rounded bg-muted/40 px-1 py-0.5 text-[11px]">email</code>,{" "}
+                <code className="rounded bg-muted/40 px-1 py-0.5 text-[11px]">employee_id</code>
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950">
-            <p className="font-medium">Required columns</p>
-            <p className="mt-1 text-sky-900/90">
-              <code className="text-xs">full_name</code>, <code className="text-xs">email</code>,{" "}
-              <code className="text-xs">employee_id</code> (optional). Employee IDs must be four
-              digits; leading zeroes are preserved (for example, 0054). Inactive users are skipped
-              and must be reactivated manually from Users.
-            </p>
-            <p className="mt-2 text-xs text-sky-900/80">
-              Maximum file size {MAX_FILE_LABEL} · up to {USER_IMPORT_MAX_ROWS.toLocaleString()} rows
+          <div
+            className="mt-5 rounded-lg border border-sky-200 bg-sky-50/80 px-4 py-4 text-sm text-sky-950"
+            aria-labelledby="bulk-import-before-upload-heading"
+          >
+            <h3 id="bulk-import-before-upload-heading" className="font-semibold text-sky-950">
+              Before you upload
+            </h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sky-900/95">
+              <li>Your CSV should include the employee&apos;s name and email address.</li>
+              <li>Employee ID is optional.</li>
+              <li>
+                Employee IDs can be entered with or without leading zeroes. We&apos;ll format them
+                as four digits automatically (for example, 54 becomes 0054).
+              </li>
+              <li>Leading zeroes in Employee IDs are preserved when you enter all four digits.</li>
+              <li>New users will be created as Staff and sent an account setup email invitation.</li>
+            </ul>
+            <p className="mt-4 text-xs text-sky-900/75">
+              Maximum file size: {MAX_FILE_LABEL}
+              <br />
+              Maximum rows: {USER_IMPORT_MAX_ROWS.toLocaleString()}
             </p>
           </div>
 
@@ -455,6 +500,8 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
               }}
               onDrop={handleDrop}
               className={`rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+                isPending ? "pointer-events-none opacity-60" : ""
+              } ${
                 dragActive
                   ? "border-primary bg-teal-50/50"
                   : "border-border bg-muted/10 hover:border-slate-300"
@@ -474,49 +521,68 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                 Choose CSV file
               </Button>
               <p id={`${fileInputId}-hint`} className="mt-3 text-xs text-muted">
-                CSV files only (.csv). Maximum size {MAX_FILE_LABEL}.
+                CSV files only (.csv)
               </p>
             </div>
 
             {selectedFile ? (
-              <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-medium text-emerald-950">Selected file</p>
-                  <p className="mt-0.5 text-sm text-emerald-900/90">
-                    {selectedFile.name}{" "}
-                    <span className="text-emerald-800/80">({formatFileSize(selectedFile.size)})</span>
-                  </p>
+              <div className="flex items-start justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <IconClipboard
+                    size={22}
+                    className="mt-0.5 shrink-0 text-emerald-800"
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-emerald-950">{selectedFile.name}</p>
+                    <p className="mt-0.5 text-xs text-emerald-900/80">
+                      {formatFileSize(selectedFile.size)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={isPending}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Choose another file
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={isPending}
-                    onClick={() => assignSelectedFile(null)}
-                  >
-                    Remove file
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="shrink-0"
+                  disabled={isPending}
+                  onClick={() => assignSelectedFile(null)}
+                >
+                  Remove file
+                </Button>
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Button type="submit" variant="primary" disabled={isPending || !selectedFile}>
-                {isPending ? "Validating…" : "Validate CSV"}
+            {uploadError ? (
+              <div
+                ref={uploadErrorRef}
+                tabIndex={-1}
+                data-testid="bulk-import-upload-error"
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 outline-none"
+                role="alert"
+              >
+                {uploadError}
+              </div>
+            ) : null}
+
+            <div
+              className="flex justify-end pt-2 sm:pt-3"
+              data-testid="bulk-import-validate-action"
+            >
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full sm:w-auto"
+                disabled={isPending || !selectedFile}
+              >
+                {isPending ? (
+                  "Validating…"
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    Validate CSV
+                    <IconArrowRight size={18} className="opacity-90" aria-hidden />
+                  </span>
+                )}
               </Button>
-              <Link href="/admin/users">
-                <Button type="button" variant="ghost">
-                  Back to Users
-                </Button>
-              </Link>
             </div>
           </form>
         </Card>
@@ -524,17 +590,21 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
 
       {currentStep === 2 && validation ? (
         <Card padding="md" className="shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Review &amp; validate</h2>
-              <p className="mt-1 text-sm text-muted">
-                No accounts are created until you confirm import. Review each row before continuing.
-              </p>
-            </div>
-            <Button type="button" variant="secondary" disabled={isPending} onClick={resetWorkflow}>
-              Upload another file
-            </Button>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Review &amp; validate</h2>
+            <p className="mt-1 text-sm text-muted">
+              No accounts are created until you confirm import. Review each row before continuing.
+            </p>
           </div>
+
+          {confirmError ? (
+            <div
+              className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+              role="alert"
+            >
+              {confirmError}
+            </div>
+          ) : null}
 
           {blockingErrors ? (
             <div
@@ -590,6 +660,11 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                       <td className="px-3 py-3 text-foreground">{String(row.email ?? "")}</td>
                       <td className="px-3 py-3 tabular-nums text-foreground">
                         {row.employee_id ? String(row.employee_id) : "—"}
+                        {row.employee_id_import_note ? (
+                          <span className="mt-0.5 block text-xs font-normal text-muted">
+                            {String(row.employee_id_import_note)}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-3 py-3">
                         <ClassificationChip classification={classification} />
@@ -604,18 +679,19 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
             </table>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
-            <Button type="button" variant="primary" disabled={!canConfirm} onClick={handleConfirm}>
-              Confirm Import
-            </Button>
+          <div
+            className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4"
+            data-testid="bulk-import-review-actions"
+          >
             <Button type="button" variant="secondary" disabled={isPending} onClick={resetWorkflow}>
               Upload another file
             </Button>
-            <Link href="/admin/users">
-              <Button type="button" variant="ghost">
-                Back to Users
-              </Button>
-            </Link>
+            <Button type="button" variant="primary" disabled={!canConfirm} onClick={handleConfirm}>
+              <span className="inline-flex items-center gap-2">
+                Confirm Import
+                <IconArrowRight size={18} className="opacity-90" aria-hidden />
+              </span>
+            </Button>
           </div>
         </Card>
       ) : null}
@@ -631,21 +707,16 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                   : "Import is running in the background. This page refreshes automatically every few seconds."}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {!batchComplete && batchId ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={isPending}
-                  onClick={() => refreshBatchStatus(batchId)}
-                >
-                  Refresh status
-                </Button>
-              ) : null}
-              <Button type="button" variant="secondary" onClick={resetWorkflow}>
-                Import another file
+            {!batchComplete && batchId ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isPending}
+                onClick={() => refreshBatchStatus(batchId)}
+              >
+                Refresh status
               </Button>
-            </div>
+            ) : null}
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -716,9 +787,15 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
             </div>
           ) : null}
 
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
+          <div
+            className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4"
+            data-testid="bulk-import-results-actions"
+          >
+            <Button type="button" variant="secondary" onClick={resetWorkflow}>
+              Import another file
+            </Button>
             <Link href="/admin/users">
-              <Button type="button" variant="ghost">
+              <Button type="button" variant="secondary">
                 Back to Users
               </Button>
             </Link>

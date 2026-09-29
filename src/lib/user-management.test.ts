@@ -222,15 +222,42 @@ describe("user management workspace wiring", () => {
     assert.doesNotMatch(page, /Bulk import[\s\S]*disabled/);
     assert.match(importPage, /profile\.role !== "hr"/);
     assert.match(workspace, /ImportStepIndicator/);
+    assert.match(workspace, /max-w-4xl/);
+    assert.match(workspace, /data-testid="bulk-import-workflow"/);
+    assert.match(workspace, /Before you upload/);
+    assert.match(workspace, /CSV columns:/);
+    assert.match(workspace, /employee_id/);
     assert.match(workspace, /Choose CSV file/);
     assert.match(workspace, /className="sr-only"/);
+    assert.match(workspace, /data-testid="bulk-import-upload-error"/);
+    assert.match(workspace, /uploadErrorRef/);
+    assert.match(workspace, /scrollIntoView/);
+    assert.match(workspace, /data-testid="bulk-import-validate-action"/);
+    assert.match(workspace, /flex justify-end/);
     assert.match(workspace, /Validate CSV/);
+    assert.match(workspace, /Validating…/);
+    assert.match(workspace, /IconArrowRight/);
+    assert.match(workspace, /Remove file/);
+    assert.match(workspace, /disabled=\{isPending \|\| !selectedFile\}/);
+    assert.match(workspace, /disabled=\{isPending\}/);
     assert.match(workspace, /Confirm Import/);
     assert.match(workspace, /Download CSV template/);
     assert.match(workspace, /Upload another file/);
     assert.match(workspace, /ClassificationChip/);
     assert.match(workspace, /role="progressbar"/);
     assert.match(workspace, /disabled=\{!canConfirm\}/);
+    assert.match(workspace, /four digits automatically/);
+    assert.match(workspace, /employee_id_import_note/);
+    assert.match(workspace, /data-testid="bulk-import-review-actions"/);
+    assert.match(workspace, /data-testid="bulk-import-results-actions"/);
+    assert.match(
+      workspace,
+      /flex flex-wrap justify-end gap-2 border-t border-border pt-4"\s*\n\s*data-testid="bulk-import-review-actions"/,
+    );
+    assert.match(
+      workspace,
+      /flex flex-wrap justify-end gap-2 border-t border-border pt-4"\s*\n\s*data-testid="bulk-import-results-actions"/,
+    );
   });
 
   it("uses Bulk Import breadcrumbs under Users", () => {

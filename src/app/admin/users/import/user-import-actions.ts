@@ -8,6 +8,12 @@ import {
   applyCrossRowImportValidation,
   parseUserImportCsv,
 } from "@/lib/user-import-csv";
+import {
+  mapUserImportParseError,
+  mapUserImportRpcError,
+  unexpectedUserImportValidationMessage,
+  userImportFileTooLargeMessage,
+} from "@/lib/user-import-messages";
 
 export type UserImportPreviewResult =
   | {
@@ -33,13 +39,13 @@ export async function previewUserImportCsv(formData: FormData): Promise<UserImpo
   }
 
   if (file.size > USER_IMPORT_MAX_BYTES) {
-    return { success: false, error: "CSV file is too large." };
+    return { success: false, error: userImportFileTooLargeMessage() };
   }
 
   const content = await file.text();
   const parsed = parseUserImportCsv(content);
   if (!parsed.ok) {
-    return { success: false, error: parsed.error };
+    return { success: false, error: mapUserImportParseError(parsed.error) };
   }
 
   const crossRowErrors = applyCrossRowImportValidation(parsed.rows);
@@ -55,12 +61,42 @@ export async function previewUserImportCsv(formData: FormData): Promise<UserImpo
     p_rows: payload,
   });
 
-  if (error || !data) {
-    return { success: false, error: "Unable to validate import file." };
+  if (error) {
+    console.error("[bulk-user-import] create_user_import_batch failed", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return { success: false, error: mapUserImportRpcError(error) };
+  }
+
+  if (!data) {
+    console.error("[bulk-user-import] create_user_import_batch returned no data");
+    return { success: false, error: unexpectedUserImportValidationMessage() };
   }
 
   const result = data as Record<string, unknown>;
   const validation = (result.validation ?? {}) as Record<string, unknown>;
+
+  const normalizedFromByRow = new Map<number, string>();
+  for (const row of parsed.rows) {
+    if (row.employee_id_normalized_from) {
+      normalizedFromByRow.set(row.rowNumber, row.employee_id_normalized_from);
+    }
+  }
+
+  if (Array.isArray(validation.rows)) {
+    validation.rows = (validation.rows as Record<string, unknown>[]).map((row) => {
+      const rowNumber = Number(row.row_number);
+      const normalizedFrom = normalizedFromByRow.get(rowNumber);
+      if (!normalizedFrom) return row;
+      return {
+        ...row,
+        employee_id_import_note: `Normalized from ${normalizedFrom}`,
+      };
+    });
+  }
 
   if (crossRowErrors.size > 0) {
     const rows = Array.isArray(validation.rows)
