@@ -22,6 +22,7 @@ import {
 } from "@/lib/signup-request-cancellation";
 import {
   signupRequestNeedsInvitationResume,
+  signupRequestOnboardingIncomplete,
   type SignupRequestRow,
 } from "@/lib/signup-request-presentation";
 
@@ -64,10 +65,17 @@ export function HrSignupRequestDrawer({
   const [isPending, startTransition] = useTransition();
 
   const resumeInvite = request ? signupRequestNeedsInvitationResume(request) : false;
+  const onboardingIncomplete = request ? signupRequestOnboardingIncomplete(request) : false;
+  const onboardingEstablished =
+    request?.status === "approved" && request.onboarding_established === true;
+  const isPendingReview = request?.status === "pending";
   const canCancel = request ? signupRequestCanCancel(request) : false;
-  const isActionable = request
-    ? request.status === "pending" || resumeInvite
-    : false;
+  const isActionable = isPendingReview || onboardingIncomplete;
+  const showInviteAction = onboardingIncomplete;
+  const inviteIsRetry =
+    resumeInvite ||
+    Boolean(request?.created_profile_id) ||
+    Boolean(request?.invite_sent_at);
   const isCancelled = request?.status === "cancelled";
 
   if (!request) {
@@ -85,7 +93,7 @@ export function HrSignupRequestDrawer({
   }
 
   function handleReject() {
-    if (resumeInvite) {
+    if (!isPendingReview) {
       return;
     }
 
@@ -115,7 +123,7 @@ export function HrSignupRequestDrawer({
     }
 
     startTransition(async () => {
-      const action = resumeInvite ? retrySignupRequestInvitation : approveSignupRequest;
+      const action = showInviteAction ? retrySignupRequestInvitation : approveSignupRequest;
       const result = await action({
         requestId: request!.request_id,
         employeeId,
@@ -138,7 +146,9 @@ export function HrSignupRequestDrawer({
       }
 
       setSuccessMessage(
-        resumeInvite ? "Invitation sent successfully." : "Request approved and invitation sent.",
+        showInviteAction && inviteIsRetry
+          ? "Invitation sent successfully."
+          : "Request approved and invitation sent.",
       );
       resetAndClose();
       onUpdated();
@@ -169,8 +179,9 @@ export function HrSignupRequestDrawer({
     });
   }
 
-  const approveLabel = resumeInvite ? "Retry invitation" : "Approve request";
-  const approvePendingLabel = resumeInvite ? "Retrying invitation…" : "Approving…";
+  const approveLabel = showInviteAction && inviteIsRetry ? "Retry invitation" : "Approve request";
+  const approvePendingLabel =
+    showInviteAction && inviteIsRetry ? "Retrying invitation…" : "Approving…";
 
   return (
     <>
@@ -180,16 +191,18 @@ export function HrSignupRequestDrawer({
         title={
           isCancelled
             ? "Cancelled signup request"
-            : resumeInvite
+            : showInviteAction && inviteIsRetry
               ? "Retry invitation"
               : "Review signup request"
         }
         description={
           isCancelled
             ? "This request was cancelled and is kept for audit history."
-            : resumeInvite
-              ? "Send or complete account setup without creating duplicate users."
-              : "Approve or reject external email access requests."
+            : onboardingEstablished
+              ? "This user has already completed account setup. Manage the account from Users."
+              : showInviteAction
+                ? "Send or complete account setup without creating duplicate users."
+                : "Approve or reject external email access requests."
         }
       >
         <div className="space-y-4">
@@ -211,7 +224,13 @@ export function HrSignupRequestDrawer({
             </p>
           ) : null}
 
-          {resumeInvite && request.invite_last_error ? (
+          {onboardingEstablished ? (
+            <p className="rounded-lg border border-border bg-slate-50 px-3 py-2 text-sm text-muted">
+              This user has already completed account setup. Manage the account from Users.
+            </p>
+          ) : null}
+
+          {showInviteAction && request.invite_last_error ? (
             <p className="rounded-lg border border-border bg-slate-50 px-3 py-2 text-sm text-muted">
               Previous invitation attempt did not complete. You can retry safely.
             </p>
@@ -310,7 +329,7 @@ export function HrSignupRequestDrawer({
             <Button type="button" variant="ghost" onClick={resetAndClose} disabled={isPending}>
               Close
             </Button>
-            {canCancel && isActionable ? (
+            {canCancel && (isPendingReview || onboardingIncomplete) ? (
               <Button
                 type="button"
                 variant="danger"
@@ -320,12 +339,12 @@ export function HrSignupRequestDrawer({
                 Cancel request
               </Button>
             ) : null}
-            {isActionable && !resumeInvite ? (
+            {isPendingReview ? (
               <Button type="button" variant="secondary" onClick={handleReject} disabled={isPending}>
                 {isPending ? "Rejecting…" : "Reject request"}
               </Button>
             ) : null}
-            {isActionable ? (
+            {isPendingReview || showInviteAction ? (
               <Button type="button" variant="primary" onClick={runApprovalOrRetry} disabled={isPending}>
                 {isPending ? approvePendingLabel : approveLabel}
               </Button>

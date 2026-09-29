@@ -22,19 +22,28 @@ function row(overrides: Partial<SignupRequestRow> = {}): SignupRequestRow {
     cancelled_at: null,
     cancellation_reason: null,
     cancellation_note: null,
+    onboarding_established: false,
     total_count: 1,
     ...overrides,
   };
 }
 
 describe("signup request cancellation", () => {
-  it("allows cancel only for pending or approved-incomplete requests", () => {
+  it("allows cancel for pending and approved onboarding-incomplete requests", () => {
     assert.equal(signupRequestCanCancel(row()), true);
     assert.equal(signupRequestCanCancel(row({ status: "approved" })), true);
+    assert.equal(
+      signupRequestCanCancel(
+        row({ status: "approved", created_profile_id: "profile-id", onboarding_established: false }),
+      ),
+      true,
+    );
     assert.equal(signupRequestCanCancel(row({ status: "rejected" })), false);
     assert.equal(signupRequestCanCancel(row({ status: "cancelled" })), false);
     assert.equal(
-      signupRequestCanCancel(row({ status: "approved", created_profile_id: "profile-id" })),
+      signupRequestCanCancel(
+        row({ status: "approved", created_profile_id: "profile-id", onboarding_established: true }),
+      ),
       false,
     );
   });
@@ -62,6 +71,7 @@ describe("signup request cancellation", () => {
     assert.match(workspace, /Signup request cancelled\./);
     assert.match(workspace, /value="cancelled"/);
     assert.match(drawer, /isCancelled/);
-    assert.match(drawer, /canCancel && isActionable/);
+    assert.match(drawer, /onboardingIncomplete/);
+    assert.match(drawer, /completed account setup/);
   });
 });

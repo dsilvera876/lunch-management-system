@@ -13,11 +13,21 @@ export type SignupRequestRow = {
   cancelled_at: string | null;
   cancellation_reason: string | null;
   cancellation_note: string | null;
+  /** Auth onboarding finished (invite accepted and/or first sign-in). */
+  onboarding_established: boolean;
   total_count: number;
 };
 
 export function signupRequestNeedsInvitationResume(row: SignupRequestRow): boolean {
-  return row.status === "approved" && row.created_profile_id === null;
+  return (
+    row.status === "approved" &&
+    !row.onboarding_established &&
+    row.created_profile_id === null
+  );
+}
+
+export function signupRequestOnboardingIncomplete(row: SignupRequestRow): boolean {
+  return row.status === "approved" && !row.onboarding_established;
 }
 
 export const SIGNUP_REQUEST_PAGE_SIZE = 25;

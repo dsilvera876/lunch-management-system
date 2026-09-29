@@ -1,4 +1,7 @@
-import type { SignupRequestRow } from "@/lib/signup-request-presentation";
+import {
+  signupRequestOnboardingIncomplete,
+  type SignupRequestRow,
+} from "@/lib/signup-request-presentation";
 
 export type SignupCancellationReason =
   | "incorrect_email"
@@ -29,11 +32,19 @@ export function signupCancellationReasonLabel(
 }
 
 export function signupRequestCanCancel(request: SignupRequestRow): boolean {
-  if (request.created_profile_id !== null) {
+  if (request.status === "cancelled" || request.status === "rejected") {
     return false;
   }
 
-  return request.status === "pending" || request.status === "approved";
+  if (request.status === "pending") {
+    return true;
+  }
+
+  if (request.status === "approved") {
+    return signupRequestOnboardingIncomplete(request);
+  }
+
+  return false;
 }
 
 export function mapCancelSignupRequestMessage(outcomeCode: string, message: string): string {
@@ -48,7 +59,10 @@ export function mapCancelSignupRequestMessage(outcomeCode: string, message: stri
     case "unrelated_auth_identity":
       return "This signup request cannot be cancelled safely. Contact an administrator.";
     case "completed":
-      return "This signup request is already linked to a user account.";
+      return (
+        message ||
+        "This user has already completed account setup. Manage the account from Users."
+      );
     case "not_cancellable":
       return message || "This signup request cannot be cancelled.";
     case "invalid_reason":

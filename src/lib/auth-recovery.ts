@@ -78,7 +78,7 @@ export function getPasswordResetRequestErrorPath(code: "invalid-email" | "tempor
 
 export function getPasswordUpdateErrorPath(
   isRecovery: boolean,
-  code: "invalid" | "policy" | "mismatch" | "update",
+  code: "invalid" | "policy" | "mismatch" | "update" | "setup",
   isInvite = false,
 ): string {
   const basePath =

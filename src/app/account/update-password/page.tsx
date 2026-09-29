@@ -52,6 +52,13 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
         </Alert>
       )}
 
+      {params.error === "setup" && (
+        <Alert variant="error" className="mt-4">
+          Your password was saved, but account setup could not be finished. Try again or contact
+          HR for help.
+        </Alert>
+      )}
+
       {(params.error === "invalid" || params.error === "update") && (
         <Alert variant="error" className="mt-4">
           Unable to update your password. Check the information and try again.

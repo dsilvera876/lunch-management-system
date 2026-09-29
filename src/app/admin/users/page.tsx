@@ -45,6 +45,7 @@ function mapSignupRequestRow(raw: Record<string, unknown>): SignupRequestRow {
     cancelled_at: (raw.cancelled_at as string | null) ?? null,
     cancellation_reason: (raw.cancellation_reason as string | null) ?? null,
     cancellation_note: (raw.cancellation_note as string | null) ?? null,
+    onboarding_established: raw.onboarding_established === true,
     total_count: Number(raw.total_count ?? 0),
   };
 }

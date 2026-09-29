@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(37);
 
 \ir support/isolate_existing_owner.inc
 
@@ -713,6 +713,246 @@ select is(
   ),
   'business_history',
   'business-history onboarding profile cannot be cancelled from signup review'
+);
+
+-- Bulk-import style: approved, Auth + profile linked, invite never accepted
+reset role;
+
+set local role anon;
+select public.request_external_signup('Bulk Linked', 'bulk-linked@gmail.com');
+
+reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'c1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text,
+  true
+);
+
+select public.mark_signup_request_approved(
+  (select request_id from public.search_signup_requests(null, 'pending', 50, 0)
+   where email = 'bulk-linked@gmail.com' limit 1),
+  null
+);
+
+reset role;
+
+insert into auth.users (
+  id,
+  instance_id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  last_sign_in_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  is_sso_user,
+  is_anonymous
+)
+values (
+  'c1999999-9999-4999-8999-999999999999',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'bulk-linked@gmail.com',
+  extensions.crypt('LunchTest123!', extensions.gen_salt('bf')),
+  null,
+  null,
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"full_name":"Bulk Linked"}'::jsonb,
+  now(),
+  now(),
+  false,
+  false
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'c1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text,
+  true
+);
+
+select public.link_signup_request_profile(
+  (select request_id from public.search_signup_requests(null, 'approved', 50, 0)
+   where email = 'bulk-linked@gmail.com' limit 1),
+  'c1999999-9999-4999-8999-999999999999',
+  null
+);
+
+select is(
+  (
+    select onboarding_established
+    from public.search_signup_requests('bulk-linked@gmail.com', 'approved', 10, 0)
+    limit 1
+  ),
+  false,
+  'search exposes onboarding_established=false for linked unused invite'
+);
+
+select set_config(
+  'test.bulk_linked_request_id',
+  (
+    select request_id::text
+    from public.search_signup_requests(null, 'approved', 50, 0)
+    where email = 'bulk-linked@gmail.com'
+    limit 1
+  ),
+  true
+);
+
+select is(
+  (
+    select outcome_code
+    from public.cancel_signup_request(
+      current_setting('test.bulk_linked_request_id')::uuid,
+      'no_longer_needed',
+      null
+    )
+  ),
+  'auth_cleanup_required',
+  'HR can cancel approved signup with linked profile before invite acceptance'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from private.user_account_deletion_audit uada
+    where uada.deleted_profile_id = 'c1999999-9999-4999-8999-999999999999'
+  ),
+  1,
+  'linked onboarding cancellation creates a single auth cleanup audit row'
+);
+
+delete from auth.users where id = 'c1999999-9999-4999-8999-999999999999';
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select is(
+  (
+    select success::text
+    from public.complete_signup_request_cancellation(
+      current_setting('test.bulk_linked_request_id')::uuid,
+      'no_longer_needed',
+      null,
+      'c1999999-9999-4999-8999-999999999999'::uuid
+    )
+  ),
+  'true',
+  'bulk-linked cancellation finalizes after Auth deletion'
+);
+
+reset role;
+set local role anon;
+
+select is(
+  (public.request_external_signup('Bulk Linked Retry', 'bulk-linked@gmail.com') ->> 'code'),
+  'submitted',
+  'bulk-linked email reusable after cancellation cleanup'
+);
+
+-- Completed onboarding blocks cancellation even when request stays approved
+reset role;
+
+set local role anon;
+select public.request_external_signup('Bulk Complete', 'bulk-complete@gmail.com');
+
+reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'c1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text,
+  true
+);
+
+select public.mark_signup_request_approved(
+  (select request_id from public.search_signup_requests(null, 'pending', 50, 0)
+   where email = 'bulk-complete@gmail.com' limit 1),
+  null
+);
+
+reset role;
+
+insert into auth.users (
+  id,
+  instance_id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  last_sign_in_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  is_sso_user,
+  is_anonymous
+)
+values (
+  'c1aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'bulk-complete@gmail.com',
+  extensions.crypt('LunchTest123!', extensions.gen_salt('bf')),
+  null,
+  null,
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"full_name":"Bulk Complete"}'::jsonb,
+  now(),
+  now(),
+  false,
+  false
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'c1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text,
+  true
+);
+
+select public.link_signup_request_profile(
+  (select request_id from public.search_signup_requests(null, 'approved', 50, 0)
+   where email = 'bulk-complete@gmail.com' limit 1),
+  'c1aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  null
+);
+
+reset role;
+
+update private.signup_requests sr
+set onboarding_completed_at = now()
+where sr.normalized_email = 'bulk-complete@gmail.com';
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'c1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text,
+  true
+);
+
+select is(
+  (
+    select outcome_code
+    from public.cancel_signup_request(
+      (select request_id from public.search_signup_requests(null, 'approved', 50, 0)
+       where email = 'bulk-complete@gmail.com' limit 1),
+      'other',
+      null
+    )
+  ),
+  'completed',
+  'cancellation denied after Auth onboarding is established'
 );
 
 select * from finish();

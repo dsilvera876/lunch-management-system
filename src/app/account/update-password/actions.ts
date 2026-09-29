@@ -44,6 +44,30 @@ export async function updatePassword(formData: FormData) {
     redirect(getPasswordUpdateErrorPath(isRecovery, "update", isInvite));
   }
 
+  if (isInvite) {
+    const { data: completion, error: completionError } = await supabase.rpc(
+      "complete_signup_onboarding",
+      { p_require_linked_request: true },
+    );
+
+    if (completionError) {
+      console.error(
+        "[account-setup] complete_signup_onboarding failed:",
+        completionError.message,
+      );
+      redirect(getPasswordUpdateErrorPath(isRecovery, "setup", true));
+    }
+
+    const completionRow = completion as { ok?: boolean; code?: string } | null;
+    if (
+      completionRow?.ok === false ||
+      (isInvite && completionRow?.code === "no_signup_request")
+    ) {
+      console.error("[account-setup] complete_signup_onboarding rejected:", completion);
+      redirect(getPasswordUpdateErrorPath(isRecovery, "setup", true));
+    }
+  }
+
   if (isRecovery) {
     await supabase.auth.signOut({ scope: "local" });
   }
