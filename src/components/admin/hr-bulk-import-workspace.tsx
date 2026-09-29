@@ -12,7 +12,7 @@ import {
   USER_IMPORT_MAX_BYTES,
   USER_IMPORT_MAX_ROWS,
 } from "@/lib/user-import-csv";
-import { IconArrowRight, IconClipboard } from "@/components/icons/line-icons";
+import { IconArrowRight, IconCircleX, IconClipboard } from "@/components/icons/line-icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { sanitizeUserImportResultMessage } from "@/lib/user-import-runtime-errors";
@@ -434,16 +434,10 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                 Choose a CSV file containing the staff you want to import.
               </p>
             </div>
-            <div className="flex shrink-0 flex-col items-start sm:items-end">
+            <div className="flex shrink-0 items-start sm:items-end">
               <Button type="button" variant="secondary" onClick={downloadTemplate}>
                 Download CSV template
               </Button>
-              <p className="mt-2 max-w-xs text-left text-xs text-muted sm:text-right">
-                CSV columns:{" "}
-                <code className="rounded bg-muted/40 px-1 py-0.5 text-[11px]">full_name</code>,{" "}
-                <code className="rounded bg-muted/40 px-1 py-0.5 text-[11px]">email</code>,{" "}
-                <code className="rounded bg-muted/40 px-1 py-0.5 text-[11px]">employee_id</code>
-              </p>
             </div>
           </div>
 
@@ -457,12 +451,22 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sky-900/95">
               <li>Your CSV should include the employee&apos;s name and email address.</li>
               <li>Employee ID is optional.</li>
-              <li>
-                Employee IDs can be entered with or without leading zeroes. We&apos;ll format them
-                as four digits automatically (for example, 54 becomes 0054).
-              </li>
-              <li>Leading zeroes in Employee IDs are preserved when you enter all four digits.</li>
               <li>New users will be created as Staff and sent an account setup email invitation.</li>
+              <li>
+                The CSV should use these columns:{" "}
+                <code className="rounded bg-sky-100/80 px-1 py-0.5 text-[11px] text-sky-950">
+                  full_name
+                </code>
+                ,{" "}
+                <code className="rounded bg-sky-100/80 px-1 py-0.5 text-[11px] text-sky-950">
+                  email
+                </code>
+                ,{" "}
+                <code className="rounded bg-sky-100/80 px-1 py-0.5 text-[11px] text-sky-950">
+                  employee_id
+                </code>
+                .
+              </li>
             </ul>
             <p className="mt-4 text-xs text-sky-900/75">
               Maximum file size: {MAX_FILE_LABEL}
@@ -547,8 +551,12 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                   className="shrink-0"
                   disabled={isPending}
                   onClick={() => assignSelectedFile(null)}
+                  aria-label="Remove file"
                 >
-                  Remove file
+                  <span className="inline-flex items-center gap-1.5">
+                    <IconCircleX size={16} className="opacity-80" aria-hidden />
+                    Remove file
+                  </span>
                 </Button>
               </div>
             ) : null}

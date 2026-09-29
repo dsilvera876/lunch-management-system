@@ -225,7 +225,12 @@ describe("user management workspace wiring", () => {
     assert.match(workspace, /max-w-6xl/);
     assert.match(workspace, /data-testid="bulk-import-workflow"/);
     assert.match(workspace, /Before you upload/);
-    assert.match(workspace, /CSV columns:/);
+    assert.match(workspace, /The CSV should use these columns:/);
+    assert.match(
+      workspace,
+      /Before you upload[\s\S]*full_name[\s\S]*email[\s\S]*employee_id/,
+    );
+    assert.doesNotMatch(workspace, /CSV columns:/);
     assert.match(workspace, /employee_id/);
     assert.match(workspace, /Choose CSV file/);
     assert.match(workspace, /className="sr-only"/);
@@ -238,6 +243,8 @@ describe("user management workspace wiring", () => {
     assert.match(workspace, /Validating…/);
     assert.match(workspace, /IconArrowRight/);
     assert.match(workspace, /Remove file/);
+    assert.match(workspace, /IconCircleX/);
+    assert.match(workspace, /aria-label="Remove file"/);
     assert.match(workspace, /disabled=\{isPending \|\| !selectedFile\}/);
     assert.match(workspace, /disabled=\{isPending\}/);
     assert.match(workspace, /Confirm Import/);
