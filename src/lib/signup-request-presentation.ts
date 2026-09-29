@@ -1,4 +1,4 @@
-export type SignupRequestStatus = "pending" | "approved" | "rejected";
+export type SignupRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export type SignupRequestRow = {
   request_id: string;
@@ -10,6 +10,9 @@ export type SignupRequestRow = {
   created_profile_id: string | null;
   invite_sent_at: string | null;
   invite_last_error: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  cancellation_note: string | null;
   total_count: number;
 };
 

@@ -42,6 +42,9 @@ function mapSignupRequestRow(raw: Record<string, unknown>): SignupRequestRow {
     created_profile_id: (raw.created_profile_id as string | null) ?? null,
     invite_sent_at: (raw.invite_sent_at as string | null) ?? null,
     invite_last_error: (raw.invite_last_error as string | null) ?? null,
+    cancelled_at: (raw.cancelled_at as string | null) ?? null,
+    cancellation_reason: (raw.cancellation_reason as string | null) ?? null,
+    cancellation_note: (raw.cancellation_note as string | null) ?? null,
     total_count: Number(raw.total_count ?? 0),
   };
 }

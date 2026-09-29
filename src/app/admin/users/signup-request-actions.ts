@@ -14,6 +14,8 @@ import {
   type SignupInviteDbClient,
   type SignupRequestInviteState,
 } from "@/lib/signup-request-invite";
+import { orchestrateSignupRequestCancellation } from "@/lib/cancel-signup-request";
+import type { SignupCancellationReason } from "@/lib/signup-request-cancellation";
 import type { SignupRequestRow } from "@/lib/signup-request-presentation";
 
 export type SearchSignupRequestsResult =
@@ -44,6 +46,9 @@ function mapSignupRequestRow(raw: Record<string, unknown>): SignupRequestRow {
     created_profile_id: (raw.created_profile_id as string | null) ?? null,
     invite_sent_at: (raw.invite_sent_at as string | null) ?? null,
     invite_last_error: (raw.invite_last_error as string | null) ?? null,
+    cancelled_at: (raw.cancelled_at as string | null) ?? null,
+    cancellation_reason: (raw.cancellation_reason as string | null) ?? null,
+    cancellation_note: (raw.cancellation_note as string | null) ?? null,
     total_count: Number(raw.total_count ?? 0),
   };
 }
@@ -274,7 +279,7 @@ export async function fetchPendingSignupRequestCount(): Promise<number> {
 
 export async function searchSignupRequests(input: {
   search: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "cancelled";
   page: number;
   pageSize: number;
 }): Promise<SearchSignupRequestsResult> {
@@ -332,4 +337,27 @@ export async function retrySignupRequestInvitation(input: {
   employeeId: string;
 }): Promise<MutateSignupRequestResult> {
   return runSignupInviteOrchestration(input);
+}
+
+export async function cancelSignupRequest(input: {
+  requestId: string;
+  reason: SignupCancellationReason;
+  note?: string;
+}): Promise<MutateSignupRequestResult> {
+  await requireManageStaffAccounts();
+
+  const supabase = await createClient();
+  const result = await orchestrateSignupRequestCancellation({
+    supabase,
+    requestId: input.requestId,
+    reason: input.reason,
+    note: input.note,
+  });
+
+  if (!result.success) {
+    return { success: false, error: result.message };
+  }
+
+  revalidatePath("/admin/users");
+  return { success: true };
 }

@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { searchSignupRequests } from "@/app/admin/users/signup-request-actions";
 import { HrSignupRequestDrawer } from "@/components/admin/hr-signup-request-drawer";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ToastProvider } from "@/components/ui/toast";
+import { ToastProvider, useToast } from "@/components/ui/toast";
+import { signupCancellationReasonLabel } from "@/lib/signup-request-cancellation";
 import {
   SIGNUP_REQUEST_PAGE_SIZE,
   signupRequestCountLabel,
@@ -27,6 +29,8 @@ function HrSignupRequestsWorkspaceContent({
   initialTotalCount,
   initialStatus = "pending",
 }: Props) {
+  const router = useRouter();
+  const { showToast } = useToast();
   const [rows, setRows] = useState(initialRows);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [search, setSearch] = useState("");
@@ -134,6 +138,7 @@ function HrSignupRequestsWorkspaceContent({
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </FormField>
         </div>
@@ -173,28 +178,43 @@ function HrSignupRequestsWorkspaceContent({
                       {request.email}
                     </td>
                     <td className="px-3 py-2 align-middle text-muted">
-                      {new Date(request.requested_at).toLocaleDateString()}
+                      {request.status === "cancelled" && request.cancelled_at
+                        ? new Date(request.cancelled_at).toLocaleDateString()
+                        : new Date(request.requested_at).toLocaleDateString()}
+                      {request.status === "cancelled" && request.cancellation_reason ? (
+                        <div className="truncate text-xs text-muted">
+                          {signupCancellationReasonLabel(request.cancellation_reason)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 align-middle">
                       <StatusBadge
                         status={
-                          request.status === "pending"
-                            ? "open"
-                            : request.status === "approved"
-                              ? "active"
-                              : "inactive"
+                          request.status === "cancelled"
+                            ? "cancelled"
+                            : request.status === "pending"
+                              ? "open"
+                              : request.status === "approved"
+                                ? "active"
+                                : "inactive"
                         }
                       />
                     </td>
                     <td className="px-3 py-2 align-middle text-right">
-                      {request.status === "pending" || signupRequestNeedsInvitationResume(request) ? (
+                      {request.status === "pending" ||
+                      signupRequestNeedsInvitationResume(request) ||
+                      request.status === "cancelled" ? (
                         <Button
                           type="button"
                           variant="secondary"
                           className="!min-h-0 h-8 px-2.5 py-0 text-xs"
                           onClick={() => openDrawer(request)}
                         >
-                          {signupRequestNeedsInvitationResume(request) ? "Retry invitation" : "Review"}
+                          {request.status === "cancelled"
+                            ? "View"
+                            : signupRequestNeedsInvitationResume(request)
+                              ? "Retry invitation"
+                              : "Review"}
                         </Button>
                       ) : (
                         <span className="text-xs text-muted">—</span>
@@ -239,6 +259,13 @@ function HrSignupRequestsWorkspaceContent({
         onClose={closeDrawer}
         onUpdated={() => {
           void fetchRequests();
+          router.refresh();
+        }}
+        onCancelled={() => {
+          showToast({
+            title: "Signup request cancelled.",
+            variant: "success",
+          });
         }}
       />
     </>

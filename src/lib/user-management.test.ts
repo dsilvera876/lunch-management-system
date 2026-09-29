@@ -321,11 +321,17 @@ describe("user management workspace wiring", () => {
       new URL("../components/admin/hr-signup-request-drawer.tsx", import.meta.url),
       "utf8",
     );
+    const signupWorkspace = readFileSync(
+      new URL("../components/admin/hr-signup-requests-workspace.tsx", import.meta.url),
+      "utf8",
+    );
 
     assert.match(drawer, /disabled=\{isPending\}/);
     assert.match(drawer, /Approving…/);
     assert.match(drawer, /resolveSignupDrawerActionOutcome/);
     assert.match(drawer, /resetAndClose\(\);\s*\n\s*onUpdated\(\)/);
+    assert.match(drawer, /Cancel request/);
+    assert.match(signupWorkspace, /cancelled/);
   });
 
   it("does not expose signup approval controls on Admin role-management page", () => {
