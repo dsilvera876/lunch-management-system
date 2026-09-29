@@ -13,7 +13,8 @@ import { signupCancellationReasonLabel } from "@/lib/signup-request-cancellation
 import {
   SIGNUP_REQUEST_PAGE_SIZE,
   signupRequestCountLabel,
-  signupRequestNeedsInvitationResume,
+  signupRequestListActionLabel,
+  signupRequestStatusBadgeKind,
   type SignupRequestRow,
   type SignupRequestStatus,
 } from "@/lib/signup-request-presentation";
@@ -188,37 +189,17 @@ function HrSignupRequestsWorkspaceContent({
                       ) : null}
                     </td>
                     <td className="px-3 py-2 align-middle">
-                      <StatusBadge
-                        status={
-                          request.status === "cancelled"
-                            ? "cancelled"
-                            : request.status === "pending"
-                              ? "open"
-                              : request.status === "approved"
-                                ? "active"
-                                : "inactive"
-                        }
-                      />
+                      <StatusBadge status={signupRequestStatusBadgeKind(request.status)} />
                     </td>
                     <td className="px-3 py-2 align-middle text-right">
-                      {request.status === "pending" ||
-                      signupRequestNeedsInvitationResume(request) ||
-                      request.status === "cancelled" ? (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!min-h-0 h-8 px-2.5 py-0 text-xs"
-                          onClick={() => openDrawer(request)}
-                        >
-                          {request.status === "cancelled"
-                            ? "View"
-                            : signupRequestNeedsInvitationResume(request)
-                              ? "Retry invitation"
-                              : "Review"}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted">—</span>
-                      )}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!min-h-0 h-8 px-2.5 py-0 text-xs"
+                        onClick={() => openDrawer(request)}
+                      >
+                        {signupRequestListActionLabel(request)}
+                      </Button>
                     </td>
                   </tr>
                 ))}

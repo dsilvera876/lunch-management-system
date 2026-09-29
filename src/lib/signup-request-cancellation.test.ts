@@ -73,5 +73,7 @@ describe("signup request cancellation", () => {
     assert.match(drawer, /isCancelled/);
     assert.match(drawer, /onboardingIncomplete/);
     assert.match(drawer, /completed account setup/);
+    assert.match(workspace, /signupRequestListActionLabel/);
+    assert.doesNotMatch(workspace, /created_profile_id === null/);
   });
 });

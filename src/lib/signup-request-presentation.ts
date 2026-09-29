@@ -30,6 +30,30 @@ export function signupRequestOnboardingIncomplete(row: SignupRequestRow): boolea
   return row.status === "approved" && !row.onboarding_established;
 }
 
+/** Signup request lifecycle label for list badges (not profile account_status). */
+export function signupRequestStatusBadgeKind(
+  status: SignupRequestStatus,
+): "pending" | "approved" | "rejected" | "cancelled" {
+  return status;
+}
+
+/** Primary row action in the HR signup requests table. */
+export function signupRequestListActionLabel(row: SignupRequestRow): string {
+  if (row.status === "pending") {
+    return "Review";
+  }
+
+  if (row.status === "cancelled" || row.status === "rejected") {
+    return "View";
+  }
+
+  if (row.status === "approved" && signupRequestNeedsInvitationResume(row)) {
+    return "Retry invitation";
+  }
+
+  return "View";
+}
+
 export const SIGNUP_REQUEST_PAGE_SIZE = 25;
 
 export function signupRequestCountLabel(visible: number, total: number): string {

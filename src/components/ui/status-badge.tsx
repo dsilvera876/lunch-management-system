@@ -7,7 +7,10 @@ type StatusKind =
   | "active"
   | "inactive"
   | "draft"
-  | "completed";
+  | "completed"
+  | "pending"
+  | "approved"
+  | "rejected";
 
 const styles: Record<StatusKind, string> = {
   submitted: "bg-blue-50 text-blue-800 ring-blue-200",
@@ -19,6 +22,9 @@ const styles: Record<StatusKind, string> = {
   inactive: "bg-slate-100 text-slate-600 ring-slate-200",
   draft: "bg-slate-100 text-slate-700 ring-slate-200",
   completed: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+  pending: "bg-amber-50 text-amber-900 ring-amber-200",
+  approved: "bg-blue-50 text-blue-800 ring-blue-200",
+  rejected: "bg-slate-100 text-slate-700 ring-slate-200",
 };
 
 const labels: Record<StatusKind, string> = {
@@ -31,6 +37,9 @@ const labels: Record<StatusKind, string> = {
   inactive: "Inactive",
   draft: "Draft",
   completed: "Completed",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 export function StatusBadge({ status }: { status: string }) {

@@ -322,7 +322,12 @@ describe("user management workspace wiring", () => {
     assert.match(page, /count_pending_signup_requests/);
     assert.match(page, /view=approvals/);
     assert.match(page, /HrSignupRequestsWorkspace/);
-    assert.match(signupWorkspace, /Retry invitation/);
+    assert.match(signupWorkspace, /signupRequestListActionLabel/);
+    const signupPresentation = readFileSync(
+      new URL("./signup-request-presentation.ts", import.meta.url),
+      "utf8",
+    );
+    assert.match(signupPresentation, /Retry invitation/);
   });
 
   it("blocks double-submit and shows approving progress in the signup drawer", () => {
