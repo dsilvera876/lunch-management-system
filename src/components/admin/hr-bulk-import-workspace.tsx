@@ -16,6 +16,14 @@ import { IconArrowRight, IconCircleX, IconClipboard } from "@/components/icons/l
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { sanitizeUserImportResultMessage } from "@/lib/user-import-runtime-errors";
+import {
+  resolveUserImportResultsPhase,
+  userImportResultsDescription,
+  userImportResultsHeading,
+  userImportResultsLiveStatusText,
+  userImportResultsProgressIndeterminate,
+  userImportResultsShowsActivity,
+} from "@/lib/user-import-results-presentation";
 
 const WORKFLOW_MAX_WIDTH = "mx-auto w-full max-w-6xl";
 
@@ -242,6 +250,56 @@ function ResultStatusChip({ status }: { status: string }) {
   );
 }
 
+function BulkImportActivityIndicator() {
+  return (
+    <span
+      className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-50 ring-1 ring-inset ring-sky-200"
+      data-testid="bulk-import-activity-indicator"
+      aria-hidden
+    >
+      <svg
+        className="size-5 text-sky-700 motion-safe:animate-spin motion-reduce:animate-none"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="3"
+        />
+        <path
+          className="opacity-90"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function BulkImportIndeterminateProgressBar() {
+  return (
+    <div
+      className="h-2 overflow-hidden rounded-full bg-muted/40"
+      role="progressbar"
+      aria-valuetext="Preparing import"
+      aria-label="Import progress"
+      data-testid="bulk-import-indeterminate-progress"
+    >
+      <div className="relative h-full w-full overflow-hidden rounded-full bg-sky-100">
+        <div
+          className="h-full w-full rounded-full bg-gradient-to-r from-sky-200 via-primary/75 to-sky-200 motion-safe:animate-pulse motion-reduce:animate-none motion-reduce:bg-primary/60"
+          aria-hidden
+        />
+      </div>
+    </div>
+  );
+}
+
 export function HrBulkImportWorkspace({ initialBatchId }: Props) {
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -279,6 +337,24 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
 
   const batchComplete =
     batchStatus?.status === "completed" || batchStatus?.status === "failed";
+
+  const resultsPhase = importStarted
+    ? resolveUserImportResultsPhase(
+        batchStatus ? String(batchStatus.status) : undefined,
+        processedRows,
+      )
+    : null;
+
+  const resultsHeading = resultsPhase ? userImportResultsHeading(resultsPhase) : "";
+  const resultsDescription = resultsPhase ? userImportResultsDescription(resultsPhase) : "";
+  const resultsShowsActivity = resultsPhase ? userImportResultsShowsActivity(resultsPhase) : false;
+  const resultsProgressIndeterminate = resultsPhase
+    ? userImportResultsProgressIndeterminate(resultsPhase)
+    : false;
+  const resultsLiveStatusText =
+    resultsPhase !== null
+      ? userImportResultsLiveStatusText(resultsPhase, processedRows, totalRows)
+      : "";
 
   function downloadTemplate() {
     const blob = new Blob([USER_IMPORT_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
@@ -722,13 +798,20 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
       {currentStep === 3 && batchStatus && importStarted ? (
         <Card padding="md" className="shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Import results</h2>
-              <p className="mt-1 text-sm text-muted">
-                {batchComplete
-                  ? "Import processing has finished. Review row outcomes below."
-                  : "Import is running in the background. This page refreshes automatically every few seconds."}
-              </p>
+            <div
+              className="min-w-0 flex-1"
+              aria-live="polite"
+              aria-atomic="true"
+              data-testid="bulk-import-status-announcement"
+            >
+              <span className="sr-only">{resultsLiveStatusText}</span>
+              <div className="flex items-start gap-3">
+                {resultsShowsActivity ? <BulkImportActivityIndicator /> : null}
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-foreground">{resultsHeading}</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">{resultsDescription}</p>
+                </div>
+              </div>
             </div>
             {!batchComplete && batchId ? (
               <Button
@@ -736,33 +819,48 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                 variant="secondary"
                 disabled={isPending}
                 onClick={() => refreshBatchStatus(batchId)}
+                aria-describedby="bulk-import-refresh-hint"
               >
                 Refresh status
               </Button>
             ) : null}
           </div>
+          {!batchComplete ? (
+            <p id="bulk-import-refresh-hint" className="sr-only">
+              Optional manual refresh. Status updates automatically; you do not need to refresh.
+            </p>
+          ) : null}
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <ResultStatusChip status={String(batchStatus.status ?? "processing")} />
             <span className="text-sm text-muted">
               Processed {processedRows} of {totalRows} rows
+              {resultsPhase === "processing" && totalRows > 0
+                ? ` (${progressPercent}%)`
+                : null}
             </span>
           </div>
 
           <div className="mt-4">
-            <div
-              className="h-2 overflow-hidden rounded-full bg-muted/40"
-              role="progressbar"
-              aria-valuenow={progressPercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Import progress"
-            >
+            {resultsProgressIndeterminate ? (
+              <BulkImportIndeterminateProgressBar />
+            ) : (
               <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+                className="h-2 overflow-hidden rounded-full bg-muted/40"
+                role="progressbar"
+                aria-valuenow={progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Import progress"
+              >
+                <div
+                  className={`h-full rounded-full transition-all duration-300 motion-reduce:transition-none ${
+                    resultsPhase === "completed" ? "bg-emerald-600" : "bg-primary"
+                  }`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            )}
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
