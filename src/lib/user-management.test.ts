@@ -221,8 +221,15 @@ describe("user management workspace wiring", () => {
     assert.match(page, /\/admin\/users\/import/);
     assert.doesNotMatch(page, /Bulk import[\s\S]*disabled/);
     assert.match(importPage, /profile\.role !== "hr"/);
+    assert.match(workspace, /ImportStepIndicator/);
+    assert.match(workspace, /Choose CSV file/);
+    assert.match(workspace, /className="sr-only"/);
+    assert.match(workspace, /Validate CSV/);
     assert.match(workspace, /Confirm Import/);
     assert.match(workspace, /Download CSV template/);
+    assert.match(workspace, /Upload another file/);
+    assert.match(workspace, /ClassificationChip/);
+    assert.match(workspace, /role="progressbar"/);
     assert.match(workspace, /disabled=\{!canConfirm\}/);
   });
 

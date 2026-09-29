@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   confirmUserImportBatch,
   getUserImportBatch,
   previewUserImportCsv,
 } from "@/app/admin/users/import/user-import-actions";
-import { USER_IMPORT_CSV_TEMPLATE } from "@/lib/user-import-csv";
+import {
+  USER_IMPORT_CSV_TEMPLATE,
+  USER_IMPORT_MAX_BYTES,
+  USER_IMPORT_MAX_ROWS,
+} from "@/lib/user-import-csv";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -15,15 +19,207 @@ type Props = {
   initialBatchId?: string | null;
 };
 
+type WizardStep = 1 | 2 | 3;
+
+const MAX_FILE_LABEL = `${Math.round(USER_IMPORT_MAX_BYTES / 1024)} KB`;
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function classificationLabel(classification: string): string {
+  switch (classification) {
+    case "new_company":
+    case "new_external":
+      return "New user";
+    case "existing_active":
+      return "Existing active";
+    case "existing_privileged":
+      return "Existing privileged";
+    case "existing_inactive":
+      return "Existing inactive";
+    case "pending_signup":
+      return "Pending signup";
+    case "approved_incomplete":
+      return "Approved incomplete";
+    case "previously_rejected":
+      return "Previously rejected";
+    case "error":
+      return "Error";
+    default:
+      return classification.replace(/_/g, " ");
+  }
+}
+
+function classificationChipClass(classification: string): string {
+  switch (classification) {
+    case "new_company":
+    case "new_external":
+      return "bg-teal-50 text-teal-900 ring-teal-200";
+    case "existing_active":
+      return "bg-blue-50 text-blue-900 ring-blue-200";
+    case "existing_privileged":
+      return "bg-violet-50 text-violet-900 ring-violet-200";
+    case "existing_inactive":
+      return "bg-amber-50 text-amber-950 ring-amber-200";
+    case "pending_signup":
+    case "approved_incomplete":
+    case "previously_rejected":
+      return "bg-sky-50 text-sky-900 ring-sky-200";
+    case "error":
+      return "bg-red-50 text-red-900 ring-red-200";
+    default:
+      return "bg-slate-100 text-slate-700 ring-slate-200";
+  }
+}
+
+function resultStatusChipClass(status: string): string {
+  switch (status) {
+    case "succeeded":
+      return "bg-emerald-50 text-emerald-900 ring-emerald-200";
+    case "skipped":
+      return "bg-amber-50 text-amber-950 ring-amber-200";
+    case "failed":
+      return "bg-red-50 text-red-900 ring-red-200";
+    case "processing":
+    case "queued":
+      return "bg-sky-50 text-sky-900 ring-sky-200";
+    default:
+      return "bg-slate-100 text-slate-700 ring-slate-200";
+  }
+}
+
+function resultStatusLabel(status: string): string {
+  switch (status) {
+    case "succeeded":
+      return "Succeeded";
+    case "skipped":
+      return "Skipped";
+    case "failed":
+      return "Failed";
+    case "processing":
+      return "Processing";
+    case "queued":
+      return "Queued";
+    default:
+      return status.replace(/_/g, " ");
+  }
+}
+
+function ImportStepIndicator({ currentStep }: { currentStep: WizardStep }) {
+  const steps = [
+    { id: 1 as const, label: "Upload CSV" },
+    { id: 2 as const, label: "Review & validate" },
+    { id: 3 as const, label: "Import results" },
+  ];
+
+  return (
+    <nav aria-label="Bulk import progress" className="mb-6">
+      <ol className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0">
+        {steps.map((step, index) => {
+          const isComplete = currentStep > step.id;
+          const isCurrent = currentStep === step.id;
+
+          return (
+            <li key={step.id} className="flex flex-1 items-center gap-2 sm:gap-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ring-inset ${
+                    isCurrent
+                      ? "bg-primary text-white ring-primary"
+                      : isComplete
+                        ? "bg-teal-50 text-teal-900 ring-teal-200"
+                        : "bg-surface text-muted ring-border"
+                  }`}
+                  aria-current={isCurrent ? "step" : undefined}
+                >
+                  {isComplete ? "✓" : step.id}
+                </span>
+                <span
+                  className={`text-sm font-medium ${
+                    isCurrent ? "text-foreground" : "text-muted"
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+              {index < steps.length - 1 ? (
+                <div
+                  className={`mx-3 hidden h-px flex-1 sm:block ${
+                    currentStep > step.id ? "bg-teal-300" : "bg-border"
+                  }`}
+                  aria-hidden
+                />
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+function SummaryStatCard({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "warning" | "danger";
+}) {
+  const valueClass =
+    tone === "danger"
+      ? "text-red-700"
+      : tone === "warning"
+        ? "text-amber-800"
+        : "text-foreground";
+
+  return (
+    <div className="rounded-lg border border-border bg-surface/60 px-4 py-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function ClassificationChip({ classification }: { classification: string }) {
+  const label = classificationLabel(classification);
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${classificationChipClass(classification)}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ResultStatusChip({ status }: { status: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${resultStatusChipClass(status)}`}
+    >
+      {resultStatusLabel(status)}
+    </span>
+  );
+}
+
 export function HrBulkImportWorkspace({ initialBatchId }: Props) {
+  const fileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [batchId, setBatchId] = useState<string | null>(initialBatchId ?? null);
   const [validation, setValidation] = useState<Record<string, unknown> | null>(null);
   const [batchStatus, setBatchStatus] = useState<Record<string, unknown> | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const summary = (validation?.summary ?? {}) as Record<string, number | boolean>;
   const canConfirm = validation?.can_confirm === true && !isPending;
+  const blockingErrors = summary.blocking_errors === true || validation?.can_confirm === false;
   const previewRows = Array.isArray(validation?.rows)
     ? (validation.rows as Record<string, unknown>[])
     : [];
@@ -35,6 +231,16 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     batchStatus &&
     batchStatus.status !== "draft" &&
     batchStatus.status !== undefined;
+
+  const currentStep: WizardStep = importStarted ? 3 : validation ? 2 : 1;
+
+  const processedRows = Number(batchStatus?.processed_rows ?? 0);
+  const totalRows = Number(batchStatus?.total_rows ?? 0);
+  const progressPercent =
+    totalRows > 0 ? Math.min(100, Math.round((processedRows / totalRows) * 100)) : 0;
+
+  const batchComplete =
+    batchStatus?.status === "completed" || batchStatus?.status === "failed";
 
   function downloadTemplate() {
     const blob = new Blob([USER_IMPORT_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
@@ -55,12 +261,66 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     });
   }
 
+  function resetWorkflow() {
+    setBatchId(null);
+    setValidation(null);
+    setBatchStatus(null);
+    setSelectedFile(null);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function assignSelectedFile(file: File | null) {
+    setSelectedFile(file);
+    setError(null);
+    if (fileInputRef.current && file) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      fileInputRef.current.files = dataTransfer.files;
+    }
+    if (fileInputRef.current && !file) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function handleFileInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      assignSelectedFile(null);
+      return;
+    }
+    if (file.size > USER_IMPORT_MAX_BYTES) {
+      setError(`CSV file is too large. Maximum size is ${MAX_FILE_LABEL}.`);
+      assignSelectedFile(null);
+      return;
+    }
+    assignSelectedFile(file);
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
+      setError("Please choose a CSV file (.csv).");
+      return;
+    }
+    if (file.size > USER_IMPORT_MAX_BYTES) {
+      setError(`CSV file is too large. Maximum size is ${MAX_FILE_LABEL}.`);
+      return;
+    }
+    assignSelectedFile(file);
+  }
+
   useEffect(() => {
     if (!batchId || !importStarted) {
       return;
     }
 
-    if (batchStatus?.status === "completed" || batchStatus?.status === "failed") {
+    if (batchComplete) {
       return;
     }
 
@@ -73,7 +333,7 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [batchId, importStarted, batchStatus?.status]);
+  }, [batchId, importStarted, batchComplete]);
 
   useEffect(() => {
     if (initialBatchId) {
@@ -81,10 +341,18 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     }
   }, [initialBatchId]);
 
-  function handleUpload(event: React.FormEvent<HTMLFormElement>) {
+  function handleValidate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const formData = new FormData(event.currentTarget);
+
+    if (!selectedFile) {
+      setError("Choose a CSV file before validating.");
+      fileInputRef.current?.focus();
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("file", selectedFile);
 
     startTransition(async () => {
       const result = await previewUserImportCsv(formData);
@@ -113,117 +381,236 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
     });
   }
 
+  const skippedPreviewCount = Number(summary.existing_inactive ?? 0);
+  const errorCount = Number(summary.errors ?? 0);
+
   return (
     <div className="space-y-6">
-      <Card padding="md" className="shadow-sm">
-        <h2 className="text-base font-semibold text-foreground">Upload CSV</h2>
-        <p className="mt-1 text-sm text-muted">
-          Required columns: full_name, email, employee_id (optional). New users become Staff and
-          receive an account-setup invitation by email.
-        </p>
-        <p className="mt-2 text-sm text-muted">
-          Employee IDs must be entered as four digits; leading zeroes matter (for example, 0054).
-        </p>
-        <div className="mt-4">
-          <Button type="button" variant="secondary" onClick={downloadTemplate}>
-            Download CSV template
-          </Button>
+      <ImportStepIndicator currentStep={currentStep} />
+
+      {error ? (
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+          role="alert"
+        >
+          {error}
         </div>
-        <form className="mt-4 space-y-3" onSubmit={handleUpload}>
-          <input
-            type="file"
-            name="file"
-            accept=".csv,text/csv"
-            required
-            disabled={isPending}
-            className="block w-full text-sm"
-          />
-          <Button type="submit" variant="primary" disabled={isPending}>
-            {isPending ? "Validating…" : "Validate"}
-          </Button>
-        </form>
-        {error ? (
-          <p className="mt-3 text-sm font-medium text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </Card>
+      ) : null}
 
-      {validation ? (
+      {currentStep === 1 ? (
         <Card padding="md" className="shadow-sm">
-          <h3 className="text-base font-semibold text-foreground">Preview</h3>
-          <p className="mt-1 text-sm text-muted">
-            No accounts are created until you confirm import.
-          </p>
-          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <dt className="text-muted">Total rows</dt>
-              <dd className="font-medium">{Number(summary.total_rows ?? 0)}</dd>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="text-lg font-semibold text-foreground">Upload CSV</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Upload a CSV to create and invite staff accounts for launch. Existing users are
+                matched by email and updated safely without changing their role.
+              </p>
             </div>
-            <div>
-              <dt className="text-muted">New users</dt>
-              <dd className="font-medium">{Number(summary.new_users ?? 0)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Existing users</dt>
-              <dd className="font-medium">{Number(summary.existing_users ?? 0)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Existing inactive</dt>
-              <dd className="font-medium">{Number(summary.existing_inactive ?? 0)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Onboarding resumes</dt>
-              <dd className="font-medium">{Number(summary.onboarding_resumes ?? 0)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Errors</dt>
-              <dd className="font-medium">{Number(summary.errors ?? 0)}</dd>
-            </div>
-          </dl>
+            <Button type="button" variant="secondary" onClick={downloadTemplate} className="shrink-0">
+              Download CSV template
+            </Button>
+          </div>
 
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950">
+            <p className="font-medium">Required columns</p>
+            <p className="mt-1 text-sky-900/90">
+              <code className="text-xs">full_name</code>, <code className="text-xs">email</code>,{" "}
+              <code className="text-xs">employee_id</code> (optional). Employee IDs must be four
+              digits; leading zeroes are preserved (for example, 0054). Inactive users are skipped
+              and must be reactivated manually from Users.
+            </p>
+            <p className="mt-2 text-xs text-sky-900/80">
+              Maximum file size {MAX_FILE_LABEL} · up to {USER_IMPORT_MAX_ROWS.toLocaleString()} rows
+            </p>
+          </div>
+
+          <form className="mt-6 space-y-4" onSubmit={handleValidate}>
+            <input
+              ref={fileInputRef}
+              id={fileInputId}
+              type="file"
+              name="file"
+              accept=".csv,text/csv"
+              disabled={isPending}
+              className="sr-only"
+              onChange={handleFileInputChange}
+              aria-describedby={`${fileInputId}-hint`}
+            />
+
+            <div
+              role="group"
+              aria-labelledby={`${fileInputId}-label`}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDragActive(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setDragActive(false);
+              }}
+              onDrop={handleDrop}
+              className={`rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+                dragActive
+                  ? "border-primary bg-teal-50/50"
+                  : "border-border bg-muted/10 hover:border-slate-300"
+              }`}
+            >
+              <p id={`${fileInputId}-label`} className="text-sm font-medium text-foreground">
+                Drag and drop your CSV file here
+              </p>
+              <p className="mt-1 text-sm text-muted">or</p>
+              <Button
+                type="button"
+                variant="primary"
+                className="mt-4"
+                disabled={isPending}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose CSV file
+              </Button>
+              <p id={`${fileInputId}-hint`} className="mt-3 text-xs text-muted">
+                CSV files only (.csv). Maximum size {MAX_FILE_LABEL}.
+              </p>
+            </div>
+
+            {selectedFile ? (
+              <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-emerald-950">Selected file</p>
+                  <p className="mt-0.5 text-sm text-emerald-900/90">
+                    {selectedFile.name}{" "}
+                    <span className="text-emerald-800/80">({formatFileSize(selectedFile.size)})</span>
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isPending}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Choose another file
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={isPending}
+                    onClick={() => assignSelectedFile(null)}
+                  >
+                    Remove file
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Button type="submit" variant="primary" disabled={isPending || !selectedFile}>
+                {isPending ? "Validating…" : "Validate CSV"}
+              </Button>
+              <Link href="/admin/users">
+                <Button type="button" variant="ghost">
+                  Back to Users
+                </Button>
+              </Link>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+
+      {currentStep === 2 && validation ? (
+        <Card padding="md" className="shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Review &amp; validate</h2>
+              <p className="mt-1 text-sm text-muted">
+                No accounts are created until you confirm import. Review each row before continuing.
+              </p>
+            </div>
+            <Button type="button" variant="secondary" disabled={isPending} onClick={resetWorkflow}>
+              Upload another file
+            </Button>
+          </div>
+
+          {blockingErrors ? (
+            <div
+              className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              role="alert"
+            >
+              <p className="font-semibold">This file cannot be imported yet</p>
+              <p className="mt-1">
+                Fix the errors below and upload a corrected CSV. Confirm Import stays disabled
+                until validation passes.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <SummaryStatCard label="Total rows" value={Number(summary.total_rows ?? 0)} />
+            <SummaryStatCard label="New users" value={Number(summary.new_users ?? 0)} />
+            <SummaryStatCard label="Existing users" value={Number(summary.existing_users ?? 0)} />
+            <SummaryStatCard
+              label="Skipped"
+              value={skippedPreviewCount}
+              tone={skippedPreviewCount > 0 ? "warning" : "default"}
+            />
+            <SummaryStatCard
+              label="Errors"
+              value={errorCount}
+              tone={errorCount > 0 ? "danger" : "default"}
+            />
+          </div>
+
+          <div className="mt-6 overflow-x-auto rounded-lg border border-border">
             <table className="min-w-full text-sm">
-              <thead>
+              <thead className="bg-muted/30">
                 <tr className="border-b border-border text-left">
-                  <th className="py-2 pr-3">Row</th>
-                  <th className="py-2 pr-3">Name</th>
-                  <th className="py-2 pr-3">Email</th>
-                  <th className="py-2 pr-3">Employee ID</th>
-                  <th className="py-2">Outcome</th>
+                  <th className="px-3 py-2.5 font-medium text-muted">Name</th>
+                  <th className="px-3 py-2.5 font-medium text-muted">Email</th>
+                  <th className="px-3 py-2.5 font-medium text-muted">Employee ID</th>
+                  <th className="px-3 py-2.5 font-medium text-muted">Classification</th>
+                  <th className="px-3 py-2.5 font-medium text-muted">Planned action</th>
                 </tr>
               </thead>
               <tbody>
-                {previewRows.map((row) => (
-                  <tr key={String(row.row_number)} className="border-b border-border/60">
-                    <td className="py-2 pr-3 align-top">{String(row.row_number)}</td>
-                    <td className="py-2 pr-3 align-top">{String(row.full_name ?? "")}</td>
-                    <td className="py-2 pr-3 align-top">{String(row.email ?? "")}</td>
-                    <td className="py-2 pr-3 align-top">{String(row.employee_id ?? "—")}</td>
-                    <td className="py-2 align-top">
-                      <span className="block font-medium">{String(row.classification ?? "")}</span>
-                      <span className="block text-muted">{String(row.preview_message ?? "")}</span>
-                    </td>
-                  </tr>
-                ))}
+                {previewRows.map((row) => {
+                  const classification = String(row.classification ?? "");
+                  return (
+                    <tr key={String(row.row_number)} className="border-b border-border/60 align-top">
+                      <td className="px-3 py-3 font-medium text-foreground">
+                        {String(row.full_name ?? "")}
+                        <span className="mt-0.5 block text-xs font-normal text-muted">
+                          Row {String(row.row_number)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-foreground">{String(row.email ?? "")}</td>
+                      <td className="px-3 py-3 tabular-nums text-foreground">
+                        {row.employee_id ? String(row.employee_id) : "—"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <ClassificationChip classification={classification} />
+                      </td>
+                      <td className="px-3 py-3 text-muted">
+                        {String(row.preview_message ?? "")}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
             <Button type="button" variant="primary" disabled={!canConfirm} onClick={handleConfirm}>
               Confirm Import
             </Button>
-            {batchId && importStarted ? (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={isPending}
-                onClick={() => refreshBatchStatus(batchId)}
-              >
-                Refresh status
-              </Button>
-            ) : null}
+            <Button type="button" variant="secondary" disabled={isPending} onClick={resetWorkflow}>
+              Upload another file
+            </Button>
             <Link href="/admin/users">
               <Button type="button" variant="ghost">
                 Back to Users
@@ -233,38 +620,109 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
         </Card>
       ) : null}
 
-      {batchStatus && importStarted ? (
+      {currentStep === 3 && batchStatus && importStarted ? (
         <Card padding="md" className="shadow-sm">
-          <h3 className="text-base font-semibold text-foreground">Import progress</h3>
-          <p className="mt-2 text-sm text-muted">
-            Status: {String(batchStatus.status)} · Processed {String(batchStatus.processed_rows)} /{" "}
-            {String(batchStatus.total_rows)} · Succeeded {String(batchStatus.succeeded_rows)} ·
-            Skipped {String(batchStatus.skipped_rows)} · Failed {String(batchStatus.failed_rows)}
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Import results</h2>
+              <p className="mt-1 text-sm text-muted">
+                {batchComplete
+                  ? "Import processing has finished. Review row outcomes below."
+                  : "Import is running in the background. This page refreshes automatically every few seconds."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {!batchComplete && batchId ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isPending}
+                  onClick={() => refreshBatchStatus(batchId)}
+                >
+                  Refresh status
+                </Button>
+              ) : null}
+              <Button type="button" variant="secondary" onClick={resetWorkflow}>
+                Import another file
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <ResultStatusChip status={String(batchStatus.status ?? "processing")} />
+            <span className="text-sm text-muted">
+              Processed {processedRows} of {totalRows} rows
+            </span>
+          </div>
+
+          <div className="mt-4">
+            <div
+              className="h-2 overflow-hidden rounded-full bg-muted/40"
+              role="progressbar"
+              aria-valuenow={progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Import progress"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryStatCard
+              label="Created / updated"
+              value={Number(batchStatus.succeeded_rows ?? 0)}
+            />
+            <SummaryStatCard label="Skipped" value={Number(batchStatus.skipped_rows ?? 0)} />
+            <SummaryStatCard
+              label="Failed"
+              value={Number(batchStatus.failed_rows ?? 0)}
+              tone={Number(batchStatus.failed_rows ?? 0) > 0 ? "danger" : "default"}
+            />
+            <SummaryStatCard label="Total rows" value={totalRows} />
+          </div>
+
           {resultRows.length > 0 ? (
-            <div className="mt-4 overflow-x-auto">
+            <div className="mt-6 overflow-x-auto rounded-lg border border-border">
               <table className="min-w-full text-sm">
-                <thead>
+                <thead className="bg-muted/30">
                   <tr className="border-b border-border text-left">
-                    <th className="py-2 pr-3">Row</th>
-                    <th className="py-2 pr-3">Email</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2">Result</th>
+                    <th className="px-3 py-2.5 font-medium text-muted">Name</th>
+                    <th className="px-3 py-2.5 font-medium text-muted">Email</th>
+                    <th className="px-3 py-2.5 font-medium text-muted">Status</th>
+                    <th className="px-3 py-2.5 font-medium text-muted">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {resultRows.map((row) => (
-                    <tr key={String(row.row_number)} className="border-b border-border/60">
-                      <td className="py-2 pr-3">{String(row.row_number)}</td>
-                      <td className="py-2 pr-3">{String(row.email ?? "")}</td>
-                      <td className="py-2 pr-3">{String(row.status ?? "")}</td>
-                      <td className="py-2">{String(row.result_message ?? row.preview_message ?? "")}</td>
+                    <tr key={String(row.row_number)} className="border-b border-border/60 align-top">
+                      <td className="px-3 py-3 font-medium text-foreground">
+                        {String(row.full_name ?? "—")}
+                      </td>
+                      <td className="px-3 py-3">{String(row.email ?? "")}</td>
+                      <td className="px-3 py-3">
+                        <ResultStatusChip status={String(row.status ?? "queued")} />
+                      </td>
+                      <td className="px-3 py-3 text-muted">
+                        {String(row.result_message ?? row.preview_message ?? "—")}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : null}
+
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
+            <Link href="/admin/users">
+              <Button type="button" variant="ghost">
+                Back to Users
+              </Button>
+            </Link>
+          </div>
         </Card>
       ) : null}
     </div>

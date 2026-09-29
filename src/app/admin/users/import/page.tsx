@@ -25,7 +25,7 @@ export default async function BulkUserImportPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Bulk Import Users"
-        description="Upload a CSV to create and invite staff accounts for launch."
+        description="Create and invite staff accounts from a launch CSV. Existing users are matched by email and updated safely."
       />
       <HrBulkImportWorkspace initialBatchId={params.batch ?? null} />
     </>
