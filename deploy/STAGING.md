@@ -577,6 +577,7 @@ sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs)
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:automatic-dispatch
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:mail-queue
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:auth-deletion-cleanup
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:user-import
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
 ```
 
@@ -618,6 +619,29 @@ sudo journalctl -u lunch-management-auth-deletion-cleanup.service -n 100 --no-pa
 
 The service reads **`/etc/lunch-management/worker.env`** (same as other workers). Required variables include **`SUPABASE_URL`** and **`SUPABASE_SECRET_KEY`**. Do not add `SMTP2GO_*` to this unit; Auth cleanup does not send mail.
 
+Enable the HR bulk user import worker timer while launch CSV batches may be queued (processes import rows asynchronously; invitations still flow through the mail queue worker):
+
+```bash
+sudo cp deploy/systemd/lunch-management-user-import.service /etc/systemd/system/
+sudo cp deploy/systemd/lunch-management-user-import.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now lunch-management-user-import.timer
+```
+
+Verification:
+
+```bash
+sudo systemctl status lunch-management-user-import.timer
+sudo systemctl start lunch-management-user-import.service
+sudo journalctl -u lunch-management-user-import.service -n 100 --no-pager
+```
+
+This unit uses **`/etc/lunch-management/worker.env`** (`SUPABASE_URL`, `SUPABASE_SECRET_KEY` only). Disable the timer after bulk launch import is complete if you prefer not to poll idle batches:
+
+```bash
+sudo systemctl disable --now lunch-management-user-import.timer
+```
+
 **Local development:** run `supabase status` and copy the **Secret** key (`sb_secret_...`) into a local `worker.env` (or export `SUPABASE_URL` + `SUPABASE_SECRET_KEY`). Do not use the legacy JWT `service_role` key for the worker. Normal app auth continues to use `.env.local` publishable credentials only.
 
 ### Logs and maintenance
@@ -632,6 +656,7 @@ journalctl -u lunch-management-late-orders-worker.timer -n 20 --no-pager
 sudo systemctl disable --now lunch-management-snapshot.timer
 sudo systemctl disable --now lunch-management-late-orders-worker.timer
 sudo systemctl disable --now lunch-management-auth-deletion-cleanup.timer
+sudo systemctl disable --now lunch-management-user-import.timer
 ```
 
 ### Operational notes

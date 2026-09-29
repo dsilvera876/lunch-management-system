@@ -65,9 +65,19 @@ function HrUsersHeaderActions({
 
   return (
     <>
-      <Button type="button" variant="secondary" disabled title="Coming in a future release">
-        Bulk import
-      </Button>
+      <details className="relative inline-block">
+        <summary className="cursor-pointer list-none rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+          More actions ▾
+        </summary>
+        <div className="absolute right-0 z-20 mt-1 min-w-[12rem] rounded-md border border-border bg-background py-1 shadow-lg">
+          <Link
+            href="/admin/users/import"
+            className="block px-3 py-2 text-sm text-foreground hover:bg-muted/40"
+          >
+            Bulk import users
+          </Link>
+        </div>
+      </details>
       <Link href="/admin/users?view=approvals">
         <Button
           type="button"

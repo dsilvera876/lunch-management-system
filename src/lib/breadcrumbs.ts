@@ -78,6 +78,13 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
       return crumbs;
     }
 
+    if (section === "users" && segments[2] === "import") {
+      crumbs.push({ label: "Administration" });
+      crumbs.push({ label: "Users", href: "/admin/users" });
+      crumbs.push({ label: "Bulk Import" });
+      return crumbs;
+    }
+
     if (section === "providers") {
       crumbs.push({ label: "Lunch Providers", href: "/admin/providers" });
 

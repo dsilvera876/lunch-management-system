@@ -12,6 +12,7 @@
     "worker:automatic-dispatch": "tsx src/worker/run.ts --task=automatic-dispatch",
     "worker:mail-queue": "tsx src/worker/run.ts --task=mail-queue",
     "worker:auth-deletion-cleanup": "tsx src/worker/run.ts --task=auth-deletion-cleanup",
+    "worker:user-import": "tsx src/worker/run.ts --task=user-import",
     "worker:dry-run": "tsx src/worker/run.ts --dry-run"
   },
   "dependencies": {

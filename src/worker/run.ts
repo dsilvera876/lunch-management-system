@@ -3,12 +3,14 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 import { processEmailDeliveryQueue } from "@/lib/mail/process-email-delivery-queue";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
+import { processUserImportBatch } from "@/lib/process-user-import-batch";
 
 type WorkerTask =
   | "snapshots"
   | "automatic-dispatch"
   | "mail-queue"
   | "auth-deletion-cleanup"
+  | "user-import"
   | "all";
 
 type WorkerOptions = {
@@ -31,6 +33,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "automatic-dispatch" ||
         value === "mail-queue" ||
         value === "auth-deletion-cleanup" ||
+        value === "user-import" ||
         value === "all"
       ) {
         task = value;
@@ -228,6 +231,22 @@ async function runAuthDeletionCleanup(dryRun: boolean): Promise<number> {
   return result.terminalFailed;
 }
 
+async function runUserImport(dryRun: boolean): Promise<number> {
+  if (dryRun) {
+    console.log("Dry run: user import skipped");
+    return 0;
+  }
+
+  const supabase = createServiceClient();
+  const result = await processUserImportBatch(supabase, { batchSize: 5 });
+
+  console.log(
+    `User import: claimed=${result.claimed} succeeded=${result.succeeded} skipped=${result.skipped} failed=${result.failed}`,
+  );
+
+  return result.failed;
+}
+
 async function main(): Promise<void> {
   assertWorkerEnvironment();
   const options = parseArgs(process.argv.slice(2));
@@ -249,6 +268,13 @@ async function main(): Promise<void> {
 
   if (options.task === "auth-deletion-cleanup" || options.task === "all") {
     const failures = await runAuthDeletionCleanup(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
+  if (options.task === "user-import" || options.task === "all") {
+    const failures = await runUserImport(options.dryRun);
     if (failures > 0) {
       process.exitCode = 1;
     }

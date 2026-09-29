@@ -202,6 +202,38 @@ describe("user management workspace wiring", () => {
     assert.match(hrDrawer, /Deactivate user/);
   });
 
+  it("exposes bulk import as a secondary HR-only action", () => {
+    const page = readFileSync(
+      new URL("../app/admin/users/page.tsx", import.meta.url),
+      "utf8",
+    );
+    const importPage = readFileSync(
+      new URL("../app/admin/users/import/page.tsx", import.meta.url),
+      "utf8",
+    );
+    const workspace = readFileSync(
+      new URL("../components/admin/hr-bulk-import-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(page, /More actions/);
+    assert.match(page, /Bulk import users/);
+    assert.match(page, /\/admin\/users\/import/);
+    assert.doesNotMatch(page, /Bulk import[\s\S]*disabled/);
+    assert.match(importPage, /profile\.role !== "hr"/);
+    assert.match(workspace, /Confirm Import/);
+    assert.match(workspace, /Download CSV template/);
+    assert.match(workspace, /disabled=\{!canConfirm\}/);
+  });
+
+  it("uses Bulk Import breadcrumbs under Users", () => {
+    const crumbs = getBreadcrumbs("/admin/users/import");
+
+    assert.equal(crumbs[2]?.label, "Users");
+    assert.equal(crumbs[2]?.href, "/admin/users");
+    assert.equal(crumbs[3]?.label, "Bulk Import");
+  });
+
   it("enables HR pending approvals entry point with count and approvals view", () => {
     const page = readFileSync(
       new URL("../app/admin/users/page.tsx", import.meta.url),

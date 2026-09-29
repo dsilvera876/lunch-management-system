@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Lunch Management bulk user import worker every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=30s
+Unit=lunch-management-user-import.service
+
+[Install]
+WantedBy=timers.target
