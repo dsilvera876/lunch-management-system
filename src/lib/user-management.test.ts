@@ -255,6 +255,15 @@ describe("user management workspace wiring", () => {
     assert.match(workspace, /Download CSV template/);
     assert.match(workspace, /Upload another file/);
     assert.match(workspace, /ClassificationChip/);
+    assert.doesNotMatch(workspace, /validateStaffEmployeeId/);
+    assert.match(
+      workspace,
+      /ClassificationChip classification=\{classification\}/,
+    );
+    assert.doesNotMatch(
+      workspace,
+      /employee_id[\s\S]{0,200}Employee ID must be exactly four digits/,
+    );
     assert.match(workspace, /role="progressbar"/);
     assert.match(workspace, /disabled=\{!canConfirm\}/);
     assert.match(workspace, /The CSV should use these columns:/);

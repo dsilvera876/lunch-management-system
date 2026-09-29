@@ -150,6 +150,15 @@ Pat,not-an-email,0054
     assert.match(parsed.error, /Email address is invalid/);
   });
 
+  it("does not flag duplicate Employee ID errors when IDs are blank", () => {
+    const rows = [
+      { rowNumber: 2, full_name: "A", email: "a@test.local", employee_id: "" },
+      { rowNumber: 3, full_name: "B", email: "b@test.local", employee_id: "   " },
+    ];
+    const errors = applyCrossRowImportValidation(rows);
+    assert.equal(errors.size, 0);
+  });
+
   it("treats 7 and 0007 as duplicate Employee IDs after normalization", () => {
     const parsed = parseUserImportCsv(`full_name,email,employee_id
 A,a@test.local,7
