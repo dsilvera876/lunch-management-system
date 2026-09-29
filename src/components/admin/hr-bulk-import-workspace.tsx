@@ -15,8 +15,9 @@ import {
 import { IconArrowRight, IconClipboard } from "@/components/icons/line-icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { sanitizeUserImportResultMessage } from "@/lib/user-import-runtime-errors";
 
-const WORKFLOW_MAX_WIDTH = "mx-auto w-full max-w-4xl";
+const WORKFLOW_MAX_WIDTH = "mx-auto w-full max-w-6xl";
 
 type Props = {
   initialBatchId?: string | null;
@@ -635,15 +636,23 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
             />
           </div>
 
-          <div className="mt-6 overflow-x-auto rounded-lg border border-border">
-            <table className="min-w-full text-sm">
+          <div
+            className="mt-6 overflow-x-auto rounded-lg border border-border"
+            data-testid="bulk-import-review-table"
+          >
+            <table className="min-w-[56rem] w-full table-fixed text-sm">
               <thead className="bg-muted/30">
                 <tr className="border-b border-border text-left">
-                  <th className="px-3 py-2.5 font-medium text-muted">Name</th>
-                  <th className="px-3 py-2.5 font-medium text-muted">Email</th>
-                  <th className="px-3 py-2.5 font-medium text-muted">Employee ID</th>
-                  <th className="px-3 py-2.5 font-medium text-muted">Classification</th>
-                  <th className="px-3 py-2.5 font-medium text-muted">Planned action</th>
+                  <th className="w-12 px-2 py-2.5 font-medium text-muted">Row</th>
+                  <th className="w-[14%] px-3 py-2.5 font-medium text-muted">Name</th>
+                  <th className="w-[22%] px-3 py-2.5 font-medium text-muted">Email</th>
+                  <th className="w-24 px-3 py-2.5 font-medium text-muted whitespace-nowrap">
+                    Employee ID
+                  </th>
+                  <th className="w-36 px-3 py-2.5 font-medium text-muted">Classification</th>
+                  <th className="min-w-[12rem] px-3 py-2.5 font-medium text-muted">
+                    Planned action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -651,27 +660,20 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
                   const classification = String(row.classification ?? "");
                   return (
                     <tr key={String(row.row_number)} className="border-b border-border/60 align-top">
+                      <td className="px-2 py-3 text-center tabular-nums text-xs text-muted">
+                        {String(row.row_number)}
+                      </td>
                       <td className="px-3 py-3 font-medium text-foreground">
                         {String(row.full_name ?? "")}
-                        <span className="mt-0.5 block text-xs font-normal text-muted">
-                          Row {String(row.row_number)}
-                        </span>
                       </td>
-                      <td className="px-3 py-3 text-foreground">{String(row.email ?? "")}</td>
-                      <td className="px-3 py-3 tabular-nums text-foreground">
+                      <td className="px-3 py-3 text-foreground break-all">{String(row.email ?? "")}</td>
+                      <td className="px-3 py-3 tabular-nums text-foreground whitespace-nowrap">
                         {row.employee_id ? String(row.employee_id) : "—"}
-                        {row.employee_id_import_note ? (
-                          <span className="mt-0.5 block text-xs font-normal text-muted">
-                            {String(row.employee_id_import_note)}
-                          </span>
-                        ) : null}
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <ClassificationChip classification={classification} />
                       </td>
-                      <td className="px-3 py-3 text-muted">
-                        {String(row.preview_message ?? "")}
-                      </td>
+                      <td className="px-3 py-3 text-muted">{String(row.preview_message ?? "")}</td>
                     </tr>
                   );
                 })}
@@ -757,28 +759,42 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
           </div>
 
           {resultRows.length > 0 ? (
-            <div className="mt-6 overflow-x-auto rounded-lg border border-border">
-              <table className="min-w-full text-sm">
+            <div
+              className="mt-6 overflow-x-auto rounded-lg border border-border"
+              data-testid="bulk-import-results-table"
+            >
+              <table className="min-w-[48rem] w-full table-fixed text-sm">
                 <thead className="bg-muted/30">
                   <tr className="border-b border-border text-left">
-                    <th className="px-3 py-2.5 font-medium text-muted">Name</th>
-                    <th className="px-3 py-2.5 font-medium text-muted">Email</th>
-                    <th className="px-3 py-2.5 font-medium text-muted">Status</th>
-                    <th className="px-3 py-2.5 font-medium text-muted">Notes</th>
+                    <th className="w-12 px-2 py-2.5 font-medium text-muted">Row</th>
+                    <th className="w-[16%] px-3 py-2.5 font-medium text-muted">Name</th>
+                    <th className="w-[24%] px-3 py-2.5 font-medium text-muted">Email</th>
+                    <th className="w-32 px-3 py-2.5 font-medium text-muted">Status</th>
+                    <th className="min-w-[12rem] px-3 py-2.5 font-medium text-muted">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {resultRows.map((row) => (
                     <tr key={String(row.row_number)} className="border-b border-border/60 align-top">
+                      <td className="px-2 py-3 text-center tabular-nums text-xs text-muted">
+                        {String(row.row_number)}
+                      </td>
                       <td className="px-3 py-3 font-medium text-foreground">
                         {String(row.full_name ?? "—")}
                       </td>
-                      <td className="px-3 py-3">{String(row.email ?? "")}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3 break-all">{String(row.email ?? "")}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <ResultStatusChip status={String(row.status ?? "queued")} />
                       </td>
                       <td className="px-3 py-3 text-muted">
-                        {String(row.result_message ?? row.preview_message ?? "—")}
+                        {sanitizeUserImportResultMessage(
+                          String(row.result_message ?? row.preview_message ?? ""),
+                          {
+                            status: String(row.status ?? "queued"),
+                            employeeId:
+                              typeof row.employee_id === "string" ? row.employee_id : null,
+                          },
+                        )}
                       </td>
                     </tr>
                   ))}

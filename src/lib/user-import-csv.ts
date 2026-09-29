@@ -22,6 +22,21 @@ export type BulkImportEmployeeIdNormalization =
   | { ok: true; value: string; normalizedFrom?: string }
   | { ok: false; message: string };
 
+/** Matches bulk-import email validation in `classify_user_import_row`. */
+export function validateBulkImportEmail(raw: string): { ok: true } | { ok: false; message: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { ok: false, message: "Email address is required." };
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(normalized)) {
+    return { ok: false, message: "Email address is invalid." };
+  }
+
+  return { ok: true };
+}
+
 /** Bulk import only — manual Employee ID entry remains strictly four digits. */
 export function normalizeBulkImportEmployeeId(raw: string): BulkImportEmployeeIdNormalization {
   const trimmed = raw.trim();
@@ -114,6 +129,14 @@ export function parseUserImportCsv(content: string): ParseUserImportCsvResult {
 
     if (!fullName && !email && !employeeId.trim()) {
       continue;
+    }
+
+    const validatedEmail = validateBulkImportEmail(email);
+    if (!validatedEmail.ok) {
+      return {
+        ok: false,
+        error: `Row ${lineIndex + 1}: ${validatedEmail.message}`,
+      };
     }
 
     const normalizedEmployeeId = normalizeBulkImportEmployeeId(employeeId);

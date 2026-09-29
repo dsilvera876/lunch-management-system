@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { processUserImportBatch } from "@/lib/process-user-import-batch";
+import { userImportRuntimeUserFacingMessages } from "@/lib/user-import-runtime-errors";
 
 describe("process user import batch worker", () => {
   it("skips inactive rows and completes successful profile updates", async () => {
@@ -100,5 +101,82 @@ describe("process user import batch worker", () => {
 
     const result = await processUserImportBatch(service as never, { batchSize: 1 });
     assert.equal(result.failed, 1);
+  });
+
+  it("stores HR-safe messages when invite setup fails for missing APP_ORIGIN", async () => {
+    const env = process.env as Record<string, string | undefined>;
+    const previousOrigin = env.APP_ORIGIN;
+    const previousNodeEnv = env.NODE_ENV;
+    delete env.APP_ORIGIN;
+    env.NODE_ENV = "production";
+
+    let completedMessage = "";
+
+    const service = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        if (name === "worker_claim_user_import_rows") {
+          return {
+            data: [
+              {
+                id: "row-invite",
+                batch_id: "batch-1",
+                row_number: 2,
+                full_name: "Pat Example",
+                email: "pat@example.test",
+                normalized_email: "pat@example.test",
+                employee_id: null,
+                classification: "new_external",
+                action_code: "create_and_invite",
+                profile_id: null,
+                signup_request_id: "signup-1",
+              },
+            ],
+            error: null,
+          };
+        }
+
+        if (name === "ensure_signup_request_for_bulk_import") {
+          return { data: "signup-1", error: null };
+        }
+
+        if (name === "authorize_rejected_signup_for_bulk_import") {
+          return { data: null, error: null };
+        }
+
+        if (name === "worker_complete_user_import_row") {
+          completedMessage = String(args?.p_message ?? "");
+          return { data: null, error: null };
+        }
+
+        return { data: null, error: null };
+      },
+      auth: {
+        admin: {
+          inviteUserByEmail: async () => ({ data: { user: null }, error: null }),
+          generateLink: async () => ({ data: null, error: null }),
+        },
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null }),
+          }),
+        }),
+      }),
+    };
+
+    try {
+      const result = await processUserImportBatch(service as never, { batchSize: 1 });
+      assert.equal(result.failed, 1);
+      assert.equal(completedMessage, userImportRuntimeUserFacingMessages.SYSTEM_CONFIGURATION);
+      assert.doesNotMatch(completedMessage, /APP_ORIGIN/i);
+    } finally {
+      env.NODE_ENV = previousNodeEnv;
+      if (previousOrigin === undefined) {
+        delete env.APP_ORIGIN;
+      } else {
+        env.APP_ORIGIN = previousOrigin;
+      }
+    }
   });
 });

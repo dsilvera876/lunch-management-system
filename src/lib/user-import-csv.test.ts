@@ -7,6 +7,7 @@ import {
   applyCrossRowImportValidation,
   normalizeBulkImportEmployeeId,
   parseUserImportCsv,
+  validateBulkImportEmail,
 } from "@/lib/user-import-csv";
 import {
   assertUserImportTemplateHeaders,
@@ -134,6 +135,19 @@ Pat,pat@example.test,54
     assert.ok(errors.get(2));
     assert.ok(errors.get(3));
     assert.match(String(errors.get(2)), /Duplicate Employee ID 0054/);
+  });
+
+  it("rejects malformed email addresses during CSV parse before import", () => {
+    assert.equal(validateBulkImportEmail("not-an-email").ok, false);
+    assert.equal(validateBulkImportEmail("missing-at.example.com").ok, false);
+    assert.equal(validateBulkImportEmail("bad@domain").ok, false);
+
+    const parsed = parseUserImportCsv(`full_name,email,employee_id
+Pat,not-an-email,0054
+`);
+    assert.equal(parsed.ok, false);
+    if (parsed.ok) return;
+    assert.match(parsed.error, /Email address is invalid/);
   });
 
   it("treats 7 and 0007 as duplicate Employee IDs after normalization", () => {

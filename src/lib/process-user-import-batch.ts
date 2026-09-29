@@ -4,11 +4,14 @@ import { getApplicationOrigin } from "@/lib/request-origin";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   orchestrateSignupRequestInvite,
-  sanitizeInviteErrorMessage,
   type AccountSetupEmailQueueClient,
   type AdminInviteClient,
   type SignupInviteDbClient,
 } from "@/lib/signup-request-invite";
+import {
+  classifyUserImportRuntimeError,
+  logUserImportRuntimeError,
+} from "@/lib/user-import-runtime-errors";
 import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
 import { buildAccountSetupEmailContent } from "@/lib/mail/account-setup-email";
 
@@ -27,6 +30,23 @@ export type UserImportRowRecord = {
 };
 
 const INVITE_REDIRECT = "/account/update-password?invite=1";
+
+function importRowFailure(
+  row: UserImportRowRecord,
+  technicalMessage: string,
+): { outcome: "failed"; message: string } {
+  const classified = classifyUserImportRuntimeError({
+    technicalMessage,
+    employeeId: row.employee_id,
+  });
+  logUserImportRuntimeError({
+    rowNumber: row.row_number,
+    email: row.email,
+    code: classified.code,
+    technicalMessage,
+  });
+  return { outcome: "failed", message: classified.userMessage };
+}
 
 function createWorkerInviteClients(
   service: SupabaseClient,
@@ -201,7 +221,7 @@ async function processImportRow(
       ));
 
     if (!profileId) {
-      return { outcome: "failed", message: "Matched user could not be found during import." };
+      return importRowFailure(row, "Matched user could not be found during import.");
     }
 
     const { error } = await service.rpc("service_apply_user_import_profile_update", {
@@ -211,7 +231,7 @@ async function processImportRow(
     });
 
     if (error) {
-      return { outcome: "failed", message: "Unable to update existing user profile." };
+      return importRowFailure(row, error.message ?? "Unable to update existing user profile.");
     }
 
     return { outcome: "succeeded", message: "Updated existing user profile.", profileId };
@@ -236,7 +256,7 @@ async function processImportRow(
   }
 
   if (!requestId) {
-    return { outcome: "failed", message: "Signup authorization could not be established." };
+    return importRowFailure(row, "Signup authorization could not be established.");
   }
 
   const { error: authorizeError } = await service.rpc("authorize_rejected_signup_for_bulk_import", {
@@ -245,10 +265,7 @@ async function processImportRow(
   });
 
   if (authorizeError) {
-    return {
-      outcome: "failed",
-      message: sanitizeInviteErrorMessage(authorizeError.message),
-    };
+    return importRowFailure(row, authorizeError.message);
   }
 
   const inviteResult = await orchestrateSignupRequestInvite({
@@ -261,10 +278,7 @@ async function processImportRow(
   });
 
   if (!inviteResult.success) {
-    return {
-      outcome: "failed",
-      message: sanitizeInviteErrorMessage(inviteResult.error),
-    };
+    return importRowFailure(row, inviteResult.error);
   }
 
   const profileId = await clients.db.lookupProfileIdByEmail(row.email);
@@ -309,16 +323,15 @@ export async function processUserImportBatch(
       else if (processed.outcome === "skipped") result.skipped += 1;
       else result.failed += 1;
     } catch (caught) {
-      const message =
-        caught instanceof Error
-          ? sanitizeInviteErrorMessage(caught.message)
-          : "Import row failed unexpectedly.";
+      const technicalMessage =
+        caught instanceof Error ? caught.message : "Import row failed unexpectedly.";
+      const failed = importRowFailure(row, technicalMessage);
       await serviceClient.rpc("worker_complete_user_import_row", {
         p_row_id: row.id,
         p_outcome: "failed",
         p_profile_id: null,
         p_signup_request_id: null,
-        p_message: message,
+        p_message: failed.message,
       });
       result.failed += 1;
     }

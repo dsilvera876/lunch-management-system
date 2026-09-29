@@ -222,7 +222,7 @@ describe("user management workspace wiring", () => {
     assert.doesNotMatch(page, /Bulk import[\s\S]*disabled/);
     assert.match(importPage, /profile\.role !== "hr"/);
     assert.match(workspace, /ImportStepIndicator/);
-    assert.match(workspace, /max-w-4xl/);
+    assert.match(workspace, /max-w-6xl/);
     assert.match(workspace, /data-testid="bulk-import-workflow"/);
     assert.match(workspace, /Before you upload/);
     assert.match(workspace, /CSV columns:/);
@@ -247,7 +247,23 @@ describe("user management workspace wiring", () => {
     assert.match(workspace, /role="progressbar"/);
     assert.match(workspace, /disabled=\{!canConfirm\}/);
     assert.match(workspace, /four digits automatically/);
-    assert.match(workspace, /employee_id_import_note/);
+    assert.match(workspace, /data-testid="bulk-import-review-table"/);
+    assert.match(workspace, /data-testid="bulk-import-results-table"/);
+    assert.match(workspace, />Row</);
+    assert.match(workspace, /Planned action/);
+    assert.doesNotMatch(workspace, /Row \{String\(row\.row_number\)\}/);
+    assert.doesNotMatch(workspace, /employee_id_import_note/);
+    assert.match(workspace, /sanitizeUserImportResultMessage/);
+    assert.doesNotMatch(workspace, /APP_ORIGIN/);
+    assert.match(workspace, /row\.employee_id \? String\(row\.employee_id\)/);
+    assert.match(
+      workspace,
+      /overflow-x-auto[\s\S]{0,120}data-testid="bulk-import-review-table"/,
+    );
+    assert.match(
+      workspace,
+      /overflow-x-auto[\s\S]{0,120}data-testid="bulk-import-results-table"/,
+    );
     assert.match(workspace, /data-testid="bulk-import-review-actions"/);
     assert.match(workspace, /data-testid="bulk-import-results-actions"/);
     assert.match(
