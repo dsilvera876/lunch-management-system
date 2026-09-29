@@ -32,7 +32,7 @@ export const userImportRuntimeUserFacingMessages = {
   TEMPORARY_SERVICE_FAILURE:
     "A temporary service problem prevented this user from being imported. Please try again.",
   USER_STATE_CHANGED:
-    "This user's account changed while the import was running. Upload the file again or manage the user from Users.",
+    "This user's account changed after the file was reviewed. Review the user in Users before trying again.",
   UNKNOWN:
     "This user could not be imported. Please contact an administrator if the problem continues.",
 } as const satisfies Record<

@@ -15,19 +15,12 @@ import {
 import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
 import { buildAccountSetupEmailContent } from "@/lib/mail/account-setup-email";
 
-export type UserImportRowRecord = {
-  id: string;
-  batch_id: string;
-  row_number: number;
-  full_name: string;
-  email: string;
-  normalized_email: string;
-  employee_id: string | null;
-  classification: string;
-  action_code: string;
-  profile_id: string | null;
-  signup_request_id: string | null;
-};
+import {
+  planUserImportRowExecution,
+  type UserImportRowRecord,
+} from "@/lib/user-import-row-reconcile";
+
+export type { UserImportRowRecord };
 
 const INVITE_REDIRECT = "/account/update-password?invite=1";
 
@@ -202,57 +195,54 @@ async function resolveSignupRequestId(
   return String(data);
 }
 
-async function processImportRow(
+async function lookupImportProfileContext(
   service: SupabaseClient,
   row: UserImportRowRecord,
-): Promise<{ outcome: "succeeded" | "skipped" | "failed"; message: string; profileId?: string; signupRequestId?: string }> {
-  if (row.classification === "existing_inactive") {
-    return {
-      outcome: "skipped",
-      message: "Existing inactive user — review required.",
-    };
+): Promise<{ profileId: string | null; accountStatus: string | null; role: string | null }> {
+  const profileId =
+    row.profile_id ??
+    (await service.rpc("service_lookup_profile_id_by_signup_email", { p_email: row.email }).then(
+      (result) => (result.data ? String(result.data) : null),
+    ));
+
+  if (!profileId || typeof service.from !== "function") {
+    return { profileId, accountStatus: null, role: null };
   }
 
-  if (row.action_code === "update_existing") {
-    const profileId =
-      row.profile_id ??
-      (await service.rpc("service_lookup_profile_id_by_signup_email", { p_email: row.email }).then(
-        (result) => (result.data ? String(result.data) : null),
-      ));
+  const { data } = await service
+    .from("profiles")
+    .select("id, account_status, role")
+    .eq("id", profileId)
+    .maybeSingle();
 
-    if (!profileId) {
-      return importRowFailure(row, "Matched user could not be found during import.");
-    }
-
-    const { error } = await service.rpc("service_apply_user_import_profile_update", {
-      p_import_row_id: row.id,
-      p_full_name: row.full_name,
-      p_employee_id: row.employee_id,
-    });
-
-    if (error) {
-      return importRowFailure(row, error.message ?? "Unable to update existing user profile.");
-    }
-
-    return { outcome: "succeeded", message: "Updated existing user profile.", profileId };
+  if (!data?.id) {
+    return { profileId, accountStatus: null, role: null };
   }
 
+  return {
+    profileId: String(data.id),
+    accountStatus: (data.account_status as string | null) ?? null,
+    role: (data.role as string | null) ?? null,
+  };
+}
+
+async function runOnboardingInvitePath(
+  service: SupabaseClient,
+  row: UserImportRowRecord,
+): Promise<{ outcome: "succeeded" | "failed"; message: string; profileId?: string; signupRequestId?: string }> {
   const clients = createWorkerInviteClients(service);
   const redirectTo = `${getApplicationOrigin()}${INVITE_REDIRECT}`;
   let requestId = row.signup_request_id;
 
-  if (row.classification === "new_company") {
-    requestId = await resolveSignupRequestId(service, row);
-  } else if (
+  if (
+    row.classification === "new_company" ||
     row.classification === "new_external" ||
     row.classification === "pending_signup" ||
     row.classification === "approved_incomplete" ||
-    row.classification === "previously_rejected"
+    row.classification === "previously_rejected" ||
+    !requestId
   ) {
-    requestId = await resolveSignupRequestId(service, {
-      ...row,
-      signup_request_id: row.signup_request_id ?? null,
-    });
+    requestId = await resolveSignupRequestId(service, row);
   }
 
   if (!requestId) {
@@ -289,6 +279,57 @@ async function processImportRow(
     profileId: profileId ?? undefined,
     signupRequestId: requestId,
   };
+}
+
+async function processImportRow(
+  service: SupabaseClient,
+  row: UserImportRowRecord,
+): Promise<{ outcome: "succeeded" | "skipped" | "failed"; message: string; profileId?: string; signupRequestId?: string }> {
+  if (row.classification === "existing_inactive") {
+    return {
+      outcome: "skipped",
+      message: "Existing inactive user — review required.",
+    };
+  }
+
+  const profileContext = await lookupImportProfileContext(service, row);
+  const plan = planUserImportRowExecution({
+    row,
+    resolvedProfileId: profileContext.profileId,
+    accountStatus: profileContext.accountStatus,
+    role: profileContext.role,
+  });
+
+  if (plan.mode === "skip") {
+    return { outcome: "skipped", message: plan.message };
+  }
+
+  if (plan.mode === "incompatible") {
+    return importRowFailure(row, plan.technicalMessage);
+  }
+
+  if (plan.mode === "update") {
+    const { error } = await service.rpc("service_apply_user_import_profile_update", {
+      p_import_row_id: row.id,
+      p_full_name: row.full_name,
+      p_employee_id: row.employee_id,
+    });
+
+    if (error) {
+      if (error.message?.includes("Import row has no profile reference")) {
+        return runOnboardingInvitePath(service, row);
+      }
+      return importRowFailure(row, error.message ?? "Unable to update existing user profile.");
+    }
+
+    return {
+      outcome: "succeeded",
+      message: "Updated existing user profile.",
+      profileId: plan.profileId,
+    };
+  }
+
+  return runOnboardingInvitePath(service, row);
 }
 
 export async function processUserImportBatch(

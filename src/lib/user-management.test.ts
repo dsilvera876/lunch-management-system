@@ -222,6 +222,10 @@ describe("user management workspace wiring", () => {
     assert.doesNotMatch(page, /Bulk import[\s\S]*disabled/);
     assert.match(importPage, /profile\.role !== "hr"/);
     assert.match(workspace, /ImportStepIndicator/);
+    assert.match(workspace, /data-step-state=\{/);
+    assert.match(workspace, /\? "active" : isComplete \? "completed" : "upcoming"/);
+    assert.match(workspace, /bg-teal-100 text-teal-800 ring-teal-400/);
+    assert.match(workspace, /bg-white text-slate-600 ring-slate-300/);
     assert.match(workspace, /max-w-6xl/);
     assert.match(workspace, /data-testid="bulk-import-workflow"/);
     assert.match(workspace, /Before you upload/);
@@ -253,7 +257,7 @@ describe("user management workspace wiring", () => {
     assert.match(workspace, /ClassificationChip/);
     assert.match(workspace, /role="progressbar"/);
     assert.match(workspace, /disabled=\{!canConfirm\}/);
-    assert.match(workspace, /four digits automatically/);
+    assert.match(workspace, /The CSV should use these columns:/);
     assert.match(workspace, /data-testid="bulk-import-review-table"/);
     assert.match(workspace, /data-testid="bulk-import-results-table"/);
     assert.match(workspace, />Row</);

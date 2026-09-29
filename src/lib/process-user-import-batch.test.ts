@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { processUserImportBatch } from "@/lib/process-user-import-batch";
 import { userImportRuntimeUserFacingMessages } from "@/lib/user-import-runtime-errors";
+import { planUserImportRowExecution } from "@/lib/user-import-row-reconcile";
 
 describe("process user import batch worker", () => {
   it("skips inactive rows and completes successful profile updates", async () => {
@@ -101,6 +102,26 @@ describe("process user import batch worker", () => {
 
     const result = await processUserImportBatch(service as never, { batchSize: 1 });
     assert.equal(result.failed, 1);
+  });
+
+  it("reconciles stale update rows into invite resume when profile is still missing", () => {
+    const plan = planUserImportRowExecution({
+      row: {
+        id: "row-1",
+        batch_id: "batch-1",
+        row_number: 2,
+        full_name: "Pat",
+        email: "pat@example.test",
+        normalized_email: "pat@example.test",
+        employee_id: null,
+        classification: "new_external",
+        action_code: "update_existing",
+        profile_id: null,
+        signup_request_id: "signup-1",
+      },
+      resolvedProfileId: null,
+    });
+    assert.equal(plan.mode, "invite");
   });
 
   it("stores HR-safe messages when invite setup fails for missing APP_ORIGIN", async () => {

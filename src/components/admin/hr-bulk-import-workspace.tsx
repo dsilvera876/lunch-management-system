@@ -147,18 +147,31 @@ function ImportStepIndicator({ currentStep }: { currentStep: WizardStep }) {
                   <span
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ring-1 ring-inset ${
                       isCurrent
-                        ? "bg-primary text-white ring-primary"
+                        ? "bg-primary text-white ring-primary shadow-sm"
                         : isComplete
-                          ? "bg-teal-50 text-teal-900 ring-teal-200"
-                          : "bg-surface text-muted ring-border"
+                          ? "bg-teal-100 text-teal-800 ring-teal-400"
+                          : "bg-white text-slate-600 ring-slate-300"
                     }`}
                     aria-current={isCurrent ? "step" : undefined}
+                    data-step-state={
+                      isCurrent ? "active" : isComplete ? "completed" : "upcoming"
+                    }
                   >
-                    {isComplete ? "✓" : step.id}
+                    {isComplete ? (
+                      <span className="text-base font-bold text-teal-700" aria-hidden>
+                        ✓
+                      </span>
+                    ) : (
+                      step.id
+                    )}
                   </span>
                   <span
                     className={`text-center text-sm font-medium leading-snug ${
-                      isCurrent ? "text-foreground" : "text-muted"
+                      isCurrent
+                        ? "text-foreground"
+                        : isComplete
+                          ? "text-teal-900/90"
+                          : "text-muted"
                     }`}
                   >
                     {step.label}
