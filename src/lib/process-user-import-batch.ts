@@ -15,10 +15,26 @@ import {
 import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
 import { buildAccountSetupEmailContent } from "@/lib/mail/account-setup-email";
 
+import { USER_IMPORT_MAX_ROWS } from "@/lib/user-import-csv";
 import {
   planUserImportRowExecution,
   type UserImportRowRecord,
 } from "@/lib/user-import-row-reconcile";
+
+/** Matches SQL cap in worker_claim_user_import_rows (max 25 per claim). */
+export const USER_IMPORT_WORKER_CLAIM_CHUNK = 25;
+
+export type UserImportBatchResult = {
+  claimed: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+};
+
+export type UserImportDrainResult = UserImportBatchResult & {
+  claimPasses: number;
+  elapsedMs: number;
+};
 
 export type { UserImportRowRecord };
 
@@ -335,11 +351,11 @@ async function processImportRow(
 export async function processUserImportBatch(
   serviceClient: SupabaseClient = createServiceClient(),
   options: { batchSize?: number } = {},
-): Promise<{ claimed: number; succeeded: number; failed: number; skipped: number }> {
+): Promise<UserImportBatchResult> {
   const result = { claimed: 0, succeeded: 0, failed: 0, skipped: 0 };
 
   const { data, error } = await serviceClient.rpc("worker_claim_user_import_rows", {
-    p_limit: options.batchSize ?? 5,
+    p_limit: options.batchSize ?? USER_IMPORT_WORKER_CLAIM_CHUNK,
   });
 
   if (error) {
@@ -379,4 +395,75 @@ export async function processUserImportBatch(
   }
 
   return result;
+}
+
+/** Claim limit for one drain pass (never exceeds remaining activation capacity). */
+export function resolveUserImportClaimBatchSize(
+  claimChunkSize: number,
+  maxRowsPerActivation: number,
+  alreadyClaimed: number,
+): number {
+  const remaining = maxRowsPerActivation - alreadyClaimed;
+  if (remaining <= 0) {
+    return 0;
+  }
+
+  return Math.min(claimChunkSize, remaining);
+}
+
+export async function drainUserImportWork(
+  serviceClient: SupabaseClient = createServiceClient(),
+  options: {
+    claimChunkSize?: number;
+    maxRowsPerActivation?: number;
+    logPass?: (pass: number, claimed: number) => void;
+  } = {},
+): Promise<UserImportDrainResult> {
+  const claimChunkSize = options.claimChunkSize ?? USER_IMPORT_WORKER_CLAIM_CHUNK;
+  const maxRowsPerActivation = options.maxRowsPerActivation ?? USER_IMPORT_MAX_ROWS;
+  const startedAt = Date.now();
+
+  const totals: UserImportDrainResult = {
+    claimPasses: 0,
+    claimed: 0,
+    succeeded: 0,
+    skipped: 0,
+    failed: 0,
+    elapsedMs: 0,
+  };
+
+  while (totals.claimed < maxRowsPerActivation) {
+    const batchSize = resolveUserImportClaimBatchSize(
+      claimChunkSize,
+      maxRowsPerActivation,
+      totals.claimed,
+    );
+
+    if (batchSize <= 0) {
+      break;
+    }
+
+    const passResult = await processUserImportBatch(serviceClient, {
+      batchSize,
+    });
+
+    if (passResult.claimed === 0) {
+      break;
+    }
+
+    totals.claimPasses += 1;
+    options.logPass?.(totals.claimPasses, passResult.claimed);
+
+    totals.claimed += passResult.claimed;
+    totals.succeeded += passResult.succeeded;
+    totals.skipped += passResult.skipped;
+    totals.failed += passResult.failed;
+
+    if (totals.claimed >= maxRowsPerActivation) {
+      break;
+    }
+  }
+
+  totals.elapsedMs = Date.now() - startedAt;
+  return totals;
 }

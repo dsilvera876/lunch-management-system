@@ -10,7 +10,11 @@ User=lunchapp
 Group=lunchapp
 WorkingDirectory=/var/www/lunch-management-system
 EnvironmentFile=/etc/lunch-management/worker.env
-ExecStart=/usr/bin/npm run worker:user-import
+RuntimeDirectory=lunch-management-user-import
+RuntimeDirectoryMode=0750
+# Serialize activations: skip if a previous oneshot is still holding the lock.
+ExecStart=/usr/bin/flock -n /run/lunch-management-user-import/import.lock /usr/bin/npm run worker:user-import
+SuccessExitStatus=1
 StandardOutput=journal
 StandardError=journal
 

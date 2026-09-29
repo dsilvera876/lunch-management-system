@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 import { processEmailDeliveryQueue } from "@/lib/mail/process-email-delivery-queue";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
-import { processUserImportBatch } from "@/lib/process-user-import-batch";
+import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
 type WorkerTask =
   | "snapshots"
@@ -238,10 +238,22 @@ async function runUserImport(dryRun: boolean): Promise<number> {
   }
 
   const supabase = createServiceClient();
-  const result = await processUserImportBatch(supabase, { batchSize: 5 });
+  const result = await drainUserImportWork(supabase, {
+    logPass: (pass, claimed) => {
+      console.log(`[bulk-user-import] pass=${pass} claimed=${claimed}`);
+    },
+  });
 
   console.log(
-    `User import: claimed=${result.claimed} succeeded=${result.succeeded} skipped=${result.skipped} failed=${result.failed}`,
+    [
+      "User import:",
+      `claims=${result.claimPasses}`,
+      `claimed=${result.claimed}`,
+      `succeeded=${result.succeeded}`,
+      `skipped=${result.skipped}`,
+      `failed=${result.failed}`,
+      `elapsed_ms=${result.elapsedMs}`,
+    ].join("\n"),
   );
 
   return result.failed;
