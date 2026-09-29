@@ -123,6 +123,12 @@ describe("provider icon UI wiring", () => {
     assert.match(overview, /minmax\(15rem,18rem\)/);
 
     assert.match(manageMenu, /ProviderIconWell iconKey=\{provider\.iconKey\} size="large"/);
+
+    const selector = readFileSync(
+      new URL("../components/lunch/provider-selector.tsx", import.meta.url),
+      "utf8",
+    );
+    assert.match(selector, /ProviderIcon iconKey=\{provider\.iconKey\}/);
     assert.doesNotMatch(manageMenu, /<IconUtensils aria-hidden \/>/);
 
     const detailsFields = readFileSync(

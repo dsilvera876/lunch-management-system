@@ -149,8 +149,8 @@ select results_eq(
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where ld.lunch_date = '2099-01-12'::date
   $$,
-  array[3::bigint],
-  'Admin can access operational order data'
+  array[0::bigint],
+  'Admin cannot access operational order data without support mode'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
@@ -162,13 +162,15 @@ select results_eq(
     join public.lunch_days ld on ld.id = o.lunch_day_id
     where ld.lunch_date = '2099-01-12'::date
   $$,
-  array[3::bigint],
-  'Owner can access operational order data'
+  array[0::bigint],
+  'Owner cannot access operational order data without support mode'
 );
 
 -- ============================================================
 -- Delivery date vs order date
 -- ============================================================
+
+select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 
 select results_eq(
   $$

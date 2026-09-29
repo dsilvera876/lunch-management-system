@@ -48,6 +48,8 @@ import {
   shouldShowLateOrderProviderStatusSection,
 } from "@/lib/late-orders-presentation";
 import { ToastProvider, useToast } from "@/components/ui/toast";
+import { useSupportMode } from "@/components/app-shell/support-mode-context";
+import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
 
 type ProviderSummary = {
   providerId: string;
@@ -107,6 +109,7 @@ function LateOrdersWorkspaceInner({
   jamaicaToday,
   providerCreationCycles,
 }: Props) {
+  const { readOnly } = useSupportMode();
   const router = useRouter();
   const [feedback, setFeedback] = useState<WorkspaceFeedback>(null);
   const [pending, startTransition] = useTransition();
@@ -238,7 +241,7 @@ function LateOrdersWorkspaceInner({
         <LateOrdersUnavailableCard reason={unavailableReason} />
       ) : (
         <>
-          {showFullWorkflow ? (
+          {showFullWorkflow && !readOnly ? (
             <LateOrderCreatePanel
               employees={employees}
               locations={locations}
@@ -254,9 +257,10 @@ function LateOrdersWorkspaceInner({
             <Card padding="sm" className={lateOrderMajorCardClassName}>
               <LateOrderSectionHeader
                 icon={<IconClock aria-hidden />}
-                title={showFullWorkflow ? "3. Provider Status" : "Provider Status"}
+                title={showFullWorkflow && !readOnly ? "3. Provider Status" : "Provider Status"}
                 description="Current late-order availability for each provider."
               />
+              {readOnly ? <SupportModeMutationHint className="mt-3" /> : null}
               {statusSummaries.length === 0 ? (
                 <div className="mt-4">
                   <EmptyState

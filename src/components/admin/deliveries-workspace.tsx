@@ -41,6 +41,8 @@ import {
 import { linkButtonClass } from "@/components/ui/button";
 import { selectClassName } from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useSupportMode } from "@/components/app-shell/support-mode-context";
+import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
 
 const STATUS_LABELS: Record<ReconciliationFilter, string> = {
   all: "All",
@@ -258,6 +260,8 @@ export function DeliveriesWorkspace({
   canReconcile,
   deliveryDateLabel,
 }: Props) {
+  const { readOnly } = useSupportMode();
+  const reconcileEnabled = canReconcile && !readOnly;
   const [orders, setOrders] = useState(initialOrders);
   const [filters, setFilters] = useState<DeliveriesFilterState>(initialFilters);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
@@ -316,7 +320,7 @@ export function DeliveriesWorkspace({
   };
 
   const handleDeliveryToggle = (orderId: string, nextChecked: boolean) => {
-    if (!canReconcile) {
+    if (!reconcileEnabled) {
       return;
     }
 
@@ -374,6 +378,8 @@ export function DeliveriesWorkspace({
         reconciled={overallProgress.reconciled}
         total={overallProgress.total}
       />
+
+      {readOnly ? <SupportModeMutationHint /> : null}
 
       <div className="flex flex-wrap items-end gap-2 border-b border-border pb-3">
         <label className="text-xs text-muted">
@@ -480,7 +486,7 @@ export function DeliveriesWorkspace({
                     <DeliveryRow
                       key={order.id}
                       order={order}
-                      canReconcile={canReconcile}
+                      canReconcile={reconcileEnabled}
                       showProviderColumn={showProviderColumn}
                       rowError={rowErrors[order.id] ?? null}
                       onToggleDelivered={(nextChecked) =>
@@ -498,7 +504,7 @@ export function DeliveriesWorkspace({
                     <DeliveryRow
                       key={order.id}
                       order={order}
-                      canReconcile={canReconcile}
+                      canReconcile={reconcileEnabled}
                       showProviderColumn={showProviderColumn}
                       rowError={rowErrors[order.id] ?? null}
                       onToggleDelivered={(nextChecked) =>

@@ -6,8 +6,8 @@ insert into auth.users (id, email, raw_user_meta_data)
 values
 (
   'f1111111-1111-4111-8111-111111111111',
-  'menu-align-admin@test.local',
-  '{"full_name":"Menu Align Admin"}'
+  'menu-align-hr@test.local',
+  '{"full_name":"Menu Align HR"}'
 ),
 (
   'f2222222-2222-4222-8222-222222222222',
@@ -16,7 +16,7 @@ values
 );
 
 reset role;
-select private.apply_profile_role('f1111111-1111-4111-8111-111111111111', 'admin');
+select private.apply_profile_role('f1111111-1111-4111-8111-111111111111', 'hr');
 
 \ir support/open_ordering.inc
 

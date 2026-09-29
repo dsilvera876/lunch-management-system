@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
   getNavForRole,
   getPostLoginPath,
-  isNavActive,
+  isNavItemActive,
   type NavGroup,
 } from "@/lib/navigation";
+import type { UserRole } from "@/lib/roles";
 import { NavIcon } from "@/components/icons/line-icons";
 import { SidebarBrand } from "@/components/app-shell/sidebar-brand";
 import { TopHeader } from "@/components/app-shell/top-header";
 import { buildAppNotifications } from "@/lib/app-notification-sources";
+import type { ActiveSupportSession } from "@/lib/support-mode";
+import { SupportModeProvider } from "@/components/app-shell/support-mode-context";
+import { SupportModeBanner } from "@/components/app-shell/support-mode-banner";
 
 type Profile = {
   full_name: string | null;
@@ -22,11 +26,17 @@ type Profile = {
 function NavLinks({
   groups,
   pathname,
+  role,
+  usersContext,
+  supportScope,
   onNavigate,
   variant = "sidebar",
 }: {
   groups: NavGroup[];
   pathname: string;
+  role: UserRole;
+  usersContext: string | null;
+  supportScope: import("@/lib/support-mode").SupportScope | null;
   onNavigate?: () => void;
   variant?: "sidebar" | "light";
 }) {
@@ -36,22 +46,31 @@ function NavLinks({
     <div className="space-y-5">
       {groups.map((group, index) => (
         <div
-          key={group.label}
+          key={group.label ?? "primary"}
           className={index > 0 ? (isSidebar ? "pt-5 border-t border-white/10" : "pt-5 border-t border-border") : ""}
         >
-          <h3
-            className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${
-              isSidebar ? "text-sidebar-muted/90" : "text-muted"
-            }`}
-          >
-            {group.label}
-          </h3>
+          {group.label ? (
+            <h3
+              className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                isSidebar ? "text-sidebar-muted/90" : "text-muted"
+              }`}
+            >
+              {group.label}
+            </h3>
+          ) : null}
           <ul className="space-y-0.5">
             {group.items.map((item) => {
-              const active = isNavActive(pathname, item.href);
+              const active = isNavItemActive(
+                pathname,
+                item,
+                role,
+                group.label,
+                usersContext,
+                supportScope,
+              );
 
               return (
-                <li key={item.href}>
+                <li key={`${group.label ?? "primary"}:${item.href}:${item.label}`}>
                   <Link
                     href={item.href}
                     onClick={onNavigate}
@@ -94,19 +113,30 @@ function NavLinks({
 export function AppShell({
   profile,
   hrPendingSignupCount = 0,
+  supportSession = null,
   children,
 }: {
   profile: Profile;
   hrPendingSignupCount?: number;
+  supportSession?: ActiveSupportSession | null;
   children: React.ReactNode;
 }) {
   const headerNotifications = buildAppNotifications(hrPendingSignupCount);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const usersContext = searchParams.get("context");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navItems = getNavForRole(profile.role);
+  const userRole = profile.role as UserRole;
+  const supportScope = supportSession?.scope ?? null;
+  const navItems = getNavForRole(profile.role, supportScope);
   const homeHref = getPostLoginPath(profile.role);
 
+  const supportProviderKey = supportSession
+    ? `${supportSession.scope}:${supportSession.startedAt}`
+    : "inactive";
+
   return (
+    <SupportModeProvider key={supportProviderKey} role={userRole} session={supportSession}>
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-sidebar text-sidebar-foreground lg:flex lg:flex-col">
         <div className="border-b border-white/10 px-5 py-5">
@@ -114,7 +144,13 @@ export function AppShell({
         </div>
 
         <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 py-4">
-          <NavLinks groups={navItems} pathname={pathname} />
+          <NavLinks
+            groups={navItems}
+            pathname={pathname}
+            role={userRole}
+            usersContext={usersContext}
+            supportScope={supportScope}
+          />
         </nav>
 
         <div className="mt-auto border-t border-white/10 px-5 py-5 pb-6">
@@ -152,6 +188,9 @@ export function AppShell({
             <NavLinks
               groups={navItems}
               pathname={pathname}
+              role={userRole}
+              usersContext={usersContext}
+              supportScope={supportScope}
               variant="light"
               onNavigate={() => setMobileOpen(false)}
             />
@@ -168,9 +207,11 @@ export function AppShell({
       </header>
 
       <div className="lg:pl-64">
+        <SupportModeBanner />
         <TopHeader profile={profile} notifications={headerNotifications} />
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>
+    </SupportModeProvider>
   );
 }

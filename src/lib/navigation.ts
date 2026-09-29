@@ -1,17 +1,17 @@
 import {
+  ADMIN_USER_MANAGEMENT_HREF,
+  canAccessAccountsAdminRoute,
   canAccessAdminDashboard,
-  canManageLunchPeriods,
-  canManageProviders,
-  canManageOfficeLocations,
+  canAccessAdminGovernanceRoute,
+  canAccessHrOfficeLocationsRoute,
+  canAccessHrToolsRoute,
   canManageAuthSettings,
   canManageRoles,
   canManageStaffAccounts,
-  canManageEmployeeIds,
-  canViewAllFinancialSummaries,
-  canViewAllOrders,
   getRoleLabel,
   type UserRole,
 } from "@/lib/roles";
+import type { SupportScope } from "@/lib/support-mode";
 import type { NavIconId } from "@/components/icons/line-icons";
 
 export type NavItem = {
@@ -22,7 +22,8 @@ export type NavItem = {
 };
 
 export type NavGroup = {
-  label: string;
+  /** `null` = primary staff navigation (no visible section heading). */
+  label: string | null;
   items: NavItem[];
 };
 
@@ -102,7 +103,13 @@ const HR_TOOLS_ITEMS: NavItem[] = [
 
 const ADMIN_ITEMS: NavItem[] = [
   {
-    href: "/admin/users",
+    href: "/admin/support",
+    label: "Support Mode",
+    description: "Temporary read-only HR or Accounts troubleshooting access",
+    icon: "clipboard",
+  },
+  {
+    href: ADMIN_USER_MANAGEMENT_HREF,
     label: "User Management",
     description: "Manage employee roles",
     icon: "users",
@@ -128,28 +135,89 @@ export const ACCOUNT_NAV: NavItem = {
   icon: "sliders",
 };
 
-function filterAccessible(role: UserRole, items: NavItem[]): NavItem[] {
-  return items.filter((item) => canAccessRoute(role, item.href));
+export const canShowHrToolsNavItem = canAccessHrToolsRoute;
+export const canShowAccountsNavItem = canAccessAccountsAdminRoute;
+export const canShowAdminNavItem = canAccessAdminGovernanceRoute;
+
+function hrToolsRouteKeyForPathname(pathname: string): string | null {
+  if (pathname.startsWith("/admin/todays-orders")) {
+    return "/admin/todays-orders";
+  }
+  if (pathname.startsWith("/admin/late-orders")) {
+    return "/admin/late-orders";
+  }
+  if (pathname.startsWith("/admin/deliveries")) {
+    return "/admin/deliveries";
+  }
+  if (pathname.startsWith("/admin/orders")) {
+    return "/admin/orders";
+  }
+  if (pathname.startsWith("/admin/providers")) {
+    return "/admin/providers";
+  }
+  if (pathname === "/admin/settings") {
+    return "/admin/settings";
+  }
+  return null;
 }
 
-export function getNavForRole(role: string): NavGroup[] {
+function filterNavItems(
+  role: UserRole,
+  items: NavItem[],
+  canShow: (role: UserRole, href: string, supportScope: SupportScope | null) => boolean,
+  supportScope: SupportScope | null,
+): NavItem[] {
+  return items.filter(
+    (item) =>
+      canAccessRoute(role, item.href, supportScope) &&
+      canShow(role, item.href, supportScope),
+  );
+}
+
+function canShowAdminNavItemWithSupport(
+  role: UserRole,
+  href: string,
+): boolean {
+  if (href === "/admin/support") {
+    return canManageRoles(role);
+  }
+  return canShowAdminNavItem(role, href);
+}
+
+export function getNavForRole(
+  role: string,
+  supportScope: SupportScope | null = null,
+): NavGroup[] {
   const groups: NavGroup[] = [];
   const userRole = role as UserRole;
 
-  groups.push({ label: "MAIN", items: MAIN_ITEMS });
+  groups.push({ label: null, items: MAIN_ITEMS });
 
-  const accountsItems = filterAccessible(userRole, ACCOUNTS_ITEMS);
-  if (accountsItems.length > 0) {
-    groups.push({ label: "ACCOUNTS", items: accountsItems });
-  }
-
-  const hrItems = filterAccessible(userRole, HR_TOOLS_ITEMS);
+  const hrItems = filterNavItems(
+    userRole,
+    HR_TOOLS_ITEMS,
+    (r, href) => canShowHrToolsNavItem(r, href, supportScope),
+    supportScope,
+  );
   if (hrItems.length > 0) {
     groups.push({ label: "HR TOOLS", items: hrItems });
   }
 
-  const adminItems = filterAccessible(userRole, ADMIN_ITEMS).filter(
-    (item) => item.href !== "/admin/users" || canManageRoles(userRole),
+  const accountsItems = filterNavItems(
+    userRole,
+    ACCOUNTS_ITEMS,
+    (r, href) => canShowAccountsNavItem(r, href, supportScope),
+    supportScope,
+  );
+  if (accountsItems.length > 0) {
+    groups.push({ label: "ACCOUNTS", items: accountsItems });
+  }
+
+  const adminItems = filterNavItems(
+    userRole,
+    ADMIN_ITEMS,
+    (r, href) => canShowAdminNavItemWithSupport(r, href),
+    supportScope,
   );
   if (adminItems.length > 0) {
     groups.push({ label: "ADMIN", items: adminItems });
@@ -165,7 +233,7 @@ export function getPostLoginPath(_role?: string): string {
 
 export { getRoleLabel };
 
-export function isNavActive(pathname: string, href: string): boolean {
+export function matchesNavPath(pathname: string, href: string): boolean {
   if (href === "/home" || href === "/admin") {
     return pathname === href;
   }
@@ -186,13 +254,74 @@ export function isNavActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function canAccessRoute(role: UserRole, pathname: string): boolean {
+/** @deprecated Prefer {@link isNavItemActive} for sidebar items that share a href. */
+export function isNavActive(pathname: string, href: string): boolean {
+  return matchesNavPath(pathname, href);
+}
+
+export function isNavItemActive(
+  pathname: string,
+  item: NavItem,
+  role: UserRole,
+  groupLabel: string | null,
+  usersContext: string | null = null,
+  supportScope: SupportScope | null = null,
+): boolean {
+  if (pathname.startsWith("/admin/users")) {
+    if (item.href === ADMIN_USER_MANAGEMENT_HREF) {
+      return groupLabel === "ADMIN" && usersContext === "governance";
+    }
+    if (item.href === "/admin/users" && item.label === "Users") {
+      return (
+        groupLabel === "HR TOOLS" &&
+        usersContext !== "governance" &&
+        (canManageStaffAccounts(role) ||
+          (canManageRoles(role) && supportScope === "hr"))
+      );
+    }
+    return false;
+  }
+
+  if (!matchesNavPath(pathname, item.href)) {
+    return false;
+  }
+
+  return true;
+}
+
+export function countActiveNavItems(
+  pathname: string,
+  role: UserRole,
+  groups: NavGroup[],
+  usersContext: string | null = null,
+  supportScope: SupportScope | null = null,
+): number {
+  let count = 0;
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (isNavItemActive(pathname, item, role, group.label, usersContext, supportScope)) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+export function canAccessRoute(
+  role: UserRole,
+  pathname: string,
+  supportScope: SupportScope | null = null,
+): boolean {
   if (pathname === "/home" || pathname === "/lunch" || pathname.startsWith("/lunch/")) {
     return true;
   }
 
   if (pathname === "/my-orders" || pathname === "/account" || pathname === "/financials") {
     return true;
+  }
+
+  if (pathname.startsWith("/admin/lunch-days")) {
+    return false;
   }
 
   if (
@@ -203,49 +332,45 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return canManageAuthSettings(role);
   }
 
-  if (pathname === "/admin/settings") {
-    return canViewAllOrders(role);
+  if (pathname.startsWith("/admin/support")) {
+    return canManageRoles(role);
   }
 
-  if (pathname.startsWith("/admin/lunch-days")) {
-    return false;
+  if (pathname.startsWith("/admin/users/import")) {
+    return canManageStaffAccounts(role);
+  }
+
+  if (pathname.startsWith("/admin/users")) {
+    return (
+      canManageRoles(role) ||
+      canManageStaffAccounts(role) ||
+      (canManageRoles(role) && supportScope === "hr")
+    );
   }
 
   if (pathname === "/admin") {
     return canAccessAdminDashboard(role);
   }
 
-  if (pathname.startsWith("/admin/providers")) {
-    return canManageProviders(role);
-  }
-
-  if (pathname.startsWith("/admin/locations")) {
-    return canManageOfficeLocations(role);
-  }
-
   if (pathname.startsWith("/admin/lunch-periods")) {
-    return canManageLunchPeriods(role);
-  }
-
-  if (
-    pathname.startsWith("/admin/deliveries") ||
-    pathname.startsWith("/admin/orders") ||
-    pathname.startsWith("/admin/todays-orders") ||
-    pathname.startsWith("/admin/late-orders")
-  ) {
-    return canViewAllOrders(role);
+    return canAccessAccountsAdminRoute(role, "/admin/lunch-periods", supportScope);
   }
 
   if (pathname.startsWith("/admin/financials")) {
-    return canViewAllFinancialSummaries(role);
-  }
-
-  if (pathname.startsWith("/admin/users")) {
-    return canManageRoles(role) || canManageStaffAccounts(role);
+    return canAccessAccountsAdminRoute(role, "/admin/financials", supportScope);
   }
 
   if (pathname.startsWith("/admin/employee-ids")) {
-    return canManageEmployeeIds(role) && !canManageStaffAccounts(role);
+    return canAccessAccountsAdminRoute(role, "/admin/employee-ids", supportScope);
+  }
+
+  if (pathname.startsWith("/admin/locations")) {
+    return canAccessHrOfficeLocationsRoute(role, supportScope);
+  }
+
+  const hrRouteKey = hrToolsRouteKeyForPathname(pathname);
+  if (hrRouteKey) {
+    return canAccessHrToolsRoute(role, hrRouteKey, supportScope);
   }
 
   return false;

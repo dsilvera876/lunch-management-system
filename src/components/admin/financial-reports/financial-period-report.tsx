@@ -23,6 +23,7 @@ type Props = {
   canExport: boolean;
   canFinalize: boolean;
   unresolvedIssueCount: number;
+  supportReadOnly?: boolean;
 };
 
 export function FinancialPeriodReport({
@@ -32,6 +33,7 @@ export function FinancialPeriodReport({
   canExport,
   canFinalize,
   unresolvedIssueCount,
+  supportReadOnly = false,
 }: Props) {
   const metrics = buildFinancialGrandMetrics(summary);
   const effectiveSubsidy = getEffectivePeriodSubsidyAmount(summary);
@@ -99,6 +101,11 @@ export function FinancialPeriodReport({
                   Finalize period
                 </Button>
               </form>
+            ) : null}
+            {supportReadOnly ? (
+              <p className="text-sm text-muted min-[520px]:text-right">
+                Changes are unavailable in Support Mode.
+              </p>
             ) : null}
           </div>
         </div>

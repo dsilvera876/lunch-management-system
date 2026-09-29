@@ -24,12 +24,13 @@ import { USER_ROLES, getRoleLabel } from "@/lib/roles";
 type Props = {
   initialRows: StaffDirectoryRow[];
   initialTotalCount: number;
+  readOnly?: boolean;
 };
 
 const compactManageButtonClass =
   "!min-h-0 h-8 shrink-0 whitespace-nowrap px-2.5 py-0 text-xs leading-none";
 
-function HrUsersWorkspaceContent({ initialRows, initialTotalCount }: Props) {
+function HrUsersWorkspaceContent({ initialRows, initialTotalCount, readOnly = false }: Props) {
   const [rows, setRows] = useState(initialRows);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [search, setSearch] = useState("");
@@ -220,7 +221,7 @@ function HrUsersWorkspaceContent({ initialRows, initialTotalCount }: Props) {
                         onClick={() => openDrawer(user)}
                         className={`${linkButtonClass("secondary")} ${compactManageButtonClass}`}
                       >
-                        Manage
+                        {readOnly ? "View" : "Manage"}
                       </button>
                     </td>
                   </tr>
@@ -264,6 +265,7 @@ function HrUsersWorkspaceContent({ initialRows, initialTotalCount }: Props) {
         user={selectedUser}
         open={drawerOpen}
         onClose={closeDrawer}
+        readOnly={readOnly}
         onUserUpdated={(updated) => {
           setRows((current) => mergeStaffDirectoryRow(current, updated));
         }}

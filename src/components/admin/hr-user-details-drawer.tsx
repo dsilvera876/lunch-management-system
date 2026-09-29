@@ -27,6 +27,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onUserUpdated: (user: StaffDirectoryRow) => void;
+  readOnly?: boolean;
 };
 
 export function HrUserDetailsDrawer({
@@ -34,6 +35,7 @@ export function HrUserDetailsDrawer({
   open,
   onClose,
   onUserUpdated,
+  readOnly = false,
 }: Props) {
   const { showToast } = useToast();
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +147,13 @@ export function HrUserDetailsDrawer({
       title="User details"
       onClose={onClose}
       footer={
-        user ? (
+        user && readOnly ? (
+          <div className="flex justify-end">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        ) : user ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
             <div>
               {user.status === "active" ? (
@@ -209,6 +217,7 @@ export function HrUserDetailsDrawer({
               id={`hr-user-name-${user.profile_id}`}
               name="fullName"
               defaultValue={user.full_name ?? ""}
+              readOnly={readOnly}
               className={inputClassName}
             />
           </FormField>
@@ -235,6 +244,7 @@ export function HrUserDetailsDrawer({
               placeholder={formatEmployeeIdDisplay(null)}
               inputMode="numeric"
               maxLength={4}
+              readOnly={readOnly}
               className={inputClassName}
             />
             <p className="mt-1 text-xs text-muted">

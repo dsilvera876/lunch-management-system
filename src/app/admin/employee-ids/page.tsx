@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/auth";
-import { canManageEmployeeIds, canManageStaffAccounts } from "@/lib/roles";
+import { requireAccountsOperationalRead } from "@/lib/auth";
+import { fetchActiveSupportSession } from "@/lib/support-mode-server";
+import { isSupportReadOnlyActor } from "@/lib/support-mode";
 import { createClient } from "@/lib/supabase/server";
 import { EmployeeIdManagementWorkspace } from "@/components/admin/employee-id-management-workspace";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,15 +20,9 @@ function mapEmployeeIdRow(raw: Record<string, unknown>): EmployeeIdDirectoryRow 
 }
 
 export default async function EmployeeIdsPage() {
-  const profile = await getCurrentProfile();
-
-  if (
-    !profile ||
-    !canManageEmployeeIds(profile.role) ||
-    canManageStaffAccounts(profile.role)
-  ) {
-    redirect("/account");
-  }
+  const profile = await requireAccountsOperationalRead();
+  const supportSession = await fetchActiveSupportSession();
+  const supportReadOnly = isSupportReadOnlyActor(profile.role, supportSession);
 
   const supabase = await createClient();
 
@@ -54,6 +48,7 @@ export default async function EmployeeIdsPage() {
       <EmployeeIdManagementWorkspace
         initialRows={rows}
         initialTotalCount={totalCount}
+        readOnly={supportReadOnly}
       />
     </>
   );

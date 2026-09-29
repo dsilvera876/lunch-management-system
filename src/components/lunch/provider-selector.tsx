@@ -1,10 +1,12 @@
 "use client";
 
-import { NavIcon } from "@/components/icons/line-icons";
+import { ProviderIcon } from "@/lib/provider-icons";
+import type { ProviderIconKey } from "@/lib/provider-icons";
 
 export type ProviderTab = {
   id: string;
   name: string;
+  iconKey: ProviderIconKey;
   hasWorkingDraft?: boolean;
 };
 
@@ -44,11 +46,9 @@ export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
                   : "border-border bg-surface text-muted hover:border-primary/40 hover:text-foreground"
               }`}
             >
-              <NavIcon
-                id="storefront"
-                size={18}
-                className={selected ? "text-primary" : "text-teal-700/40"}
-              />
+              <span className="inline-flex shrink-0" aria-hidden>
+                <ProviderIcon iconKey={provider.iconKey} size={18} alt="" />
+              </span>
               <span className="max-w-[12rem] truncate sm:max-w-none">{provider.name}</span>
               {provider.hasWorkingDraft ? (
                 <span

@@ -18,6 +18,7 @@ import { Button, linkButtonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ToastProvider, useToast } from "@/components/ui/toast";
+import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
 import {
   formatEmployeeIdDisplay,
   validateEmployeeIdField,
@@ -33,6 +34,7 @@ import {
 type Props = {
   initialRows: EmployeeIdDirectoryRow[];
   initialTotalCount: number;
+  readOnly?: boolean;
 };
 
 const compactManageButtonClass =
@@ -144,6 +146,7 @@ function EmployeeIdEditDrawer({
 function EmployeeIdManagementWorkspaceContent({
   initialRows,
   initialTotalCount,
+  readOnly = false,
 }: Props) {
   const [rows, setRows] = useState(initialRows);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
@@ -208,6 +211,7 @@ function EmployeeIdManagementWorkspaceContent({
 
   return (
     <>
+      {readOnly ? <SupportModeMutationHint className="mb-4" /> : null}
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:gap-3">
         <div className="w-full md:w-[24rem] lg:w-[28rem]">
           <FormField label="Search" htmlFor="employee-id-search">
@@ -244,7 +248,9 @@ function EmployeeIdManagementWorkspaceContent({
                   <th className="px-3 py-2.5 font-semibold">Name</th>
                   <th className="hidden px-3 py-2.5 font-semibold md:table-cell">Email</th>
                   <th className="px-3 py-2.5 font-semibold">Employee ID</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Actions</th>
+                  {!readOnly ? (
+                    <th className="px-3 py-2.5 text-right font-semibold">Actions</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/80">
@@ -264,18 +270,20 @@ function EmployeeIdManagementWorkspaceContent({
                     <td className="px-3 py-2 align-middle font-mono text-sm">
                       {formatEmployeeIdDisplay(user.employee_id)}
                     </td>
-                    <td className="px-3 py-2 align-middle text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedUserId(user.profile_id);
-                          setDrawerOpen(true);
-                        }}
-                        className={`${linkButtonClass("secondary")} ${compactManageButtonClass}`}
-                      >
-                        Manage
-                      </button>
-                    </td>
+                    {!readOnly ? (
+                      <td className="px-3 py-2 align-middle text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedUserId(user.profile_id);
+                            setDrawerOpen(true);
+                          }}
+                          className={`${linkButtonClass("secondary")} ${compactManageButtonClass}`}
+                        >
+                          Manage
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

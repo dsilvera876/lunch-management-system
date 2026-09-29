@@ -30,6 +30,7 @@ describe("office locations workspace", () => {
 
     assert.match(page, /OfficeLocationsWorkspace/);
     assert.match(workspace, /OfficeLocationsEditorPanel/);
+    assert.match(workspace, /useSupportMode/);
     assert.match(workspace, /editingLocationId/);
     assert.match(editor, /Add location/);
     assert.match(editor, /Create location/);

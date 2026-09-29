@@ -24,6 +24,10 @@ import {
 } from "@/app/admin/deliveries/mutations";
 import { Button } from "@/components/ui/button";
 import { selectClassName, textareaClassName } from "@/components/ui/form-field";
+import {
+  SUPPORT_MODE_DISABLED_HINT,
+  useSupportMode,
+} from "@/components/app-shell/support-mode-context";
 
 type Props = {
   order: OperationalOrder | null;
@@ -86,6 +90,7 @@ export function DeliveryIssuePanelForm({
   onMutated: (result: DeliveryMutationResult) => boolean;
   embedded?: boolean;
 }) {
+  const { readOnly } = useSupportMode();
   const [issueType, setIssueType] = useState(order.deliveryIssueType ?? "");
   const [resolutionType, setResolutionType] = useState(order.deliveryResolutionType ?? "");
   const [hrNotes, setHrNotes] = useState(order.hrDeliveryNotes ?? "");
@@ -132,7 +137,7 @@ export function DeliveryIssuePanelForm({
         </div>
         ) : null}
 
-        {showReportForm ? (
+        {showReportForm && !readOnly ? (
           <div className="space-y-3">
             <label className="block text-sm">
               <span className="font-medium">Issue type</span>
@@ -194,31 +199,54 @@ export function DeliveryIssuePanelForm({
               </div>
             ) : null}
 
-            <label className="block text-sm">
-              <span className="font-medium">Resolution plan</span>
-              <select
-                value={resolutionType}
-                onChange={(event) => setResolutionType(event.target.value)}
-                className={`${selectClassName} mt-1`}
-              >
-                <option value="">Select resolution</option>
-                {DELIVERY_RESOLUTION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {getDeliveryResolutionLabel(type)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {readOnly ? (
+              <>
+                {order.deliveryResolutionType ? (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Resolution plan</span>
+                    <p className="mt-0.5 text-foreground">
+                      {getDeliveryResolutionLabel(order.deliveryResolutionType)}
+                    </p>
+                  </div>
+                ) : null}
+                {order.hrDeliveryNotes?.trim() ? (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">HR notes</span>
+                    <p className="mt-0.5 whitespace-pre-wrap text-foreground">
+                      {order.hrDeliveryNotes}
+                    </p>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <label className="block text-sm">
+                  <span className="font-medium">Resolution plan</span>
+                  <select
+                    value={resolutionType}
+                    onChange={(event) => setResolutionType(event.target.value)}
+                    className={`${selectClassName} mt-1`}
+                  >
+                    <option value="">Select resolution</option>
+                    {DELIVERY_RESOLUTION_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {getDeliveryResolutionLabel(type)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <label className="block text-sm">
-              <span className="font-medium">HR notes (optional)</span>
-              <textarea
-                value={hrNotes}
-                onChange={(event) => setHrNotes(event.target.value)}
-                rows={3}
-                className={`${textareaClassName} mt-1`}
-              />
-            </label>
+                <label className="block text-sm">
+                  <span className="font-medium">HR notes (optional)</span>
+                  <textarea
+                    value={hrNotes}
+                    onChange={(event) => setHrNotes(event.target.value)}
+                    rows={3}
+                    className={`${textareaClassName} mt-1`}
+                  />
+                </label>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -226,7 +254,16 @@ export function DeliveryIssuePanelForm({
       </div>
 
       <div className="sticky bottom-0 space-y-3 border-t border-border bg-surface px-4 py-3">
-        {showReportForm ? (
+        {readOnly ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted">{SUPPORT_MODE_DISABLED_HINT}</p>
+            <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        ) : null}
+
+        {!readOnly && showReportForm ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>
               Cancel
@@ -258,7 +295,7 @@ export function DeliveryIssuePanelForm({
           </div>
         ) : null}
 
-        {showIssueActions ? (
+        {showIssueActions && !readOnly ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>

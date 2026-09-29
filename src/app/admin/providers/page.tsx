@@ -1,4 +1,4 @@
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireHrOperationalRead } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ProvidersOverview } from "@/components/admin/lunch-providers/providers-overview";
 import { Alert } from "@/components/ui/alert";
@@ -27,7 +27,7 @@ type ProviderRow = {
 };
 
 export default async function ProvidersPage({ searchParams }: Props) {
-  await requireHrAdminOrOwner();
+  await requireHrOperationalRead();
   const params = await searchParams;
   const supabase = await createClient();
 

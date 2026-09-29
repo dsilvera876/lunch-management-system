@@ -1,4 +1,6 @@
-import { requireManageLunchPeriods } from "@/lib/auth";
+import { requireLunchPeriodsRead } from "@/lib/auth";
+import { fetchActiveSupportSession } from "@/lib/support-mode-server";
+import { isSupportReadOnlyActor } from "@/lib/support-mode";
 import {
   getDailyLunchSubsidy,
 } from "@/lib/financial-summaries";
@@ -29,7 +31,12 @@ type Props = {
 };
 
 export default async function LunchPeriodsPage({ searchParams }: Props) {
-  const profile = await requireManageLunchPeriods();
+  const profile = await requireLunchPeriodsRead();
+  const supportSession = await fetchActiveSupportSession();
+  const supportReadOnly = isSupportReadOnlyActor(
+    profile.role,
+    supportSession,
+  );
   const params = await searchParams;
   const supabase = await createClient();
   const [periods, dailyLunchSubsidy] = await Promise.all([
@@ -86,11 +93,15 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
       <div className="mb-6 space-y-4">
         <CurrentLunchPeriodSummary
           period={currentPeriod}
-          canExport={canExportLunchPeriodSummaries(profile.role) && currentPeriod !== null}
+          canExport={
+            !supportReadOnly &&
+            canExportLunchPeriodSummaries(profile.role) &&
+            currentPeriod !== null
+          }
         />
         <DailyLunchSubsidySetting
           dailyLunchSubsidy={dailyLunchSubsidy}
-          canEdit={canUpdateDailyLunchSubsidy(profile.role)}
+          canEdit={!supportReadOnly && canUpdateDailyLunchSubsidy(profile.role)}
           returnTo="/admin/lunch-periods"
           showUpdated={Boolean(params["subsidy-updated"])}
           showError={Boolean(params["subsidy-error"])}
@@ -98,8 +109,10 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <AppendLunchPeriodCard isFirstPeriod={isFirstPeriod} nextStartDate={nextStartDate} />
-        <LunchPeriodsTable periods={periods} />
+        {supportReadOnly ? null : (
+          <AppendLunchPeriodCard isFirstPeriod={isFirstPeriod} nextStartDate={nextStartDate} />
+        )}
+        <LunchPeriodsTable periods={periods} readOnly={supportReadOnly} />
       </div>
     </>
   );

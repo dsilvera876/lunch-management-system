@@ -28,6 +28,7 @@ const providers = [
   {
     id: "provider-a",
     name: "Alberries Caterors",
+    iconKey: "bowl" as const,
     description: null,
     menuItems: [
       {
@@ -53,6 +54,7 @@ const providers = [
   {
     id: "provider-b",
     name: "Peel Good Fruits",
+    iconKey: "fruit" as const,
     description: null,
     menuItems: [
       {

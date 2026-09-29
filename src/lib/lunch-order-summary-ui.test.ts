@@ -9,6 +9,7 @@ const providers = [
     id: "provider-a",
     name: "Alberries Caterors",
     description: null,
+    iconKey: "bowl" as const,
     menuItems: [
       {
         id: "main-1",
@@ -34,6 +35,7 @@ const providers = [
     id: "provider-b",
     name: "Davis Catering",
     description: null,
+    iconKey: "utensils" as const,
     menuItems: [
       {
         id: "main-2",
@@ -77,7 +79,10 @@ describe("combined order summary guidance", () => {
       "utf8",
     );
 
-    assert.match(menuSource, /MEAL_INCOMPLETE_GUIDANCE/);
+    assert.match(
+      menuSource,
+      /validation\.mealIncomplete && draft\.mainId[\s\S]*MEAL_INCOMPLETE_GUIDANCE[\s\S]*getMenuItemTypeLabel\("side"\)/,
+    );
     assert.match(cartSource, /Lunch Cart/);
     assert.match(cartSource, /guidanceMessage && !canSubmit/);
   });

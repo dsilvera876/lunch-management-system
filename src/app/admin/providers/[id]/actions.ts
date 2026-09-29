@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireManageProviders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   DEFAULT_UNIT_LABEL,
@@ -235,7 +235,7 @@ async function loadProviderMenuItem(
 export async function createProviderMenuItemInline(
   formData: FormData,
 ): Promise<CreateProviderMenuItemInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const parsed = parseMenuItemFormData(formData);
 
@@ -290,7 +290,7 @@ export async function createProviderMenuItemInline(
 }
 
 export async function createProviderMenuItem(formData: FormData) {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const parsed = parseMenuItemFormData(formData);
 
@@ -323,7 +323,7 @@ export async function createProviderMenuItem(formData: FormData) {
 export async function updateProviderMenuItemInline(
   formData: FormData,
 ): Promise<UpdateProviderMenuItemInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const menuItemId = formData.get("menuItemId");
 
@@ -407,7 +407,7 @@ export async function toggleProviderMenuItemActiveInline(
   menuItemId: string,
   currentlyActive: boolean,
 ): Promise<ToggleProviderMenuItemInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   if (providerId.length === 0 || menuItemId.length === 0) {
     return { success: false, error: "invalid" };
@@ -465,7 +465,7 @@ export async function deleteProviderMenuItemInline(
   providerId: string,
   menuItemId: string,
 ): Promise<DeleteProviderMenuItemInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   if (providerId.length === 0 || menuItemId.length === 0) {
     return { success: false, error: "invalid" };

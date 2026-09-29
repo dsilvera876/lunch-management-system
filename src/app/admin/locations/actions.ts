@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireManageOfficeLocations } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   normalizeOfficeLocationName,
@@ -93,7 +93,7 @@ async function loadOfficeLocation(
 export async function createOfficeLocationInline(
   formData: FormData,
 ): Promise<CreateOfficeLocationInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageOfficeLocations();
 
   const parsed = parseLocationFields(formData);
 
@@ -129,7 +129,7 @@ export async function createOfficeLocationInline(
 export async function updateOfficeLocationInline(
   formData: FormData,
 ): Promise<UpdateOfficeLocationInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageOfficeLocations();
 
   const id = formData.get("id");
 
@@ -176,7 +176,7 @@ export async function toggleOfficeLocationActiveInline(
   locationId: string,
   currentlyActive: boolean,
 ): Promise<ToggleOfficeLocationActiveInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageOfficeLocations();
 
   if (locationId.length === 0) {
     return { success: false, error: "invalid" };
@@ -206,7 +206,7 @@ export async function toggleOfficeLocationActiveInline(
 export async function deleteUnusedOfficeLocationInline(
   locationId: string,
 ): Promise<DeleteOfficeLocationInlineResult> {
-  await requireHrAdminOrOwner();
+  await requireManageOfficeLocations();
 
   if (locationId.length === 0) {
     return { success: false, error: "invalid" };

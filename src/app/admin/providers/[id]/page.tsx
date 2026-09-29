@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireHrOperationalRead } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ManageMenuWorkspace } from "@/components/admin/lunch-providers/manage-menu-workspace";
 import type { MenuItemType } from "@/lib/menu-items";
@@ -31,7 +31,7 @@ export default async function ProviderManageMenuPage({
   params,
   searchParams,
 }: Props) {
-  await requireHrAdminOrOwner();
+  await requireHrOperationalRead();
 
   const { id } = await params;
   const query = await searchParams;

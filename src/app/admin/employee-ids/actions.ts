@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireProfile } from "@/lib/auth";
-import { canManageEmployeeIds, canManageStaffAccounts } from "@/lib/roles";
+import {
+  requireAccountsEmployeeIdDirectoryRead,
+  requireMutateEmployeeIds,
+} from "@/lib/auth";
 import { mapSetEmployeeIdError, validateEmployeeIdField } from "@/lib/employee-id";
 import { createClient } from "@/lib/supabase/server";
 import type { EmployeeIdDirectoryRow } from "@/lib/staff-directory-presentation";
-import { redirect } from "next/navigation";
-
 export type SearchEmployeeIdDirectoryResult =
   | { success: true; rows: EmployeeIdDirectoryRow[]; totalCount: number }
   | { success: false; error: "search" };
@@ -15,19 +15,6 @@ export type SearchEmployeeIdDirectoryResult =
 export type MutateEmployeeIdResult =
   | { success: true; row: EmployeeIdDirectoryRow }
   | { success: false; error: string };
-
-async function requireAccountsEmployeeIdAccess() {
-  const profile = await requireProfile();
-
-  if (
-    !canManageEmployeeIds(profile.role) ||
-    canManageStaffAccounts(profile.role)
-  ) {
-    redirect("/account");
-  }
-
-  return profile;
-}
 
 function mapDirectoryRow(raw: Record<string, unknown>): EmployeeIdDirectoryRow {
   return {
@@ -44,7 +31,7 @@ export async function searchEmployeeIdDirectory(input: {
   page: number;
   pageSize: number;
 }): Promise<SearchEmployeeIdDirectoryResult> {
-  await requireAccountsEmployeeIdAccess();
+  await requireAccountsEmployeeIdDirectoryRead();
 
   const supabase = await createClient();
   const offset = Math.max(0, (input.page - 1) * input.pageSize);
@@ -90,7 +77,7 @@ export async function setEmployeeIdInline(input: {
   profileId: string;
   employeeId: string;
 }): Promise<MutateEmployeeIdResult> {
-  await requireAccountsEmployeeIdAccess();
+  await requireMutateEmployeeIds();
 
   const validated = validateEmployeeIdField(input.employeeId);
   if (!validated.ok) {

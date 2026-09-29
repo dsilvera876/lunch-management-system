@@ -1,4 +1,6 @@
-import { requireViewAllFinancialSummaries } from "@/lib/auth";
+import { requireAccountsOperationalRead } from "@/lib/auth";
+import { fetchActiveSupportSession } from "@/lib/support-mode-server";
+import { isSupportReadOnlyActor } from "@/lib/support-mode";
 import {
   canExportFinancialSummaries,
   canFinalizeLunchPeriods,
@@ -25,7 +27,9 @@ type Props = {
 };
 
 export default async function AdminFinancialsPage({ searchParams }: Props) {
-  const profile = await requireViewAllFinancialSummaries();
+  const profile = await requireAccountsOperationalRead();
+  const supportSession = await fetchActiveSupportSession();
+  const supportReadOnly = isSupportReadOnlyActor(profile.role, supportSession);
   const params = await searchParams;
   const supabase = await createClient();
   const periods = await listLunchPeriods(supabase);
@@ -84,9 +88,10 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
             summary={summary}
             selectedPeriodId={selectedPeriodId!}
             returnTo={returnTo}
-            canExport={canExportFinancialSummaries(profile.role)}
-            canFinalize={canFinalizeLunchPeriods(profile.role)}
+            canExport={!supportReadOnly && canExportFinancialSummaries(profile.role)}
+            canFinalize={!supportReadOnly && canFinalizeLunchPeriods(profile.role)}
             unresolvedIssueCount={unresolvedIssueCount}
+            supportReadOnly={supportReadOnly}
           />
           <FinancialEmployeeTotals employees={summary.employees} />
         </div>

@@ -11,8 +11,8 @@ insert into auth.users (id, email, raw_user_meta_data)
 values
 (
   'f3333333-3333-4333-8333-333333333333',
-  'admin-fulfill@test.local',
-  '{"full_name":"Fulfillment Admin"}'
+  'hr-fulfill@test.local',
+  '{"full_name":"Fulfillment HR"}'
 ),
 (
   'f4444444-4444-4444-8444-444444444444',
@@ -23,7 +23,7 @@ values
 \ir support/assign_test_office_defaults.inc
 
 reset role;
-select private.apply_profile_role('f3333333-3333-4333-8333-333333333333', 'admin');
+select private.apply_profile_role('f3333333-3333-4333-8333-333333333333', 'hr');
 
 -- Create one order for the normal user.
 set local role authenticated;
@@ -59,7 +59,7 @@ select throws_ok(
   'Normal user cannot fulfill an order'
 );
 
--- Switch to admin.
+-- Switch to HR.
 select set_config(
   'request.jwt.claims',
   json_build_object(
@@ -69,7 +69,7 @@ select set_config(
   true
 );
 
--- 2. Admin can fulfill.
+-- 2. HR can fulfill.
 select lives_ok(
   $$
     select public.fulfill_order(
@@ -81,7 +81,7 @@ select lives_ok(
       )
     )
   $$,
-  'Admin can fulfill a submitted order'
+  'HR can fulfill a submitted order'
 );
 
 -- 3. Fulfilled order cannot be fulfilled twice.

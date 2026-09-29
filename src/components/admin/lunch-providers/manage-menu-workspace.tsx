@@ -25,6 +25,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { linkButtonClass } from "@/components/ui/button";
 import { ToastProvider, useToast } from "@/components/ui/toast";
+import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
+import { useSupportMode } from "@/components/app-shell/support-mode-context";
 import {
   MANAGE_MENU_SUCCESS_TOAST_DURATION_MS,
   manageMenuFlashToastTitle,
@@ -85,6 +87,7 @@ function ManageMenuWorkspaceContent({
   usedProviderMenuItemIds,
   flashSuccess,
 }: Props) {
+  const { readOnly } = useSupportMode();
   const { showToast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -229,7 +232,7 @@ function ManageMenuWorkspaceContent({
                     <col className="w-[13rem]" />
                     <col className="w-[4.25rem]" />
                     <col className="w-[6rem]" />
-                    <col className="w-[5.25rem]" />
+                    {readOnly ? null : <col className="w-[5.25rem]" />}
                   </colgroup>
                   <thead className="border-b border-border bg-slate-50/50 text-left text-xs font-semibold uppercase tracking-wide text-muted">
                     <tr>
@@ -238,7 +241,7 @@ function ManageMenuWorkspaceContent({
                       <th className="hidden px-2 py-2 md:table-cell">Weekdays</th>
                       <th className="hidden px-2 py-2 sm:table-cell">Unit</th>
                       <th className="hidden px-2 py-2 lg:table-cell">Category</th>
-                      <th className="px-2 py-2 text-right"> </th>
+                      {readOnly ? null : <th className="px-2 py-2 text-right"> </th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/80">
@@ -284,17 +287,19 @@ function ManageMenuWorkspaceContent({
                           <td className="hidden truncate px-2 py-2 text-sm text-muted lg:table-cell">
                             {category}
                           </td>
-                          <td className="px-2 py-2 text-right">
-                            <button
-                              type="button"
-                              onClick={() => selectItemForEdit(item)}
-                              aria-pressed={isSelectedForEdit}
-                              className={`${linkButtonClass("secondary")} ${compactEditButtonClass} inline-flex items-center justify-center gap-1`}
-                            >
-                              <IconPencil size={13} aria-hidden />
-                              Edit
-                            </button>
-                          </td>
+                          {readOnly ? null : (
+                            <td className="px-2 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => selectItemForEdit(item)}
+                                aria-pressed={isSelectedForEdit}
+                                className={`${linkButtonClass("secondary")} ${compactEditButtonClass} inline-flex items-center justify-center gap-1`}
+                              >
+                                <IconPencil size={13} aria-hidden />
+                                Edit
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -318,36 +323,52 @@ function ManageMenuWorkspaceContent({
                 <h1 className="text-2xl font-semibold text-foreground">{provider.name}</h1>
                 <StatusBadge status={provider.active ? "active" : "inactive"} />
               </div>
-              <p className="mt-1 text-sm font-medium text-foreground">Manage menu</p>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {readOnly ? "View menu" : "Manage menu"}
+              </p>
               <p className="text-sm text-muted">
-                View and manage recurring menu items by weekday.
+                {readOnly
+                  ? "Browse recurring menu items by weekday."
+                  : "View and manage recurring menu items by weekday."}
               </p>
             </div>
           </div>
-          <Link
-            href={`/admin/providers/${provider.id}/edit`}
-            className={linkButtonClass("secondary")}
-          >
-            Edit provider
-          </Link>
+          {readOnly ? (
+            <SupportModeMutationHint className="sm:text-right" />
+          ) : (
+            <Link
+              href={`/admin/providers/${provider.id}/edit`}
+              className={linkButtonClass("secondary")}
+            >
+              Edit provider
+            </Link>
+          )}
       </div>
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-6">
-        <div className="order-2 min-w-0 lg:order-1">{menuBrowse}</div>
-        <aside className="order-1 lg:order-2 lg:sticky lg:top-4 lg:self-start">
-          <MenuItemEditorPanel
-            key={editingItemId ?? "add"}
-            providerId={provider.id}
-            editingItem={editingItem}
-            canDeletePermanently={
-              editingItem !== null && !usedMenuItemIds.has(editingItem.id)
-            }
-            onCancelEdit={cancelEditing}
-            onItemCreated={handleMenuItemSaved}
-            onItemUpdated={handleMenuItemSaved}
-            onItemDeleted={handleMenuItemDeleted}
-          />
-        </aside>
+      <div
+        className={
+          readOnly
+            ? "min-w-0"
+            : "flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-6"
+        }
+      >
+        <div className={readOnly ? "min-w-0" : "order-2 min-w-0 lg:order-1"}>{menuBrowse}</div>
+        {readOnly ? null : (
+          <aside className="order-1 lg:order-2 lg:sticky lg:top-4 lg:self-start">
+            <MenuItemEditorPanel
+              key={editingItemId ?? "add"}
+              providerId={provider.id}
+              editingItem={editingItem}
+              canDeletePermanently={
+                editingItem !== null && !usedMenuItemIds.has(editingItem.id)
+              }
+              onCancelEdit={cancelEditing}
+              onItemCreated={handleMenuItemSaved}
+              onItemUpdated={handleMenuItemSaved}
+              onItemDeleted={handleMenuItemDeleted}
+            />
+          </aside>
+        )}
       </div>
     </>
   );

@@ -149,7 +149,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-
 select throws_ok(
   $$ select 1 from public.list_employee_id_directory() $$,
   'P0001',
-  'Employee ID management access required',
+  'Employee ID directory access required',
   'Staff cannot list employee IDs'
 );
 
@@ -165,7 +165,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'e4444444-4444-
 select throws_ok(
   $$ select 1 from public.list_employee_id_directory() $$,
   'P0001',
-  'Employee ID management access required',
+  'Employee ID directory access required',
   'Admin cannot list employee IDs'
 );
 
@@ -181,7 +181,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'e5555555-5555-
 select throws_ok(
   $$ select 1 from public.list_employee_id_directory() $$,
   'P0001',
-  'Employee ID management access required',
+  'Employee ID directory access required',
   'Owner cannot list employee IDs'
 );
 
@@ -369,7 +369,7 @@ values ('f2222222-2222-4222-8222-222222222222', 1);
 update public.app_settings set order_cutoff_time = '23:59:00' where id = 1;
 
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', 'e4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'e3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select public.create_first_lunch_period('Emp ID Payroll', '2099-02-01', '2099-02-11');
 

@@ -5,12 +5,12 @@ select plan(4);
 insert into auth.users (id, email, raw_user_meta_data)
 values (
   'c1111111-1111-4111-8111-111111111111',
-  'provider-icon-admin@test.local',
-  '{"full_name":"Provider Icon Admin"}'
+  'provider-icon-hr@test.local',
+  '{"full_name":"Provider Icon HR"}'
 );
 
 reset role;
-select private.apply_profile_role('c1111111-1111-4111-8111-111111111111', 'admin');
+select private.apply_profile_role('c1111111-1111-4111-8111-111111111111', 'hr');
 
 set local role authenticated;
 
@@ -47,7 +47,7 @@ select lives_ok(
     set icon_key = 'fruit'
     where id = 'c2111111-1111-4111-8111-111111111111'
   $$,
-  'Admin can set a supported icon_key'
+  'HR can set a supported icon_key'
 );
 
 select throws_ok(

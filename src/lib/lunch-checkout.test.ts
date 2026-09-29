@@ -24,6 +24,7 @@ const providers = [
     id: "provider-a",
     name: "Alberries Caterors",
     description: null,
+    iconKey: "bowl" as const,
     menuItems: [
       { id: "main-1", name: "Fried Chicken", price: 850, itemType: "main" as const, unitLabel: "Each", displayCategory: null, description: null },
       { id: "side-1", name: "Rice & Peas", price: 0, itemType: "side" as const, unitLabel: "Each", displayCategory: null, description: null },
@@ -33,6 +34,7 @@ const providers = [
     id: "provider-b",
     name: "Peel Good Fruits",
     description: null,
+    iconKey: "fruit" as const,
     menuItems: [
       { id: "apple", name: "Banana", price: 40, itemType: "standalone" as const, unitLabel: "Each", displayCategory: "Fruit", description: null },
     ],

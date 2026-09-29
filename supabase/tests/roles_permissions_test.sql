@@ -101,16 +101,34 @@ select results_eq(
 
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
-select lives_ok(
-  $$ update public.lunch_providers set description = 'Admin updated' where id = '88888888-8888-4888-8888-888888888888' $$,
-  'Admin can manage providers'
+select results_eq(
+  $$
+    with updated as (
+      update public.lunch_providers
+      set description = 'Admin blocked'
+      where id = '88888888-8888-4888-8888-888888888888'
+      returning 1
+    )
+    select count(*)::bigint from updated
+  $$,
+  array[0::bigint],
+  'Admin cannot manage providers without HR role'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select lives_ok(
-  $$ update public.lunch_providers set description = 'Owner updated' where id = '88888888-8888-4888-8888-888888888888' $$,
-  'Owner can manage providers'
+select results_eq(
+  $$
+    with updated as (
+      update public.lunch_providers
+      set description = 'Owner blocked'
+      where id = '88888888-8888-4888-8888-888888888888'
+      returning 1
+    )
+    select count(*)::bigint from updated
+  $$,
+  array[0::bigint],
+  'Owner cannot manage providers without HR role'
 );
 
 -- ============================================================
@@ -158,16 +176,34 @@ select results_eq(
 
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
-select lives_ok(
-  $$ update public.app_settings set order_cutoff_time = '16:00:00' where id = 1 $$,
-  'Admin can change cutoff'
+select results_eq(
+  $$
+    with updated as (
+      update public.app_settings
+      set order_cutoff_time = '16:00:00'
+      where id = 1
+      returning 1
+    )
+    select count(*)::bigint from updated
+  $$,
+  array[0::bigint],
+  'Admin cannot change cutoff without HR role'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select lives_ok(
-  $$ update public.app_settings set order_cutoff_time = '16:30:00' where id = 1 $$,
-  'Owner can change cutoff'
+select results_eq(
+  $$
+    with updated as (
+      update public.app_settings
+      set order_cutoff_time = '16:30:00'
+      where id = 1
+      returning 1
+    )
+    select count(*)::bigint from updated
+  $$,
+  array[0::bigint],
+  'Owner cannot change cutoff without HR role'
 );
 
 -- ============================================================
@@ -237,8 +273,8 @@ select results_eq(
       '99999999-9999-4999-8999-999999999902'
     )
   $$,
-  array[2::bigint],
-  'Admin can view all orders'
+  array[0::bigint],
+  'Admin cannot view all orders without support mode'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
@@ -252,17 +288,19 @@ select results_eq(
       '99999999-9999-4999-8999-999999999902'
     )
   $$,
-  array[2::bigint],
-  'Owner can view all orders'
+  array[0::bigint],
+  'Owner cannot view all orders without support mode'
 );
 
 -- ============================================================
 -- Fulfillment
 -- ============================================================
 
-select lives_ok(
+select throws_ok(
   $$ select public.fulfill_order('99999999-9999-4999-8999-999999999902') $$,
-  'Owner can fulfill'
+  'P0001',
+  null,
+  'Owner cannot fulfill without HR role'
 );
 
 reset role;
@@ -303,9 +341,11 @@ select throws_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
-select lives_ok(
+select throws_ok(
   $$ select public.fulfill_order('99999999-9999-4999-8999-999999999902') $$,
-  'Admin can fulfill'
+  'P0001',
+  null,
+  'Admin cannot fulfill without HR role'
 );
 
 -- ============================================================

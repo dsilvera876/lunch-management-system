@@ -1,6 +1,6 @@
 "use server";
 
-import { requireViewAllOrders } from "@/lib/auth";
+import { requireMutateHrOperationalData, requireViewAllOrders } from "@/lib/auth";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 import type { MenuItemType } from "@/lib/menu-items";
 import {
@@ -47,9 +47,9 @@ export async function createHrLateOrderAction(input: {
   officeLocationId: string;
 }): Promise<LateOrderActionResult> {
   try {
-    await requireViewAllOrders();
+    await requireMutateHrOperationalData();
   } catch {
-    return { success: false, error: "HR late-order access required." };
+    return { success: false, error: "HR late-order mutation access required." };
   }
 
   const supabase = await createClient();
@@ -181,9 +181,9 @@ export async function sendProviderLateOrderSupplementAction(input: {
   deliveryDate: string;
 }): Promise<LateOrderActionResult> {
   try {
-    await requireViewAllOrders();
+    await requireMutateHrOperationalData();
   } catch {
-    return { success: false, error: "HR late-order access required." };
+    return { success: false, error: "HR late-order mutation access required." };
   }
 
   const supabase = await createClient();
@@ -228,9 +228,9 @@ export async function acknowledgeDispatchNotReceivedAction(input: {
   dispatchId: string;
 }): Promise<LateOrderActionResult> {
   try {
-    await requireViewAllOrders();
+    await requireMutateHrOperationalData();
   } catch {
-    return { success: false, error: "HR late-order access required." };
+    return { success: false, error: "HR late-order mutation access required." };
   }
 
   const supabase = await createClient();
@@ -249,9 +249,9 @@ export async function acknowledgeDispatchReceivedAction(input: {
   dispatchId: string;
 }): Promise<LateOrderActionResult> {
   try {
-    await requireViewAllOrders();
+    await requireMutateHrOperationalData();
   } catch {
-    return { success: false, error: "HR late-order access required." };
+    return { success: false, error: "HR late-order mutation access required." };
   }
 
   const supabase = await createClient();

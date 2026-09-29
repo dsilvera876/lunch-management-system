@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { linkButtonClass } from "@/components/ui/button";
 import { ToastProvider } from "@/components/ui/toast";
+import { useSupportMode } from "@/components/app-shell/support-mode-context";
+import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
 
 type Props = {
   initialLocations: OfficeLocationRecord[];
@@ -22,6 +24,7 @@ const compactEditButtonClass =
   "!min-h-0 h-8 shrink-0 whitespace-nowrap px-2.5 py-0 text-xs leading-none";
 
 function OfficeLocationsWorkspaceContent({ initialLocations }: Props) {
+  const { readOnly } = useSupportMode();
   const [locations, setLocations] = useState(initialLocations);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
 
@@ -53,8 +56,17 @@ function OfficeLocationsWorkspaceContent({ initialLocations }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-6">
-      <div className="order-2 min-w-0 lg:order-1">
+    <div
+      className={
+        readOnly
+          ? "min-w-0 space-y-4"
+          : "flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-6"
+      }
+    >
+      {readOnly ? (
+        <SupportModeMutationHint />
+      ) : null}
+      <div className={readOnly ? "min-w-0" : "order-2 min-w-0 lg:order-1"}>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
           Locations
         </h2>
@@ -99,15 +111,17 @@ function OfficeLocationsWorkspaceContent({ initialLocations }: Props) {
                         ) : null}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => selectLocationForEdit(location)}
-                      aria-pressed={isSelected}
-                      className={`${linkButtonClass("secondary")} ${compactEditButtonClass} inline-flex items-center justify-center gap-1 self-start`}
-                    >
-                      <IconPencil size={13} aria-hidden />
-                      Edit
-                    </button>
+                    {readOnly ? null : (
+                      <button
+                        type="button"
+                        onClick={() => selectLocationForEdit(location)}
+                        aria-pressed={isSelected}
+                        className={`${linkButtonClass("secondary")} ${compactEditButtonClass} inline-flex items-center justify-center gap-1 self-start`}
+                      >
+                        <IconPencil size={13} aria-hidden />
+                        Edit
+                      </button>
+                    )}
                   </div>
                 </li>
               );
@@ -116,16 +130,18 @@ function OfficeLocationsWorkspaceContent({ initialLocations }: Props) {
         )}
       </div>
 
-      <aside className="order-1 lg:order-2 lg:sticky lg:top-4 lg:self-start">
-        <OfficeLocationsEditorPanel
-          key={editingLocationId ?? "add"}
-          editingLocation={editingLocation}
-          onCancelEdit={cancelEditing}
-          onLocationCreated={handleLocationSaved}
-          onLocationUpdated={handleLocationSaved}
-          onLocationDeleted={handleLocationDeleted}
-        />
-      </aside>
+      {readOnly ? null : (
+        <aside className="order-1 lg:order-2 lg:sticky lg:top-4 lg:self-start">
+          <OfficeLocationsEditorPanel
+            key={editingLocationId ?? "add"}
+            editingLocation={editingLocation}
+            onCancelEdit={cancelEditing}
+            onLocationCreated={handleLocationSaved}
+            onLocationUpdated={handleLocationSaved}
+            onLocationDeleted={handleLocationDeleted}
+          />
+        </aside>
+      )}
     </div>
   );
 }

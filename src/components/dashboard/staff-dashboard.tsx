@@ -22,7 +22,6 @@ import type { DeliveryOrderSummary } from "@/lib/staff-ordering";
 type Props = {
   greeting: string;
   firstName: string;
-  displayDateLabel: string;
   orderingOpen: boolean;
   deliveryDate: string | null;
   cutoffTime: string;
@@ -44,7 +43,6 @@ type Props = {
 export function StaffDashboard({
   greeting,
   firstName,
-  displayDateLabel,
   orderingOpen,
   deliveryDate,
   cutoffTime,
@@ -63,18 +61,15 @@ export function StaffDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted">{greeting},</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
-            Welcome back, {firstName}!
-          </h1>
-          <p className="mt-2 text-sm text-muted">
-            Here&apos;s your lunch overview
-            {deliveryLabel ? ` for ${deliveryLabel}` : " for your next delivery"}.
-          </p>
-        </div>
-        <p className="text-sm text-muted">{displayDateLabel}</p>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted">{greeting},</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
+          Welcome back, {firstName}!
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          Here&apos;s your lunch overview
+          {deliveryLabel ? ` for ${deliveryLabel}` : " for your next delivery"}.
+        </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

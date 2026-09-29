@@ -8,8 +8,8 @@ insert into auth.users (id, email, raw_user_meta_data)
 values
 (
   'd1111111-1111-4111-8111-111111111111',
-  'order-admin@test.local',
-  '{"full_name":"Order Admin"}'
+  'order-hr@test.local',
+  '{"full_name":"Order HR"}'
 ),
 (
   'd2222222-2222-4222-8222-222222222222',
@@ -18,10 +18,10 @@ values
 );
 
 reset role;
-select private.apply_profile_role('d1111111-1111-4111-8111-111111111111', 'admin');
+select private.apply_profile_role('d1111111-1111-4111-8111-111111111111', 'hr');
 
 -- ============================================================
--- Default cutoff and admin settings
+-- Default cutoff and HR settings
 -- ============================================================
 
 select results_eq(
@@ -47,7 +47,7 @@ select lives_ok(
     set order_cutoff_time = '15:30:00'
     where id = 1
   $$,
-  'Admin can change the global order cutoff'
+  'HR can change the global order cutoff'
 );
 
 select results_eq(
@@ -356,9 +356,6 @@ select results_eq(
 
 reset role;
 
-reset role;
-select private.apply_profile_role('d1111111-1111-4111-8111-111111111111', 'admin');
-
 set local role authenticated;
 
 select set_config(
@@ -385,7 +382,7 @@ select lives_ok(
       )
     )
   $$,
-  'Admin can fulfill one order independently'
+  'HR can fulfill one order independently'
 );
 
 select set_config(

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MenuItemType } from "@/lib/menu-items";
 import type { Weekday } from "@/lib/datetime";
+import { parseProviderIconKey, type ProviderIconKey } from "@/lib/provider-icons";
 
 export type ProviderMenuItem = {
   /** provider_menu_items.id — the only ID staff drafts and checkout RPCs may use */
@@ -17,6 +18,7 @@ export type ProviderMenuBundle = {
   id: string;
   name: string;
   description: string | null;
+  iconKey: ProviderIconKey;
   menuItems: ProviderMenuItem[];
 };
 
@@ -124,6 +126,7 @@ export async function loadProviderMenusForOrderDate(
       id,
       name,
       description,
+      icon_key,
       provider_menu_items (
         id,
         name,
@@ -195,6 +198,7 @@ export async function loadProviderMenusForOrderDate(
         id: provider.id,
         name: provider.name,
         description: provider.description,
+        iconKey: parseProviderIconKey(provider.icon_key),
         menuItems,
       };
     })

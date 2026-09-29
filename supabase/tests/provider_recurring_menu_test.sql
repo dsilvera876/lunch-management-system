@@ -6,8 +6,8 @@ insert into auth.users (id, email, raw_user_meta_data)
 values
 (
   'a1111111-1111-4111-8111-111111111111',
-  'provider-admin@test.local',
-  '{"full_name":"Provider Admin"}'
+  'provider-hr@test.local',
+  '{"full_name":"Provider HR"}'
 ),
 (
   'a2222222-2222-4222-8222-222222222222',
@@ -16,10 +16,10 @@ values
 );
 
 reset role;
-select private.apply_profile_role('a1111111-1111-4111-8111-111111111111', 'admin');
+select private.apply_profile_role('a1111111-1111-4111-8111-111111111111', 'hr');
 
 -- ============================================================
--- Admin provider CRUD
+-- HR provider CRUD
 -- ============================================================
 
 set local role authenticated;
@@ -43,7 +43,7 @@ select lives_ok(
       true
     )
   $$,
-  'Admin can create a lunch provider'
+  'HR can create a lunch provider'
 );
 
 select lives_ok(
@@ -52,7 +52,7 @@ select lives_ok(
     set description = 'Updated provider description'
     where id = 'b1111111-1111-4111-8111-111111111111'
   $$,
-  'Admin can update a lunch provider'
+  'HR can update a lunch provider'
 );
 
 select lives_ok(
@@ -76,7 +76,7 @@ select lives_ok(
       true
     )
   $$,
-  'Admin can create a recurring provider menu item'
+  'HR can create a recurring provider menu item'
 );
 
 select throws_ok(
@@ -110,7 +110,7 @@ select lives_ok(
       true
     )
   $$,
-  'Admin can create second provider for cross-provider name test'
+  'HR can create second provider for cross-provider name test'
 );
 
 select lives_ok(
@@ -146,7 +146,7 @@ select lives_ok(
       ('c1111111-1111-4111-8111-111111111111', 4),
       ('c1111111-1111-4111-8111-111111111111', 5)
   $$,
-  'Admin can assign weekdays to a recurring menu item'
+  'HR can assign weekdays to a recurring menu item'
 );
 
 select throws_ok(

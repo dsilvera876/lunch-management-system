@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getHrPendingSignupApprovalCount } from "@/lib/hr-pending-signup-approvals";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/roles";
+import { fetchActiveSupportSession } from "@/lib/support-mode-server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,12 +24,15 @@ export const metadata: Metadata = {
   description: "Manage lunch menus and employee orders.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const profile = await getCurrentProfile();
+  const supportSession = profile ? await fetchActiveSupportSession() : null;
   let hrPendingSignupCount = 0;
 
   if (profile?.role === "hr") {
@@ -45,7 +49,11 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Suspense fallback={children}>
-          <AppShellWrapper profile={profile} hrPendingSignupCount={hrPendingSignupCount}>
+          <AppShellWrapper
+            profile={profile}
+            hrPendingSignupCount={hrPendingSignupCount}
+            supportSession={supportSession}
+          >
             {children}
           </AppShellWrapper>
         </Suspense>

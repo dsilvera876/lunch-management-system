@@ -2,7 +2,7 @@
 
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { Card } from "@/components/ui/card";
-import { IconArrowRight, IconCartMinus } from "@/components/icons/line-icons";
+import { IconArrowRight, IconX } from "@/components/icons/line-icons";
 import { formatCurrency } from "@/lib/format";
 import { formatMenuItemLabel } from "@/lib/menu-items";
 import { calculateMarginalOrderCheckout } from "@/lib/order-subsidy-preview";
@@ -70,11 +70,11 @@ function CartLineRemoveButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted transition-colors hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+      title={label}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <IconCartMinus size={14} aria-hidden />
+      <IconX size={14} className="text-slate-900" aria-hidden />
       Remove
-      <span className="sr-only">{label}</span>
     </button>
   );
 }

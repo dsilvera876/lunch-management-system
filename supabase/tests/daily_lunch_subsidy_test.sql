@@ -62,7 +62,7 @@ set
 where id = 1;
 
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', 'e5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'e4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select public.create_first_lunch_period('Subsidy Payroll', '2099-01-01', '2099-01-31');
 select public.create_next_lunch_period('October Payroll', '2099-02-28');
@@ -120,16 +120,20 @@ select lives_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', 'e5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select lives_ok(
+select throws_ok(
   $$ select public.update_daily_lunch_subsidy(500::numeric) $$,
-  'Admin can change daily lunch subsidy'
+  'P0001',
+  null,
+  'Admin cannot change daily lunch subsidy without Accounts role'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', 'e6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
 
-select lives_ok(
+select throws_ok(
   $$ select public.update_daily_lunch_subsidy(500::numeric) $$,
-  'Owner can change daily lunch subsidy'
+  'P0001',
+  null,
+  'Owner cannot change daily lunch subsidy without Accounts role'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);

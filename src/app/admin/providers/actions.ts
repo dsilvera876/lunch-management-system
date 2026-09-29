@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireManageProviders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseProviderIconKey } from "@/lib/provider-icons";
 import { isProviderInUseDeletionError } from "@/lib/unused-record-deletion";
 
 export async function createProvider(formData: FormData) {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const name = formData.get("name");
   const description = formData.get("description");
@@ -45,7 +45,7 @@ export async function createProvider(formData: FormData) {
 }
 
 export async function updateProvider(formData: FormData) {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const id = formData.get("id");
   const name = formData.get("name");
@@ -89,7 +89,7 @@ export async function updateProvider(formData: FormData) {
 }
 
 export async function toggleProviderActive(formData: FormData) {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const id = formData.get("id");
   const active = formData.get("active");
@@ -117,7 +117,7 @@ export async function toggleProviderActive(formData: FormData) {
 }
 
 export async function deleteUnusedProvider(formData: FormData) {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const id = formData.get("id");
 

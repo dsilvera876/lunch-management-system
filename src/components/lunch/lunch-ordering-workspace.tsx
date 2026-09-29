@@ -100,6 +100,7 @@ export function LunchOrderingWorkspace({
       providers.map((provider) => ({
         id: provider.id,
         name: provider.name,
+        iconKey: provider.iconKey,
         hasWorkingDraft: draftHasSelectedItems(drafts[provider.id] ?? emptyProviderDraft()),
       })),
     [providers, drafts],

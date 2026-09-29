@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { FORGOT_PASSWORD_PATH, UPDATE_PASSWORD_PATH } from "@/lib/auth-recovery";
 import { refreshProfileIfRoleChanged } from "@/lib/profile-refresh-client";
 import { shouldCheckRoleOnNavigation } from "@/lib/profile-refresh";
+import type { ActiveSupportSession } from "@/lib/support-mode";
 import { AppShell } from "./app-shell";
 
 type Profile = {
@@ -17,10 +18,12 @@ const AUTH_PATHS = ["/login", "/signup", FORGOT_PASSWORD_PATH];
 export function AppShellWrapper({
   profile,
   hrPendingSignupCount = 0,
+  supportSession = null,
   children,
 }: {
   profile: Profile | null;
   hrPendingSignupCount?: number;
+  supportSession?: ActiveSupportSession | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -69,7 +72,11 @@ export function AppShellWrapper({
   }
 
   return (
-    <AppShell profile={profile} hrPendingSignupCount={hrPendingSignupCount}>
+    <AppShell
+      profile={profile}
+      hrPendingSignupCount={hrPendingSignupCount}
+      supportSession={supportSession}
+    >
       {children}
     </AppShell>
   );

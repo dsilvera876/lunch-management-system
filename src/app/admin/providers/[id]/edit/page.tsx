@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireManageProviders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { updateProvider } from "../../actions";
 import { ProviderDetailsFields } from "@/components/admin/lunch-providers/provider-details-fields";
@@ -44,7 +44,7 @@ function resolveFlashSuccess(query: {
 }
 
 export default async function ProviderEditPage({ params, searchParams }: Props) {
-  await requireHrAdminOrOwner();
+  await requireManageProviders();
 
   const { id } = await params;
   const query = await searchParams;

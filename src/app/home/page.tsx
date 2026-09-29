@@ -13,7 +13,6 @@ import {
   formatTimeRemainingUntilDeadline,
 } from "@/lib/home-dashboard";
 import { createClient } from "@/lib/supabase/server";
-import { formatHumanDate } from "@/lib/format";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 
 export default async function HomePage() {
@@ -85,7 +84,6 @@ export default async function HomePage() {
       <StaffDashboard
       greeting={getTimeOfDayGreeting()}
       firstName={firstName}
-      displayDateLabel={formatHumanDate(today)}
       orderingOpen={ctx.orderingOpen}
       deliveryDate={ctx.deliveryDate}
       cutoffTime={ctx.cutoffTime}

@@ -49,7 +49,9 @@ describe("Today's Order UI contracts", () => {
     assert.match(source, />Add</);
     assert.match(source, />Added</);
     assert.doesNotMatch(source, />Remove</);
-    assert.match(cartSource, /IconCartMinus/);
+    assert.match(cartSource, /IconX/);
+    assert.doesNotMatch(cartSource, /IconCircleX/);
+    assert.doesNotMatch(cartSource, /IconCartMinus/);
     assert.match(summarySource, /size-9/);
     assert.doesNotMatch(summarySource, />Add</);
   });
@@ -83,6 +85,7 @@ describe("Today's Order UI contracts", () => {
         id: "provider-a",
         name: "Alberries Caterors",
         description: null,
+        iconKey: "bowl" as const,
         menuItems: [{ id: "main-1", name: "Main", price: 850, itemType: "main" as const, unitLabel: "Each", displayCategory: null, description: null }],
       },
     ];

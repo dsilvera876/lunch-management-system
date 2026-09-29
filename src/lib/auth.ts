@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  canAccessAccountsAdminRoute,
   canAccessAdminDashboard,
+  canAccessHrToolsRoute,
   canExportFinancialSummaries,
   canFinalizeLunchPeriods,
   canFulfillOrders,
@@ -11,6 +13,8 @@ import {
   canManageRoles,
   canManageStaffAccounts,
   canManageEmployeeIds,
+  canMutateAccountsOperationalData,
+  canMutateHrOperationalData,
   canUpdateDailyLunchSubsidy,
   canViewAllFinancialSummaries,
   canViewAllOrders,
@@ -18,6 +22,8 @@ import {
   isUserRole,
   type UserRole,
 } from "@/lib/roles";
+import type { SupportScope } from "@/lib/support-mode";
+import { fetchActiveSupportSession } from "@/lib/support-mode-server";
 
 export type AccountStatus = "active" | "inactive";
 
@@ -118,20 +124,56 @@ export async function requireOwner(): Promise<Profile> {
   return profile;
 }
 
-export async function requireHrAdminOrOwner(): Promise<Profile> {
-  const profile = await requireProfile();
+async function activeSupportScopeForProfile(): Promise<SupportScope | null> {
+  const session = await fetchActiveSupportSession();
+  return session?.scope ?? null;
+}
 
-  if (!canManageProviders(profile.role)) {
+export async function requireHrOperationalRead(): Promise<Profile> {
+  const profile = await requireProfile();
+  const supportScope = await activeSupportScopeForProfile();
+
+  if (!canAccessHrToolsRoute(profile.role, "/admin/settings", supportScope)) {
     redirectUnauthorized();
   }
 
   return profile;
 }
 
+/** @deprecated Use requireHrOperationalRead for pages; mutations use requireMutateHrOperationalData. */
+export async function requireHrAdminOrOwner(): Promise<Profile> {
+  return requireHrOperationalRead();
+}
+
 export async function requireViewAllOrders(): Promise<Profile> {
+  return requireHrOperationalRead();
+}
+
+export async function requireAccountsOperationalRead(): Promise<Profile> {
+  const profile = await requireProfile();
+  const supportScope = await activeSupportScopeForProfile();
+
+  if (!canAccessAccountsAdminRoute(profile.role, "/admin/financials", supportScope)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
+export async function requireMutateHrOperationalData(): Promise<Profile> {
   const profile = await requireProfile();
 
-  if (!canViewAllOrders(profile.role)) {
+  if (!canMutateHrOperationalData(profile.role)) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
+export async function requireMutateAccountsOperationalData(): Promise<Profile> {
+  const profile = await requireProfile();
+
+  if (!canMutateAccountsOperationalData(profile.role)) {
     redirectUnauthorized();
   }
 
@@ -139,13 +181,15 @@ export async function requireViewAllOrders(): Promise<Profile> {
 }
 
 export async function requireFulfillOrders(): Promise<Profile> {
-  const profile = await requireProfile();
+  return requireMutateHrOperationalData();
+}
 
-  if (!canFulfillOrders(profile.role)) {
-    redirectUnauthorized();
-  }
+export async function requireManageProviders(): Promise<Profile> {
+  return requireMutateHrOperationalData();
+}
 
-  return profile;
+export async function requireManageOfficeLocations(): Promise<Profile> {
+  return requireMutateHrOperationalData();
 }
 
 export async function requireManageRoles(): Promise<Profile> {
@@ -179,9 +223,14 @@ export async function requireManageEmployeeIds(): Promise<Profile> {
 }
 
 export async function requireManageCutoff(): Promise<Profile> {
-  const profile = await requireProfile();
+  return requireMutateHrOperationalData();
+}
 
-  if (!canManageCutoff(profile.role)) {
+export async function requireLunchPeriodsRead(): Promise<Profile> {
+  const profile = await requireProfile();
+  const supportScope = await activeSupportScopeForProfile();
+
+  if (!canAccessAccountsAdminRoute(profile.role, "/admin/lunch-periods", supportScope)) {
     redirectUnauthorized();
   }
 
@@ -189,53 +238,31 @@ export async function requireManageCutoff(): Promise<Profile> {
 }
 
 export async function requireManageLunchPeriods(): Promise<Profile> {
-  const profile = await requireProfile();
-
-  if (!canManageLunchPeriods(profile.role)) {
-    redirectUnauthorized();
-  }
-
-  return profile;
+  return requireMutateAccountsOperationalData();
 }
 
 export async function requireViewAllFinancialSummaries(): Promise<Profile> {
-  const profile = await requireProfile();
-
-  if (!canViewAllFinancialSummaries(profile.role)) {
-    redirectUnauthorized();
-  }
-
-  return profile;
+  return requireAccountsOperationalRead();
 }
 
 export async function requireExportFinancialSummaries(): Promise<Profile> {
-  const profile = await requireProfile();
-
-  if (!canExportFinancialSummaries(profile.role)) {
-    redirectUnauthorized();
-  }
-
-  return profile;
+  return requireMutateAccountsOperationalData();
 }
 
 export async function requireFinalizeLunchPeriods(): Promise<Profile> {
-  const profile = await requireProfile();
-
-  if (!canFinalizeLunchPeriods(profile.role)) {
-    redirectUnauthorized();
-  }
-
-  return profile;
+  return requireMutateAccountsOperationalData();
 }
 
 export async function requireUpdateDailyLunchSubsidy(): Promise<Profile> {
-  const profile = await requireProfile();
+  return requireMutateAccountsOperationalData();
+}
 
-  if (!canUpdateDailyLunchSubsidy(profile.role)) {
-    redirectUnauthorized();
-  }
+export async function requireAccountsEmployeeIdDirectoryRead(): Promise<Profile> {
+  return requireAccountsOperationalRead();
+}
 
-  return profile;
+export async function requireMutateEmployeeIds(): Promise<Profile> {
+  return requireMutateAccountsOperationalData();
 }
 
 /** @deprecated Use requireAdminOrOwner() or a capability-specific guard. */

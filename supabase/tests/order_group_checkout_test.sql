@@ -6,8 +6,8 @@ insert into auth.users (id, email, raw_user_meta_data)
 values
 (
   'c1111111-1111-4111-8111-111111111111',
-  'checkout-admin@test.local',
-  '{"full_name":"Checkout Admin"}'
+  'checkout-hr@test.local',
+  '{"full_name":"Checkout HR"}'
 ),
 (
   'c2222222-2222-4222-8222-222222222222',
@@ -16,7 +16,7 @@ values
 );
 
 reset role;
-select private.apply_profile_role('c1111111-1111-4111-8111-111111111111', 'admin');
+select private.apply_profile_role('c1111111-1111-4111-8111-111111111111', 'hr');
 
 \ir support/open_ordering.inc
 

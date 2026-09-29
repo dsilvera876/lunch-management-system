@@ -25,6 +25,7 @@ import {
   PROVIDER_SUCCESS_TOAST,
   PROVIDER_SUCCESS_TOAST_DURATION_MS,
 } from "@/lib/provider-form";
+import { useSupportMode, SUPPORT_MODE_DISABLED_HINT } from "@/components/app-shell/support-mode-context";
 
 export type ProviderOverviewRecord = {
   id: string;
@@ -92,6 +93,7 @@ function ProvidersOverviewFlashToasts({
 
 function ProvidersOverviewContent({ providers, flashCreated, flashDeleted }: Props) {
   const [addOpen, setAddOpen] = useState(false);
+  const { readOnly } = useSupportMode();
 
   return (
     <>
@@ -101,9 +103,13 @@ function ProvidersOverviewContent({ providers, flashCreated, flashDeleted }: Pro
           <h1 className="text-2xl font-semibold text-foreground">Lunch Providers</h1>
           <p className="mt-1 text-sm text-muted">Manage provider menus and settings.</p>
         </div>
-        <Button type="button" variant="primary" onClick={() => setAddOpen(true)}>
-          + Add provider
-        </Button>
+        {readOnly ? (
+          <p className="text-sm text-muted">{SUPPORT_MODE_DISABLED_HINT}</p>
+        ) : (
+          <Button type="button" variant="primary" onClick={() => setAddOpen(true)}>
+            + Add provider
+          </Button>
+        )}
       </div>
 
       {providers.length === 0 ? (
@@ -221,18 +227,26 @@ function ProvidersOverviewContent({ providers, flashCreated, flashDeleted }: Pro
                       className={`${linkButtonClass("primary")} ${compactOverviewLinkClass} inline-flex w-full items-center justify-center gap-1.5 lg:w-full`}
                     >
                       <IconUtensils size={14} aria-hidden className="shrink-0" />
-                      Manage Menu
+                      {readOnly ? "View Menu" : "Manage Menu"}
                     </Link>
-                    <Link
-                      href={`/admin/providers/${provider.id}/edit`}
-                      className={`${linkButtonClass("secondary")} ${compactOverviewLinkClass} inline-flex w-full items-center justify-center gap-1.5 lg:w-full`}
-                    >
-                      <IconPencil size={14} aria-hidden className="shrink-0" />
-                      Edit
-                    </Link>
-                    <p className="mt-0.5 text-center text-xs leading-none text-muted lg:text-left lg:whitespace-nowrap">
-                      Edit details and late-order settings
-                    </p>
+                    {readOnly ? (
+                      <p className="text-center text-xs text-muted lg:text-left">
+                        {SUPPORT_MODE_DISABLED_HINT}
+                      </p>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/admin/providers/${provider.id}/edit`}
+                          className={`${linkButtonClass("secondary")} ${compactOverviewLinkClass} inline-flex w-full items-center justify-center gap-1.5 lg:w-full`}
+                        >
+                          <IconPencil size={14} aria-hidden className="shrink-0" />
+                          Edit
+                        </Link>
+                        <p className="mt-0.5 text-center text-xs leading-none text-muted lg:text-left lg:whitespace-nowrap">
+                          Edit details and late-order settings
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </article>
@@ -241,7 +255,9 @@ function ProvidersOverviewContent({ providers, flashCreated, flashDeleted }: Pro
         </div>
       )}
 
-      <AddProviderDrawer open={addOpen} onClose={() => setAddOpen(false)} />
+      {!readOnly ? (
+        <AddProviderDrawer open={addOpen} onClose={() => setAddOpen(false)} />
+      ) : null}
     </>
   );
 }

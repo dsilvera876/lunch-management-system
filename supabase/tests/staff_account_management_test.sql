@@ -105,14 +105,14 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-
 select throws_ok(
   $$ select 1 from public.search_staff_directory() $$,
   'P0001',
-  'Staff account management access required',
+  'Staff directory access required',
   'Admin cannot access HR staff directory'
 );
 
 select throws_ok(
   $$ select 1 from public.search_employee_id_directory() $$,
   'P0001',
-  'Employee ID management access required',
+  'Employee ID directory access required',
   'Admin cannot access Employee ID directory'
 );
 
@@ -126,7 +126,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-
 select throws_ok(
   $$ select 1 from public.search_employee_id_directory() $$,
   'P0001',
-  'Employee ID management access required',
+  'Employee ID directory access required',
   'Owner cannot access Employee ID directory'
 );
 
@@ -140,14 +140,14 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a1111111-1111-
 select throws_ok(
   $$ select 1 from public.search_staff_directory() $$,
   'P0001',
-  'Staff account management access required',
+  'Staff directory access required',
   'Staff cannot access HR directory'
 );
 
 select throws_ok(
   $$ select 1 from public.search_employee_id_directory() $$,
   'P0001',
-  'Employee ID management access required',
+  'Employee ID directory access required',
   'Staff cannot access Employee ID directory'
 );
 

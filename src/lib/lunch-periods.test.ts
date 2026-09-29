@@ -198,11 +198,11 @@ describe("lunch period capabilities", () => {
 });
 
 describe("navigation visibility", () => {
-  it("shows lunch periods to Accounts, Admin, and Owner only", () => {
+  it("shows lunch periods in ACCOUNTS nav for Accounts only", () => {
     assert.ok(!getNavForRole("hr").flatMap((group) => group.items).some((item) => item.href === "/admin/lunch-periods"));
     assert.ok(getNavForRole("accounts").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(getNavForRole("admin").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
-    assert.ok(getNavForRole("owner").find((g) => g.label === "ACCOUNTS")?.items.some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(!getNavForRole("admin").flatMap((group) => group.items).some((item) => item.href === "/admin/lunch-periods"));
+    assert.ok(!getNavForRole("owner").flatMap((group) => group.items).some((item) => item.href === "/admin/lunch-periods"));
     assert.ok(!getNavForRole("staff").find((g) => g.label === "HR TOOLS"));
     assert.ok(!getNavForRole("staff").flatMap((g) => g.items).some((item) => item.href === "/admin/lunch-periods"));
   });

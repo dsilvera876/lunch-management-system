@@ -1,6 +1,6 @@
 begin;
 
-select plan(39);
+select plan(41);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -55,15 +55,24 @@ select throws_ok(
   'HR cannot create the first lunch period'
 );
 
+select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+
+select throws_ok(
+  $$ select public.create_first_lunch_period('Admin Blocked', '2026-08-01', '2026-08-31') $$,
+  'P0001',
+  'Lunch period management access required',
+  'Admin cannot create the first lunch period'
+);
+
 -- ============================================================
 -- First period and continuity
 -- ============================================================
 
-select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select lives_ok(
   $$ select public.create_first_lunch_period('August Payroll', '2026-08-03', '2026-08-27') $$,
-  'Admin can create the first lunch period'
+  'Accounts can create the first lunch period'
 );
 
 select results_eq(
@@ -80,7 +89,7 @@ select results_eq(
 
 select lives_ok(
   $$ select public.create_next_lunch_period('September Payroll', '2026-09-25') $$,
-  'Admin can create the next lunch period'
+  'Accounts can create the next lunch period'
 );
 
 select results_eq(
@@ -142,7 +151,7 @@ select throws_ok(
   'HR cannot set the current lunch period'
 );
 
-select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select throws_ok(
   $$ select public.create_next_lunch_period('Too Early End', '2026-10-20') $$,
@@ -192,7 +201,7 @@ select throws_ok(
 -- Concurrency-safe sequential appends
 -- ============================================================
 
-select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select lives_ok(
   $$ select public.create_next_lunch_period('November Payroll', '2026-11-21') $$,
@@ -274,20 +283,22 @@ select lives_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select lives_ok(
+select throws_ok(
   $$
     select public.set_current_lunch_period(id)
     from public.lunch_periods
     where label = 'December Payroll'
   $$,
-  'Owner can manage the current lunch period'
+  'P0001',
+  'Lunch period management access required',
+  'Owner cannot manage lunch periods without Accounts role'
 );
 
 -- ============================================================
 -- Editing restrictions
 -- ============================================================
 
-select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select lives_ok(
   $$ select public.update_lunch_period_label(id, 'August Payroll Updated') from public.lunch_periods where label = 'August Payroll' $$,
@@ -316,6 +327,15 @@ select lives_ok(
     where label = 'December Payroll'
   $$,
   'Latest period end date may be adjusted'
+);
+
+select lives_ok(
+  $$
+    select public.set_current_lunch_period(id)
+    from public.lunch_periods
+    where label = 'December Payroll'
+  $$,
+  'Accounts restores December as current before staff read test'
 );
 
 -- ============================================================

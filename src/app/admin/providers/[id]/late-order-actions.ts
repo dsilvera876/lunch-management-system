@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireMutateHrOperationalData } from "@/lib/auth";
 import {
   isValidProviderOrderEmail,
   parseTimeValue,
@@ -27,7 +27,7 @@ function readDispatchMode(value: FormDataEntryValue | null): SupplementalDispatc
 }
 
 export async function updateProviderLateOrderSettings(formData: FormData) {
-  await requireHrAdminOrOwner();
+  await requireMutateHrOperationalData();
 
   const id = formData.get("id");
 

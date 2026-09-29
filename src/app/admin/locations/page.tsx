@@ -1,11 +1,11 @@
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireHrOperationalRead } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { OfficeLocationsWorkspace } from "@/components/admin/office-locations-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 import type { OfficeLocationRecord } from "@/lib/office-locations-presentation";
 
 export default async function OfficeLocationsPage() {
-  await requireHrAdminOrOwner();
+  await requireHrOperationalRead();
   const supabase = await createClient();
 
   const { data: locations, error } = await supabase

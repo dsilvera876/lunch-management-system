@@ -5,6 +5,7 @@ import {
   requireManageRoles,
 } from "@/lib/auth";
 import { canManageRoles, canManageStaffAccounts } from "@/lib/roles";
+import { fetchActiveSupportSession } from "@/lib/support-mode-server";
 import { createClient } from "@/lib/supabase/server";
 import { UserManagementWorkspace } from "@/components/admin/user-management-workspace";
 import { HrUsersWorkspace } from "@/components/admin/hr-users-workspace";
@@ -113,6 +114,7 @@ function HrUsersHeaderActions({
 type Props = {
   searchParams: Promise<{
     view?: string;
+    context?: string;
   }>;
 };
 
@@ -125,8 +127,48 @@ export default async function UserManagementPage({ searchParams }: Props) {
   }
 
   const supabase = await createClient();
+  const supportSession = await fetchActiveSupportSession();
+  const supportScope = supportSession?.scope ?? null;
+  const hrSupportReadOnly =
+    canManageRoles(profile.role) &&
+    !canManageStaffAccounts(profile.role) &&
+    supportScope === "hr";
 
-  if (canManageStaffAccounts(profile.role)) {
+  if (params.context === "governance" && canManageRoles(profile.role)) {
+    const adminProfile = await requireManageRoles();
+
+    const { data: users, error } = await supabase.rpc("list_manageable_users");
+
+    if (error) {
+      throw new Error("Unable to load users.");
+    }
+
+    const rows = (users ?? []) as ManageableUserRecord[];
+    const normalizedUsers: ManageableUserRecord[] = rows.map((user) => ({
+      ...user,
+      role: user.role as UserRole,
+    }));
+
+    return (
+      <>
+        <PageHeader
+          title="User Management"
+          description="Manage employee details, roles, and system ownership."
+        />
+        <UserManagementWorkspace
+          initialUsers={normalizedUsers}
+          viewerRole={adminProfile.role}
+          viewerId={adminProfile.id}
+          canTransferOwnership={isOwner(adminProfile.role)}
+        />
+      </>
+    );
+  }
+
+  if (canManageStaffAccounts(profile.role) || hrSupportReadOnly) {
+    if (hrSupportReadOnly && params.view === "approvals") {
+      redirect("/admin/users");
+    }
     const showApprovals = params.view === "approvals";
 
     const { data: pendingCountData } = await supabase.rpc("count_pending_signup_requests");
@@ -186,10 +228,16 @@ export default async function UserManagementPage({ searchParams }: Props) {
           title="Users"
           description="Manage staff access, approvals, and employee records."
           actions={
-            <HrUsersHeaderActions pendingCount={pendingCount} showApprovals={showApprovals} />
+            hrSupportReadOnly ? undefined : (
+              <HrUsersHeaderActions pendingCount={pendingCount} showApprovals={showApprovals} />
+            )
           }
         />
-        <HrUsersWorkspace initialRows={rows} initialTotalCount={totalCount} />
+        <HrUsersWorkspace
+          initialRows={rows}
+          initialTotalCount={totalCount}
+          readOnly={hrSupportReadOnly}
+        />
       </>
     );
   }
@@ -198,32 +246,5 @@ export default async function UserManagementPage({ searchParams }: Props) {
     redirect("/account");
   }
 
-  const adminProfile = await requireManageRoles();
-
-  const { data: users, error } = await supabase.rpc("list_manageable_users");
-
-  if (error) {
-    throw new Error("Unable to load users.");
-  }
-
-  const rows = (users ?? []) as ManageableUserRecord[];
-  const normalizedUsers: ManageableUserRecord[] = rows.map((user) => ({
-    ...user,
-    role: user.role as UserRole,
-  }));
-
-  return (
-    <>
-      <PageHeader
-        title="User Management"
-        description="Manage employee details, roles, and system ownership."
-      />
-      <UserManagementWorkspace
-        initialUsers={normalizedUsers}
-        viewerRole={adminProfile.role}
-        viewerId={adminProfile.id}
-        canTransferOwnership={isOwner(adminProfile.role)}
-      />
-    </>
-  );
+  redirect("/admin/users?context=governance");
 }

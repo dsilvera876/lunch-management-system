@@ -121,6 +121,11 @@ export function ProviderMenuPanel({
 
         {grouped.side.length > 0 ? (
           <section className="mt-6">
+            {validation.mealIncomplete && draft.mainId ? (
+              <p className="mb-2 text-sm text-amber-900" role="status">
+                {MEAL_INCOMPLETE_GUIDANCE}
+              </p>
+            ) : null}
             <h3 className="text-sm font-semibold text-slate-900">
               {getMenuItemTypeLabel("side")}s
             </h3>
@@ -137,11 +142,6 @@ export function ProviderMenuPanel({
                 />
               ))}
             </div>
-            {validation.mealIncomplete ? (
-              <p className="mt-2 text-sm text-amber-900" role="status">
-                {MEAL_INCOMPLETE_GUIDANCE}
-              </p>
-            ) : null}
             {mealComplete ? (
               <div className="mt-4 border-t border-border/60 pt-4">
                 <p className="text-xs font-medium text-muted">Meal quantity</p>

@@ -20,12 +20,14 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
+import { SUPPORT_MODE_DISABLED_HINT } from "@/components/app-shell/support-mode-context";
 
 type Props = {
   periods: LunchPeriod[];
+  readOnly?: boolean;
 };
 
-export function LunchPeriodsTable({ periods }: Props) {
+export function LunchPeriodsTable({ periods, readOnly = false }: Props) {
   const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
 
   return (
@@ -57,7 +59,9 @@ export function LunchPeriodsTable({ periods }: Props) {
                 <th className="px-3 py-2.5 font-medium">End date</th>
                 <th className="px-3 py-2.5 font-medium text-center">Calendar days</th>
                 <th className="px-3 py-2.5 font-medium">Status</th>
-                <th className="px-3 py-2.5 font-medium text-right">Actions</th>
+                {readOnly ? null : (
+                  <th className="px-3 py-2.5 font-medium text-right">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -75,6 +79,7 @@ export function LunchPeriodsTable({ periods }: Props) {
                     status={status}
                     totalDays={totalDays}
                     isEditing={isEditing}
+                    readOnly={readOnly}
                     onEdit={() => setEditingPeriodId(period.id)}
                     onCancel={() => setEditingPeriodId(null)}
                   />
@@ -85,11 +90,15 @@ export function LunchPeriodsTable({ periods }: Props) {
         </div>
       )}
 
-      {periods.length > 0 ? (
+      {periods.length > 0 && !readOnly ? (
         <p className="mt-4 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-muted">
           Only the most recent period can be edited. Start and end dates are locked once a later
           period exists.
         </p>
+      ) : null}
+
+      {readOnly && periods.length > 0 ? (
+        <p className="mt-4 text-sm text-muted">{SUPPORT_MODE_DISABLED_HINT}</p>
       ) : null}
     </Card>
   );
@@ -101,6 +110,7 @@ function PeriodTableRow({
   status,
   totalDays,
   isEditing,
+  readOnly,
   onEdit,
   onCancel,
 }: {
@@ -109,10 +119,11 @@ function PeriodTableRow({
   status: ReturnType<typeof getLunchPeriodAdminStatus>;
   totalDays: number;
   isEditing: boolean;
+  readOnly: boolean;
   onEdit: () => void;
   onCancel: () => void;
 }) {
-  if (isEditing) {
+  if (isEditing && !readOnly) {
     return (
       <tr className="border-b border-border/70 bg-surface/80">
         <td colSpan={6} className="px-3 py-4">
@@ -207,21 +218,23 @@ function PeriodTableRow({
       <td className="px-3 py-2.5">
         <LunchPeriodStatusBadge status={status} />
       </td>
-      <td className="px-3 py-2.5 text-right">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="ghost" className="min-h-8 px-2 text-sm" onClick={onEdit}>
-            Edit
-          </Button>
-          {!period.is_current ? (
-            <form action={setCurrentLunchPeriod} className="inline">
-              <input type="hidden" name="periodId" value={period.id} />
-              <Button type="submit" variant="secondary" className="min-h-8 px-3 text-sm">
-                Make current
-              </Button>
-            </form>
-          ) : null}
-        </div>
-      </td>
+      {readOnly ? null : (
+        <td className="px-3 py-2.5 text-right">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="ghost" className="min-h-8 px-2 text-sm" onClick={onEdit}>
+              Edit
+            </Button>
+            {!period.is_current ? (
+              <form action={setCurrentLunchPeriod} className="inline">
+                <input type="hidden" name="periodId" value={period.id} />
+                <Button type="submit" variant="secondary" className="min-h-8 px-3 text-sm">
+                  Make current
+                </Button>
+              </form>
+            ) : null}
+          </div>
+        </td>
+      )}
     </tr>
   );
 }

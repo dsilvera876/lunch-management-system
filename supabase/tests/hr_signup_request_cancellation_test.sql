@@ -685,6 +685,20 @@ values (
   false
 );
 
+reset role;
+
+update public.lunch_days ld
+set
+  status = 'open',
+  order_deadline = now() + interval '1 day'
+where ld.id = (
+  select ld2.id
+  from public.lunch_days ld2
+  where not (select private.is_order_date_in_finalized_period(ld2.order_date))
+  order by ld2.order_date desc
+  limit 1
+);
+
 insert into public.orders (id, profile_id, lunch_day_id, status)
 select
   'c1888888-8888-4888-8888-888888888888',
@@ -692,7 +706,13 @@ select
   ld.id,
   'submitted'
 from public.lunch_days ld
-limit 1;
+where ld.id = (
+  select ld2.id
+  from public.lunch_days ld2
+  where not (select private.is_order_date_in_finalized_period(ld2.order_date))
+  order by ld2.order_date desc
+  limit 1
+);
 
 set local role authenticated;
 select set_config(

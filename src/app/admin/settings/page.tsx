@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { requireHrAdminOrOwner } from "@/lib/auth";
+import { requireHrOperationalRead } from "@/lib/auth";
 import { canManageCutoff } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
@@ -22,7 +22,7 @@ function SettingsSectionLabel({ children }: { children: ReactNode }) {
 }
 
 export default async function HrSettingsPage({ searchParams }: Props) {
-  const profile = await requireHrAdminOrOwner();
+  const profile = await requireHrOperationalRead();
   const params = await searchParams;
   const supabase = await createClient();
 

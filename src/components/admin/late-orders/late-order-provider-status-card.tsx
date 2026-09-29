@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useSupportMode } from "@/components/app-shell/support-mode-context";
 import { formatHumanDate } from "@/lib/format";
 import { buildLateOrderProviderStatusDisplay } from "@/lib/late-orders-presentation";
 import { canSendOutstandingSupplement } from "@/lib/late-orders";
@@ -40,6 +41,7 @@ export function LateOrderProviderStatusCard({
   onAcknowledgeNotReceived,
   onAcknowledgeReceived,
 }: Props) {
+  const { readOnly } = useSupportMode();
   const display = buildLateOrderProviderStatusDisplay({
     providerName: summary.providerName,
     deliveryDateLabel: formatHumanDate(summary.deliveryDate),
@@ -115,42 +117,44 @@ export function LateOrderProviderStatusCard({
           ) : null}
         </div>
 
-        <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          {canSend ? (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={pending}
-              onClick={() => onSend(summary.providerId, summary.deliveryDate)}
-            >
-              Send outstanding supplement now
-            </Button>
-          ) : null}
-          {summary.attentionDispatchId ? (
-            <div className="space-y-2 text-left sm:text-right">
-              <p className="text-xs text-amber-700">
-                Retrying may send a duplicate supplemental email. Confirm with the provider before
-                retrying.
-              </p>
+        {readOnly ? null : (
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            {canSend ? (
               <Button
                 type="button"
                 variant="secondary"
                 disabled={pending}
-                onClick={() => onAcknowledgeNotReceived(summary.attentionDispatchId!)}
+                onClick={() => onSend(summary.providerId, summary.deliveryDate)}
               >
-                Confirm email was not received and allow retry
+                Send outstanding supplement now
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pending}
-                onClick={() => onAcknowledgeReceived(summary.attentionDispatchId!)}
-              >
-                Confirm provider received email
-              </Button>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+            {summary.attentionDispatchId ? (
+              <div className="space-y-2 text-left sm:text-right">
+                <p className="text-xs text-amber-700">
+                  Retrying may send a duplicate supplemental email. Confirm with the provider before
+                  retrying.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() => onAcknowledgeNotReceived(summary.attentionDispatchId!)}
+                >
+                  Confirm email was not received and allow retry
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() => onAcknowledgeReceived(summary.attentionDispatchId!)}
+                >
+                  Confirm provider received email
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </article>
   );

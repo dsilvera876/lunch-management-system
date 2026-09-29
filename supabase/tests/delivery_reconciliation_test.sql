@@ -44,7 +44,7 @@ values
 update public.app_settings set order_cutoff_time = '23:59:00' where id = 1;
 
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 select public.create_first_lunch_period('Rec Payroll', '2099-01-01', '2099-01-31');
 reset role;
 

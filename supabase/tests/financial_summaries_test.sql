@@ -1,6 +1,6 @@
 begin;
 
-select plan(39);
+select plan(40);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -53,7 +53,7 @@ values
   ('c2222222-2222-4222-8222-222222222222', 5);
 
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select public.create_first_lunch_period('September Payroll A', '2099-01-01', '2099-01-11');
 select public.create_next_lunch_period('September Payroll B', '2099-01-25');
@@ -285,18 +285,20 @@ select results_eq(
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select results_eq(
+select throws_ok(
   $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2099-01-01'::date, '2099-01-11'::date) $$,
-  array[12.00::numeric],
-  'Admin sees all staff summaries'
+  'P0001',
+  null,
+  'Admin cannot see staff summaries without Accounts support'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
 
-select results_eq(
+select throws_ok(
   $$ select public.financial_total_for_profile('a2222222-2222-4222-8222-222222222222', '2099-01-01'::date, '2099-01-11'::date) $$,
-  array[12.00::numeric],
-  'Owner sees all staff summaries'
+  'P0001',
+  null,
+  'Owner cannot see staff summaries without Accounts support'
 );
 
 -- ============================================================
@@ -441,24 +443,32 @@ select lives_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
--- September still open for admin finalize test on a copy - reopen by creating fresh? Already have September open.
--- August already finalized; test admin/owner can finalize September later
-
-select lives_ok(
+select throws_ok(
   $$ select public.finalize_lunch_period((select id from public.lunch_periods where label = 'September Payroll B')) $$,
-  'Admin can finalize a lunch period'
+  'P0001',
+  null,
+  'Admin cannot finalize a lunch period without Accounts role'
 );
 
 reset role;
 
-select public.create_next_lunch_period('October Payroll', '2099-02-28');
-
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', 'a6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+
+select public.create_next_lunch_period('October Payroll', '2099-02-28');
 
 select lives_ok(
   $$ select public.finalize_lunch_period((select id from public.lunch_periods where label = 'October Payroll')) $$,
-  'Owner can finalize a lunch period'
+  'Accounts can finalize October payroll period'
+);
+
+select set_config('request.jwt.claims', json_build_object('sub', 'a6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
+
+select throws_ok(
+  $$ select public.finalize_lunch_period((select id from public.lunch_periods where label = 'October Payroll')) $$,
+  'P0001',
+  null,
+  'Owner cannot finalize a lunch period without Accounts role'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a3333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
@@ -479,7 +489,7 @@ select throws_ok(
   'Staff cannot finalize lunch periods'
 );
 
-select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select throws_ok(
   $$
@@ -580,7 +590,7 @@ select results_eq(
 -- Open period order mutation uses November (still open)
 
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'a4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select public.create_next_lunch_period('November Payroll', '2099-03-31');
 
@@ -646,16 +656,20 @@ select lives_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
-select lives_ok(
+select throws_ok(
   $$ select public.get_lunch_period_export_data((select id from public.lunch_periods where label = 'September Payroll A')) $$,
-  'Admin can access export data'
+  'P0001',
+  null,
+  'Admin cannot access export data without Accounts support'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', 'a6666666-6666-4666-8666-666666666666', 'role', 'authenticated')::text, true);
 
-select lives_ok(
+select throws_ok(
   $$ select public.get_lunch_period_export_data((select id from public.lunch_periods where label = 'September Payroll A')) $$,
-  'Owner can access export data'
+  'P0001',
+  null,
+  'Owner cannot access export data without Accounts support'
 );
 
 select * from finish();
