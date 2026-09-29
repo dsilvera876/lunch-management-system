@@ -57,5 +57,7 @@ describe("user import results presentation", () => {
     assert.match(workspace, /data-testid="bulk-import-indeterminate-progress"/);
     assert.doesNotMatch(workspace, /running in the background/i);
     assert.doesNotMatch(workspace, /every few seconds/i);
+    assert.doesNotMatch(workspace, /Refresh status/);
+    assert.match(workspace, /userImportResultsDescription/);
   });
 });

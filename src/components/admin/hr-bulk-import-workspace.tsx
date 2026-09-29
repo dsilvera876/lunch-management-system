@@ -797,39 +797,21 @@ export function HrBulkImportWorkspace({ initialBatchId }: Props) {
 
       {currentStep === 3 && batchStatus && importStarted ? (
         <Card padding="md" className="shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div
-              className="min-w-0 flex-1"
-              aria-live="polite"
-              aria-atomic="true"
-              data-testid="bulk-import-status-announcement"
-            >
-              <span className="sr-only">{resultsLiveStatusText}</span>
-              <div className="flex items-start gap-3">
-                {resultsShowsActivity ? <BulkImportActivityIndicator /> : null}
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-foreground">{resultsHeading}</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">{resultsDescription}</p>
-                </div>
+          <div
+            className="min-w-0"
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="bulk-import-status-announcement"
+          >
+            <span className="sr-only">{resultsLiveStatusText}</span>
+            <div className="flex items-start gap-3">
+              {resultsShowsActivity ? <BulkImportActivityIndicator /> : null}
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-foreground">{resultsHeading}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{resultsDescription}</p>
               </div>
             </div>
-            {!batchComplete && batchId ? (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={isPending}
-                onClick={() => refreshBatchStatus(batchId)}
-                aria-describedby="bulk-import-refresh-hint"
-              >
-                Refresh status
-              </Button>
-            ) : null}
           </div>
-          {!batchComplete ? (
-            <p id="bulk-import-refresh-hint" className="sr-only">
-              Optional manual refresh. Status updates automatically; you do not need to refresh.
-            </p>
-          ) : null}
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <ResultStatusChip status={String(batchStatus.status ?? "processing")} />

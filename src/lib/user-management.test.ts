@@ -167,7 +167,7 @@ describe("user management workspace wiring", () => {
   });
 
   it("uses User Management breadcrumb without linking Administration to /admin", () => {
-    const crumbs = getBreadcrumbs("/admin/users");
+    const crumbs = getBreadcrumbs("/admin/users", { role: "admin" });
 
     assert.equal(crumbs[0]?.label, "Home");
     assert.equal(crumbs[0]?.href, "/home");
@@ -296,12 +296,13 @@ describe("user management workspace wiring", () => {
     );
   });
 
-  it("uses Bulk Import breadcrumbs under Users", () => {
-    const crumbs = getBreadcrumbs("/admin/users/import");
+  it("uses Bulk Import breadcrumbs under Users for HR", () => {
+    const crumbs = getBreadcrumbs("/admin/users/import", { role: "hr" });
 
-    assert.equal(crumbs[2]?.label, "Users");
-    assert.equal(crumbs[2]?.href, "/admin/users");
-    assert.equal(crumbs[3]?.label, "Bulk Import");
+    assert.equal(crumbs[1]?.label, "Users");
+    assert.equal(crumbs[1]?.href, "/admin/users");
+    assert.equal(crumbs[2]?.label, "Bulk Import");
+    assert.ok(!crumbs.some((crumb) => crumb.label === "Administration"));
   });
 
   it("enables HR pending approvals entry point with count and approvals view", () => {

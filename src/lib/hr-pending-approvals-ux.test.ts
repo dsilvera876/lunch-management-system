@@ -36,8 +36,25 @@ describe("HR pending approvals UX", () => {
     );
 
     assert.match(page, /variant=\{pendingCount > 0 \? "primary" : "secondary"\}/);
+    assert.match(page, /pendingCount > 0 \?/);
     assert.match(page, /bg-red-600/);
     assert.match(page, /Pending approvals, \$\{pendingCount\} request/);
+    assert.match(page, /aria-hidden/);
+  });
+
+  it("uses neutral pending approvals button without badge when count is zero", () => {
+    const page = readFileSync(
+      new URL("../app/admin/users/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(page, /variant=\{pendingCount > 0 \? "primary" : "secondary"\}/);
+    assert.match(page, /\{pendingCount > 0 \? \(/);
+    assert.match(page, /: "Pending approvals"/);
+    assert.doesNotMatch(
+      page,
+      /Pending approvals[\s\S]{0,80}bg-red-600[\s\S]{0,80}Pending approvals/,
+    );
   });
 
   it("shows HR dashboard alert on home when pending approvals exist", () => {

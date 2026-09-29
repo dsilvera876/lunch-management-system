@@ -3,6 +3,15 @@ export type BreadcrumbItem = {
   href?: string;
 };
 
+export type BreadcrumbOptions = {
+  /** Authenticated profile role; HR users omit Administration on Users paths. */
+  role?: string;
+};
+
+function isHrUsersContext(role: string | undefined): boolean {
+  return role === "hr";
+}
+
 const LABELS: Record<string, string> = {
   home: "Dashboard",
   lunch: "Today's Order",
@@ -30,7 +39,8 @@ function adminSectionLabel(section: string): string {
   return LABELS[section] ?? section.replace(/-/g, " ");
 }
 
-export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
+export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}): BreadcrumbItem[] {
+  const { role } = options;
   const crumbs: BreadcrumbItem[] = [{ label: "Home", href: "/home" }];
 
   if (pathname === "/home") {
@@ -78,10 +88,20 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
       return crumbs;
     }
 
-    if (section === "users" && segments[2] === "import") {
+    if (section === "users") {
+      if (segments[2] === "import") {
+        crumbs.push({ label: "Users", href: "/admin/users" });
+        crumbs.push({ label: "Bulk Import" });
+        return crumbs;
+      }
+
+      if (isHrUsersContext(role)) {
+        crumbs.push({ label: "Users" });
+        return crumbs;
+      }
+
       crumbs.push({ label: "Administration" });
-      crumbs.push({ label: "Users", href: "/admin/users" });
-      crumbs.push({ label: "Bulk Import" });
+      crumbs.push({ label: "Users" });
       return crumbs;
     }
 

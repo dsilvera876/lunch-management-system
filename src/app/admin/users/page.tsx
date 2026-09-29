@@ -86,16 +86,20 @@ function HrUsersHeaderActions({
         <Button
           type="button"
           variant={pendingCount > 0 ? "primary" : "secondary"}
+          className={pendingCount > 0 ? "text-white" : undefined}
           aria-label={
             pendingCount > 0
               ? `Pending approvals, ${pendingCount} request${pendingCount === 1 ? "" : "s"} pending`
               : "Pending approvals"
           }
         >
-          <span className="inline-flex items-center gap-2">
-            Pending approvals
+          <span className="inline-flex items-center gap-2.5">
+            <span>Pending approvals</span>
             {pendingCount > 0 ? (
-              <span className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">
+              <span
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-xs font-bold leading-none text-white"
+                aria-hidden
+              >
                 {pendingCount}
               </span>
             ) : null}

@@ -32,7 +32,7 @@ function getInitials(name: string | null): string {
 
 export function TopHeader({ profile, notifications = [] }: Props) {
   const pathname = usePathname();
-  const breadcrumbs = getBreadcrumbs(pathname);
+  const breadcrumbs = getBreadcrumbs(pathname, { role: profile.role });
   const jamaicaToday = getJamaicaTodayDate();
   const headerDateLabel = formatJamaicaHeaderDate(jamaicaToday);
 
