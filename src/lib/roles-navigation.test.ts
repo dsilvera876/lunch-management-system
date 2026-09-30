@@ -244,7 +244,9 @@ describe("navigation by role", () => {
 
   it("allows HR settings hub for HR but not staff, accounts, or governance roles", () => {
     assert.equal(canAccessRoute("hr", "/admin/settings"), true);
+    assert.equal(canAccessRoute("hr", "/admin/settings/business-calendar"), true);
     assert.equal(canAccessRoute("admin", "/admin/settings"), false);
+    assert.equal(canAccessRoute("admin", "/admin/settings/business-calendar"), false);
     assert.equal(canAccessRoute("owner", "/admin/settings"), false);
     assert.equal(canAccessRoute("staff", "/admin/settings"), false);
     assert.equal(canAccessRoute("accounts", "/admin/settings"), false);

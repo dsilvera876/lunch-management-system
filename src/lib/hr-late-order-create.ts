@@ -1,6 +1,10 @@
 import { candidateLateOrderDeliveryDates } from "@/lib/late-order-cycle";
 import { getJamaicaTodayDate, getOrderDateForDeliveryDate } from "@/lib/datetime";
 import {
+  fetchCandidateLateOrderDeliveryDates,
+  fetchOrderDateForDeliveryDate,
+} from "@/lib/business-calendar-server";
+import {
   isProviderLateOrderingOpen,
   type ProviderLateOrderSettings,
 } from "@/lib/late-orders";
@@ -14,6 +18,8 @@ export type HrLateOrderCreationCycle = {
 export function listHrLateOrderCreationCycles(input: {
   today: string;
   now: Date;
+  deliveryDates?: string[];
+  orderDateByDeliveryDate?: Record<string, string | null>;
   provider: Pick<
     ProviderLateOrderSettings,
     | "acceptsLateOrders"
@@ -27,9 +33,13 @@ export function listHrLateOrderCreationCycles(input: {
   }
 
   const cycles: HrLateOrderCreationCycle[] = [];
+  const deliveryDates =
+    input.deliveryDates ?? candidateLateOrderDeliveryDates(input.today);
 
-  for (const deliveryDate of candidateLateOrderDeliveryDates(input.today)) {
-    const orderDate = getOrderDateForDeliveryDate(deliveryDate);
+  for (const deliveryDate of deliveryDates) {
+    const orderDate =
+      input.orderDateByDeliveryDate?.[deliveryDate] ??
+      getOrderDateForDeliveryDate(deliveryDate);
 
     if (!orderDate) {
       continue;
@@ -77,10 +87,13 @@ export async function fetchHrLateOrderCreationCyclesForProvider(
     return [];
   }
 
+  const deliveryDates = await fetchCandidateLateOrderDeliveryDates(today);
+  const orderDateByDeliveryDate: Record<string, string | null> = {};
   const cutoffByOrderDate: Record<string, boolean> = {};
 
-  for (const deliveryDate of candidateLateOrderDeliveryDates(today)) {
-    const orderDate = getOrderDateForDeliveryDate(deliveryDate);
+  for (const deliveryDate of deliveryDates) {
+    const orderDate = await fetchOrderDateForDeliveryDate(deliveryDate, null);
+    orderDateByDeliveryDate[deliveryDate] = orderDate;
 
     if (!orderDate || orderDate in cutoffByOrderDate) {
       continue;
@@ -98,6 +111,8 @@ export async function fetchHrLateOrderCreationCyclesForProvider(
   return listHrLateOrderCreationCycles({
     today,
     now,
+    deliveryDates,
+    orderDateByDeliveryDate,
     provider: {
       acceptsLateOrders: provider.accepts_late_orders,
       lateOrderDeadlineDay: provider.late_order_deadline_day,

@@ -65,7 +65,8 @@ export function getDaysUntilDelivery(orderWeekday: Weekday): number {
 
 /**
  * Delivery calendar date for an order placed on orderDateStr (YYYY-MM-DD, Jamaica).
- * Mon order -> Tue delivery, Fri order -> Mon delivery.
+ * Mon–Fri weekday mirror of `public.delivery_date_for_order_date(date)` when the
+ * business calendar has no exceptions. Authoritative ordering uses database RPCs.
  */
 export function addCalendarDays(dateStr: string, days: number): string {
   const date = new Date(`${dateStr}T12:00:00-05:00`);

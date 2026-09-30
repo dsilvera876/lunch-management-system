@@ -1,6 +1,6 @@
 import { requireViewAllOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
+import { fetchDefaultOperationalDeliveryDate } from "@/lib/business-calendar-server";
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
@@ -22,7 +22,7 @@ export default async function AllProvidersDeliveryPrintPage({ searchParams }: Pr
 
   const { deliveryDate: deliveryDateParam } = await searchParams;
   const deliveryDate =
-    deliveryDateParam?.trim() || getDefaultOperationalDeliveryDate();
+    deliveryDateParam?.trim() || (await fetchDefaultOperationalDeliveryDate());
 
   const supabase = await createClient();
 

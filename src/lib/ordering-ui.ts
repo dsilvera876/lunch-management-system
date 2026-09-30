@@ -29,14 +29,30 @@ export type OrderingClosedReason = {
 export function getOrderingClosedReason(
   ctx: Pick<
     StaffOrderingContext,
-    "orderWeekday" | "periodFinalized" | "orderingOpen"
+    "orderWeekday" | "businessDayOpen" | "periodFinalized" | "orderingOpen"
   >,
 ): OrderingClosedReason | null {
+  if (!ctx.businessDayOpen) {
+    if (!ctx.orderWeekday) {
+      return {
+        title: "Ordering closed for the weekend",
+        description:
+          "Lunch ordering is closed on weekends. Ordering resumes on the next open business day.",
+      };
+    }
+
+    return {
+      title: "Ordering closed today",
+      description:
+        "Lunch ordering is closed today because of the business calendar (holiday or company closure).",
+    };
+  }
+
   if (!ctx.orderWeekday) {
     return {
       title: "Ordering closed for the weekend",
       description:
-        "Lunch ordering is closed on weekends. Ordering resumes Monday for Tuesday delivery.",
+        "Lunch ordering is closed on weekends. Ordering resumes on the next open business day.",
     };
   }
 

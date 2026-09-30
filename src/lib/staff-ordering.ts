@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  getDeliveryDateForOrderDate,
   getJamaicaIsoWeekday,
   getJamaicaTodayDate,
   type Weekday,
@@ -48,6 +47,7 @@ export type DeliveryOrderSummary = {
 export type StaffOrderingContext = {
   orderDate: string;
   orderWeekday: Weekday | null;
+  businessDayOpen: boolean;
   deliveryDate: string | null;
   cutoffTime: string;
   orderDeadline: string | null;
@@ -63,9 +63,27 @@ export async function getStaffOrderingContext(
   const supabase = await createClient();
   const orderDate = getJamaicaTodayDate();
   const orderWeekday = getJamaicaIsoWeekday(orderDate);
-  const deliveryDate = orderWeekday
-    ? getDeliveryDateForOrderDate(orderDate)
-    : null;
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("default_office_location_id")
+    .eq("id", profileId)
+    .single();
+
+  const officeLocationId = profileRow?.default_office_location_id ?? null;
+
+  const { data: businessDayOpen } = await supabase.rpc("is_business_day", {
+    p_date: orderDate,
+    p_office_location_id: officeLocationId,
+  });
+
+  const { data: deliveryDate } =
+    businessDayOpen === true
+      ? await supabase.rpc("delivery_date_for_order_date", {
+          p_order_date: orderDate,
+          p_office_location_id: officeLocationId,
+        })
+      : { data: null };
 
   const [{ data: settings }, { data: providers }, { data: orders }] =
     await Promise.all([
@@ -75,7 +93,7 @@ export async function getStaffOrderingContext(
         .eq("id", 1)
         .single(),
 
-      orderWeekday
+      orderWeekday && businessDayOpen === true
         ? supabase
             .from("lunch_providers")
             .select(`
@@ -141,19 +159,22 @@ export async function getStaffOrderingContext(
 
   const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
 
-  const { data: orderDeadline } = orderWeekday
-    ? await supabase.rpc("order_deadline_for_order_date", {
-        p_order_date: orderDate,
-      })
-    : { data: null };
+  const { data: orderDeadline } =
+    orderWeekday && businessDayOpen === true
+      ? await supabase.rpc("order_deadline_for_order_date", {
+          p_order_date: orderDate,
+        })
+      : { data: null };
 
-  const { data: periodFinalized } = orderWeekday
-    ? await supabase.rpc("is_order_date_in_finalized_period", {
-        p_order_date: orderDate,
-      })
-    : { data: false };
+  const { data: periodFinalized } =
+    orderWeekday && businessDayOpen === true
+      ? await supabase.rpc("is_order_date_in_finalized_period", {
+          p_order_date: orderDate,
+        })
+      : { data: false };
 
   const orderingOpen =
+    businessDayOpen === true &&
     orderWeekday !== null &&
     orderDeadline !== null &&
     !periodFinalized &&
@@ -223,7 +244,8 @@ export async function getStaffOrderingContext(
   return {
     orderDate,
     orderWeekday,
-    deliveryDate,
+    businessDayOpen: businessDayOpen === true,
+    deliveryDate: deliveryDate ?? null,
     cutoffTime,
     orderDeadline: orderDeadline ?? null,
     periodFinalized: Boolean(periodFinalized),

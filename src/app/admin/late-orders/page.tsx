@@ -1,10 +1,13 @@
 import { requireViewAllOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getJamaicaTodayDate, getOrderDateForDeliveryDate } from "@/lib/datetime";
+import { getJamaicaTodayDate } from "@/lib/datetime";
+import {
+  fetchCandidateLateOrderDeliveryDates,
+  fetchOrderDateForDeliveryDate,
+} from "@/lib/business-calendar-server";
 import { getRelated } from "@/lib/format";
 import { listHrLateOrderCreationCycles } from "@/lib/hr-late-order-create";
 import {
-  candidateLateOrderDeliveryDates,
   classifyLateOrderSnapshotWarning,
   resolvePrimaryLateOrderDeliveryDate,
   shouldShowLateOrderProviderSummary,
@@ -51,7 +54,7 @@ export default async function LateOrdersPage() {
   const supabase = await createClient();
   const today = getJamaicaTodayDate();
   const now = new Date();
-  const deliveryDatesToLoad = candidateLateOrderDeliveryDates(today);
+  const deliveryDatesToLoad = await fetchCandidateLateOrderDeliveryDates(today);
 
   const [
     { data: providers },
@@ -83,14 +86,7 @@ export default async function LateOrdersPage() {
 
   for (const provider of providers ?? []) {
     for (const deliveryDate of deliveryDatesToLoad) {
-      const orderDateFromRpc = await supabase.rpc("order_date_for_delivery_date", {
-        p_delivery_date: deliveryDate,
-      });
-
-      const orderDate =
-        orderDateFromRpc.data != null
-          ? String(orderDateFromRpc.data)
-          : getOrderDateForDeliveryDate(deliveryDate);
+      const orderDate = await fetchOrderDateForDeliveryDate(deliveryDate, null);
 
       if (!orderDate) {
         continue;
@@ -344,8 +340,11 @@ export default async function LateOrdersPage() {
 
   const orderDatesForCutoff = new Set<string>();
 
+  const orderDateByDeliveryDate: Record<string, string | null> = {};
+
   for (const deliveryDate of deliveryDatesToLoad) {
-    const orderDate = getOrderDateForDeliveryDate(deliveryDate);
+    const orderDate = await fetchOrderDateForDeliveryDate(deliveryDate, null);
+    orderDateByDeliveryDate[deliveryDate] = orderDate;
 
     if (orderDate) {
       orderDatesForCutoff.add(orderDate);
@@ -375,6 +374,8 @@ export default async function LateOrdersPage() {
     providerCreationCycles[provider.id] = listHrLateOrderCreationCycles({
       today,
       now,
+      deliveryDates: deliveryDatesToLoad,
+      orderDateByDeliveryDate,
       provider: {
         acceptsLateOrders: provider.accepts_late_orders,
         lateOrderDeadlineDay: provider.late_order_deadline_day,

@@ -11,7 +11,8 @@ import {
   type ProviderLateOrderSettings,
   type SupplementalDispatchMode,
 } from "@/lib/late-orders";
-import { getDeliveryDateForOrderDate, getJamaicaTodayDate } from "@/lib/datetime";
+import { getJamaicaTodayDate } from "@/lib/datetime";
+import { fetchDeliveryDateForOrderDate } from "@/lib/business-calendar-server";
 import { createClient } from "@/lib/supabase/server";
 
 function readDeadlineDay(value: FormDataEntryValue | null): LateOrderDeadlineDay | null {
@@ -65,7 +66,7 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
   }
 
   const orderDate = getJamaicaTodayDate();
-  const deliveryDate = getDeliveryDateForOrderDate(orderDate);
+  const deliveryDate = await fetchDeliveryDateForOrderDate(orderDate, null);
 
   if (deliveryDate) {
     const validationError = validateAutomaticSupplementSchedule(

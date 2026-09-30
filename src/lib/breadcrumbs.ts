@@ -78,6 +78,12 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
         return crumbs;
       }
 
+      if (subSection === "business-calendar") {
+        crumbs.push({ label: "Settings", href: "/admin/settings" });
+        crumbs.push({ label: "Business Calendar" });
+        return crumbs;
+      }
+
       crumbs.push({ label: "Settings" });
       return crumbs;
     }

@@ -26,6 +26,8 @@ describe("HR settings presentation", () => {
     assert.match(cutoffCard, /Save cutoff/);
     assert.match(cutoffCard, /type="time"/);
     assert.match(cutoffCard, /updateOrderCutoff/);
+    assert.match(settingsPage, /Business Calendar/);
+    assert.match(settingsPage, /\/admin\/settings\/business-calendar/);
     assert.match(settingsPage, /Manage locations/);
     assert.match(settingsPage, /Manage providers/);
     assert.match(operationsCard, /actionLabel/);

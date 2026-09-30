@@ -39,6 +39,7 @@ describe("getOrderingClosedReason", () => {
   it("returns weekend reason when there is no order weekday", () => {
     const reason = getOrderingClosedReason({
       orderWeekday: null,
+      businessDayOpen: false,
       periodFinalized: false,
       orderingOpen: false,
     });
@@ -46,9 +47,22 @@ describe("getOrderingClosedReason", () => {
     assert.equal(reason?.title, "Ordering closed for the weekend");
   });
 
+  it("returns calendar closure on a weekday", () => {
+    const reason = getOrderingClosedReason({
+      orderWeekday: 3,
+      businessDayOpen: false,
+      periodFinalized: false,
+      orderingOpen: false,
+    });
+
+    assert.equal(reason?.title, "Ordering closed today");
+    assert.match(reason?.description ?? "", /business calendar/);
+  });
+
   it("returns finalized reason before cutoff reason", () => {
     const reason = getOrderingClosedReason({
       orderWeekday: 1,
+      businessDayOpen: true,
       periodFinalized: true,
       orderingOpen: false,
     });
@@ -60,6 +74,7 @@ describe("getOrderingClosedReason", () => {
     assert.equal(
       getOrderingClosedReason({
         orderWeekday: 2,
+        businessDayOpen: true,
         periodFinalized: false,
         orderingOpen: true,
       }),
@@ -70,6 +85,7 @@ describe("getOrderingClosedReason", () => {
   it("returns cutoff reason when the window is closed", () => {
     const reason = getOrderingClosedReason({
       orderWeekday: 3,
+      businessDayOpen: true,
       periodFinalized: false,
       orderingOpen: false,
     });

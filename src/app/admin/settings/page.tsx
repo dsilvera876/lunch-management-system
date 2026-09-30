@@ -66,6 +66,13 @@ export default async function HrSettingsPage({ searchParams }: Props) {
           <SettingsSectionLabel>Operations</SettingsSectionLabel>
           <div className="grid gap-4 md:grid-cols-2">
             <SettingsOperationsCard
+              href="/admin/settings/business-calendar"
+              title="Business Calendar"
+              description="Manage public holidays, company closures, and exceptional business days."
+              actionLabel="Manage calendar"
+              icon="calendar"
+            />
+            <SettingsOperationsCard
               href="/admin/locations"
               title="Office Locations"
               description="Manage delivery locations and office addresses used when ordering."

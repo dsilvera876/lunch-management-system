@@ -16,7 +16,7 @@ import {
 } from "@/lib/operational-orders-data";
 import { OperationalOrderCard } from "@/components/admin/operational-orders";
 import { PrintDeliverySheetButton } from "@/components/admin/print-delivery-sheet-button";
-import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
+import { fetchDefaultOperationalDeliveryDate } from "@/lib/business-calendar-server";
 
 type Props = {
   params: Promise<{ providerId: string }>;
@@ -32,7 +32,7 @@ export default async function ProviderDeliveryPrintPage({
   const { providerId } = await params;
   const { deliveryDate: deliveryDateParam } = await searchParams;
   const deliveryDate =
-    deliveryDateParam?.trim() || getDefaultOperationalDeliveryDate();
+    deliveryDateParam?.trim() || (await fetchDefaultOperationalDeliveryDate());
 
   const supabase = await createClient();
 

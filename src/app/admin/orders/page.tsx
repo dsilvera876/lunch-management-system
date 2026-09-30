@@ -1,6 +1,6 @@
 import { requireViewAllOrders, canFulfillOrders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getDefaultOperationalDeliveryDate } from "@/lib/operational-delivery-date";
+import { fetchDefaultOperationalDeliveryDate } from "@/lib/business-calendar-server";
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
@@ -36,7 +36,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
 
-  const defaultDeliveryDate = getDefaultOperationalDeliveryDate();
+  const defaultDeliveryDate = await fetchDefaultOperationalDeliveryDate();
   const filters = parseOrderHistoryFilters({
     deliveryDate: params.deliveryDate,
     provider: params.provider,

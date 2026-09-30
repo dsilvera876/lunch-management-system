@@ -160,6 +160,7 @@ export function canAccessHrToolsRoute(
   if (
     href === "/admin/providers" ||
     href === "/admin/settings" ||
+    href === "/admin/settings/business-calendar" ||
     href === "/admin/todays-orders" ||
     href === "/admin/late-orders" ||
     href === "/admin/deliveries" ||

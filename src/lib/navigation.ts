@@ -155,6 +155,10 @@ function hrToolsRouteKeyForPathname(pathname: string): string | null {
   if (pathname.startsWith("/admin/providers")) {
     return "/admin/providers";
   }
+  if (pathname.startsWith("/admin/settings/business-calendar")) {
+    return "/admin/settings/business-calendar";
+  }
+
   if (pathname === "/admin/settings") {
     return "/admin/settings";
   }
@@ -247,7 +251,8 @@ export function matchesNavPath(pathname: string, href: string): boolean {
   if (href === "/admin/settings") {
     return (
       pathname === "/admin/settings" ||
-      pathname.startsWith("/admin/locations")
+      pathname.startsWith("/admin/locations") ||
+      pathname.startsWith("/admin/settings/business-calendar")
     );
   }
 

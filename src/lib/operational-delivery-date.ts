@@ -4,8 +4,8 @@ import {
 } from "@/lib/datetime";
 
 /**
- * Default delivery date for HR operational views.
- * Mon–Fri use today (active delivery days). Weekends use the next Mon–Fri delivery day.
+ * Default delivery date for HR operational views (weekday-only mirror).
+ * Server routes must use `fetchDefaultOperationalDeliveryDate` from business-calendar-server.
  */
 export function getDefaultOperationalDeliveryDate(
   today = getJamaicaTodayDate(),

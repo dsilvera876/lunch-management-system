@@ -637,7 +637,7 @@ select throws_ok(
     )
   $$,
   'P0001',
-  'Ordering is not available on weekends',
+  'Ordering is not available on this date',
   'Weekend ordering is rejected'
 );
 

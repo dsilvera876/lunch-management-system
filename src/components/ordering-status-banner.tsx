@@ -12,6 +12,7 @@ type Props = Pick<
   | "cutoffTime"
   | "orderingOpen"
   | "orderWeekday"
+  | "businessDayOpen"
   | "periodFinalized"
 > & {
   defaultLocationName?: string | null;
@@ -22,16 +23,18 @@ export function OrderingStatusBanner({
   cutoffTime,
   orderingOpen,
   orderWeekday,
+  businessDayOpen,
   periodFinalized,
   defaultLocationName,
 }: Props) {
   const closedReason = getOrderingClosedReason({
     orderWeekday,
+    businessDayOpen,
     periodFinalized,
     orderingOpen,
   });
 
-  if (!orderWeekday || !deliveryDate) {
+  if (!businessDayOpen || !orderWeekday || !deliveryDate) {
     return (
       <Card className="mb-8" padding="sm">
         <div className="flex flex-wrap items-center gap-2">
