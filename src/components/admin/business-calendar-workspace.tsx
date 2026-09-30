@@ -7,13 +7,14 @@ import { BusinessCalendarEntryDrawer } from "@/components/admin/business-calenda
 import { useSupportMode } from "@/components/app-shell/support-mode-context";
 import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
 import { IconPencil, IconX } from "@/components/icons/line-icons";
-import { Alert } from "@/components/ui/alert";
-import { Button, linkButtonClass } from "@/components/ui/button";
+import { BusinessCalendarInfoCallout } from "@/components/admin/business-calendar-ui";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   businessCalendarEntryTypeLabel,
   businessCalendarScopeLabel,
   businessCalendarSourceLabel,
+  businessCalendarTableActionClassName,
   formatBusinessCalendarDisplayDate,
   type BusinessCalendarEntryRow,
   type BusinessCalendarEntryType,
@@ -104,11 +105,11 @@ export function BusinessCalendarWorkspace({
 
   return (
     <div className="space-y-4">
-      <Alert variant="info">
+      <BusinessCalendarInfoCallout>
         This calendar controls which dates are open or closed for lunch ordering.
         Weekends (Saturday and Sunday) are closed automatically unless an override
         is added.
-      </Alert>
+      </BusinessCalendarInfoCallout>
 
       {readOnly ? <SupportModeMutationHint /> : null}
 
@@ -226,7 +227,7 @@ export function BusinessCalendarWorkspace({
                         {isOfficial || readOnly ? (
                           <button
                             type="button"
-                            className={linkButtonClass("ghost")}
+                            className={businessCalendarTableActionClassName("view")}
                             onClick={() => openEdit(entry, true)}
                           >
                             View
@@ -235,16 +236,16 @@ export function BusinessCalendarWorkspace({
                           <>
                             <button
                               type="button"
-                              className={linkButtonClass("ghost")}
-                              aria-label="Edit entry"
+                              className={businessCalendarTableActionClassName("edit")}
+                              aria-label="Edit calendar entry"
                               onClick={() => openEdit(entry, false)}
                             >
                               <IconPencil aria-hidden />
                             </button>
                             <button
                               type="button"
-                              className={`${linkButtonClass("ghost")} text-red-600`}
-                              aria-label="Archive entry"
+                              className={businessCalendarTableActionClassName("archive")}
+                              aria-label="Archive calendar entry"
                               onClick={() => handleArchive(entry.id)}
                             >
                               <IconX aria-hidden />

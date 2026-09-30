@@ -253,6 +253,16 @@ export function IconInfo(props: IconProps) {
   );
 }
 
+export function IconAlertTriangle(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M12 3 22 20H2L12 3z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </LineIcon>
+  );
+}
+
 export function IconDownload(props: IconProps) {
   return (
     <LineIcon {...props}>

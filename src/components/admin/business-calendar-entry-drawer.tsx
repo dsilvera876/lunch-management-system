@@ -1,19 +1,22 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   previewBusinessCalendarEntryImpactAction,
   saveBusinessCalendarEntry,
 } from "@/app/admin/settings/business-calendar/actions";
 import { AdminSlideOver } from "@/components/admin/lunch-providers/admin-slide-over";
+import { BusinessCalendarImpactWarning } from "@/components/admin/business-calendar-ui";
 import { Button } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
+import { FormActionStatus } from "@/components/ui/form-action-status";
 import {
+  BUSINESS_CALENDAR_DRAWER_ACTIONS,
   BUSINESS_CALENDAR_ENTRY_TYPE_OPTIONS,
   type BusinessCalendarEntryRow,
   type BusinessCalendarEntryType,
   type BusinessCalendarScope,
 } from "@/lib/business-calendar-presentation";
+import type { BusinessCalendarEntryImpact } from "@/lib/business-calendar-server";
 import type { OfficeLocationRecord } from "@/lib/office-locations-presentation";
 
 type Props = {
@@ -27,6 +30,10 @@ type Props = {
 const fieldClass =
   "mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground shadow-sm";
 
+function isImpactConfirmationRequired(message: string): boolean {
+  return message.includes("CALENDAR_IMPACT_CONFIRMATION_REQUIRED");
+}
+
 export function BusinessCalendarEntryDrawer({
   open,
   onClose,
@@ -35,9 +42,11 @@ export function BusinessCalendarEntryDrawer({
   readOnly,
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
+  const impactWarningRef = useRef<HTMLDivElement>(null);
+  const lastImpactScrollKey = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [impactSummary, setImpactSummary] = useState<string | null>(null);
+  const [impact, setImpact] = useState<BusinessCalendarEntryImpact | null>(null);
 
   const title = entry ? "Edit Calendar Entry" : "Add Calendar Entry";
   const formKey = entry?.id ?? "new";
@@ -50,12 +59,44 @@ export function BusinessCalendarEntryDrawer({
   const [entryType, setEntryType] = useState<BusinessCalendarEntryType>(initialEntryType);
   const [notes, setNotes] = useState(initialNotes);
 
+  const confirmationRequired = Boolean(impact?.requires_confirmation);
+
   const typeHelp = useMemo(
     () =>
       BUSINESS_CALENDAR_ENTRY_TYPE_OPTIONS.find((option) => option.value === entryType)
         ?.description ?? "",
     [entryType],
   );
+
+  function handleClose() {
+    setImpact(null);
+    setError(null);
+    lastImpactScrollKey.current = null;
+    onClose();
+  }
+
+  useEffect(() => {
+    if (!confirmationRequired || !impact) {
+      lastImpactScrollKey.current = null;
+      return;
+    }
+
+    const scrollKey = `${impact.lunch_day_count}:${impact.submitted_order_count}:${impact.summary ?? ""}`;
+
+    if (lastImpactScrollKey.current === scrollKey) {
+      return;
+    }
+
+    lastImpactScrollKey.current = scrollKey;
+    const node = impactWarningRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    node.focus({ preventScroll: true });
+  }, [confirmationRequired, impact]);
 
   async function persistEntry(acknowledgeImpact: boolean) {
     const form = formRef.current;
@@ -71,20 +112,29 @@ export function BusinessCalendarEntryDrawer({
       const formData = new FormData(form);
 
       if (!acknowledgeImpact) {
-        const impact = await previewBusinessCalendarEntryImpactAction(formData);
+        const preview = await previewBusinessCalendarEntryImpactAction(formData);
 
-        if (impact.requires_confirmation && impact.summary) {
-          setImpactSummary(impact.summary);
+        if (preview.requires_confirmation) {
+          setImpact(preview);
           return;
         }
       }
 
       formData.set("acknowledgeImpact", acknowledgeImpact ? "true" : "false");
       await saveBusinessCalendarEntry(formData);
-      setImpactSummary(null);
-      onClose();
+      handleClose();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to save entry");
+      const message =
+        saveError instanceof Error ? saveError.message : "Unable to save entry";
+
+      if (!acknowledgeImpact && isImpactConfirmationRequired(message)) {
+        const formData = new FormData(form);
+        const preview = await previewBusinessCalendarEntryImpactAction(formData);
+        setImpact(preview);
+        return;
+      }
+
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -108,22 +158,67 @@ export function BusinessCalendarEntryDrawer({
     <AdminSlideOver
       open={open}
       title={title}
-      onClose={onClose}
+      onClose={handleClose}
       footer={
         readOnly ? (
           <div className="flex justify-end">
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={handleClose}>
               Close
             </Button>
           </div>
         ) : (
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" form="business-calendar-entry-form" variant="primary" disabled={saving}>
-              Save Entry
-            </Button>
+          <div className="space-y-3">
+            {confirmationRequired && impact ? (
+              <div ref={impactWarningRef} tabIndex={-1} className="outline-none">
+                <BusinessCalendarImpactWarning
+                  lunchDayCount={impact.lunch_day_count}
+                  submittedOrderCount={impact.submitted_order_count}
+                />
+              </div>
+            ) : null}
+
+            {error ? (
+              <FormActionStatus variant="error" className="font-normal">
+                {error}
+              </FormActionStatus>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              {confirmationRequired ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={saving}
+                    onClick={() => setImpact(null)}
+                  >
+                    {BUSINESS_CALENDAR_DRAWER_ACTIONS.goBack}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={saving}
+                    onClick={() => void persistEntry(true)}
+                  >
+                    {BUSINESS_CALENDAR_DRAWER_ACTIONS.confirmSave}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="ghost" onClick={handleClose} disabled={saving}>
+                    {BUSINESS_CALENDAR_DRAWER_ACTIONS.cancel}
+                  </Button>
+                  <Button
+                    type="submit"
+                    form="business-calendar-entry-form"
+                    variant="primary"
+                    disabled={saving}
+                  >
+                    {BUSINESS_CALENDAR_DRAWER_ACTIONS.save}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )
       }
@@ -136,25 +231,6 @@ export function BusinessCalendarEntryDrawer({
         className="space-y-4"
       >
         {entry ? <input type="hidden" name="id" value={entry.id} /> : null}
-
-        {impactSummary ? (
-          <Alert variant="warning">
-            <p>{impactSummary}</p>
-            <div className="mt-3 flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setImpactSummary(null)}>
-                Go back
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                disabled={saving}
-                onClick={() => void persistEntry(true)}
-              >
-                Confirm and save
-              </Button>
-            </div>
-          </Alert>
-        ) : null}
 
         <div>
           <label className="text-sm font-medium text-foreground" htmlFor="calendarDate">
@@ -272,8 +348,6 @@ export function BusinessCalendarEntryDrawer({
           />
           <p className="mt-1 text-xs text-muted">{notes.length}/500</p>
         </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
       </form>
     </AdminSlideOver>
   );
