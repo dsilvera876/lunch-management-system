@@ -15,7 +15,7 @@ export default async function NotificationEmailDeliveryPage({ searchParams }: Pr
   const preset = notificationDeliveryDateRangePresetDays(30);
   const from = params.from ?? preset.from;
   const to = params.to ?? preset.to;
-  const { summary, recent } = await loadNotificationDeliveryDashboard(from, to);
+  const { summary, recent, processing } = await loadNotificationDeliveryDashboard(from, to);
 
   return (
     <HrSettingsWorkspace>
@@ -23,7 +23,13 @@ export default async function NotificationEmailDeliveryPage({ searchParams }: Pr
         title="Email Delivery"
         description="Monitor notification email activity and troubleshoot delivery issues."
       />
-      <NotificationDeliveryDashboard summary={summary} recent={recent} from={from} to={to} />
+      <NotificationDeliveryDashboard
+        summary={summary}
+        recent={recent}
+        processing={processing}
+        from={from}
+        to={to}
+      />
     </HrSettingsWorkspace>
   );
 }

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   NotificationDeliveryBatchStatus,
   NotificationDeliveryRecipientStatus,
+  NotificationProcessingStatus,
 } from "@/lib/notification-delivery";
 
 export type NotificationDeliveryDashboardSummary = {
@@ -43,6 +44,58 @@ export type NotificationDeliveryContentSample = {
   renderedHtmlBody: string | null;
 };
 
+export type NotificationProcessingRunRow = {
+  runId: string;
+  eventKey: string;
+  eventName: string;
+  operationalDate: string;
+  scheduledSendTime: string;
+  lastCheckedAt: string;
+  firstCheckedAt?: string;
+  runCount: number;
+  candidateCount: number;
+  eligibleCount: number;
+  generatedCount: number;
+  queuedCount: number;
+  processingStatus: NotificationProcessingStatus;
+  prepareReason: string | null;
+  skipReasonCounts: Record<string, number>;
+  deliveryBatchId: string | null;
+};
+
+function mapSkipReasonCounts(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    out[key] = Number(value ?? 0);
+  }
+  return out;
+}
+
+function mapProcessingRunRow(raw: Record<string, unknown>): NotificationProcessingRunRow {
+  return {
+    runId: String(raw.run_id),
+    eventKey: String(raw.event_key),
+    eventName: String(raw.event_name),
+    operationalDate: String(raw.operational_date),
+    scheduledSendTime: String(raw.scheduled_send_time),
+    lastCheckedAt: String(raw.last_checked_at),
+    firstCheckedAt: raw.first_checked_at ? String(raw.first_checked_at) : undefined,
+    runCount: Number(raw.run_count ?? 0),
+    candidateCount: Number(raw.candidate_count ?? 0),
+    eligibleCount: Number(raw.eligible_count ?? 0),
+    generatedCount: Number(raw.generated_count ?? 0),
+    queuedCount: Number(raw.queued_count ?? 0),
+    processingStatus: String(raw.processing_status) as NotificationProcessingStatus,
+    prepareReason: raw.prepare_reason ? String(raw.prepare_reason) : null,
+    skipReasonCounts: mapSkipReasonCounts(raw.skip_reason_counts),
+    deliveryBatchId: raw.delivery_batch_id ? String(raw.delivery_batch_id) : null,
+  };
+}
+
 function mapBatchRow(raw: Record<string, unknown>): NotificationDeliveryBatchRow {
   return {
     batchId: String(raw.batch_id),
@@ -61,21 +114,30 @@ function mapBatchRow(raw: Record<string, unknown>): NotificationDeliveryBatchRow
 export async function loadNotificationDeliveryDashboard(from: string, to: string) {
   const supabase = await createClient();
 
-  const [{ data: summaryRow, error: summaryError }, { data: recentRows, error: recentError }] =
-    await Promise.all([
-      supabase.rpc("get_notification_delivery_dashboard", {
-        p_from: from,
-        p_to: to,
-      }),
-      supabase.rpc("list_notification_delivery_batches", {
-        p_from: from,
-        p_to: to,
-        p_event_key: null,
-        p_status: null,
-        p_limit: 10,
-        p_offset: 0,
-      }),
-    ]);
+  const [
+    { data: summaryRow, error: summaryError },
+    { data: recentRows, error: recentError },
+    { data: processingRows, error: processingError },
+  ] = await Promise.all([
+    supabase.rpc("get_notification_delivery_dashboard", {
+      p_from: from,
+      p_to: to,
+    }),
+    supabase.rpc("list_notification_delivery_batches", {
+      p_from: from,
+      p_to: to,
+      p_event_key: null,
+      p_status: null,
+      p_limit: 10,
+      p_offset: 0,
+    }),
+    supabase.rpc("list_notification_processing_runs", {
+      p_from: from,
+      p_to: to,
+      p_limit: 10,
+      p_offset: 0,
+    }),
+  ]);
 
   if (summaryError) {
     throw new Error(summaryError.message);
@@ -83,6 +145,10 @@ export async function loadNotificationDeliveryDashboard(from: string, to: string
 
   if (recentError) {
     throw new Error(recentError.message);
+  }
+
+  if (processingError) {
+    throw new Error(processingError.message);
   }
 
   const summaryRaw = (summaryRow as Record<string, unknown>[] | null)?.[0] ?? {};
@@ -95,8 +161,27 @@ export async function loadNotificationDeliveryDashboard(from: string, to: string
   };
 
   const recent = ((recentRows ?? []) as Record<string, unknown>[]).map(mapBatchRow);
+  const processing = ((processingRows ?? []) as Record<string, unknown>[]).map(mapProcessingRunRow);
 
-  return { summary, recent };
+  return { summary, recent, processing };
+}
+
+export async function loadNotificationProcessingRunDetail(runId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_notification_processing_run", {
+    p_run_id: runId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const raw = (data as Record<string, unknown>[] | null)?.[0];
+  if (!raw) {
+    return null;
+  }
+
+  return mapProcessingRunRow(raw);
 }
 
 export async function loadNotificationDeliveryHistory(input: {

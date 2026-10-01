@@ -8,9 +8,11 @@ import {
   NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH,
   NOTIFICATION_EMAIL_DELIVERY_PATH,
 } from "@/lib/notification-delivery";
+import { NotificationProcessingActivity } from "@/components/admin/notification-processing-activity";
 import type {
   NotificationDeliveryBatchRow,
   NotificationDeliveryDashboardSummary,
+  NotificationProcessingRunRow,
 } from "@/lib/notification-delivery-server";
 
 function SummaryCard({
@@ -42,11 +44,13 @@ function formatTimestamp(value: string): string {
 export function NotificationDeliveryDashboard({
   summary,
   recent,
+  processing,
   from,
   to,
 }: {
   summary: NotificationDeliveryDashboardSummary;
   recent: NotificationDeliveryBatchRow[];
+  processing: NotificationProcessingRunRow[];
   from: string;
   to: string;
 }) {
@@ -101,6 +105,8 @@ export function NotificationDeliveryDashboard({
           hint="Awaiting queue or SMTP send"
         />
       </div>
+
+      <NotificationProcessingActivity rows={processing} />
 
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">

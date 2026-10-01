@@ -1,6 +1,7 @@
 import {
   notificationDeliveryBatchStatusLabel,
   notificationDeliveryRecipientStatusLabel,
+  notificationProcessingStatusLabel,
 } from "@/lib/notification-delivery";
 
 const batchTone: Record<string, string> = {
@@ -21,6 +22,26 @@ const recipientTone: Record<string, string> = {
 export function NotificationDeliveryBatchStatusBadge({ status }: { status: string }) {
   const label = notificationDeliveryBatchStatusLabel(status);
   const tone = batchTone[status] ?? batchTone.pending;
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tone}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+const processingTone: Record<string, string> = {
+  generated: batchTone.sent,
+  partially_generated: batchTone.partial,
+  error: batchTone.failed,
+  skipped: "border-amber-200 bg-amber-50 text-amber-900",
+};
+
+export function NotificationProcessingStatusBadge({ status }: { status: string }) {
+  const label = notificationProcessingStatusLabel(status);
+  const tone = processingTone[status] ?? processingTone.skipped;
 
   return (
     <span

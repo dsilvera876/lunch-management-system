@@ -128,6 +128,7 @@ export async function processTodayMenuNotifications(
   result.diagnostics = diagnostics;
 
   if (diagnostics?.action !== "prepared") {
+    await recordProcessingRunQueueStats(supabase, diagnostics, result);
     return result;
   }
 
@@ -136,6 +137,7 @@ export async function processTodayMenuNotifications(
   result.inserted = diagnostics.inserted ?? 0;
 
   if (options.dryRun) {
+    await recordProcessingRunQueueStats(supabase, diagnostics, result);
     return result;
   }
 
@@ -195,5 +197,40 @@ export async function processTodayMenuNotifications(
     result.queued += 1;
   }
 
+  await recordProcessingRunQueueStats(supabase, diagnostics, result);
+
   return result;
+}
+
+async function recordProcessingRunQueueStats(
+  supabase: SupabaseClient,
+  diagnostics: TodayMenuPrepareDiagnostics | null,
+  result: Pick<ProcessTodayMenuNotificationsResult, "queued" | "inserted">,
+): Promise<void> {
+  if (!diagnostics?.orderDate || !diagnostics.sendTime) {
+    return;
+  }
+
+  if (diagnostics.action !== "prepared" && diagnostics.action !== "skipped") {
+    return;
+  }
+
+  const sendTime = diagnostics.sendTime.length === 5 ? `${diagnostics.sendTime}:00` : diagnostics.sendTime;
+
+  const { error } = await supabase.rpc("worker_update_notification_processing_run", {
+    p_event_key: "staff.today_menu",
+    p_operational_date: diagnostics.orderDate,
+    p_scheduled_send_time: sendTime,
+    p_queued_count: result.queued,
+    p_processing_status:
+      result.queued > 0
+        ? result.queued < result.inserted
+          ? "partially_generated"
+          : "generated"
+        : null,
+  });
+
+  if (error) {
+    throw new Error(`Today menu processing run update failed: ${error.message}`);
+  }
 }

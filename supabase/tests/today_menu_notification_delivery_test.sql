@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(25);
 
 \ir support/isolate_existing_owner.inc
 
@@ -65,6 +65,50 @@ select is(
   )),
   true,
   'Eligible staff recipient passes business-day/menu/preference checks inside send window'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+select public.set_my_notification_preference('staff.today_menu', true);
+reset role;
+
+select is(
+  (select eligible from private.today_menu_recipient_eligible(
+    'f8222222-2222-4222-8222-222222222222',
+    '2099-01-05'::date,
+    timestamptz '2099-01-05 08:05:00-05:00'
+  )),
+  true,
+  'Active HR lunch participant with personal preference ON is eligible for Today''s Menu'
+);
+
+reset role;
+
+select ok(
+  private.effective_staff_notification_preference(
+    'f8333333-3333-4333-8333-333333333333',
+    'staff.today_menu'
+  ),
+  'Explicit staff preference true resolves enabled for worker eligibility'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
+
+select ok(
+  (
+    select personal_enabled
+    from public.get_my_notification_preferences()
+    where event_key = 'staff.today_menu'
+  ),
+  'Preferences UI reports Today''s Menu enabled for staff user'
+);
+
+reset role;
+
+select ok(
+  private.is_active_lunch_ordering_profile('f8222222-2222-4222-8222-222222222222'),
+  'HR profile is treated as an active lunch-ordering participant'
 );
 
 set local role authenticated;
@@ -319,6 +363,97 @@ select ok(
   (select public.worker_prepare_today_menu_batch(timestamptz '2099-01-04 08:05:00-05:00') ->> 'action')
     in ('prepared', 'skipped'),
   'override_open date worker prepare completes without creating an empty pending batch'
+);
+
+-- Processing audit: skipped run is deduplicated and excluded from email dashboard counts
+insert into public.lunch_days (
+  id, lunch_date, order_date, provider_id, order_deadline, status
+)
+values (
+  'f1000000-0000-0000-0000-000000000004',
+  public.delivery_date_for_order_date('2099-01-07'::date),
+  '2099-01-07'::date,
+  'f9000000-0000-0000-0000-000000000099',
+  public.order_deadline_for_order_date('2099-01-07'::date),
+  'open'
+)
+on conflict (id) do update
+set order_date = excluded.order_date, order_deadline = excluded.order_deadline, status = excluded.status;
+
+insert into public.menu_items (
+  id, lunch_day_id, name, price, item_type, unit_label, is_active
+)
+values (
+  'f2000000-0000-0000-0000-000000000004',
+  'f1000000-0000-0000-0000-000000000004',
+  'Audit Skip Special',
+  11.00,
+  'main',
+  'Each',
+  true
+)
+on conflict (id) do update set is_active = true, lunch_day_id = excluded.lunch_day_id;
+
+delete from private.staff_notification_preferences
+where event_key = 'staff.today_menu';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+
+create temp table processing_skip_dashboard as
+select total_count as before_total
+from public.get_notification_delivery_dashboard(current_date - 1, current_date + 1);
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select public.worker_prepare_today_menu_batch(timestamptz '2099-01-07 08:05:00-05:00');
+select public.worker_prepare_today_menu_batch(timestamptz '2099-01-07 08:06:00-05:00');
+
+reset role;
+
+select is(
+  (
+    select count(*)::integer
+    from private.notification_processing_run
+    where event_key = 'staff.today_menu'
+      and operational_date = '2099-01-07'::date
+      and scheduled_send_time = time '08:00'
+  ),
+  1,
+  'Repeated worker checks upsert one processing audit row per scheduled occurrence'
+);
+
+select ok(
+  (
+    select run_count >= 2
+    from private.notification_processing_run
+    where event_key = 'staff.today_menu'
+      and operational_date = '2099-01-07'::date
+      and scheduled_send_time = time '08:00'
+  ),
+  'Processing audit increments run_count across repeated worker checks'
+);
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+
+select is(
+  (select total_count from public.get_notification_delivery_dashboard(current_date - 1, current_date + 1)),
+  (select before_total from processing_skip_dashboard),
+  'Skipped processing runs do not inflate recipient email dashboard totals'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.list_notification_processing_runs('2099-01-07'::date, '2099-01-07'::date, 10, 0)
+    where processing_status = 'skipped'
+  ),
+  'Admin can list skipped processing activity separately from email deliveries'
 );
 
 select * from finish();

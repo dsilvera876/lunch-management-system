@@ -95,6 +95,11 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
             crumbs.push({ label: "History" });
             return crumbs;
           }
+          if (segments[4] === "processing" && segments[5]) {
+            crumbs.push({ label: "Email Delivery", href: "/admin/settings/email/delivery" });
+            crumbs.push({ label: "Processing Details" });
+            return crumbs;
+          }
           if (segments[4]) {
             crumbs.push({ label: "Email Delivery", href: "/admin/settings/email/delivery" });
             crumbs.push({ label: "Delivery Details" });

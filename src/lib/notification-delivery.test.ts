@@ -45,6 +45,13 @@ describe("notification delivery monitoring", () => {
     assert.match(dashboard, /Sent/);
     assert.match(serverLoader, /get_notification_delivery_dashboard/);
     assert.match(serverLoader, /list_notification_delivery_batches/);
+    assert.match(serverLoader, /list_notification_processing_runs/);
+    const processingActivity = readFileSync(
+      new URL("../components/admin/notification-processing-activity.tsx", import.meta.url),
+      "utf8",
+    );
+    assert.match(processingActivity, /Recent processing activity/);
+    assert.match(dashboard, /NotificationProcessingActivity/);
     assert.match(historyPage, /loadNotificationDeliveryHistory/);
     assert.match(worker, /today-menu-notifications/);
     assert.match(worker, /formatTodayMenuWorkerLogLine/);
