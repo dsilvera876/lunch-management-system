@@ -10,6 +10,7 @@ import {
   formatDeadlineReminderWorkerLogLine,
   processDeadlineReminderNotifications,
 } from "@/lib/process-deadline-reminder-notifications";
+import { processHrPendingSignupNotifications } from "@/lib/process-hr-pending-signup-notifications";
 import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
@@ -20,6 +21,7 @@ type WorkerTask =
   | "mail-queue"
   | "today-menu-notifications"
   | "deadline-reminder-notifications"
+  | "hr-pending-signup-notifications"
   | "staff-order-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
@@ -46,6 +48,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "mail-queue" ||
         value === "today-menu-notifications" ||
         value === "deadline-reminder-notifications" ||
+        value === "hr-pending-signup-notifications" ||
         value === "staff-order-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
@@ -242,6 +245,17 @@ async function runDeadlineReminderNotifications(dryRun: boolean): Promise<number
   return result.failures;
 }
 
+async function runHrPendingSignupNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processHrPendingSignupNotifications(supabase, { dryRun });
+
+  console.log(
+    `HR pending signup notifications: queued=${result.queued} render_skipped=${result.skipped} render_failures=${result.renderFailures} queue_failures=${result.failures}`,
+  );
+
+  return result.failures;
+}
+
 async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processStaffOrderNotifications(supabase, { dryRun });
@@ -329,6 +343,13 @@ async function main(): Promise<void> {
     }
   }
 
+  if (options.task === "hr-pending-signup-notifications" || options.task === "all") {
+    const failures = await runHrPendingSignupNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
   if (options.task === "staff-order-notifications" || options.task === "all") {
     const failures = await runStaffOrderNotifications(options.dryRun);
     if (failures > 0) {
@@ -345,6 +366,18 @@ async function main(): Promise<void> {
     } catch (error) {
       console.error(
         `Deadline reminder notifications worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
+      process.exitCode = 1;
+    }
+
+    try {
+      const hrSignupFailures = await runHrPendingSignupNotifications(options.dryRun);
+      if (hrSignupFailures > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `HR pending signup notifications worker aborted: ${error instanceof Error ? error.message : error}`,
       );
       process.exitCode = 1;
     }
