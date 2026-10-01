@@ -188,26 +188,30 @@ export async function getStaffOrderingContext(
 
   const cutoffTime = settings?.order_cutoff_time ?? DEFAULT_ORDER_CUTOFF_TIME;
 
-  const { data: orderDeadline } =
+  const { data: orderingStateRows } =
     orderWeekday && businessDayOpen === true
-      ? await supabase.rpc("order_deadline_for_order_date", {
+      ? await supabase.rpc("get_self_service_ordering_state", {
           p_order_date: orderDate,
+          p_office_location_id: officeLocationId,
         })
       : { data: null };
 
-  const { data: periodFinalized } =
-    orderWeekday && businessDayOpen === true
-      ? await supabase.rpc("is_order_date_in_finalized_period", {
-          p_order_date: orderDate,
-        })
-      : { data: false };
+  const orderingState = (
+    orderingStateRows as Array<{
+      is_open: boolean;
+      order_deadline: string;
+      is_business_day: boolean;
+      period_finalized: boolean;
+    }> | null
+  )?.[0];
+
+  const orderDeadline = orderingState?.order_deadline ?? null;
+  const periodFinalized = orderingState?.period_finalized ?? false;
 
   const orderingOpen =
     businessDayOpen === true &&
     orderWeekday !== null &&
-    orderDeadline !== null &&
-    !periodFinalized &&
-    new Date() <= new Date(orderDeadline);
+    orderingState?.is_open === true;
 
   const availableProviders =
     providers?.map((provider) => ({
