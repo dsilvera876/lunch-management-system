@@ -39,9 +39,16 @@ export default async function AdminSystemSettingsPage() {
             icon="settings"
           />
           <SettingsOperationsCard
+            href="/admin/settings/email/delivery"
+            title="Email Delivery"
+            description="Monitor notification email activity and troubleshoot delivery issues."
+            actionLabel="Open delivery dashboard"
+            icon="settings"
+          />
+          <SettingsOperationsCard
             href="/admin/settings/email-delivery"
-            title="Email delivery (SMTP)"
-            description="SMTP settings for authentication and application email."
+            title="System email (SMTP)"
+            description="SMTP settings for authentication and application email transport."
             actionLabel="Configure SMTP"
             icon="settings"
           />

@@ -2,6 +2,7 @@ import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 import { processEmailDeliveryQueue } from "@/lib/mail/process-email-delivery-queue";
+import { processTodayMenuNotifications } from "@/lib/process-today-menu-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
@@ -9,6 +10,7 @@ type WorkerTask =
   | "snapshots"
   | "automatic-dispatch"
   | "mail-queue"
+  | "today-menu-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
   | "all";
@@ -32,6 +34,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "snapshots" ||
         value === "automatic-dispatch" ||
         value === "mail-queue" ||
+        value === "today-menu-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
         value === "all"
@@ -209,6 +212,17 @@ function assertWorkerEnvironment(): void {
   getSupabaseSecretKey();
 }
 
+async function runTodayMenuNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processTodayMenuNotifications(supabase, { dryRun });
+
+  console.log(
+    `Today menu notifications: prepared=${result.prepared} batch=${result.batchId ?? "none"} inserted=${result.inserted} queued=${result.queued} skipped=${result.skipped} failures=${result.failures}`,
+  );
+
+  return result.failures;
+}
+
 async function runMailQueue(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processEmailDeliveryQueue(supabase, { batchSize: 25, dryRun });
@@ -269,6 +283,13 @@ async function main(): Promise<void> {
 
   if (options.task === "automatic-dispatch" || options.task === "all") {
     await runAutomaticDispatch(options.dryRun);
+  }
+
+  if (options.task === "today-menu-notifications" || options.task === "all") {
+    const failures = await runTodayMenuNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
   }
 
   if (options.task === "mail-queue" || options.task === "all") {

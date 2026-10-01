@@ -11,6 +11,7 @@
     "worker:snapshots": "tsx src/worker/run.ts --task=snapshots",
     "worker:automatic-dispatch": "tsx src/worker/run.ts --task=automatic-dispatch",
     "worker:mail-queue": "tsx src/worker/run.ts --task=mail-queue",
+    "worker:today-menu-notifications": "tsx src/worker/run.ts --task=today-menu-notifications",
     "worker:auth-deletion-cleanup": "tsx src/worker/run.ts --task=auth-deletion-cleanup",
     "worker:user-import": "tsx src/worker/run.ts --task=user-import",
     "worker:dry-run": "tsx src/worker/run.ts --dry-run"

@@ -13,6 +13,7 @@ import {
   formatNotificationTimingLabel,
   notificationTemplateEditPath,
 } from "@/lib/notification-presentation";
+import { NOTIFICATION_EMAIL_DELIVERY_PATH } from "@/lib/notification-delivery";
 import { FormActionStatus } from "@/components/ui/form-action-status";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import type { AdminNotificationEventRow } from "@/lib/notification-server";
@@ -346,12 +347,14 @@ export function EmailSettingsWorkspace({
             {label}
           </Button>
         ))}
-        <Link
-          href={EMAIL_TEMPLATES_PATH}
-          className={`${linkButtonClass("secondary")} ml-auto shrink-0`}
-        >
-          Email templates
-        </Link>
+        <div className="ml-auto flex shrink-0 flex-wrap gap-2">
+          <Link href={NOTIFICATION_EMAIL_DELIVERY_PATH} className={linkButtonClass("secondary")}>
+            Email Delivery
+          </Link>
+          <Link href={EMAIL_TEMPLATES_PATH} className={linkButtonClass("secondary")}>
+            Email templates
+          </Link>
+        </div>
       </div>
 
       {tab === "staff" ? (

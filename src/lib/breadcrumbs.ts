@@ -85,6 +85,21 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
           crumbs.push({ label: "Email Templates" });
           return crumbs;
         }
+        if (segments[3] === "delivery") {
+          crumbs.push({ label: "Email Settings", href: "/admin/settings/email" });
+          if (segments[4] === "history") {
+            crumbs.push({ label: "Email Delivery", href: "/admin/settings/email/delivery" });
+            crumbs.push({ label: "Delivery History" });
+            return crumbs;
+          }
+          if (segments[4]) {
+            crumbs.push({ label: "Email Delivery", href: "/admin/settings/email/delivery" });
+            crumbs.push({ label: "Delivery Details" });
+            return crumbs;
+          }
+          crumbs.push({ label: "Email Delivery" });
+          return crumbs;
+        }
         crumbs.push({ label: "Email Settings" });
         return crumbs;
       }

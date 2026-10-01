@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Lunch Management Today''s Menu notification worker every minute
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=60s
+AccuracySec=15s
+Unit=lunch-management-today-menu-notifications.service
+
+[Install]
+WantedBy=timers.target

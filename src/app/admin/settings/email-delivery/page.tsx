@@ -11,8 +11,8 @@ export default async function EmailDeliverySettingsPage() {
   return (
     <HrSettingsWorkspace>
       <PageHeader
-        title="Email delivery"
-        description="Configure SMTP delivery for authentication and application email."
+        title="System email (SMTP)"
+        description="Configure SMTP transport for authentication and application email."
       />
 
       {settings ? (
