@@ -56,6 +56,12 @@ describe("notification delivery monitoring", () => {
     assert.match(worker, /today-menu-notifications/);
     assert.match(worker, /formatTodayMenuWorkerLogLine/);
     assert.match(worker, /processTodayMenuNotifications/);
+    assert.match(worker, /processStaffOrderNotifications/);
+    assert.match(worker, /staff-order-notifications/);
+    assert.match(
+      worker,
+      /options\.task === "mail-queue"[\s\S]*runStaffOrderNotifications/,
+    );
   });
 
   it("uses Admin Settings breadcrumbs for Email Delivery monitoring", () => {

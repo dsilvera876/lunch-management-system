@@ -198,10 +198,10 @@ select is(
 select ok(
   exists (
     select 1
-    from pg_constraint
-    where conname = 'notification_delivery_log_event_profile_date_key'
+    from pg_indexes
+    where indexname = 'notification_delivery_log_idempotency_key_idx'
   ),
-  'Unique idempotency constraint exists for event/profile/date'
+  'Unique idempotency key index exists for notification deliveries'
 );
 
 reset role;

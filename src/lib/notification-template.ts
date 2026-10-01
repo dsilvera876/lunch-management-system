@@ -49,3 +49,14 @@ export const TODAY_MENU_SAMPLE_TEXT_VARIABLES: NotificationTemplateVariables = {
   mains: "- Jerk Chicken\n- Curry Fish\n- Vegetable Pasta (V)",
   sides: "- Rice and Peas\n- Steamed Vegetables\n- Garden Salad",
 };
+
+export const STAFF_ORDER_SAMPLE_VARIABLES: NotificationTemplateVariables = {
+  first_name: "Alex",
+  order_date: "Mon, Sep 14, 2026",
+  provider_name: "Island Eats",
+  order_summary: "Jerk Chicken × 1\nRice and Peas × 1",
+  order_total: "$12.00",
+  order_url: "https://example.com/lunch/orders/sample",
+  reorder_message:
+    "If ordering is still open, you can place another order here:\nhttps://example.com/lunch",
+};

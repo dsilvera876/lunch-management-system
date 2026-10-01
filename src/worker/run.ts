@@ -6,6 +6,7 @@ import {
   formatTodayMenuWorkerLogLine,
   processTodayMenuNotifications,
 } from "@/lib/process-today-menu-notifications";
+import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
@@ -14,6 +15,7 @@ type WorkerTask =
   | "automatic-dispatch"
   | "mail-queue"
   | "today-menu-notifications"
+  | "staff-order-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
   | "all";
@@ -38,6 +40,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "automatic-dispatch" ||
         value === "mail-queue" ||
         value === "today-menu-notifications" ||
+        value === "staff-order-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
         value === "all"
@@ -224,6 +227,17 @@ async function runTodayMenuNotifications(dryRun: boolean): Promise<number> {
   return result.failures;
 }
 
+async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processStaffOrderNotifications(supabase, { dryRun });
+
+  console.log(
+    `Staff order notifications: queued=${result.queued} render_skipped=${result.skipped} queue_failures=${result.failures}`,
+  );
+
+  return result.failures;
+}
+
 async function runMailQueue(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processEmailDeliveryQueue(supabase, { batchSize: 25, dryRun });
@@ -293,7 +307,24 @@ async function main(): Promise<void> {
     }
   }
 
-  if (options.task === "mail-queue" || options.task === "all") {
+  if (options.task === "staff-order-notifications" || options.task === "all") {
+    const failures = await runStaffOrderNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
+  if (options.task === "mail-queue") {
+    const staffFailures = await runStaffOrderNotifications(options.dryRun);
+    if (staffFailures > 0) {
+      process.exitCode = 1;
+    }
+
+    const mailFailures = await runMailQueue(options.dryRun);
+    if (mailFailures > 0) {
+      process.exitCode = 1;
+    }
+  } else if (options.task === "all") {
     const failures = await runMailQueue(options.dryRun);
     if (failures > 0) {
       process.exitCode = 1;

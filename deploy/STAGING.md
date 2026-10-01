@@ -581,13 +581,17 @@ sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs)
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
 ```
 
-Enable the mail queue timer so Auth hook enqueue returns within Supabase’s 5s limit while SMTP sends asynchronously:
+Enable the mail queue timer so Auth hook enqueue returns within Supabase’s 5s limit while SMTP sends asynchronously. Each run also **renders and enqueues pending staff order notification intents** (`staff.order_*`, `staff.changed_by_hr`) before draining `private.email_delivery_queue` — no separate timer is required for transactional lunch emails.
 
 ```bash
 sudo cp deploy/systemd/lunch-management-mail-queue.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now lunch-management-mail-queue.timer
 ```
+
+The timer invokes `npm run worker:mail-queue`, which runs `staff-order-notifications` then `mail-queue` in one oneshot service. Today’s Menu **generation** remains on `lunch-management-today-menu-notifications.timer` only (15-minute send window unchanged).
+
+Mail/staff-order worker env: **`SUPABASE_URL`**, **`SUPABASE_SECRET_KEY`**, **`APP_ORIGIN`** (same as Today’s Menu links). SMTP settings come from Admin email delivery configuration in the database.
 
 Enable the Auth deletion cleanup timer so pending `auth.admin.deleteUser` retries complete after partial permanent deletes (no SMTP credentials required):
 
@@ -666,6 +670,8 @@ sudo systemctl disable --now lunch-management-user-import.timer
 - Catch-up is allowed only when the automatic opportunity was never processed and the provider deadline has not passed.
 - Stale `pending` dispatches beyond a 15-minute lease are marked `attention_required` and are **not** auto-retried (prevents duplicate email after worker crash).
 - HR must explicitly acknowledge ambiguous dispatches on `/admin/late-orders` before retrying or marking received without resending.
+- Mail queue timer failures (`exit code 1`) do not disable the timer; the next `OnUnitActiveSec=60s` run still executes.
+- Staff order notification rendering is idempotent: delivery rows with `email_queue_id` set are skipped; duplicate intents are prevented by `idempotency_key` at insert time.
 
 ---
 

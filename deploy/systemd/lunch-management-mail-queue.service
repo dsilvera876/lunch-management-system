@@ -1,5 +1,5 @@
 [Unit]
-Description=Lunch Management email delivery queue worker
+Description=Lunch Management staff order notification queue + email delivery worker
 Documentation=file:///var/www/lunch-management-system/deploy/STAGING.md
 After=network-online.target
 Wants=network-online.target

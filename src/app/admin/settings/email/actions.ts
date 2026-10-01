@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/mail/mail-service";
 import {
   renderNotificationTemplate,
   TODAY_MENU_SAMPLE_TEXT_VARIABLES,
+  STAFF_ORDER_SAMPLE_VARIABLES,
   TODAY_MENU_SAMPLE_VARIABLES,
   validateNotificationTemplateVariables,
 } from "@/lib/notification-template";
@@ -136,14 +137,19 @@ export async function sendNotificationTemplateTestEmailAction(input: {
     return { ok: false, error: "Template not found." };
   }
 
-  const sample =
-    input.eventKey === "staff.today_menu"
-      ? TODAY_MENU_SAMPLE_VARIABLES
+  const isStaffOrderEvent = input.eventKey.startsWith("staff.order_")
+    || input.eventKey === "staff.changed_by_hr";
+
+  const sample = input.eventKey === "staff.today_menu"
+    ? TODAY_MENU_SAMPLE_VARIABLES
+    : isStaffOrderEvent
+      ? STAFF_ORDER_SAMPLE_VARIABLES
       : TODAY_MENU_SAMPLE_VARIABLES;
 
-  const sampleText =
-    input.eventKey === "staff.today_menu"
-      ? TODAY_MENU_SAMPLE_TEXT_VARIABLES
+  const sampleText = input.eventKey === "staff.today_menu"
+    ? TODAY_MENU_SAMPLE_TEXT_VARIABLES
+    : isStaffOrderEvent
+      ? STAFF_ORDER_SAMPLE_VARIABLES
       : TODAY_MENU_SAMPLE_TEXT_VARIABLES;
 
   const subject = renderNotificationTemplate(String(row.subject_template), sample);
