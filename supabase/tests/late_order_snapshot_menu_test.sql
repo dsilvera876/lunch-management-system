@@ -51,6 +51,7 @@ set
   late_order_deadline_time = excluded.late_order_deadline_time;
 
 \ir support/open_ordering.inc
+\ir support/isolate_lunch_periods.inc
 \ir support/late_order_cycle.inc
 
 do $$

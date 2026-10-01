@@ -1,6 +1,10 @@
 -- Deterministic late-order cycle for pgTAP (Jamaica calendar, relative to jamaica_today_date()).
 -- Safe within BEGIN/ROLLBACK test transactions only.
 --
+-- Late-order suites should include isolate_lunch_periods.inc before this file so development
+-- seed finalized payroll periods do not block historical order dates. Candidates also skip
+-- any order date that still belongs to a finalized lunch period.
+--
 -- Picks order/delivery dates that keep HR late-order RPCs in-window across wall-clock time:
 -- 1) Prefer a prior order date whose delivery is strictly after today.
 -- 2) Else prior order date delivering today while provider deadline has not passed.
@@ -53,6 +57,7 @@ begin
     and candidate.delivery_date is not null
     and candidate.order_date < v_today
     and candidate.delivery_date > v_today
+    and not private.is_order_date_in_finalized_period(candidate.order_date)
   order by candidate.order_date desc
   limit 1;
 
@@ -69,6 +74,7 @@ begin
       and candidate.delivery_date is not null
       and candidate.order_date < v_today
       and candidate.delivery_date = v_today
+      and not private.is_order_date_in_finalized_period(candidate.order_date)
       and now() <= public.provider_late_order_deadline_at(
         v_provider_id,
         candidate.order_date,
@@ -91,6 +97,7 @@ begin
       and candidate.delivery_date is not null
       and candidate.delivery_date > v_today
       and candidate.order_date <= v_today
+      and not private.is_order_date_in_finalized_period(candidate.order_date)
       and now() > public.order_deadline_for_order_date(candidate.order_date)
     order by candidate.order_date desc
     limit 1;
@@ -111,6 +118,7 @@ begin
       and candidate.delivery_date is not null
       and candidate.order_date < v_today
       and candidate.delivery_date = v_today
+      and not private.is_order_date_in_finalized_period(candidate.order_date)
     order by candidate.order_date desc
     limit 1;
   end if;

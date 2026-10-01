@@ -94,6 +94,7 @@ from (
 cross join generate_series(1, 5) as weekday;
 
 \ir support/open_ordering.inc
+\ir support/isolate_lunch_periods.inc
 \ir support/late_order_cycle.inc
 
 do $$
