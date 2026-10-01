@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { NotificationDeliveryBatchStatusBadge } from "@/components/admin/notification-delivery-status-badge";
+import { NotificationDeliveryRefreshButton } from "@/components/admin/notification-delivery-refresh-button";
 import { Card } from "@/components/ui/card";
 import { linkButtonClass } from "@/components/ui/button";
 import {
@@ -79,16 +80,26 @@ export function NotificationDeliveryDashboard({
         <button type="submit" className={linkButtonClass("secondary")}>
           Apply range
         </button>
+        <NotificationDeliveryRefreshButton />
         <Link href={NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH} className={linkButtonClass("ghost")}>
           View all history
         </Link>
       </form>
 
+      <p className="text-xs text-muted">
+        Summary counts are individual recipient notification emails in the selected date range
+        (not delivery batches).
+      </p>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Total emails" value={summary.totalCount} />
         <SummaryCard label="Sent" value={summary.sentCount} hint="SMTP handoff confirmed" />
-        <SummaryCard label="Failed" value={summary.failedCount} />
-        <SummaryCard label="Pending" value={summary.pendingCount} />
+        <SummaryCard label="Failed" value={summary.failedCount} hint="Terminal transport failure" />
+        <SummaryCard
+          label="Pending"
+          value={summary.pendingCount}
+          hint="Awaiting queue or SMTP send"
+        />
       </div>
 
       <Card className="overflow-hidden">

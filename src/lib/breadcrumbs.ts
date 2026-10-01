@@ -79,17 +79,11 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
       }
 
       if (subSection === "email") {
-        crumbs.push({ label: "Settings", href: "/admin/settings" });
-        if (segments[3] === "templates") {
-          crumbs.push({ label: "Email Settings", href: "/admin/settings/email" });
-          crumbs.push({ label: "Email Templates" });
-          return crumbs;
-        }
         if (segments[3] === "delivery") {
-          crumbs.push({ label: "Email Settings", href: "/admin/settings/email" });
+          crumbs.push({ label: "Administration" });
           if (segments[4] === "history") {
             crumbs.push({ label: "Email Delivery", href: "/admin/settings/email/delivery" });
-            crumbs.push({ label: "Delivery History" });
+            crumbs.push({ label: "History" });
             return crumbs;
           }
           if (segments[4]) {
@@ -98,6 +92,13 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
             return crumbs;
           }
           crumbs.push({ label: "Email Delivery" });
+          return crumbs;
+        }
+
+        crumbs.push({ label: "Settings", href: "/admin/settings" });
+        if (segments[3] === "templates") {
+          crumbs.push({ label: "Email Settings", href: "/admin/settings/email" });
+          crumbs.push({ label: "Email Templates" });
           return crumbs;
         }
         crumbs.push({ label: "Email Settings" });

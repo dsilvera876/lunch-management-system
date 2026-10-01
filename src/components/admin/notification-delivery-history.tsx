@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { NotificationDeliveryBatchStatusBadge } from "@/components/admin/notification-delivery-status-badge";
+import { NotificationDeliveryRefreshButton } from "@/components/admin/notification-delivery-refresh-button";
 import { Card } from "@/components/ui/card";
 import { linkButtonClass } from "@/components/ui/button";
 import { NOTIFICATION_EMAIL_DELIVERY_PATH } from "@/lib/notification-delivery";
@@ -54,10 +55,6 @@ export function NotificationDeliveryHistory({
 
   return (
     <div className="space-y-6">
-      <Link href={NOTIFICATION_EMAIL_DELIVERY_PATH} className={linkButtonClass("ghost")}>
-        ← Back to Email Delivery
-      </Link>
-
       <form className="grid gap-3 md:grid-cols-4" method="get">
         <div>
           <label htmlFor="history-from" className="text-xs font-medium text-foreground">
@@ -114,10 +111,11 @@ export function NotificationDeliveryHistory({
             <option value="partial">Partial</option>
           </select>
         </div>
-        <div className="md:col-span-4">
+        <div className="md:col-span-4 flex flex-wrap gap-2">
           <button type="submit" className={linkButtonClass("secondary")}>
             Apply filters
           </button>
+          <NotificationDeliveryRefreshButton />
         </div>
       </form>
 

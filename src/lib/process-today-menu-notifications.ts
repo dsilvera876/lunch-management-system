@@ -6,6 +6,19 @@ import {
   firstNameFromFullName,
 } from "@/lib/today-menu-notification-content";
 
+export type TodayMenuPrepareDiagnostics = {
+  action: string;
+  reason?: string;
+  orderDate?: string;
+  sendTime?: string;
+  windowOpen?: boolean;
+  candidates?: number;
+  eligibleCount?: number;
+  inserted?: number;
+  batchId?: string | null;
+  skipReasonCounts?: Record<string, number>;
+};
+
 export type ProcessTodayMenuNotificationsResult = {
   prepared: boolean;
   batchId: string | null;
@@ -13,6 +26,7 @@ export type ProcessTodayMenuNotificationsResult = {
   queued: number;
   skipped: number;
   failures: number;
+  diagnostics: TodayMenuPrepareDiagnostics | null;
 };
 
 type PendingDeliveryRow = {
@@ -22,6 +36,70 @@ type PendingDeliveryRow = {
   recipient_email: string;
   recipient_name: string;
 };
+
+function parsePrepareDiagnostics(raw: unknown): TodayMenuPrepareDiagnostics | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const data = raw as Record<string, unknown>;
+  const skipReasonCounts =
+    data.skip_reason_counts && typeof data.skip_reason_counts === "object"
+      ? (data.skip_reason_counts as Record<string, number>)
+      : undefined;
+
+  return {
+    action: String(data.action ?? "unknown"),
+    reason: data.reason ? String(data.reason) : undefined,
+    orderDate: data.order_date ? String(data.order_date) : undefined,
+    sendTime: data.send_time ? String(data.send_time) : undefined,
+    windowOpen:
+      typeof data.window_open === "boolean"
+        ? data.window_open
+        : data.window_open === "true"
+          ? true
+          : data.window_open === "false"
+            ? false
+            : undefined,
+    candidates: data.candidates !== undefined ? Number(data.candidates) : undefined,
+    eligibleCount: data.eligible_count !== undefined ? Number(data.eligible_count) : undefined,
+    inserted: data.inserted !== undefined ? Number(data.inserted) : undefined,
+    batchId: data.batch_id ? String(data.batch_id) : null,
+    skipReasonCounts,
+  };
+}
+
+export function formatTodayMenuWorkerLogLine(
+  diagnostics: TodayMenuPrepareDiagnostics | null,
+  result: Pick<
+    ProcessTodayMenuNotificationsResult,
+    "queued" | "skipped" | "failures" | "inserted"
+  >,
+): string {
+  if (!diagnostics) {
+    return "Today menu notifications: no prepare diagnostics";
+  }
+
+  const parts = [
+    `action=${diagnostics.action}`,
+    diagnostics.orderDate ? `order_date=${diagnostics.orderDate}` : null,
+    diagnostics.sendTime ? `send_time=${diagnostics.sendTime}` : null,
+    diagnostics.windowOpen !== undefined ? `window_open=${diagnostics.windowOpen}` : null,
+    diagnostics.reason ? `reason=${diagnostics.reason}` : null,
+    diagnostics.candidates !== undefined ? `candidates=${diagnostics.candidates}` : null,
+    diagnostics.eligibleCount !== undefined ? `eligible=${diagnostics.eligibleCount}` : null,
+    `generated=${result.inserted}`,
+    `queued=${result.queued}`,
+    `render_skipped=${result.skipped}`,
+    `queue_failures=${result.failures}`,
+  ].filter(Boolean);
+
+  if (diagnostics.skipReasonCounts && Object.keys(diagnostics.skipReasonCounts).length > 0) {
+    parts.push(`skip_reasons=${JSON.stringify(diagnostics.skipReasonCounts)}`);
+  }
+
+  return `Today menu notifications: ${parts.join(" ")}`;
+}
 
 export async function processTodayMenuNotifications(
   supabase: SupabaseClient,
@@ -34,6 +112,7 @@ export async function processTodayMenuNotifications(
     queued: 0,
     skipped: 0,
     failures: 0,
+    diagnostics: null,
   };
 
   const { data: prepareData, error: prepareError } = await supabase.rpc(
@@ -45,19 +124,16 @@ export async function processTodayMenuNotifications(
     throw new Error(`Today menu batch prepare failed: ${prepareError.message}`);
   }
 
-  const prepare = prepareData as {
-    action?: string;
-    batch_id?: string;
-    inserted?: number;
-  };
+  const diagnostics = parsePrepareDiagnostics(prepareData);
+  result.diagnostics = diagnostics;
 
-  if (prepare.action !== "prepared") {
+  if (diagnostics?.action !== "prepared") {
     return result;
   }
 
   result.prepared = true;
-  result.batchId = prepare.batch_id ?? null;
-  result.inserted = prepare.inserted ?? 0;
+  result.batchId = diagnostics.batchId ?? null;
+  result.inserted = diagnostics.inserted ?? 0;
 
   if (options.dryRun) {
     return result;

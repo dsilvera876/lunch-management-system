@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import {
@@ -8,8 +7,6 @@ import {
   NotificationDeliveryRecipientStatusBadge,
 } from "@/components/admin/notification-delivery-status-badge";
 import { Card } from "@/components/ui/card";
-import { linkButtonClass } from "@/components/ui/button";
-import { NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH } from "@/lib/notification-delivery";
 import type {
   NotificationDeliveryBatchDetail,
   NotificationDeliveryContentSample,
@@ -41,10 +38,6 @@ export function NotificationDeliveryDetailView({
 
   return (
     <div className="space-y-6">
-      <Link href={NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH} className={linkButtonClass("ghost")}>
-        ← Back to history
-      </Link>
-
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-foreground">

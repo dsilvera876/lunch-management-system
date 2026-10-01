@@ -2,7 +2,10 @@ import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { executeSupplementalDispatch } from "@/lib/late-order-supplement-dispatch";
 import { processEmailDeliveryQueue } from "@/lib/mail/process-email-delivery-queue";
-import { processTodayMenuNotifications } from "@/lib/process-today-menu-notifications";
+import {
+  formatTodayMenuWorkerLogLine,
+  processTodayMenuNotifications,
+} from "@/lib/process-today-menu-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
@@ -216,9 +219,7 @@ async function runTodayMenuNotifications(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processTodayMenuNotifications(supabase, { dryRun });
 
-  console.log(
-    `Today menu notifications: prepared=${result.prepared} batch=${result.batchId ?? "none"} inserted=${result.inserted} queued=${result.queued} skipped=${result.skipped} failures=${result.failures}`,
-  );
+  console.log(formatTodayMenuWorkerLogLine(result.diagnostics, result));
 
   return result.failures;
 }
