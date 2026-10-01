@@ -35,7 +35,9 @@ const SKIP_REASON_LABELS: Record<string, string> = {
   period_finalized: "Period finalized",
   globally_disabled: "Globally disabled",
   already_generated: "Already generated",
+  already_ordered: "Already ordered",
   outside_send_window: "Outside send window",
+  outside_window: "Outside send window",
   profile_not_found: "Profile not found",
 };
 

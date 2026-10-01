@@ -6,6 +6,10 @@ import {
   formatTodayMenuWorkerLogLine,
   processTodayMenuNotifications,
 } from "@/lib/process-today-menu-notifications";
+import {
+  formatDeadlineReminderWorkerLogLine,
+  processDeadlineReminderNotifications,
+} from "@/lib/process-deadline-reminder-notifications";
 import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
@@ -15,6 +19,7 @@ type WorkerTask =
   | "automatic-dispatch"
   | "mail-queue"
   | "today-menu-notifications"
+  | "deadline-reminder-notifications"
   | "staff-order-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
@@ -40,6 +45,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "automatic-dispatch" ||
         value === "mail-queue" ||
         value === "today-menu-notifications" ||
+        value === "deadline-reminder-notifications" ||
         value === "staff-order-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
@@ -227,6 +233,15 @@ async function runTodayMenuNotifications(dryRun: boolean): Promise<number> {
   return result.failures;
 }
 
+async function runDeadlineReminderNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processDeadlineReminderNotifications(supabase, { dryRun });
+
+  console.log(formatDeadlineReminderWorkerLogLine(result.diagnostics, result));
+
+  return result.failures;
+}
+
 async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processStaffOrderNotifications(supabase, { dryRun });
@@ -307,6 +322,13 @@ async function main(): Promise<void> {
     }
   }
 
+  if (options.task === "deadline-reminder-notifications" || options.task === "all") {
+    const failures = await runDeadlineReminderNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
   if (options.task === "staff-order-notifications" || options.task === "all") {
     const failures = await runStaffOrderNotifications(options.dryRun);
     if (failures > 0) {
@@ -315,6 +337,18 @@ async function main(): Promise<void> {
   }
 
   if (options.task === "mail-queue") {
+    try {
+      const deadlineFailures = await runDeadlineReminderNotifications(options.dryRun);
+      if (deadlineFailures > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `Deadline reminder notifications worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
+      process.exitCode = 1;
+    }
+
     try {
       const staffFailures = await runStaffOrderNotifications(options.dryRun);
       if (staffFailures > 0) {
