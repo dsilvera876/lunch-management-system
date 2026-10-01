@@ -21,6 +21,7 @@ import type {
 } from "@/lib/submit-provider-order-result";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { loadProviderMenusForOrderDate } from "@/lib/staff-provider-menu";
+import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
 function getOrderErrorCode(message: string) {
   const normalized = message.toLowerCase();
 
@@ -244,7 +245,7 @@ export async function submitLunchCheckout(
       errorCode,
       providerId: null,
       providerName: null,
-      message: error.message,
+      message: getLunchOrderErrorMessage(errorCode),
     };
   }
 
