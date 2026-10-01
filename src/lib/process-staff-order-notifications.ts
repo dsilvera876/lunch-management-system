@@ -11,7 +11,30 @@ export type ProcessStaffOrderNotificationsResult = {
   queued: number;
   skipped: number;
   failures: number;
+  renderFailures: number;
 };
+
+async function recordNotificationRenderFailure(
+  supabase: SupabaseClient,
+  deliveryId: string,
+  error: unknown,
+): Promise<void> {
+  const message = error instanceof Error ? error.message : String(error);
+
+  const { error: recordError } = await supabase.rpc(
+    "worker_record_notification_render_failure",
+    {
+      p_delivery_id: deliveryId,
+      p_error: message,
+    },
+  );
+
+  if (recordError) {
+    console.error(
+      `Staff order notification render failure could not be recorded: delivery=${deliveryId} error=${recordError.message}`,
+    );
+  }
+}
 
 export async function processStaffOrderNotifications(
   supabase: SupabaseClient,
@@ -21,6 +44,7 @@ export async function processStaffOrderNotifications(
     queued: 0,
     skipped: 0,
     failures: 0,
+    renderFailures: 0,
   };
 
   const { data: pendingRows, error: pendingError } = await supabase.rpc(
@@ -70,17 +94,44 @@ export async function processStaffOrderNotifications(
       templateCache.set(row.event_key, template);
     }
 
-    const context = await loadStaffOrderNotificationContext(supabase, row);
+    let context;
+    try {
+      context = await loadStaffOrderNotificationContext(supabase, row);
+    } catch (error) {
+      console.error(
+        `Staff order notification context failed: delivery=${row.delivery_id} event=${row.event_key} order=${row.order_id} error=${error instanceof Error ? error.message : error}`,
+      );
+      if (!options.dryRun) {
+        await recordNotificationRenderFailure(supabase, row.delivery_id, error);
+      }
+      result.renderFailures += 1;
+      result.failures += 1;
+      continue;
+    }
+
     if (!context) {
       result.skipped += 1;
       continue;
     }
 
-    const rendered = buildStaffOrderRenderedEmail(context, appOrigin, {
-      subjectTemplate: template.subject_template,
-      bodyHtmlTemplate: template.body_html_template,
-      bodyTextTemplate: template.body_text_template ?? "",
-    });
+    let rendered;
+    try {
+      rendered = buildStaffOrderRenderedEmail(context, appOrigin, {
+        subjectTemplate: template.subject_template,
+        bodyHtmlTemplate: template.body_html_template,
+        bodyTextTemplate: template.body_text_template ?? "",
+      });
+    } catch (error) {
+      console.error(
+        `Staff order notification render failed: delivery=${row.delivery_id} event=${row.event_key} order=${row.order_id} error=${error instanceof Error ? error.message : error}`,
+      );
+      if (!options.dryRun) {
+        await recordNotificationRenderFailure(supabase, row.delivery_id, error);
+      }
+      result.renderFailures += 1;
+      result.failures += 1;
+      continue;
+    }
 
     if (options.dryRun) {
       result.skipped += 1;

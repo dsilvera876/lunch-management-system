@@ -57,6 +57,7 @@ describe("notification delivery monitoring", () => {
     assert.match(worker, /formatTodayMenuWorkerLogLine/);
     assert.match(worker, /processTodayMenuNotifications/);
     assert.match(worker, /processStaffOrderNotifications/);
+    assert.match(worker, /render_failures=/);
     assert.match(worker, /staff-order-notifications/);
     assert.match(
       worker,

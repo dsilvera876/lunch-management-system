@@ -232,7 +232,7 @@ async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
   const result = await processStaffOrderNotifications(supabase, { dryRun });
 
   console.log(
-    `Staff order notifications: queued=${result.queued} render_skipped=${result.skipped} queue_failures=${result.failures}`,
+    `Staff order notifications: queued=${result.queued} render_skipped=${result.skipped} render_failures=${result.renderFailures} queue_failures=${result.failures}`,
   );
 
   return result.failures;
@@ -315,13 +315,27 @@ async function main(): Promise<void> {
   }
 
   if (options.task === "mail-queue") {
-    const staffFailures = await runStaffOrderNotifications(options.dryRun);
-    if (staffFailures > 0) {
+    try {
+      const staffFailures = await runStaffOrderNotifications(options.dryRun);
+      if (staffFailures > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `Staff order notifications worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
       process.exitCode = 1;
     }
 
-    const mailFailures = await runMailQueue(options.dryRun);
-    if (mailFailures > 0) {
+    try {
+      const mailFailures = await runMailQueue(options.dryRun);
+      if (mailFailures > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `Email queue worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
       process.exitCode = 1;
     }
   } else if (options.task === "all") {
