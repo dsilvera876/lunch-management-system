@@ -10,6 +10,8 @@ import { FormField, selectClassName } from "@/components/ui/form-field";
 import { Button, linkButtonClass } from "@/components/ui/button";
 import { UPDATE_PASSWORD_PATH } from "@/lib/auth-recovery";
 import { formatOfficeLocationLabel } from "@/lib/office-locations";
+import { StaffEmailPreferencesCard } from "@/components/account/staff-email-preferences-card";
+import { fetchMyNotificationPreferences } from "@/lib/notification-server";
 import { updateDefaultOfficeLocation } from "./actions";
 
 type Props = {
@@ -25,7 +27,8 @@ export default async function AccountPage({ searchParams }: Props) {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ data: activeLocations }, { data: profileRow }] = await Promise.all([
+  const [{ data: activeLocations }, { data: profileRow }, notificationPreferences] =
+    await Promise.all([
     supabase
       .from("office_locations")
       .select("id, name, address, description, is_active")
@@ -44,6 +47,7 @@ export default async function AccountPage({ searchParams }: Props) {
       `)
       .eq("id", profile.id)
       .single(),
+    fetchMyNotificationPreferences().catch(() => []),
   ]);
 
   const defaultLocation = profileRow?.office_locations
@@ -100,7 +104,9 @@ export default async function AccountPage({ searchParams }: Props) {
         </div>
       </Card>
 
-      <Card className="max-w-xl">
+      <StaffEmailPreferencesCard preferences={notificationPreferences} />
+
+      <Card className="mt-6 max-w-xl">
         <SectionHeader
           title="Default office location"
           description="New orders use this delivery location automatically. You can still change location for an individual order."

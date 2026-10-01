@@ -32,10 +32,17 @@ export default async function AdminSystemSettingsPage() {
             icon="settings"
           />
           <SettingsOperationsCard
+            href="/admin/settings/email"
+            title="Email Settings"
+            description="Lunch notification preferences, templates, and delivery links."
+            actionLabel="Manage email"
+            icon="settings"
+          />
+          <SettingsOperationsCard
             href="/admin/settings/email-delivery"
-            title="Email delivery"
+            title="Email delivery (SMTP)"
             description="SMTP settings for authentication and application email."
-            actionLabel="Configure email"
+            actionLabel="Configure SMTP"
             icon="settings"
           />
         </div>

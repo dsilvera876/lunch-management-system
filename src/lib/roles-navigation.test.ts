@@ -348,6 +348,7 @@ describe("route access boundaries", () => {
       assert.equal(canAccessRoute(role, "/admin/settings/system"), true);
       assert.equal(canAccessRoute(role, "/admin/settings/authentication"), true);
       assert.equal(canAccessRoute(role, "/admin/settings/email-delivery"), true);
+      assert.equal(canAccessRoute(role, "/admin/settings/email"), true);
     }
   });
 });

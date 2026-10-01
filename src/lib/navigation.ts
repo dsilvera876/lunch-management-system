@@ -125,6 +125,7 @@ const ADMIN_ITEMS: NavItem[] = [
 const ADMIN_SYSTEM_SETTINGS_PREFIXES = [
   "/admin/settings/system",
   "/admin/settings/authentication",
+  "/admin/settings/email",
   "/admin/settings/email-delivery",
 ];
 
@@ -331,7 +332,7 @@ export function canAccessRoute(
 
   if (
     pathname.startsWith("/admin/settings/system") ||
-    pathname.startsWith("/admin/settings/email-delivery") ||
+    pathname.startsWith("/admin/settings/email") ||
     pathname.startsWith("/admin/settings/authentication")
   ) {
     return canManageAuthSettings(role);

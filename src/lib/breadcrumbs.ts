@@ -78,6 +78,17 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
         return crumbs;
       }
 
+      if (subSection === "email") {
+        crumbs.push({ label: "Settings", href: "/admin/settings" });
+        if (segments[3] === "templates") {
+          crumbs.push({ label: "Email Settings", href: "/admin/settings/email" });
+          crumbs.push({ label: "Email Templates" });
+          return crumbs;
+        }
+        crumbs.push({ label: "Email Settings" });
+        return crumbs;
+      }
+
       if (subSection === "business-calendar") {
         crumbs.push({ label: "Settings", href: "/admin/settings" });
         crumbs.push({ label: "Business Calendar" });
