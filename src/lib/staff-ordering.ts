@@ -44,10 +44,16 @@ export type DeliveryOrderSummary = {
   office_location_name: string | null;
 };
 
+export type BusinessDayClosureInfo = {
+  entryType: string | null;
+  name: string | null;
+};
+
 export type StaffOrderingContext = {
   orderDate: string;
   orderWeekday: Weekday | null;
   businessDayOpen: boolean;
+  businessDayClosure: BusinessDayClosureInfo | null;
   deliveryDate: string | null;
   cutoffTime: string;
   orderDeadline: string | null;
@@ -72,10 +78,33 @@ export async function getStaffOrderingContext(
 
   const officeLocationId = profileRow?.default_office_location_id ?? null;
 
-  const { data: businessDayOpen } = await supabase.rpc("is_business_day", {
-    p_date: orderDate,
-    p_office_location_id: officeLocationId,
-  });
+  const { data: businessDayRows, error: businessDayError } = await supabase.rpc(
+    "get_business_day_ordering_closure",
+    {
+      p_date: orderDate,
+      p_office_location_id: officeLocationId,
+    },
+  );
+
+  if (businessDayError) {
+    throw new Error(businessDayError.message);
+  }
+
+  const businessDayRow = (
+    businessDayRows as Array<{
+      is_business_day: boolean;
+      closure_entry_type: string | null;
+      closure_name: string | null;
+    }> | null
+  )?.[0];
+
+  const businessDayOpen = businessDayRow?.is_business_day === true;
+  const businessDayClosure: BusinessDayClosureInfo | null = businessDayRow
+    ? {
+        entryType: businessDayRow.closure_entry_type,
+        name: businessDayRow.closure_name,
+      }
+    : null;
 
   const { data: deliveryDate } =
     businessDayOpen === true
@@ -245,6 +274,7 @@ export async function getStaffOrderingContext(
     orderDate,
     orderWeekday,
     businessDayOpen: businessDayOpen === true,
+    businessDayClosure,
     deliveryDate: deliveryDate ?? null,
     cutoffTime,
     orderDeadline: orderDeadline ?? null,

@@ -7,6 +7,7 @@ import {
   canEditOrder,
   formatDisplayDate,
   formatOrderDeliveryHeadline,
+  formatStaffBusinessDayClosedMessage,
   getOrderingClosedReason,
   isValidOrderQuantity,
   parseOrderQuantity,
@@ -35,34 +36,89 @@ describe("formatOrderDeliveryHeadline", () => {
   });
 });
 
-describe("getOrderingClosedReason", () => {
-  it("returns weekend reason when there is no order weekday", () => {
-    const reason = getOrderingClosedReason({
-      orderWeekday: null,
-      businessDayOpen: false,
-      periodFinalized: false,
-      orderingOpen: false,
-    });
-
-    assert.equal(reason?.title, "Ordering closed for the weekend");
+describe("formatStaffBusinessDayClosedMessage", () => {
+  it("formats company closure with due wording", () => {
+    assert.equal(
+      formatStaffBusinessDayClosedMessage({
+        entryType: "company_closure",
+        name: "Hurricane",
+      }),
+      "Lunch ordering is closed today due to Hurricane.",
+    );
   });
 
-  it("returns calendar closure on a weekday", () => {
+  it("formats public holiday with for wording", () => {
+    assert.equal(
+      formatStaffBusinessDayClosedMessage({
+        entryType: "public_holiday",
+        name: "Emancipation Day",
+      }),
+      "Lunch ordering is closed today for Emancipation Day.",
+    );
+  });
+
+  it("formats override closed with due wording", () => {
+    assert.equal(
+      formatStaffBusinessDayClosedMessage({
+        entryType: "override_closed",
+        name: "Emergency shutdown",
+      }),
+      "Lunch ordering is closed today due to Emergency shutdown.",
+    );
+  });
+
+  it("uses a clean fallback when there is no named entry", () => {
+    assert.equal(formatStaffBusinessDayClosedMessage(null), "Lunch ordering is closed today.");
+    assert.equal(
+      formatStaffBusinessDayClosedMessage({ entryType: null, name: null }),
+      "Lunch ordering is closed today.",
+    );
+  });
+
+  it("does not expose internal calendar terminology", () => {
+    const message = formatStaffBusinessDayClosedMessage({
+      entryType: "company_closure",
+      name: "Hurricane",
+    });
+    assert.doesNotMatch(message, /business calendar/i);
+    assert.doesNotMatch(message, /override_closed/i);
+    assert.doesNotMatch(message, /holiday or company closure/i);
+  });
+});
+
+describe("getOrderingClosedReason", () => {
+  it("returns a named weekday closure message", () => {
     const reason = getOrderingClosedReason({
       orderWeekday: 3,
       businessDayOpen: false,
+      businessDayClosure: { entryType: "company_closure", name: "Hurricane" },
       periodFinalized: false,
       orderingOpen: false,
     });
 
     assert.equal(reason?.title, "Ordering closed today");
-    assert.match(reason?.description ?? "", /business calendar/);
+    assert.equal(reason?.description, "Lunch ordering is closed today due to Hurricane.");
+    assert.equal(reason?.emptyStateDescription, "Lunch ordering is unavailable today.");
+  });
+
+  it("returns a simple weekend fallback without naming the weekend", () => {
+    const reason = getOrderingClosedReason({
+      orderWeekday: null,
+      businessDayOpen: false,
+      businessDayClosure: { entryType: null, name: null },
+      periodFinalized: false,
+      orderingOpen: false,
+    });
+
+    assert.equal(reason?.description, "Lunch ordering is closed today.");
+    assert.doesNotMatch(reason?.description ?? "", /weekend/i);
   });
 
   it("returns finalized reason before cutoff reason", () => {
     const reason = getOrderingClosedReason({
       orderWeekday: 1,
       businessDayOpen: true,
+      businessDayClosure: null,
       periodFinalized: true,
       orderingOpen: false,
     });
@@ -75,6 +131,7 @@ describe("getOrderingClosedReason", () => {
       getOrderingClosedReason({
         orderWeekday: 2,
         businessDayOpen: true,
+        businessDayClosure: null,
         periodFinalized: false,
         orderingOpen: true,
       }),
@@ -86,6 +143,7 @@ describe("getOrderingClosedReason", () => {
     const reason = getOrderingClosedReason({
       orderWeekday: 3,
       businessDayOpen: true,
+      businessDayClosure: null,
       periodFinalized: false,
       orderingOpen: false,
     });

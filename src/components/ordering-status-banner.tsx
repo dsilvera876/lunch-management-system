@@ -13,6 +13,7 @@ type Props = Pick<
   | "orderingOpen"
   | "orderWeekday"
   | "businessDayOpen"
+  | "businessDayClosure"
   | "periodFinalized"
 > & {
   defaultLocationName?: string | null;
@@ -24,12 +25,14 @@ export function OrderingStatusBanner({
   orderingOpen,
   orderWeekday,
   businessDayOpen,
+  businessDayClosure,
   periodFinalized,
   defaultLocationName,
 }: Props) {
   const closedReason = getOrderingClosedReason({
     orderWeekday,
     businessDayOpen,
+    businessDayClosure,
     periodFinalized,
     orderingOpen,
   });
@@ -42,8 +45,7 @@ export function OrderingStatusBanner({
           <StatusBadge status="closed" />
         </div>
         <p className="mt-2 text-sm text-muted">
-          {closedReason?.description ??
-            "Lunch ordering is closed on weekends. Ordering resumes Monday for Tuesday delivery."}
+          {closedReason?.description ?? "Lunch ordering is closed today."}
         </p>
       </Card>
     );

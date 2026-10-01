@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(30);
 
 -- Fixture week: 2099-01-05 Mon … 2099-01-11 Sun
 
@@ -169,6 +169,69 @@ select throws_ok(
   $$,
   null,
   'HR support read-only cannot archive'
+);
+
+select is(
+  (
+    select closure_entry_type
+    from public.get_business_day_ordering_closure('2099-01-07'::date, null)
+  ),
+  'company_closure',
+  'Ordering closure RPC returns company_closure entry type'
+);
+
+select is(
+  (
+    select closure_name
+    from public.get_business_day_ordering_closure('2099-01-07'::date, null)
+  ),
+  'Fixture Closure',
+  'Ordering closure RPC returns company closure name'
+);
+
+select is(
+  (
+    select closure_entry_type
+    from public.get_business_day_ordering_closure('2099-01-06'::date, null)
+  ),
+  'public_holiday',
+  'Ordering closure RPC returns public_holiday entry type'
+);
+
+select is(
+  (
+    select closure_name
+    from public.get_business_day_ordering_closure('2099-01-09'::date, 'a1111111-1111-4111-8111-111111111111')
+  ),
+  'Site A closure',
+  'Location-scoped closure wins for matching office location'
+);
+
+select is(
+  (
+    select is_business_day
+    from public.get_business_day_ordering_closure('2099-01-14'::date, 'a1111111-1111-4111-8111-111111111111')
+  ),
+  true,
+  'Location override_open yields open business day for ordering closure RPC'
+);
+
+select is(
+  (
+    select closure_name
+    from public.get_business_day_ordering_closure('2099-01-11'::date, null)
+  ),
+  null,
+  'Weekend closure without named entry returns null closure name'
+);
+
+select is(
+  (
+    select closure_entry_type
+    from public.get_business_day_ordering_closure('2099-01-08'::date, null)
+  ),
+  'override_closed',
+  'Override closed entry type is exposed for staff copy formatting'
 );
 
 select * from finish();

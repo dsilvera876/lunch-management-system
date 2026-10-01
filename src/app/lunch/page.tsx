@@ -70,6 +70,7 @@ export default async function LunchPage({ searchParams }: Props) {
   const closedReason = getOrderingClosedReason({
     orderWeekday: ctx.orderWeekday,
     businessDayOpen: ctx.businessDayOpen,
+    businessDayClosure: ctx.businessDayClosure,
     periodFinalized: ctx.periodFinalized,
     orderingOpen: ctx.orderingOpen,
   });
@@ -129,7 +130,10 @@ export default async function LunchPage({ searchParams }: Props) {
         )}
 
       {!ctx.orderingOpen && closedReason ? (
-        <EmptyState title={closedReason.title} description={closedReason.description} />
+        <EmptyState
+          title="Ordering closed today"
+          description={closedReason.emptyStateDescription}
+        />
       ) : null}
     </>
   );

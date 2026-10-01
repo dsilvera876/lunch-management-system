@@ -4,7 +4,7 @@ import {
   WEEKDAYS,
   type Weekday,
 } from "@/lib/datetime";
-import type { StaffOrderingContext } from "@/lib/staff-ordering";
+import type { BusinessDayClosureInfo, StaffOrderingContext } from "@/lib/staff-ordering";
 
 /** Long-form date for employee-facing copy, e.g. "Tuesday, September 8". */
 export function formatDisplayDate(dateStr: string): string {
@@ -23,51 +23,71 @@ export function formatOrderDeliveryHeadline(deliveryDate: string): string {
 
 export type OrderingClosedReason = {
   title: string;
+  /** Primary staff-facing message (status bar). */
   description: string;
+  /** Shorter empty-state body to avoid repeating the status bar sentence. */
+  emptyStateDescription: string;
 };
+
+export function formatStaffBusinessDayClosedMessage(
+  closure: Pick<BusinessDayClosureInfo, "entryType" | "name"> | null | undefined,
+): string {
+  const name = closure?.name?.trim();
+  if (!name) {
+    return "Lunch ordering is closed today.";
+  }
+
+  if (closure?.entryType === "public_holiday") {
+    return `Lunch ordering is closed today for ${name}.`;
+  }
+
+  return `Lunch ordering is closed today due to ${name}.`;
+}
 
 export function getOrderingClosedReason(
   ctx: Pick<
     StaffOrderingContext,
-    "orderWeekday" | "businessDayOpen" | "periodFinalized" | "orderingOpen"
+    | "orderWeekday"
+    | "businessDayOpen"
+    | "businessDayClosure"
+    | "periodFinalized"
+    | "orderingOpen"
   >,
 ): OrderingClosedReason | null {
   if (!ctx.businessDayOpen) {
-    if (!ctx.orderWeekday) {
-      return {
-        title: "Ordering closed for the weekend",
-        description:
-          "Lunch ordering is closed on weekends. Ordering resumes on the next open business day.",
-      };
-    }
-
+    const description = formatStaffBusinessDayClosedMessage(ctx.businessDayClosure);
     return {
       title: "Ordering closed today",
-      description:
-        "Lunch ordering is closed today because of the business calendar (holiday or company closure).",
+      description,
+      emptyStateDescription: "Lunch ordering is unavailable today.",
     };
   }
 
   if (!ctx.orderWeekday) {
+    const description = formatStaffBusinessDayClosedMessage(ctx.businessDayClosure);
     return {
-      title: "Ordering closed for the weekend",
-      description:
-        "Lunch ordering is closed on weekends. Ordering resumes on the next open business day.",
+      title: "Ordering closed today",
+      description,
+      emptyStateDescription: "Lunch ordering is unavailable today.",
     };
   }
 
   if (ctx.periodFinalized) {
+    const description =
+      "Ordering is unavailable because this lunch period has been finalized.";
     return {
       title: "Ordering unavailable",
-      description:
-        "Ordering is unavailable because this lunch period has been finalized.",
+      description,
+      emptyStateDescription: description,
     };
   }
 
   if (!ctx.orderingOpen) {
+    const description = "Today's ordering window has closed.";
     return {
       title: "Ordering closed",
-      description: "Today's ordering window has closed.",
+      description,
+      emptyStateDescription: description,
     };
   }
 
