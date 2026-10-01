@@ -51,16 +51,16 @@ describe("notification delivery monitoring", () => {
     assert.match(worker, /processTodayMenuNotifications/);
   });
 
-  it("uses Administration breadcrumbs for Email Delivery monitoring", () => {
+  it("uses Admin Settings breadcrumbs for Email Delivery monitoring", () => {
     assert.deepEqual(getBreadcrumbs("/admin/settings/email/delivery"), [
       { label: "Home", href: "/home" },
-      { label: "Administration" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
       { label: "Email Delivery" },
     ]);
 
     assert.deepEqual(getBreadcrumbs("/admin/settings/email/delivery/history"), [
       { label: "Home", href: "/home" },
-      { label: "Administration" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
       { label: "Email Delivery", href: "/admin/settings/email/delivery" },
       { label: "History" },
     ]);
@@ -70,11 +70,11 @@ describe("notification delivery monitoring", () => {
     );
     assert.deepEqual(detailCrumbs, [
       { label: "Home", href: "/home" },
-      { label: "Administration" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
       { label: "Email Delivery", href: "/admin/settings/email/delivery" },
       { label: "Delivery Details" },
     ]);
-    assert.doesNotMatch(JSON.stringify(detailCrumbs), /Email Settings/);
+    assert.doesNotMatch(JSON.stringify(detailCrumbs), /Administration/);
   });
 
   it("adds Refresh controls and removes redundant back links", () => {

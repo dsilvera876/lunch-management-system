@@ -12,6 +12,9 @@ function isHrUsersContext(role: string | undefined): boolean {
   return role === "hr";
 }
 
+/** Canonical Admin/Owner technical settings landing (navigation + breadcrumbs). */
+export const ADMIN_SETTINGS_PATH = "/admin/settings/system";
+
 const LABELS: Record<string, string> = {
   home: "Dashboard",
   lunch: "Today's Order",
@@ -39,6 +42,12 @@ function adminSectionLabel(section: string): string {
   return LABELS[section] ?? section.replace(/-/g, " ");
 }
 
+function adminSettingsCrumb(link: boolean): BreadcrumbItem {
+  return link
+    ? { label: "Admin Settings", href: ADMIN_SETTINGS_PATH }
+    : { label: "Admin Settings" };
+}
+
 export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}): BreadcrumbItem[] {
   const { role } = options;
   const crumbs: BreadcrumbItem[] = [{ label: "Home", href: "/home" }];
@@ -62,25 +71,25 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
       const subSection = segments[2];
 
       if (subSection === "system") {
-        crumbs.push({ label: "Admin Settings" });
+        crumbs.push(adminSettingsCrumb(false));
         return crumbs;
       }
 
       if (subSection === "authentication") {
-        crumbs.push({ label: "Admin Settings", href: "/admin/settings/system" });
+        crumbs.push(adminSettingsCrumb(true));
         crumbs.push({ label: "Authentication" });
         return crumbs;
       }
 
       if (subSection === "email-delivery") {
-        crumbs.push({ label: "Admin Settings", href: "/admin/settings/system" });
-        crumbs.push({ label: "Email Delivery" });
+        crumbs.push(adminSettingsCrumb(true));
+        crumbs.push({ label: "System Email" });
         return crumbs;
       }
 
       if (subSection === "email") {
         if (segments[3] === "delivery") {
-          crumbs.push({ label: "Administration" });
+          crumbs.push(adminSettingsCrumb(true));
           if (segments[4] === "history") {
             crumbs.push({ label: "Email Delivery", href: "/admin/settings/email/delivery" });
             crumbs.push({ label: "History" });
@@ -95,12 +104,21 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
           return crumbs;
         }
 
-        crumbs.push({ label: "Settings", href: "/admin/settings" });
         if (segments[3] === "templates") {
-          crumbs.push({ label: "Email Settings", href: "/admin/settings/email" });
+          crumbs.push(adminSettingsCrumb(true));
+          if (segments[4]) {
+            crumbs.push({
+              label: "Email Templates",
+              href: "/admin/settings/email/templates",
+            });
+            crumbs.push({ label: "Edit Email Template" });
+            return crumbs;
+          }
           crumbs.push({ label: "Email Templates" });
           return crumbs;
         }
+
+        crumbs.push(adminSettingsCrumb(true));
         crumbs.push({ label: "Email Settings" });
         return crumbs;
       }

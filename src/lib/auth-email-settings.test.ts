@@ -97,15 +97,71 @@ describe("auth and email admin settings", () => {
       { label: "Admin Settings" },
     ]);
 
-    const authCrumbs = getBreadcrumbs("/admin/settings/authentication");
-    assert.equal(authCrumbs[1]?.label, "Admin Settings");
-    assert.equal(authCrumbs[1]?.href, "/admin/settings/system");
-    assert.equal(authCrumbs[2]?.label, "Authentication");
+    assert.deepEqual(getBreadcrumbs("/admin/settings/authentication"), [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "Authentication" },
+    ]);
 
-    const emailCrumbs = getBreadcrumbs("/admin/settings/email-delivery");
-    assert.equal(emailCrumbs[1]?.label, "Admin Settings");
-    assert.equal(emailCrumbs[1]?.href, "/admin/settings/system");
-    assert.equal(emailCrumbs[2]?.label, "Email Delivery");
+    assert.deepEqual(getBreadcrumbs("/admin/settings/email"), [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "Email Settings" },
+    ]);
+
+    assert.deepEqual(getBreadcrumbs("/admin/settings/email/templates"), [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "Email Templates" },
+    ]);
+
+    assert.deepEqual(
+      getBreadcrumbs("/admin/settings/email/templates/staff.today_menu"),
+      [
+        { label: "Home", href: "/home" },
+        { label: "Admin Settings", href: "/admin/settings/system" },
+        { label: "Email Templates", href: "/admin/settings/email/templates" },
+        { label: "Edit Email Template" },
+      ],
+    );
+
+    assert.deepEqual(getBreadcrumbs("/admin/settings/email-delivery"), [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "System Email" },
+    ]);
+
+    assert.deepEqual(getBreadcrumbs("/admin/settings/email/delivery"), [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "Email Delivery" },
+    ]);
+
+    assert.deepEqual(getBreadcrumbs("/admin/settings/email/delivery/history"), [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "Email Delivery", href: "/admin/settings/email/delivery" },
+      { label: "History" },
+    ]);
+
+    const detailCrumbs = getBreadcrumbs(
+      "/admin/settings/email/delivery/00000000-0000-0000-0000-000000000001",
+    );
+    assert.deepEqual(detailCrumbs, [
+      { label: "Home", href: "/home" },
+      { label: "Admin Settings", href: "/admin/settings/system" },
+      { label: "Email Delivery", href: "/admin/settings/email/delivery" },
+      { label: "Delivery Details" },
+    ]);
+
+    for (const crumbs of [
+      getBreadcrumbs("/admin/settings/email"),
+      getBreadcrumbs("/admin/settings/email/delivery"),
+      detailCrumbs,
+    ]) {
+      assert.doesNotMatch(JSON.stringify(crumbs), /Administration/);
+      assert.doesNotMatch(JSON.stringify(crumbs), /"Settings"/);
+    }
   });
 
   it("supports disabled-domain delete flow in authentication settings UI", () => {
