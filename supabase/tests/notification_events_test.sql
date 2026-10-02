@@ -1,11 +1,30 @@
 begin;
 
-select plan(30);
+select plan(32);
 
 select is(
   (select count(*)::integer from private.notification_event_catalog),
   14,
   'V1 catalog contains fourteen events'
+);
+
+select ok(
+  exists (
+    select 1
+    from private.notification_event_catalog
+    where event_key = 'admin.email_delivery_failure'
+      and audience = 'admin'
+  ),
+  'Admin technical email delivery failure event exists'
+);
+
+select ok(
+  not exists (
+    select 1
+    from private.notification_event_catalog
+    where event_key = 'hr.delivery_issue_reported'
+  ),
+  'Delivery issue notification event removed from catalog'
 );
 
 select is(

@@ -10,6 +10,8 @@ import {
   formatDeadlineReminderWorkerLogLine,
   processDeadlineReminderNotifications,
 } from "@/lib/process-deadline-reminder-notifications";
+import { processAdminEmailDeliveryFailureNotifications } from "@/lib/process-admin-email-delivery-failure-notifications";
+import { processHrEmailDeliveryFailureNotifications } from "@/lib/process-hr-email-delivery-failure-notifications";
 import { processHrPendingSignupNotifications } from "@/lib/process-hr-pending-signup-notifications";
 import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
@@ -22,6 +24,8 @@ type WorkerTask =
   | "today-menu-notifications"
   | "deadline-reminder-notifications"
   | "hr-pending-signup-notifications"
+  | "admin-email-delivery-failure-notifications"
+  | "hr-email-delivery-failure-notifications"
   | "staff-order-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
@@ -49,6 +53,8 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "today-menu-notifications" ||
         value === "deadline-reminder-notifications" ||
         value === "hr-pending-signup-notifications" ||
+        value === "admin-email-delivery-failure-notifications" ||
+        value === "hr-email-delivery-failure-notifications" ||
         value === "staff-order-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
@@ -256,6 +262,28 @@ async function runHrPendingSignupNotifications(dryRun: boolean): Promise<number>
   return result.failures;
 }
 
+async function runAdminEmailDeliveryFailureNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processAdminEmailDeliveryFailureNotifications(supabase, { dryRun });
+
+  console.log(
+    `Admin email delivery failure notifications: queued=${result.queued} render_skipped=${result.skipped} render_failures=${result.renderFailures} queue_failures=${result.failures}`,
+  );
+
+  return result.failures;
+}
+
+async function runHrEmailDeliveryFailureNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processHrEmailDeliveryFailureNotifications(supabase, { dryRun });
+
+  console.log(
+    `HR email delivery failure notifications: queued=${result.queued} render_skipped=${result.skipped} render_failures=${result.renderFailures} queue_failures=${result.failures}`,
+  );
+
+  return result.failures;
+}
+
 async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processStaffOrderNotifications(supabase, { dryRun });
@@ -365,6 +393,20 @@ async function main(): Promise<void> {
     }
   }
 
+  if (options.task === "admin-email-delivery-failure-notifications" || options.task === "all") {
+    const failures = await runAdminEmailDeliveryFailureNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
+  if (options.task === "hr-email-delivery-failure-notifications" || options.task === "all") {
+    const failures = await runHrEmailDeliveryFailureNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
   if (options.task === "staff-order-notifications" || options.task === "all") {
     const failures = await runStaffOrderNotifications(options.dryRun);
     if (failures > 0) {
@@ -393,6 +435,30 @@ async function main(): Promise<void> {
     } catch (error) {
       console.error(
         `HR pending signup notifications worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
+      process.exitCode = 1;
+    }
+
+    try {
+      const adminFailureAlerts = await runAdminEmailDeliveryFailureNotifications(options.dryRun);
+      if (adminFailureAlerts > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `Admin email delivery failure notifications worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
+      process.exitCode = 1;
+    }
+
+    try {
+      const hrFailureAlerts = await runHrEmailDeliveryFailureNotifications(options.dryRun);
+      if (hrFailureAlerts > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `HR email delivery failure notifications worker aborted: ${error instanceof Error ? error.message : error}`,
       );
       process.exitCode = 1;
     }

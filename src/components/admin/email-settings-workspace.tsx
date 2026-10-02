@@ -25,6 +25,7 @@ type Props = {
   hrEvents: AdminNotificationEventRow[];
   accountsEvents: AdminNotificationEventRow[];
   providerEvents: AdminNotificationEventRow[];
+  adminEvents: AdminNotificationEventRow[];
 };
 
 function NotificationEventsColGroup() {
@@ -262,18 +263,55 @@ function buildEnabledBaseline(events: AdminNotificationEventRow[]): Record<strin
   return Object.fromEntries(events.map((event) => [event.event_key, event.global_enabled]));
 }
 
+function AdminTechnicalNotificationsPanel({
+  adminEvents,
+  resolveGlobalEnabled,
+  pendingToggleKeys,
+  toggleErrors,
+  onToggle,
+}: {
+  adminEvents: AdminNotificationEventRow[];
+  resolveGlobalEnabled: (event: AdminNotificationEventRow) => boolean;
+  pendingToggleKeys: Set<string>;
+  toggleErrors: Record<string, string>;
+  onToggle: (eventKey: string, nextEnabled: boolean) => void;
+}) {
+  if (adminEvents.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card padding="md" className="shadow-sm">
+      <p className="mb-4 text-sm text-muted">
+        Technical alerts for Admin and Owner when outbound application email permanently fails.
+        These are separate from HR operational lunch notifications.
+      </p>
+      <EventTable
+        events={adminEvents}
+        showTiming={false}
+        editableStaffTiming={false}
+        resolveGlobalEnabled={resolveGlobalEnabled}
+        pendingToggleKeys={pendingToggleKeys}
+        toggleErrors={toggleErrors}
+        onToggle={onToggle}
+      />
+    </Card>
+  );
+}
+
 export function EmailSettingsWorkspace({
   staffEvents,
   hrEvents,
   accountsEvents,
   providerEvents,
+  adminEvents,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = (searchParams.get("tab") as TabId | null) ?? "staff";
   const allEvents = useMemo(
-    () => [...staffEvents, ...hrEvents, ...accountsEvents, ...providerEvents],
-    [staffEvents, hrEvents, accountsEvents, providerEvents],
+    () => [...staffEvents, ...hrEvents, ...accountsEvents, ...providerEvents, ...adminEvents],
+    [staffEvents, hrEvents, accountsEvents, providerEvents, adminEvents],
   );
   const [enabledBaselineByKey, setEnabledBaselineByKey] = useState<Record<string, boolean>>(() =>
     buildEnabledBaseline(allEvents),
@@ -389,21 +427,30 @@ export function EmailSettingsWorkspace({
       ) : null}
 
       {tab === "system" ? (
-        <Card padding="md" className="shadow-sm">
-          <p className="text-sm text-muted">
-            System and account emails are separate from optional lunch notifications.
-            Authentication emails (invitations, verification, password reset) always send when
-            required and are not controlled by lunch notification preferences.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link href="/admin/settings/email-delivery" className={linkButtonClass("primary")}>
-              Configure SMTP delivery
-            </Link>
-            <Link href="/admin/settings/authentication" className={linkButtonClass("secondary")}>
-              Authentication settings
-            </Link>
-          </div>
-        </Card>
+        <div className="space-y-4">
+          <AdminTechnicalNotificationsPanel
+            adminEvents={adminEvents}
+            resolveGlobalEnabled={resolveGlobalEnabled}
+            pendingToggleKeys={pendingToggleKeys}
+            toggleErrors={toggleErrors}
+            onToggle={handleToggle}
+          />
+          <Card padding="md" className="shadow-sm">
+            <p className="text-sm text-muted">
+              System and account emails are separate from optional lunch notifications.
+              Authentication emails (invitations, verification, password reset) always send when
+              required and are not controlled by lunch notification preferences.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href="/admin/settings/email-delivery" className={linkButtonClass("primary")}>
+                Configure SMTP delivery
+              </Link>
+              <Link href="/admin/settings/authentication" className={linkButtonClass("secondary")}>
+                Authentication settings
+              </Link>
+            </div>
+          </Card>
+        </div>
       ) : null}
     </div>
   );

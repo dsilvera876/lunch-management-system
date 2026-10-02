@@ -7,11 +7,13 @@ import { fetchAdminNotificationEvents } from "@/lib/notification-server";
 export default async function EmailSettingsPage() {
   await requireAdminOrOwner();
 
-  const [staffEvents, hrEvents, accountsEvents, providerEvents] = await Promise.all([
+  const [staffEvents, hrEvents, accountsEvents, providerEvents, adminEvents] =
+    await Promise.all([
     fetchAdminNotificationEvents("staff"),
     fetchAdminNotificationEvents("hr"),
     fetchAdminNotificationEvents("accounts"),
     fetchAdminNotificationEvents("provider"),
+    fetchAdminNotificationEvents("admin"),
   ]);
 
   return (
@@ -25,6 +27,7 @@ export default async function EmailSettingsPage() {
         hrEvents={hrEvents}
         accountsEvents={accountsEvents}
         providerEvents={providerEvents}
+        adminEvents={adminEvents}
       />
     </HrSettingsWorkspace>
   );

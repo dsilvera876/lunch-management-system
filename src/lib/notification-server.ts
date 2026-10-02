@@ -36,7 +36,7 @@ export async function fetchMyNotificationPreferences(): Promise<
 }
 
 export async function fetchAdminNotificationEvents(
-  audience: "staff" | "hr" | "accounts" | "provider",
+  audience: "staff" | "hr" | "accounts" | "provider" | "admin",
 ): Promise<AdminNotificationEventRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("list_admin_notification_events", {
