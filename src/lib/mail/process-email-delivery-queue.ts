@@ -50,6 +50,26 @@ export async function processEmailDeliveryQueue(
   const rows = ((data ?? []) as Record<string, unknown>[]).map(mapQueueRow);
   result.claimed = rows.length;
 
+  if (rows.length === 0 && !options.dryRun) {
+    const { data: diagnostics, error: diagnosticsError } = await supabase.rpc(
+      "worker_email_delivery_queue_claim_diagnostics",
+    );
+
+    if (!diagnosticsError && diagnostics && typeof diagnostics === "object") {
+      const stats = diagnostics as Record<string, number>;
+      const pendingReady = Number(stats.pending_ready ?? 0);
+      const pendingFuture = Number(stats.pending_future ?? 0);
+      const processing = Number(stats.processing ?? 0);
+      const processingStale = Number(stats.processing_stale ?? 0);
+
+      if (pendingReady + pendingFuture + processing > 0) {
+        console.warn(
+          `Email queue claim returned 0 rows; pending_ready=${pendingReady} pending_future=${pendingFuture} processing=${processing} processing_stale=${processingStale}`,
+        );
+      }
+    }
+  }
+
   if (options.dryRun) {
     console.log(`Dry run: claimed ${rows.length} email queue message(s); SMTP send skipped`);
     return result;

@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(21);
 
 \ir support/isolate_existing_owner.inc
 
@@ -251,6 +251,77 @@ select ok(
     where d.id = current_setting('test.hr_signup_delivery_id')::uuid
   ) = 'New signup approval request',
   'J: rendered subject snapshot stored on delivery log'
+);
+
+reset role;
+
+select is(
+  (
+    select q.message_type
+    from private.email_delivery_queue q
+    inner join private.notification_delivery_log d on d.email_queue_id = q.id
+    where d.id = current_setting('test.hr_signup_delivery_id')::uuid
+  ),
+  'notification_hr_pending_signup',
+  'queued HR signup email uses notification_hr_pending_signup message type'
+);
+
+select is(
+  (
+    select q.correlation_type
+    from private.email_delivery_queue q
+    inner join private.notification_delivery_log d on d.email_queue_id = q.id
+    where d.id = current_setting('test.hr_signup_delivery_id')::uuid
+  ),
+  'notification_delivery',
+  'queued HR signup email correlates to notification delivery row'
+);
+
+reset role;
+
+update private.email_delivery_queue q
+set status = 'sent', sent_at = now()
+from private.notification_delivery_log d
+where d.email_queue_id = q.id
+  and d.id = current_setting('test.hr_signup_delivery_id')::uuid;
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select public.service_enqueue_email_delivery(
+  'notification_hr_pending_signup',
+  'hr-notify-two@test.local',
+  'Claim path probe',
+  'text',
+  '<p>html</p>',
+  'notification_delivery',
+  gen_random_uuid(),
+  false
+);
+
+select ok(
+  (
+    select count(*)::integer
+    from public.worker_claim_email_delivery_queue(10)
+    where message_type = 'notification_hr_pending_signup'
+  ) >= 1,
+  'worker_claim_email_delivery_queue claims notification_hr_pending_signup rows'
+);
+
+reset role;
+
+select ok(
+  public.worker_should_deliver_email_queue_message(
+    (
+      select id
+      from private.email_delivery_queue
+      where recipient_email = 'hr-notify-two@test.local'
+      order by created_at desc
+      limit 1
+    )
+  ),
+  'worker_should_deliver accepts HR pending signup queue message'
 );
 
 reset role;

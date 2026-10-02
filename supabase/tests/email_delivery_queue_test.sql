@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(19);
 
 \ir support/isolate_existing_owner.inc
 
@@ -235,6 +235,64 @@ select is(
   (select status from private.email_delivery_queue where recipient_email = 'fail@example.test'),
   'failed',
   'failure at max attempts marks queue row failed'
+);
+
+-- Stale processing recovery (stranded claim lease)
+reset role;
+
+insert into private.email_delivery_queue (
+  message_type,
+  recipient_email,
+  subject,
+  text_body,
+  html_body,
+  status,
+  attempts,
+  claimed_at,
+  available_at
+)
+values (
+  'notification_hr_pending_signup',
+  'stranded@test.local',
+  'Stranded subject',
+  'stranded text',
+  '<p>stranded</p>',
+  'processing',
+  1,
+  now() - interval '10 minutes',
+  now()
+);
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select is(
+  (select count(*)::int from public.worker_claim_email_delivery_queue(5)),
+  1,
+  'stale processing row is recovered and claimable'
+);
+
+reset role;
+
+select is(
+  (select status from private.email_delivery_queue where recipient_email = 'stranded@test.local'),
+  'processing',
+  'recovered row is actively claimed again'
+);
+
+select ok(
+  public.worker_should_deliver_email_queue_message(
+    (select id from private.email_delivery_queue where recipient_email = 'stranded@test.local')
+  ),
+  'notification_hr_pending_signup passes delivery validation'
+);
+
+select ok(
+  (
+    select (public.worker_email_delivery_queue_claim_diagnostics() ->> 'processing_stale')::integer
+  ) = 0,
+  'diagnostics report no stale processing after recovery claim'
 );
 
 select * from finish();

@@ -269,13 +269,28 @@ async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
 
 async function runMailQueue(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
-  const result = await processEmailDeliveryQueue(supabase, { batchSize: 25, dryRun });
+  let result: Awaited<ReturnType<typeof processEmailDeliveryQueue>> | null = null;
+  let stageError: unknown = null;
 
-  console.log(
-    `Email queue processed: claimed=${result.claimed} sent=${result.sent} retried=${result.retried} failed=${result.failed}`,
-  );
-
-  return result.failed;
+  try {
+    result = await processEmailDeliveryQueue(supabase, { batchSize: 25, dryRun });
+    return result.failed;
+  } catch (error) {
+    stageError = error;
+    throw error;
+  } finally {
+    if (result) {
+      console.log(
+        `Email queue processed: claimed=${result.claimed} sent=${result.sent} retried=${result.retried} failed=${result.failed}`,
+      );
+    } else if (stageError) {
+      console.error(
+        `Email queue processed: aborted before completion (${stageError instanceof Error ? stageError.message : stageError})`,
+      );
+    } else {
+      console.log("Email queue processed: claimed=0 sent=0 retried=0 failed=0");
+    }
+  }
 }
 
 async function runAuthDeletionCleanup(dryRun: boolean): Promise<number> {
