@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireFinalizeLunchPeriods, requireUpdateDailyLunchSubsidy } from "@/lib/auth";
+import {
+  requireFinalizeLunchPeriods,
+  requireMutateAccountsOperationalData,
+  requireUpdateDailyLunchSubsidy,
+} from "@/lib/auth";
 import { appendSearchParams } from "@/lib/redirect-url";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,7 +51,39 @@ export async function finalizeLunchPeriod(formData: FormData) {
   revalidatePath("/financials");
   revalidatePath("/home");
 
-  redirect(appendSearchParams(redirectBase, { finalized: "1" }));
+  redirect(
+    appendSearchParams(redirectBase, {
+      finalized: "1",
+      promptStaffNotice: "1",
+    }),
+  );
+}
+
+export async function sendStaffLunchPeriodFinalizedNoticeAction(periodId: string) {
+  await requireMutateAccountsOperationalData();
+
+  if (!periodId) {
+    redirect(appendSearchParams("/admin/financials", { noticeError: "invalid" }));
+  }
+
+  const redirectBase = appendSearchParams("/admin/financials", { periodId });
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("generate_staff_lunch_period_finalized_notice", {
+    p_lunch_period_id: periodId,
+  });
+
+  if (error) {
+    redirect(appendSearchParams(redirectBase, { noticeError: "send" }));
+  }
+
+  const result = data as { ok?: boolean; code?: string } | null;
+  if (!result?.ok) {
+    const code = result?.code ?? "unknown";
+    redirect(appendSearchParams(redirectBase, { noticeError: code }));
+  }
+
+  revalidatePath("/admin/financials");
+  redirect(appendSearchParams(redirectBase, { noticeQueued: "1" }));
 }
 
 export async function updateDailyLunchSubsidy(formData: FormData) {

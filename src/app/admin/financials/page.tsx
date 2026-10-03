@@ -4,7 +4,10 @@ import { isSupportReadOnlyActor } from "@/lib/support-mode";
 import {
   canExportFinancialSummaries,
   canFinalizeLunchPeriods,
+  canMutateAccountsOperationalData,
 } from "@/lib/roles";
+import { loadStaffPeriodFinalizedNoticeSummary } from "@/lib/staff-period-notice-server";
+import { FinancialStaffPeriodNoticeSection } from "@/components/admin/financial-reports/financial-staff-period-notice";
 import {
   getLunchPeriodFinancialSummary,
 } from "@/lib/financial-summaries";
@@ -22,6 +25,9 @@ type Props = {
   searchParams: Promise<{
     periodId?: string;
     finalized?: string;
+    promptStaffNotice?: string;
+    noticeError?: string;
+    noticeQueued?: string;
     error?: string;
   }>;
 };
@@ -51,6 +57,11 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
   const returnTo = selectedPeriodId
     ? `/admin/financials?periodId=${selectedPeriodId}`
     : "/admin/financials";
+  const staffNoticeSummary =
+    selectedPeriodId && summary?.period.status === "finalized"
+      ? await loadStaffPeriodFinalizedNoticeSummary(supabase, selectedPeriodId)
+      : null;
+  const canMutateAccounts = canMutateAccountsOperationalData(profile.role);
 
   return (
     <>
@@ -93,6 +104,18 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
             unresolvedIssueCount={unresolvedIssueCount}
             supportReadOnly={supportReadOnly}
           />
+          {staffNoticeSummary ? (
+            <FinancialStaffPeriodNoticeSection
+              periodId={selectedPeriodId!}
+              periodLabel={summary.period.label}
+              summary={staffNoticeSummary}
+              canMutate={canMutateAccounts}
+              supportReadOnly={supportReadOnly}
+              showPostFinalizePrompt={params.promptStaffNotice === "1"}
+              noticeError={params.noticeError ?? null}
+              noticeQueued={params.noticeQueued === "1"}
+            />
+          ) : null}
           <FinancialEmployeeTotals employees={summary.employees} />
         </div>
       )}

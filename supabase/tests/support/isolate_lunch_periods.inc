@@ -3,4 +3,4 @@
 
 reset role;
 
-truncate table public.lunch_periods;
+truncate table public.lunch_periods cascade;

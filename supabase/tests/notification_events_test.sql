@@ -1,11 +1,16 @@
 begin;
 
-select plan(32);
+select plan(33);
 
 select is(
   (select count(*)::integer from private.notification_event_catalog),
-  14,
-  'V1 catalog contains fourteen events'
+  15,
+  'V1 catalog contains fifteen events'
+);
+
+select ok(
+  not (select enabled from private.notification_settings where event_key = 'accounts.period_finalized'),
+  'Deferred accounts period finalized setting is off'
 );
 
 select ok(

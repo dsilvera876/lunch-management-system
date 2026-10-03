@@ -14,6 +14,7 @@ import { processAdminEmailDeliveryFailureNotifications } from "@/lib/process-adm
 import { processHrEmailDeliveryFailureNotifications } from "@/lib/process-hr-email-delivery-failure-notifications";
 import { processHrPendingSignupNotifications } from "@/lib/process-hr-pending-signup-notifications";
 import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifications";
+import { processStaffLunchPeriodFinalizedNotifications } from "@/lib/process-staff-lunch-period-finalized-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
@@ -27,6 +28,7 @@ type WorkerTask =
   | "admin-email-delivery-failure-notifications"
   | "hr-email-delivery-failure-notifications"
   | "staff-order-notifications"
+  | "staff-lunch-period-finalized-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
   | "all";
@@ -56,6 +58,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "admin-email-delivery-failure-notifications" ||
         value === "hr-email-delivery-failure-notifications" ||
         value === "staff-order-notifications" ||
+        value === "staff-lunch-period-finalized-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
         value === "all"
@@ -295,6 +298,17 @@ async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
   return result.failures;
 }
 
+async function runStaffLunchPeriodFinalizedNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const result = await processStaffLunchPeriodFinalizedNotifications(supabase, { dryRun });
+
+  console.log(
+    `Staff lunch period finalized notifications: queued=${result.queued} render_skipped=${result.skipped} render_failures=${result.renderFailures} queue_failures=${result.failures}`,
+  );
+
+  return result.failures;
+}
+
 async function runMailQueue(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   let result: Awaited<ReturnType<typeof processEmailDeliveryQueue>> | null = null;
@@ -414,6 +428,16 @@ async function main(): Promise<void> {
     }
   }
 
+  if (
+    options.task === "staff-lunch-period-finalized-notifications" ||
+    options.task === "all"
+  ) {
+    const failures = await runStaffLunchPeriodFinalizedNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
   if (options.task === "mail-queue") {
     try {
       const deadlineFailures = await runDeadlineReminderNotifications(options.dryRun);
@@ -459,6 +483,20 @@ async function main(): Promise<void> {
     } catch (error) {
       console.error(
         `HR email delivery failure notifications worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
+      process.exitCode = 1;
+    }
+
+    try {
+      const staffPeriodFailures = await runStaffLunchPeriodFinalizedNotifications(
+        options.dryRun,
+      );
+      if (staffPeriodFailures > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(
+        `Staff lunch period finalized notifications worker aborted: ${error instanceof Error ? error.message : error}`,
       );
       process.exitCode = 1;
     }
