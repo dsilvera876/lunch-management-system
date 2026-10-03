@@ -97,6 +97,8 @@ cross join generate_series(1, 5) as weekday;
 \ir support/isolate_lunch_periods.inc
 \ir support/late_order_cycle.inc
 
+select set_config('test.jamaica_today', private.jamaica_today_date()::text, false);
+
 do $$
 begin
   perform set_config(
@@ -270,10 +272,10 @@ select set_config('request.jwt.claim.role', 'service_role', true);
 
 select ok(
   case
-    when extract(isodow from current_setting('test.jamaica_today')::date) >= 6 then
+    when not public.is_business_day(current_setting('test.jamaica_today')::date, null) then
       (
         select public.worker_materialize_current_order_snapshots() ->> 'skipped'
-      ) = 'weekend'
+      ) = 'calendar_closed'
     else
       (
         select (public.worker_materialize_current_order_snapshots() ->> 'materialized')::integer >= 1
@@ -284,10 +286,10 @@ select ok(
 
 select ok(
   case
-    when extract(isodow from current_setting('test.jamaica_today')::date) >= 6 then
+    when not public.is_business_day(current_setting('test.jamaica_today')::date, null) then
       (
         select public.worker_materialize_current_order_snapshots() ->> 'skipped'
-      ) = 'weekend'
+      ) = 'calendar_closed'
     else (
       with first as (
         select count(*) as cnt

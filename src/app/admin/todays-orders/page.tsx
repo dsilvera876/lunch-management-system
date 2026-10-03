@@ -14,6 +14,7 @@ import {
 } from "@/lib/todays-orders-presentation";
 import { TodaysOrdersPageHeader } from "@/components/admin/todays-orders/todays-orders-page-header";
 import { TodaysProviderOrdersCard } from "@/components/admin/todays-orders/todays-provider-orders-card";
+import { mapProviderPrimaryDispatchStatusRow } from "@/lib/provider-primary-order-presentation";
 import { IconClipboard } from "@/components/icons/line-icons";
 import { TealIconWell } from "@/components/my-spend/teal-icon-well";
 import { Card } from "@/components/ui/card";
@@ -44,6 +45,20 @@ export default async function TodaysOrdersPage() {
   const report = buildOperationalDeliveryReport(orders, orderDate);
   const summaryMetrics = buildTodaysOrdersSummaryMetrics(report);
 
+  const { data: primaryStatusRows } = await supabase.rpc(
+    "list_provider_primary_dispatch_status_for_order_date",
+    { p_order_date: orderDate },
+  );
+
+  type PrimaryStatusRpcRow = Parameters<typeof mapProviderPrimaryDispatchStatusRow>[0];
+
+  const primaryStatusByProvider = new Map<string, ReturnType<typeof mapProviderPrimaryDispatchStatusRow>>(
+    ((primaryStatusRows ?? []) as PrimaryStatusRpcRow[]).map((row) => [
+      row.provider_id,
+      mapProviderPrimaryDispatchStatusRow(row),
+    ]),
+  );
+
   return (
     <div className="space-y-4">
       <TodaysOrdersPageHeader orderDate={orderDate} metrics={summaryMetrics} />
@@ -63,7 +78,11 @@ export default async function TodaysOrdersPage() {
       ) : (
         <div className="space-y-4">
           {report.providers.map((provider) => (
-            <TodaysProviderOrdersCard key={provider.providerId} provider={provider} />
+            <TodaysProviderOrdersCard
+              key={provider.providerId}
+              provider={provider}
+              primaryEmailStatus={primaryStatusByProvider.get(provider.providerId) ?? null}
+            />
           ))}
         </div>
       )}

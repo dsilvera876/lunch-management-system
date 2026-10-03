@@ -166,11 +166,16 @@ export const NOTIFICATION_SEND_TIME_MINUTE_OPTIONS = Array.from({ length: 60 }, 
 );
 
 export function formatNotificationTimingLabel(input: {
+  eventKey?: string;
   timingMode: string;
   timingConfigurable: boolean;
   sendTime: string | null;
   minutesBeforeDeadline: number | null;
 }): string {
+  if (input.eventKey === "provider.daily_order_summary") {
+    return "After normal staff ordering cutoff";
+  }
+
   if (!input.timingConfigurable || input.timingMode === "immediate") {
     return "Immediately";
   }

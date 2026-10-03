@@ -112,6 +112,7 @@ function NotificationEventRow({
           ) : (
             <span className="whitespace-nowrap text-muted">
               {formatNotificationTimingLabel({
+                eventKey: event.event_key,
                 timingMode: event.timing_mode,
                 timingConfigurable: event.timing_configurable,
                 sendTime: event.send_time,

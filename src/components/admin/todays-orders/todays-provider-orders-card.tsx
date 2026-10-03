@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ProviderOperationalGroup } from "@/lib/operational-orders";
+import type { ProviderPrimaryDispatchStatusRow } from "@/lib/provider-primary-order-presentation";
+import { TodaysProviderPrimaryEmailControls } from "@/components/admin/todays-orders/todays-provider-primary-email-controls";
 import {
   buildProviderPrintHref,
   countProviderEmployeeOrders,
@@ -16,9 +18,10 @@ import { linkButtonClass } from "@/components/ui/button";
 
 type Props = {
   provider: ProviderOperationalGroup;
+  primaryEmailStatus: ProviderPrimaryDispatchStatusRow | null;
 };
 
-export function TodaysProviderOrdersCard({ provider }: Props) {
+export function TodaysProviderOrdersCard({ provider, primaryEmailStatus }: Props) {
   const employeeOrders = flattenProviderOrders(provider);
   const employeeCount = countProviderEmployeeOrders(provider);
   const showLocation = providerHasMultipleLocations(provider);
@@ -48,6 +51,11 @@ export function TodaysProviderOrdersCard({ provider }: Props) {
       </div>
 
       <div className="space-y-4 px-4 py-4 sm:px-5">
+        <TodaysProviderPrimaryEmailControls
+          providerId={provider.providerId}
+          deliveryDate={printDeliveryDate}
+          status={primaryEmailStatus}
+        />
         <TodaysPreparationSummary sections={provider.preparationSections} />
 
         <div>

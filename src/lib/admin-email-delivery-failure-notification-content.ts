@@ -12,7 +12,8 @@ export type AdminEmailDeliveryFailureRenderedEmail = {
 
 export type AdminEmailDeliveryFailureSource =
   | "email_delivery_queue"
-  | "provider_supplemental_dispatch";
+  | "provider_supplemental_dispatch"
+  | "provider_primary_dispatch";
 
 export type PendingAdminEmailDeliveryFailureRow = {
   delivery_id: string;
@@ -38,6 +39,32 @@ export function buildAdminEmailDeliveryQueueFailureReviewContent(appOrigin: stri
     reviewHtml: `<p><a href="${deliveryUrl}">Review Email Delivery</a></p>`,
     reviewText: `Review Email Delivery:\n${deliveryUrl}`,
   };
+}
+
+export function buildAdminProviderPrimaryDispatchFailureReviewContent(context: {
+  providerName: string | null;
+  scheduledDeliveryDate: string | null;
+}): { reviewHtml: string; reviewText: string } {
+  const detailParts: string[] = [];
+  if (context.providerName) {
+    detailParts.push(`Provider: ${context.providerName}`);
+  }
+  if (context.scheduledDeliveryDate) {
+    detailParts.push(`Delivery date: ${formatHumanDate(context.scheduledDeliveryDate)}`);
+  }
+  const detailSentence =
+    detailParts.length > 0 ? `<p>${detailParts.join(". ")}.</p>` : "";
+
+  const reviewHtml = `<p><strong>Failure source:</strong> Provider primary lunch-order dispatch. This failure is not listed in Email Delivery monitoring.</p>${detailSentence}<p>Investigate dispatch status on <strong>Admin → Today&apos;s Orders</strong> when you have HR operational access (HR role, or Admin/Owner with HR support scope). Otherwise coordinate with HR for provider follow-up.</p>`;
+
+  const textDetail =
+    detailParts.length > 0 ? `${detailParts.join(". ")}.\n\n` : "";
+
+  const reviewText = `Failure source: Provider primary lunch-order dispatch. This failure is not listed in Email Delivery monitoring.
+
+${textDetail}Investigate dispatch status on Admin → Today's Orders when you have HR operational access (HR role, or Admin/Owner with HR support scope). Otherwise coordinate with HR for provider follow-up.`;
+
+  return { reviewHtml, reviewText };
 }
 
 export function buildAdminProviderSupplementalDispatchFailureReviewContent(context: {
@@ -94,7 +121,8 @@ export async function loadAdminEmailDeliveryFailureNotificationContext(
   const failureSource = String(row.failure_source);
   if (
     failureSource !== "email_delivery_queue" &&
-    failureSource !== "provider_supplemental_dispatch"
+    failureSource !== "provider_supplemental_dispatch" &&
+    failureSource !== "provider_primary_dispatch"
   ) {
     throw new Error(`Unknown admin email failure source: ${failureSource}`);
   }
@@ -132,10 +160,15 @@ export function buildAdminEmailDeliveryFailureRenderedEmail(
   const review =
     context.failureSource === "email_delivery_queue"
       ? buildAdminEmailDeliveryQueueFailureReviewContent(appOrigin)
-      : buildAdminProviderSupplementalDispatchFailureReviewContent({
-          providerName: context.providerName,
-          scheduledDeliveryDate: context.scheduledDeliveryDate,
-        });
+      : context.failureSource === "provider_primary_dispatch"
+        ? buildAdminProviderPrimaryDispatchFailureReviewContent({
+            providerName: context.providerName,
+            scheduledDeliveryDate: context.scheduledDeliveryDate,
+          })
+        : buildAdminProviderSupplementalDispatchFailureReviewContent({
+            providerName: context.providerName,
+            scheduledDeliveryDate: context.scheduledDeliveryDate,
+          });
 
   const variables = {
     message_type: context.messageType,

@@ -98,6 +98,16 @@ describe("notification presentation", () => {
     assert.equal(isEditableStaffNotificationTiming("staff.deadline_reminder"), true);
     assert.equal(isEditableStaffNotificationTiming("staff.order_submitted"), false);
     assert.equal(isEditableStaffNotificationTiming("provider.daily_summary"), false);
+    assert.equal(
+      formatNotificationTimingLabel({
+        eventKey: "provider.daily_order_summary",
+        timingMode: "immediate",
+        timingConfigurable: false,
+        sendTime: "08:30:00",
+        minutesBeforeDeadline: null,
+      }),
+      "After normal staff ordering cutoff",
+    );
   });
 
   it("restricts notification settings administration to Admin and Owner", () => {
