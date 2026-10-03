@@ -31,9 +31,10 @@ set account_status = 'inactive'
 where id = 'b8666666-6666-4666-8666-666666666666';
 select private.deactivate_trusted_account_status_change();
 
-insert into public.lunch_providers (id, name, active)
-values ('b9000000-0000-0000-0000-000000000099', 'Deadline Reminder Provider', true)
-on conflict (id) do update set active = excluded.active;
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('b9000000-0000-0000-0000-000000000099', 'Deadline Reminder Provider', true, 'provider-order+fixture@example.test')
+on conflict (id) do update set active = excluded.active,
+  primary_order_email = excluded.primary_order_email;
 
 insert into public.lunch_days (
   id, lunch_date, order_date, provider_id, order_deadline, status

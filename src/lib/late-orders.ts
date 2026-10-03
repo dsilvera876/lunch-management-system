@@ -10,7 +10,6 @@ export type ProviderLateOrderSettings = {
   supplementalDispatchMode: SupplementalDispatchMode;
   automaticSupplementSendDay: LateOrderDeadlineDay | null;
   automaticSupplementSendTime: string | null;
-  primaryOrderEmail: string | null;
 };
 
 export function isValidProviderOrderEmail(email: string): boolean {

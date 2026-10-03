@@ -22,8 +22,8 @@ select private.apply_profile_role('44444444-4444-4444-8444-444444444444', 'admin
 
 reset role;
 
-insert into public.lunch_providers (id, name, active)
-values ('88888888-8888-4888-8888-888888888888', 'Sec Provider', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('88888888-8888-4888-8888-888888888888', 'Sec Provider', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values

@@ -29,8 +29,8 @@ select private.apply_profile_role('66666666-6666-4666-8666-666666666666', 'admin
 select private.apply_profile_role('55555555-5555-4555-8555-555555555555', 'owner');
 
 -- Provider fixture
-insert into public.lunch_providers (id, name, active)
-values ('88888888-8888-4888-8888-888888888888', 'Role Test Provider', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('88888888-8888-4888-8888-888888888888', 'Role Test Provider', true, 'provider-order+fixture@example.test');
 
 -- ============================================================
 -- Core roles
@@ -70,7 +70,8 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select throws_ok(
-  $$ insert into public.lunch_providers (name, active) values ('Staff Provider', true) $$,
+  $$ insert into public.lunch_providers (name, active, primary_order_email)
+     values ('Staff Provider', true, 'provider-order+fixture@example.test') $$,
   '42501',
   null,
   'Staff cannot manage providers'

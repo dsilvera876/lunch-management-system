@@ -61,11 +61,12 @@ reset role;
 
 -- 2099-01-05 is Monday; delivery lunch_date is 2099-01-06.
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   'c9000000-0000-0000-0000-000000000099',
   'Deadline Consistency Provider',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 insert into public.provider_menu_items (

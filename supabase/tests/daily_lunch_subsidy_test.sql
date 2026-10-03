@@ -31,10 +31,10 @@ select private.apply_profile_role('e6666666-6666-4666-8666-666666666666', 'owner
 -- Providers, menus, period
 -- ============================================================
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values
-  ('f1111111-1111-4111-8111-111111111111', 'Subsidy Kitchen A', true),
-  ('f2222222-2222-4222-8222-222222222222', 'Subsidy Kitchen B', true);
+  ('f1111111-1111-4111-8111-111111111111', 'Subsidy Kitchen A', true, 'provider-order+fixture@example.test'),
+  ('f2222222-2222-4222-8222-222222222222', 'Subsidy Kitchen B', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values

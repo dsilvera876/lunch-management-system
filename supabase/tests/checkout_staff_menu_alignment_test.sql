@@ -31,10 +31,10 @@ select set_config(
   true
 );
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values
-  ('f0111111-1111-4111-8111-111111111111', 'Meal Kitchen', true),
-  ('f0222222-2222-4222-8222-222222222222', 'Fruit Stand', true)
+  ('f0111111-1111-4111-8111-111111111111', 'Meal Kitchen', true, 'provider-order+fixture@example.test'),
+  ('f0222222-2222-4222-8222-222222222222', 'Fruit Stand', true, 'provider-order+fixture@example.test')
 on conflict (id) do nothing;
 
 insert into public.provider_menu_items (

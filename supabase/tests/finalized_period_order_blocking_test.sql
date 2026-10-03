@@ -19,8 +19,8 @@ reset role;
 
 select private.apply_profile_role('10444444-4444-4444-8444-444444444444', 'accounts');
 
-insert into public.lunch_providers (id, name, active)
-values ('10222222-2222-4222-8222-222222222222', 'Finalized Guard Kitchen', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('10222222-2222-4222-8222-222222222222', 'Finalized Guard Kitchen', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values

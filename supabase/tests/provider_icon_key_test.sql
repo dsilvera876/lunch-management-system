@@ -25,11 +25,12 @@ select set_config(
 
 select lives_ok(
   $$
-    insert into public.lunch_providers (id, name, active)
+    insert into public.lunch_providers (id, name, active, primary_order_email)
     values (
       'c2111111-1111-4111-8111-111111111111',
       'Default Icon Provider',
-      true
+      true,
+        'provider-order+fixture@example.test'
     )
   $$,
   'New provider gets default icon_key'

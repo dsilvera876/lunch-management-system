@@ -3,14 +3,17 @@
 
 reset role;
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   '90000000-0000-0000-0000-000000000099',
   'Submit Order Test Provider',
-  true
+  true,
+  'submit-order-provider@example.test'
 )
 on conflict (id) do update
-set active = excluded.active;
+set
+  active = excluded.active,
+  primary_order_email = excluded.primary_order_email;
 
 insert into public.lunch_days (
   id,

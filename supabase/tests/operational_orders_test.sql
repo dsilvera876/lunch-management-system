@@ -33,10 +33,10 @@ select private.apply_profile_role('55555555-5555-4555-8555-555555555555', 'owner
 
 reset role;
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values
-  ('88888888-8888-4888-8888-888888888888', 'Ops Provider A', true),
-  ('99999999-9999-4999-8999-999999999999', 'Ops Provider B', true);
+  ('88888888-8888-4888-8888-888888888888', 'Ops Provider A', true, 'provider-order+fixture@example.test'),
+  ('99999999-9999-4999-8999-999999999999', 'Ops Provider B', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, display_category, active)
 values

@@ -78,5 +78,6 @@ describe("provider form presentation", () => {
     assert.match(lateSettings, /acceptsLateOrders/);
     assert.match(lateSettings, /lateOrdersEnabled/);
     assert.match(lateSettings, /supplementalDispatchMode/);
+    assert.doesNotMatch(lateSettings, /primaryOrderEmail/);
   });
 });

@@ -65,7 +65,19 @@ export default async function ProvidersPage({ searchParams }: Props) {
         </Alert>
       )}
 
-      {params.error && params.error !== "duplicate" && (
+      {params.error === "provider-email" && (
+        <Alert variant="error" className="mb-6">
+          Enter a valid provider order email address.
+        </Alert>
+      )}
+
+      {params.error === "provider-email-required" && (
+        <Alert variant="error" className="mb-6">
+          Active providers require a provider order email.
+        </Alert>
+      )}
+
+      {params.error && params.error !== "duplicate" && params.error !== "provider-email" && params.error !== "provider-email-required" && (
         <Alert variant="error" className="mb-6">
           Unable to complete that action.
         </Alert>

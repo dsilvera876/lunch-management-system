@@ -3,6 +3,8 @@ import { requireManageProviders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { updateProvider } from "../../actions";
 import { ProviderDetailsFields } from "@/components/admin/lunch-providers/provider-details-fields";
+import { ProviderOrderEmailField } from "@/components/admin/lunch-providers/provider-order-email-field";
+import { ACTIVATE_PROVIDER_EMAIL_REQUIRED_MESSAGE } from "@/lib/provider-order-email";
 import { ProviderDangerZone } from "@/components/admin/lunch-providers/provider-danger-zone";
 import { ProviderEditWorkspace } from "@/components/admin/lunch-providers/provider-edit-workspace";
 import { PROVIDER_IN_USE_DELETION_MESSAGE } from "@/lib/unused-record-deletion";
@@ -66,10 +68,14 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
   const flashSuccess = resolveFlashSuccess(query);
 
   const providerDetailsError =
-    query.error === "duplicate" || query.error === "update" ? query.error : undefined;
+    query.error === "duplicate" ||
+    query.error === "update" ||
+    query.error === "provider-email" ||
+    query.error === "provider-email-required"
+      ? query.error
+      : undefined;
   const lateOrderError =
     query.error === "late-settings" ||
-    query.error === "late-email" ||
     query.error === "late-schedule" ||
     query.error === "late-update"
       ? query.error
@@ -78,9 +84,14 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
     query.error === "in-use" ||
     query.error === "unauthorized" ||
     query.error === "delete" ||
-    query.error === "status"
+    query.error === "status" ||
+    query.error === "activate-email-required"
       ? query.error
       : undefined;
+
+  const missingOrderEmail =
+    provider.active &&
+    (!provider.primary_order_email || provider.primary_order_email.trim().length === 0);
 
   return (
     <ProviderEditWorkspace flashSuccess={flashSuccess}>
@@ -97,6 +108,13 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
         </header>
 
         <div className="grid gap-8">
+          {missingOrderEmail && (
+            <Alert variant="warning">
+              This provider is active but has no provider order email. Add one below before daily
+              or supplemental kitchen emails can be sent.
+            </Alert>
+          )}
+
           <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
             <section>
               <SectionHeader title="Provider details" />
@@ -111,9 +129,20 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
                     Unable to save provider settings.
                   </Alert>
                 )}
+                {providerDetailsError === "provider-email" && (
+                  <Alert variant="error" className="mb-4">
+                    Enter a valid provider order email address.
+                  </Alert>
+                )}
+                {providerDetailsError === "provider-email-required" && (
+                  <Alert variant="error" className="mb-4">
+                    Active providers require a provider order email.
+                  </Alert>
+                )}
 
                 <form action={updateProvider} className="grid gap-4">
                   <input type="hidden" name="id" value={provider.id} />
+                  <input type="hidden" name="active" value={provider.active ? "true" : "false"} />
 
                   <ProviderDetailsFields
                     idPrefix="edit-provider"
@@ -121,6 +150,12 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
                     defaultName={provider.name}
                     defaultDescription={provider.description ?? ""}
                     defaultIconKey={provider.icon_key}
+                  />
+
+                  <ProviderOrderEmailField
+                    idPrefix="edit-provider"
+                    defaultValue={provider.primary_order_email}
+                    required={provider.active}
                   />
 
                   <div className="flex justify-end border-t border-border pt-4">
@@ -135,11 +170,6 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
             <section>
               <SectionHeader title="Late orders" />
               <Card>
-                {lateOrderError === "late-email" && (
-                  <Alert variant="error" className="mb-4">
-                    Enter a valid order email address.
-                  </Alert>
-                )}
                 {lateOrderError === "late-settings" && (
                   <Alert variant="error" className="mb-4">
                     Choose a late-order deadline day and time.
@@ -165,7 +195,6 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
                     supplementalDispatchMode: provider.supplemental_dispatch_mode,
                     automaticSupplementSendDay: provider.automatic_supplement_send_day,
                     automaticSupplementSendTime: provider.automatic_supplement_send_time,
-                    primaryOrderEmail: provider.primary_order_email,
                   }}
                 />
               </Card>
@@ -183,6 +212,9 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
           )}
           {dangerZoneError === "status" && (
             <Alert variant="error">Unable to update provider status.</Alert>
+          )}
+          {dangerZoneError === "activate-email-required" && (
+            <Alert variant="error">{ACTIVATE_PROVIDER_EMAIL_REQUIRED_MESSAGE}</Alert>
           )}
 
           <ProviderDangerZone

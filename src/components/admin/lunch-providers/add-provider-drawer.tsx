@@ -3,6 +3,7 @@
 import { createProvider } from "@/app/admin/providers/actions";
 import { AdminSlideOver } from "@/components/admin/lunch-providers/admin-slide-over";
 import { ProviderDetailsFields } from "@/components/admin/lunch-providers/provider-details-fields";
+import { ProviderOrderEmailField } from "@/components/admin/lunch-providers/provider-order-email-field";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -33,6 +34,8 @@ export function AddProviderDrawer({ open, onClose }: Props) {
           layout="stack"
           descriptionRows={2}
         />
+        <ProviderOrderEmailField idPrefix="add-provider" required />
+        <input type="hidden" name="active" value="true" />
       </form>
     </AdminSlideOver>
   );

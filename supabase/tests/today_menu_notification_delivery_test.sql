@@ -25,9 +25,10 @@ select set_config('request.jwt.claims', json_build_object('sub', 'f8333333-3333-
 select public.set_my_notification_preference('staff.today_menu', true);
 reset role;
 
-insert into public.lunch_providers (id, name, active)
-values ('f9000000-0000-0000-0000-000000000099', 'Today Menu Provider', true)
-on conflict (id) do update set active = excluded.active;
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('f9000000-0000-0000-0000-000000000099', 'Today Menu Provider', true, 'provider-order+fixture@example.test')
+on conflict (id) do update set active = excluded.active,
+  primary_order_email = excluded.primary_order_email;
 
 insert into public.lunch_days (
   id, lunch_date, order_date, provider_id, order_deadline, status

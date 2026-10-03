@@ -357,8 +357,8 @@ select throws_ok(
 
 reset role;
 
-insert into public.lunch_providers (id, name, active)
-values ('f1111111-1111-4111-8111-111111111111', 'Emp ID Kitchen', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('f1111111-1111-4111-8111-111111111111', 'Emp ID Kitchen', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values ('f2222222-2222-4222-8222-222222222222', 'f1111111-1111-4111-8111-111111111111', 'Meal', 10.00, 'standalone', 'Each', true);

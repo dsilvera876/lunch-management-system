@@ -19,6 +19,8 @@ select private.apply_profile_role('f8111111-1111-4111-8111-111111111111', 'hr');
 select private.apply_profile_role('f8222222-2222-4222-8222-222222222222', 'staff');
 select private.apply_profile_role('f8333333-3333-4333-8333-333333333333', 'admin');
 
+set session_replication_role = replica;
+
 insert into public.lunch_providers (
   id, name, active, primary_order_email
 )
@@ -26,6 +28,8 @@ values
   ('f9111111-1111-4111-8111-111111111111', 'Primary Provider A', true, 'kitchen-a@example.test'),
   ('f9222222-2222-4222-8222-222222222222', 'Primary Provider B', true, 'kitchen-b@example.test'),
   ('f9333333-3333-4333-8333-333333333333', 'Primary Provider Missing Email', true, null);
+
+set session_replication_role = default;
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values

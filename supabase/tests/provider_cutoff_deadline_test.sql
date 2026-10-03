@@ -35,11 +35,12 @@ select set_config(
   true
 );
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   'b1111111-1111-4111-8111-111111111111',
   'Cutoff Test Kitchen',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 insert into public.provider_menu_items (

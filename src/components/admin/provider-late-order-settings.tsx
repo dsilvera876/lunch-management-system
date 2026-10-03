@@ -14,7 +14,6 @@ type Props = {
     supplementalDispatchMode: string;
     automaticSupplementSendDay: string | null;
     automaticSupplementSendTime: string | null;
-    primaryOrderEmail: string | null;
   };
 };
 
@@ -127,16 +126,6 @@ export function ProviderLateOrderSettings({ providerId, settings }: Props) {
                 />
               </>
             )}
-
-            <FormField label="Order email" htmlFor="primaryOrderEmail">
-              <input
-                id="primaryOrderEmail"
-                name="primaryOrderEmail"
-                type="email"
-                defaultValue={settings.primaryOrderEmail ?? ""}
-                className={inputClassName}
-              />
-            </FormField>
           </div>
         </div>
       ) : (
@@ -152,7 +141,6 @@ export function ProviderLateOrderSettings({ providerId, settings }: Props) {
             name="automaticSupplementSendTime"
             value={settings.automaticSupplementSendTime?.slice(0, 5) ?? "10:00"}
           />
-          <input type="hidden" name="primaryOrderEmail" value={settings.primaryOrderEmail ?? ""} />
         </>
       )}
 

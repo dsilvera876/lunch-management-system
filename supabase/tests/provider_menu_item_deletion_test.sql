@@ -20,8 +20,8 @@ values
 reset role;
 select private.apply_profile_role('f2222222-2222-4222-8222-222222222222', 'hr');
 
-insert into public.lunch_providers (id, name, active)
-values ('e1111111-1111-4111-8111-111111111111', 'PMI Delete Provider', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('e1111111-1111-4111-8111-111111111111', 'PMI Delete Provider', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (
   id,

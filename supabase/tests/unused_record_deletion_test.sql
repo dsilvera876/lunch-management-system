@@ -22,12 +22,12 @@ select private.apply_profile_role('f2222222-2222-4222-8222-222222222222', 'hr');
 
 -- Providers
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values
-  ('e1111111-1111-4111-8111-111111111111', 'Unused Provider', true),
-  ('e2222222-2222-4222-8222-222222222222', 'Menu Provider', true),
-  ('e3333333-3333-4333-8333-333333333333', 'Snapshot Provider', true),
-  ('e4444444-4444-4444-8444-444444444444', 'Dispatch Provider', true);
+  ('e1111111-1111-4111-8111-111111111111', 'Unused Provider', true, 'provider-order+fixture@example.test'),
+  ('e2222222-2222-4222-8222-222222222222', 'Menu Provider', true, 'provider-order+fixture@example.test'),
+  ('e3333333-3333-4333-8333-333333333333', 'Snapshot Provider', true, 'provider-order+fixture@example.test'),
+  ('e4444444-4444-4444-8444-444444444444', 'Dispatch Provider', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (
   id,
@@ -172,8 +172,8 @@ select throws_like(
 reset role;
 select private.apply_profile_role('f1111111-1111-4111-8111-111111111111', 'staff');
 
-insert into public.lunch_providers (id, name, active)
-values ('e0000000-0000-4000-8000-000000000001', 'Staff Delete Try', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('e0000000-0000-4000-8000-000000000001', 'Staff Delete Try', true, 'provider-order+fixture@example.test');
 
 insert into public.office_locations (id, name, is_active)
 values ('e0000000-0000-4000-8000-000000000002', 'Staff Loc Delete', true);

@@ -47,7 +47,6 @@ describe("late order deadline helpers", () => {
         supplementalDispatchMode: "automatic",
         automaticSupplementSendDay: "delivery_day",
         automaticSupplementSendTime: "11:00:00",
-        primaryOrderEmail: "kitchen@example.com",
       },
       "2099-01-05",
       "2099-01-06",

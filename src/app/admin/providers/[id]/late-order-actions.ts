@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireMutateHrOperationalData } from "@/lib/auth";
 import {
-  isValidProviderOrderEmail,
   parseTimeValue,
   validateAutomaticSupplementSchedule,
   type LateOrderDeadlineDay,
@@ -54,15 +53,10 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
       readDispatchMode(formData.get("supplementalDispatchMode")) === "automatic"
         ? parseTimeValue(String(formData.get("automaticSupplementSendTime") ?? ""))
         : null,
-    primaryOrderEmail: String(formData.get("primaryOrderEmail") ?? "").trim() || null,
   };
 
   if (acceptsLateOrders && (!settings.lateOrderDeadlineDay || !settings.lateOrderDeadlineTime)) {
     redirect(`/admin/providers/${id}/edit?error=late-settings`);
-  }
-
-  if (settings.primaryOrderEmail && !isValidProviderOrderEmail(settings.primaryOrderEmail)) {
-    redirect(`/admin/providers/${id}/edit?error=late-email`);
   }
 
   const orderDate = getJamaicaTodayDate();
@@ -90,7 +84,6 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
       supplemental_dispatch_mode: settings.supplementalDispatchMode,
       automatic_supplement_send_day: settings.automaticSupplementSendDay,
       automatic_supplement_send_time: settings.automaticSupplementSendTime,
-      primary_order_email: settings.primaryOrderEmail,
     })
     .eq("id", id);
 

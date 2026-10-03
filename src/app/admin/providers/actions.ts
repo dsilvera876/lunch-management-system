@@ -6,6 +6,12 @@ import { requireManageProviders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseProviderIconKey } from "@/lib/provider-icons";
 import { isProviderInUseDeletionError } from "@/lib/unused-record-deletion";
+import {
+  mapProviderOrderEmailDbError,
+  parseProviderOrderEmailFromForm,
+  readProviderActiveFromForm,
+  validateProviderOrderEmailInput,
+} from "@/app/admin/providers/provider-mutations";
 
 export async function createProvider(formData: FormData) {
   await requireManageProviders();
@@ -21,6 +27,13 @@ export async function createProvider(formData: FormData) {
     redirect("/admin/providers?error=invalid");
   }
 
+  const active = readProviderActiveFromForm(formData, true);
+  const primaryOrderEmail = parseProviderOrderEmailFromForm(formData);
+  const emailError = validateProviderOrderEmailInput(active, primaryOrderEmail);
+  if (emailError) {
+    redirect(`/admin/providers?error=${emailError}`);
+  }
+
   const supabase = await createClient();
 
   const iconKey = parseProviderIconKey(formData.get("iconKey"));
@@ -29,12 +42,18 @@ export async function createProvider(formData: FormData) {
     name: name.trim(),
     description: description.trim() || null,
     icon_key: iconKey,
-    active: true,
+    active,
+    primary_order_email: primaryOrderEmail,
   });
 
   if (error) {
     if (error.code === "23505") {
       redirect("/admin/providers?error=duplicate");
+    }
+
+    const providerEmailError = mapProviderOrderEmailDbError(error.message);
+    if (providerEmailError) {
+      redirect(`/admin/providers?error=${providerEmailError}`);
     }
 
     redirect("/admin/providers?error=create");
@@ -50,6 +69,7 @@ export async function updateProvider(formData: FormData) {
   const id = formData.get("id");
   const name = formData.get("name");
   const description = formData.get("description");
+  const active = readProviderActiveFromForm(formData, true);
 
   if (
     typeof id !== "string" ||
@@ -58,6 +78,12 @@ export async function updateProvider(formData: FormData) {
     name.trim().length === 0
   ) {
     redirect("/admin/providers?error=invalid");
+  }
+
+  const primaryOrderEmail = parseProviderOrderEmailFromForm(formData);
+  const emailError = validateProviderOrderEmailInput(active, primaryOrderEmail);
+  if (emailError) {
+    redirect(`/admin/providers/${id}/edit?error=${emailError}`);
   }
 
   const iconKey = parseProviderIconKey(formData.get("iconKey"));
@@ -70,12 +96,18 @@ export async function updateProvider(formData: FormData) {
       name: name.trim(),
       description: description.trim() || null,
       icon_key: iconKey,
+      primary_order_email: primaryOrderEmail,
     })
     .eq("id", id);
 
   if (error) {
     if (error.code === "23505") {
       redirect(`/admin/providers/${id}/edit?error=duplicate`);
+    }
+
+    const providerEmailError = mapProviderOrderEmailDbError(error.message);
+    if (providerEmailError) {
+      redirect(`/admin/providers/${id}/edit?error=${providerEmailError}`);
     }
 
     redirect(`/admin/providers/${id}/edit?error=update`);
@@ -99,13 +131,37 @@ export async function toggleProviderActive(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const currentlyActive = active === "true";
+  const activating = !currentlyActive;
+
+  if (activating) {
+    const { data: provider, error: loadError } = await supabase
+      .from("lunch_providers")
+      .select("primary_order_email")
+      .eq("id", id)
+      .single();
+
+    if (loadError || !provider) {
+      redirect(`/admin/providers/${id}/edit?error=status`);
+    }
+
+    const emailError = validateProviderOrderEmailInput(true, provider.primary_order_email?.trim() || null);
+    if (emailError) {
+      redirect(`/admin/providers/${id}/edit?error=activate-email-required`);
+    }
+  }
 
   const { error } = await supabase
     .from("lunch_providers")
-    .update({ active: active !== "true" })
+    .update({ active: activating })
     .eq("id", id);
 
   if (error) {
+    const providerEmailError = mapProviderOrderEmailDbError(error.message);
+    if (providerEmailError) {
+      redirect(`/admin/providers/${id}/edit?error=activate-email-required`);
+    }
+
     redirect(`/admin/providers/${id}/edit?error=status`);
   }
 

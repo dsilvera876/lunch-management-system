@@ -2,11 +2,12 @@ begin;
 
 select plan(4);
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   'f9111111-1111-4111-8111-111111111111',
   'Snapshot Menu Provider',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)

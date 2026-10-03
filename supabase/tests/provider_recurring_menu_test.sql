@@ -35,12 +35,13 @@ select set_config(
 
 select lives_ok(
   $$
-    insert into public.lunch_providers (id, name, description, active)
+    insert into public.lunch_providers (id, name, description, active, primary_order_email)
     values (
       'b1111111-1111-4111-8111-111111111111',
       'Test Kitchen',
       'Recurring menu provider',
-      true
+      true,
+        'provider-order+fixture@example.test'
     )
   $$,
   'HR can create a lunch provider'
@@ -103,11 +104,12 @@ select throws_ok(
 
 select lives_ok(
   $$
-    insert into public.lunch_providers (id, name, active)
+    insert into public.lunch_providers (id, name, active, primary_order_email)
     values (
       'b2222222-2222-4222-8222-222222222222',
       'Second Kitchen',
-      true
+      true,
+        'provider-order+fixture@example.test'
     )
   $$,
   'HR can create second provider for cross-provider name test'
@@ -180,8 +182,8 @@ select set_config(
 
 select throws_ok(
   $$
-    insert into public.lunch_providers (name)
-    values ('Unauthorized Provider')
+    insert into public.lunch_providers (name, active, primary_order_email)
+    values ('Unauthorized Provider', true, 'provider-order+fixture@example.test')
   $$,
   '42501',
   null,

@@ -120,8 +120,8 @@ select private.activate_trusted_account_status_change();
 update public.profiles set account_status = 'active' where id = 'c1111111-1111-4111-8111-111111111111';
 select private.deactivate_trusted_account_status_change();
 
-insert into public.lunch_providers (id, name, active)
-values ('c6111111-1111-4111-8111-111111111111', 'Inactive Test Kitchen', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('c6111111-1111-4111-8111-111111111111', 'Inactive Test Kitchen', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values ('c6222222-2222-4222-8222-222222222222', 'c6111111-1111-4111-8111-111111111111', 'Meal', 10.00, 'standalone', 'Each', true);
@@ -279,8 +279,8 @@ select throws_ok(
 
 reset role;
 
-insert into public.lunch_providers (id, name, active)
-values ('c7111111-1111-4111-8111-111111111111', 'Inactive Admin Delete Target', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('c7111111-1111-4111-8111-111111111111', 'Inactive Admin Delete Target', true, 'provider-order+fixture@example.test');
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'c4444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);

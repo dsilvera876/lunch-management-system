@@ -1,0 +1,2 @@
+-- Shared fixture address for active lunch_providers in pgTAP tests (not a DB default).
+-- Use literal 'provider-order+fixture@example.test' in INSERT column lists.

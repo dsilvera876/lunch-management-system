@@ -19,11 +19,12 @@ select private.apply_profile_role('b1333333-3333-4333-8333-333333333333', 'staff
 
 -- 2099-01-05 is Monday; delivery lunch_date is 2099-01-06 (Tuesday).
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   'b9000000-0000-0000-0000-000000000099',
   'Lunch Day Reuse Provider',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 insert into public.provider_menu_items (
@@ -197,11 +198,12 @@ select lives_ok(
 reset role;
 
 -- C) First order for a new provider/date creates exactly one lunch_day.
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   'b9000000-0000-0000-0000-000000000088',
   'Lunch Day Fresh Provider',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 insert into public.provider_menu_items (

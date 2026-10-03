@@ -22,8 +22,8 @@ values (
 select private.apply_profile_role('44444444-4444-4444-8444-444444444444', 'staff');
 
 -- B fixtures (superuser bypasses lunch_days RLS)
-insert into public.lunch_providers (id, name, active)
-values ('d1111111-1111-4111-8111-111111111111', 'Orders Impact Provider', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('d1111111-1111-4111-8111-111111111111', 'Orders Impact Provider', true, 'provider-order+fixture@example.test');
 
 insert into public.lunch_days (
   id, lunch_date, order_date, provider_id, order_deadline, status

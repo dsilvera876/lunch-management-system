@@ -113,8 +113,8 @@ select throws_ok(
 );
 
 -- Impact preview + acknowledgement
-insert into public.lunch_providers (id, name, active)
-values ('c1111111-1111-4111-8111-111111111111', 'Impact Provider', true);
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values ('c1111111-1111-4111-8111-111111111111', 'Impact Provider', true, 'provider-order+fixture@example.test');
 
 insert into public.lunch_days (
   id, lunch_date, order_date, provider_id, order_deadline, status

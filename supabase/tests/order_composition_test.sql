@@ -18,11 +18,11 @@ values
 reset role;
 select private.apply_profile_role('a1111111-1111-4111-8111-111111111111', 'admin');
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values
-  ('b1111111-1111-4111-8111-111111111111', 'Meal Provider', true),
-  ('b2222222-2222-4222-8222-222222222222', 'Juice Provider', true),
-  ('b3333333-3333-4333-8333-333333333333', 'Fruit Provider', true);
+  ('b1111111-1111-4111-8111-111111111111', 'Meal Provider', true, 'provider-order+fixture@example.test'),
+  ('b2222222-2222-4222-8222-222222222222', 'Juice Provider', true, 'provider-order+fixture@example.test'),
+  ('b3333333-3333-4333-8333-333333333333', 'Fruit Provider', true, 'provider-order+fixture@example.test');
 
 insert into public.provider_menu_items (
   id,

@@ -2,11 +2,12 @@ begin;
 
 select plan(7);
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values (
   'f1111111-1111-4111-8111-111111111111',
   'Calendar Repair Provider',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 -- Simple invalid row: Tue order 2026-09-08 stored on wrong delivery 2026-09-10.

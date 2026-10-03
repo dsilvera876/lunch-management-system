@@ -104,17 +104,19 @@ select set_config(
   true
 );
 
-insert into public.lunch_providers (id, name, active)
+insert into public.lunch_providers (id, name, active, primary_order_email)
 values
 (
   'e1111111-1111-4111-8111-111111111111',
   'Order Test Kitchen',
-  true
+  true,
+    'provider-order+fixture@example.test'
 ),
 (
   'e2222222-2222-4222-8222-222222222222',
   'Second Provider',
-  true
+  true,
+    'provider-order+fixture@example.test'
 );
 
 insert into public.provider_menu_items (
