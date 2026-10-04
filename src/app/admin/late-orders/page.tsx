@@ -60,6 +60,7 @@ export default async function LateOrdersPage() {
     { data: providers },
     { data: employeeRows, error: employeesError },
     { data: locations },
+    { data: pendingStaffRequests },
   ] = await Promise.all([
     supabase
       .from("lunch_providers")
@@ -74,6 +75,7 @@ export default async function LateOrdersPage() {
       .select("id, name")
       .eq("is_active", true)
       .order("name", { ascending: true }),
+    supabase.rpc("list_pending_staff_late_order_requests_for_hr"),
   ]);
 
   if (employeesError) {
@@ -405,6 +407,22 @@ export default async function LateOrdersPage() {
         primaryDeliveryDate={primaryDeliveryDate}
         jamaicaToday={today}
         providerCreationCycles={providerCreationCycles}
+        pendingStaffRequests={(
+          (pendingStaffRequests ?? []) as Array<Record<string, unknown>>
+        ).map((row) => ({
+          id: row.id as string,
+          requesterProfileId: row.requester_profile_id as string,
+          requesterName: (row.requester_name as string | null)?.trim() || "Employee",
+          requesterEmail: (row.requester_email as string)?.trim() ?? "",
+          providerId: row.provider_id as string,
+          providerName: row.provider_name as string,
+          scheduledDeliveryDate: row.scheduled_delivery_date as string,
+          requestedSummary: row.requested_summary as string,
+          quantity: row.quantity as number,
+          specialInstructions: (row.special_instructions as string | null) ?? null,
+          officeLocationId: row.office_location_id as string,
+          createdAt: row.created_at as string,
+        }))}
       />
     </div>
   );

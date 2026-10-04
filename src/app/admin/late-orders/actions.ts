@@ -38,6 +38,56 @@ export type LateOrderActionResult =
   | { success: true; dispatchId?: string }
   | { success: false; error: string };
 
+export async function fulfillStaffLateOrderRequestAction(input: {
+  requestId: string;
+  items: unknown;
+  specialInstructions?: string;
+  officeLocationId: string;
+}): Promise<LateOrderActionResult> {
+  try {
+    await requireMutateHrOperationalData();
+  } catch {
+    return { success: false, error: "HR late-order mutation access required." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("fulfill_staff_late_order_request", {
+    p_request_id: input.requestId,
+    p_items: input.items,
+    p_special_instructions: input.specialInstructions ?? null,
+    p_office_location_id: input.officeLocationId,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, dispatchId: String(data) };
+}
+
+export async function declineStaffLateOrderRequestAction(input: {
+  requestId: string;
+  declineReason: string;
+}): Promise<LateOrderActionResult> {
+  try {
+    await requireMutateHrOperationalData();
+  } catch {
+    return { success: false, error: "HR late-order mutation access required." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("decline_staff_late_order_request", {
+    p_request_id: input.requestId,
+    p_decline_reason: input.declineReason,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
 export async function createHrLateOrderAction(input: {
   profileId: string;
   providerId: string;
@@ -72,6 +122,7 @@ export async function createHrLateOrderAction(input: {
 export async function loadHrLateOrderSnapshotMenuAction(input: {
   providerId: string;
   deliveryDate: string;
+  profileId?: string;
 }): Promise<LoadHrLateOrderSnapshotMenuResult> {
   try {
     await requireViewAllOrders();
@@ -83,6 +134,7 @@ export async function loadHrLateOrderSnapshotMenuAction(input: {
   const { data, error } = await supabase.rpc("fetch_hr_late_order_snapshot_menu", {
     p_provider_id: input.providerId,
     p_delivery_date: input.deliveryDate,
+    p_profile_id: input.profileId ?? null,
   });
 
   if (error) {

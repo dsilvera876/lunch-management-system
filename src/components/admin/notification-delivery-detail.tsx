@@ -7,6 +7,7 @@ import {
   NotificationDeliveryRecipientStatusBadge,
 } from "@/components/admin/notification-delivery-status-badge";
 import { Card } from "@/components/ui/card";
+import { formatNotificationDeliveryLastError } from "@/lib/notification-delivery";
 import type {
   NotificationDeliveryBatchDetail,
   NotificationDeliveryContentSample,
@@ -128,13 +129,18 @@ export function NotificationDeliveryDetailView({
                     <td className="px-4 py-3">{recipient.recipientName}</td>
                     <td className="px-4 py-3">{recipient.recipientEmail ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <NotificationDeliveryRecipientStatusBadge status={recipient.status} />
+                      <NotificationDeliveryRecipientStatusBadge
+                        status={recipient.status}
+                        lastError={recipient.lastError}
+                      />
                     </td>
                     <td className="px-4 py-3">{formatTimestamp(recipient.sentAt)}</td>
                     <td className="px-4 py-3">
                       {Math.max(recipient.transportAttempts - 1, 0)}
                     </td>
-                    <td className="px-4 py-3 text-muted">{recipient.lastError ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted">
+                      {formatNotificationDeliveryLastError(recipient.lastError)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

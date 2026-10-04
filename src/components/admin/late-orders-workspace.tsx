@@ -6,10 +6,15 @@ import {
   acknowledgeDispatchNotReceivedAction,
   acknowledgeDispatchReceivedAction,
   createHrLateOrderFormAction,
+  fulfillStaffLateOrderRequestAction,
   loadHrLateOrderSnapshotMenuAction,
   sendProviderLateOrderSupplementAction,
   type HrLateOrderSnapshotMenuItem,
 } from "@/app/admin/late-orders/actions";
+import {
+  PendingStaffLateOrderRequestsPanel,
+  type PendingStaffLateOrderRequest,
+} from "@/components/admin/late-orders/pending-staff-late-order-requests";
 import { EmployeePicker } from "@/components/employee-picker";
 import { LateOrderProviderStatusCard } from "@/components/admin/late-orders/late-order-provider-status-card";
 import { ProviderOrderForm } from "@/components/provider-order-form";
@@ -34,6 +39,7 @@ import { formatHumanDate } from "@/lib/format";
 import type { LateOrderRowDispatchDisplay } from "@/lib/late-order-per-order-status";
 import type { HrLateOrderCreationCycle } from "@/lib/hr-late-order-create";
 import type { OfficeLocationOption } from "@/lib/office-locations";
+import { buildSnapshotOrderPayload } from "@/lib/order-payload";
 import { LateOrdersUnavailableCard } from "@/components/admin/late-orders/late-orders-unavailable-card";
 import {
   formatLateOrderCreateErrorMessage,
@@ -85,6 +91,7 @@ type Props = {
   primaryDeliveryDate: string;
   jamaicaToday: string;
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
+  pendingStaffRequests: PendingStaffLateOrderRequest[];
 };
 
 type WorkspaceFeedback = {
@@ -108,11 +115,15 @@ function LateOrdersWorkspaceInner({
   primaryDeliveryDate,
   jamaicaToday,
   providerCreationCycles,
+  pendingStaffRequests = [],
 }: Props) {
   const { readOnly } = useSupportMode();
   const router = useRouter();
   const [feedback, setFeedback] = useState<WorkspaceFeedback>(null);
   const [pending, startTransition] = useTransition();
+  const [fulfillRequest, setFulfillRequest] = useState<PendingStaffLateOrderRequest | null>(
+    null,
+  );
 
   const handleSend = (providerId: string, deliveryDate: string) => {
     setFeedback(null);
@@ -237,19 +248,29 @@ function LateOrdersWorkspaceInner({
         <FormActionStatus variant={feedback.variant}>{feedback.message}</FormActionStatus>
       ) : null}
 
+      <PendingStaffLateOrderRequestsPanel
+        requests={pendingStaffRequests}
+        onFulfill={(request) => setFulfillRequest(request)}
+      />
+
       {unavailableReason ? (
         <LateOrdersUnavailableCard reason={unavailableReason} />
       ) : (
         <>
           {showFullWorkflow && !readOnly ? (
             <LateOrderCreatePanel
+              key={fulfillRequest?.id ?? "hr-late-create"}
               employees={employees}
               locations={locations}
               providers={lateOrderProviders}
               defaultDeliveryDate={primaryDeliveryDate}
               jamaicaToday={jamaicaToday}
               providerCreationCycles={providerCreationCycles}
-              onCreateSuccess={() => router.refresh()}
+              fulfillRequest={fulfillRequest}
+              onCreateSuccess={() => {
+                setFulfillRequest(null);
+                router.refresh();
+              }}
             />
           ) : null}
 
@@ -297,6 +318,7 @@ function LateOrderCreatePanel({
   defaultDeliveryDate,
   jamaicaToday,
   providerCreationCycles,
+  fulfillRequest,
   onCreateSuccess,
 }: {
   employees: Array<{ id: string; name: string; email: string }>;
@@ -305,11 +327,14 @@ function LateOrderCreatePanel({
   defaultDeliveryDate: string;
   jamaicaToday: string;
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
+  fulfillRequest: PendingStaffLateOrderRequest | null;
   onCreateSuccess: () => void;
 }) {
   const { showToast } = useToast();
-  const [profileId, setProfileId] = useState("");
-  const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
+  const [profileId, setProfileId] = useState(fulfillRequest?.requesterProfileId ?? "");
+  const [providerId, setProviderId] = useState(
+    fulfillRequest?.providerId ?? providers[0]?.id ?? "",
+  );
 
   const actionableCycles = useMemo(
     () => providerCreationCycles[providerId] ?? [],
@@ -318,7 +343,11 @@ function LateOrderCreatePanel({
 
   const [deliveryPickByProvider, setDeliveryPickByProvider] = useState<
     Record<string, string>
-  >({});
+  >(() =>
+    fulfillRequest
+      ? { [fulfillRequest.providerId]: fulfillRequest.scheduledDeliveryDate }
+      : {},
+  );
 
   const deliveryDate = useMemo(() => {
     if (actionableCycles.length === 0) {
@@ -366,6 +395,7 @@ function LateOrderCreatePanel({
       const result = await loadHrLateOrderSnapshotMenuAction({
         providerId,
         deliveryDate,
+        profileId: (fulfillRequest?.requesterProfileId ?? profileId) || undefined,
       });
 
       if (cancelled) {
@@ -390,7 +420,7 @@ function LateOrderCreatePanel({
     return () => {
       cancelled = true;
     };
-  }, [providerId, deliveryDate]);
+  }, [providerId, deliveryDate, fulfillRequest?.requesterProfileId, profileId]);
 
   const menuPresentation = resolveLateOrderMenuPresentation({
     loading: loadingMenu,
@@ -414,8 +444,16 @@ function LateOrderCreatePanel({
   const handleFormAction = async (formData: FormData) => {
     formData.set("profileId", profileId);
     formData.set("deliveryDate", deliveryDate);
+    const officeLocationId = String(formData.get("officeLocationId") ?? "").trim();
 
-    const result = await createHrLateOrderFormAction(formData);
+    const result = fulfillRequest
+      ? await fulfillStaffLateOrderRequestAction({
+          requestId: fulfillRequest.id,
+          items: buildSnapshotOrderPayload(formData),
+          specialInstructions: String(formData.get("specialInstructions") ?? ""),
+          officeLocationId,
+        })
+      : await createHrLateOrderFormAction(formData);
 
     if (result.success) {
       showToast({
@@ -436,40 +474,70 @@ function LateOrderCreatePanel({
 
   const orderDetailsPrefix = (
     <>
+      {fulfillRequest ? (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted">
+          <p className="font-medium text-foreground">Staff request (read-only)</p>
+          <p className="mt-1">{fulfillRequest.requestedSummary}</p>
+          {fulfillRequest.quantity > 1 ? (
+            <p className="mt-1">Quantity requested: {fulfillRequest.quantity}</p>
+          ) : null}
+          {fulfillRequest.specialInstructions ? (
+            <p className="mt-1">Notes: {fulfillRequest.specialInstructions}</p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
         <div className="block space-y-1.5">
           <span id="late-order-employee-label" className={formControlLabelClassName}>
             Employee
           </span>
-          <EmployeePicker
-            id="late-order-employee-picker"
-            aria-labelledby="late-order-employee-label"
-            employees={employees}
-            value={profileId}
-            onValueChange={setProfileId}
-          />
+          {fulfillRequest ? (
+            <ReadOnlyFormValue
+              id="late-order-employee-picker"
+              value={fulfillRequest.requesterName}
+            />
+          ) : (
+            <EmployeePicker
+              id="late-order-employee-picker"
+              aria-labelledby="late-order-employee-label"
+              employees={employees}
+              value={profileId}
+              onValueChange={setProfileId}
+            />
+          )}
         </div>
 
-        <label className="block space-y-1.5">
+        <div className="block space-y-1.5">
           <span className={formControlLabelClassName}>Provider</span>
-          <select
-            value={providerId}
-            onChange={(event) => setProviderId(event.target.value)}
-            className={`${selectClassName} block w-full`}
-          >
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          {fulfillRequest ? (
+            <ReadOnlyFormValue id="late-order-provider-readonly" value={fulfillRequest.providerName} />
+          ) : (
+            <select
+              value={providerId}
+              onChange={(event) => setProviderId(event.target.value)}
+              className={`${selectClassName} block w-full`}
+            >
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
 
         <div className="block space-y-1.5">
           <label htmlFor="scheduled-delivery-control" className={formControlLabelClassName}>
             Scheduled delivery
           </label>
-          {actionableCycles.length === 1 ? (
+          {fulfillRequest ? (
+            <ReadOnlyFormValue
+              id="scheduled-delivery-control"
+              value={formatHumanDate(fulfillRequest.scheduledDeliveryDate)}
+              showCalendarIcon
+            />
+          ) : actionableCycles.length === 1 ? (
             <ReadOnlyFormValue
               id="scheduled-delivery-control"
               value={formatHumanDate(actionableCycles[0]!.deliveryDate)}
@@ -536,9 +604,12 @@ function LateOrderCreatePanel({
       formAction={handleFormAction}
       mainFieldName="mainMenuItemId"
       quantityFieldPrefix="quantity"
-      submitLabel="Create late order"
-      pendingLabel="Creating late order…"
+      submitLabel={fulfillRequest ? "Fulfill request" : "Create late order"}
+      pendingLabel={fulfillRequest ? "Fulfilling request…" : "Creating late order…"}
       officeLocations={locations}
+      defaultOfficeLocationId={
+        fulfillRequest?.officeLocationId ?? locations[0]?.id ?? null
+      }
       allowDefaultLocationUpdate={false}
       stableSplitLayout
       showSubsidyNote={false}

@@ -4,8 +4,8 @@ select plan(42);
 
 select is(
   (select count(*)::integer from private.notification_event_catalog),
-  15,
-  'V1 catalog contains fifteen events'
+  18,
+  'V1 catalog contains eighteen events'
 );
 
 select ok(

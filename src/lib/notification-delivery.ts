@@ -75,7 +75,14 @@ export function notificationDeliveryBatchStatusLabel(status: string): string {
   }
 }
 
-export function notificationDeliveryRecipientStatusLabel(status: string): string {
+export function notificationDeliveryRecipientStatusLabel(
+  status: string,
+  lastError?: string | null,
+): string {
+  if (isSupersededNotificationDeliveryError(lastError)) {
+    return "Superseded";
+  }
+
   switch (status) {
     case "sent":
       return "Sent";
@@ -89,6 +96,22 @@ export function notificationDeliveryRecipientStatusLabel(status: string): string
     default:
       return "Pending";
   }
+}
+
+export function isSupersededNotificationDeliveryError(lastError?: string | null): boolean {
+  return (lastError?.trim() ?? "").startsWith("Superseded:");
+}
+
+export function formatNotificationDeliveryLastError(lastError?: string | null): string {
+  if (!lastError?.trim()) {
+    return "—";
+  }
+
+  if (isSupersededNotificationDeliveryError(lastError)) {
+    return "Superseded — request no longer pending";
+  }
+
+  return lastError;
 }
 
 export function notificationDeliveryDateRangePresetDays(days: number): {

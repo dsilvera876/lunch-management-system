@@ -18,6 +18,8 @@ import { processHrEmailDeliveryFailureNotifications } from "@/lib/process-hr-ema
 import { processHrPendingSignupNotifications } from "@/lib/process-hr-pending-signup-notifications";
 import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifications";
 import { processStaffLunchPeriodFinalizedNotifications } from "@/lib/process-staff-lunch-period-finalized-notifications";
+import { processHrLateOrderSubmittedNotifications } from "@/lib/process-hr-late-order-submitted-notifications";
+import { processStaffLateOrderRequestStatusNotifications } from "@/lib/process-staff-late-order-request-status-notifications";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
@@ -31,6 +33,8 @@ type WorkerTask =
   | "admin-email-delivery-failure-notifications"
   | "hr-email-delivery-failure-notifications"
   | "staff-order-notifications"
+  | "staff-late-order-request-notifications"
+  | "staff-late-order-request-expiry"
   | "staff-lunch-period-finalized-notifications"
   | "auth-deletion-cleanup"
   | "user-import"
@@ -61,6 +65,8 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "admin-email-delivery-failure-notifications" ||
         value === "hr-email-delivery-failure-notifications" ||
         value === "staff-order-notifications" ||
+        value === "staff-late-order-request-notifications" ||
+        value === "staff-late-order-request-expiry" ||
         value === "staff-lunch-period-finalized-notifications" ||
         value === "auth-deletion-cleanup" ||
         value === "user-import" ||
@@ -191,6 +197,36 @@ async function runStaffOrderNotifications(dryRun: boolean): Promise<number> {
   return result.failures;
 }
 
+async function runStaffLateOrderRequestExpiry(dryRun: boolean): Promise<number> {
+  if (dryRun) {
+    console.log("Dry run: staff late order request expiry skipped");
+    return 0;
+  }
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc("worker_expire_pending_staff_late_order_requests");
+
+  if (error) {
+    throw new Error(`Staff late order request expiry failed: ${error.message}`);
+  }
+
+  const expired = Number(data ?? 0);
+  console.log(`Staff late order request expiry: expired=${expired}`);
+  return 0;
+}
+
+async function runStaffLateOrderRequestNotifications(dryRun: boolean): Promise<number> {
+  const supabase = createServiceClient();
+  const hrResult = await processHrLateOrderSubmittedNotifications(supabase, { dryRun });
+  const staffResult = await processStaffLateOrderRequestStatusNotifications(supabase, { dryRun });
+
+  console.log(
+    `Staff late order request notifications: hr_queued=${hrResult.queued} staff_queued=${staffResult.queued} failures=${hrResult.failures + staffResult.failures}`,
+  );
+
+  return hrResult.failures + staffResult.failures;
+}
+
 async function runStaffLunchPeriodFinalizedNotifications(dryRun: boolean): Promise<number> {
   const supabase = createServiceClient();
   const result = await processStaffLunchPeriodFinalizedNotifications(supabase, { dryRun });
@@ -318,6 +354,27 @@ async function main(): Promise<void> {
 
   if (options.task === "staff-order-notifications" || options.task === "all") {
     const failures = await runStaffOrderNotifications(options.dryRun);
+    if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
+  if (options.task === "staff-late-order-request-expiry" || options.task === "all") {
+    try {
+      await runStaffLateOrderRequestExpiry(options.dryRun);
+    } catch (error) {
+      console.error(
+        `Staff late order request expiry worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
+      process.exitCode = 1;
+    }
+  }
+
+  if (
+    options.task === "staff-late-order-request-notifications" ||
+    options.task === "all"
+  ) {
+    const failures = await runStaffLateOrderRequestNotifications(options.dryRun);
     if (failures > 0) {
       process.exitCode = 1;
     }

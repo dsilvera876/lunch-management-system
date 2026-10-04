@@ -248,5 +248,13 @@ export function formatLateOrderCreateErrorMessage(errorReason: string): string {
     return actionLabel;
   }
 
+  if (
+    detail.includes(
+      "This employee has a pending late-order request for this provider and date",
+    )
+  ) {
+    return detail;
+  }
+
   return `${actionLabel}. ${detail}`;
 }

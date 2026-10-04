@@ -52,9 +52,18 @@ export function NotificationProcessingStatusBadge({ status }: { status: string }
   );
 }
 
-export function NotificationDeliveryRecipientStatusBadge({ status }: { status: string }) {
-  const label = notificationDeliveryRecipientStatusLabel(status);
-  const tone = recipientTone[status] ?? recipientTone.pending;
+export function NotificationDeliveryRecipientStatusBadge({
+  status,
+  lastError,
+}: {
+  status: string;
+  lastError?: string | null;
+}) {
+  const label = notificationDeliveryRecipientStatusLabel(status, lastError);
+  const tone =
+    label === "Superseded"
+      ? recipientTone.skipped
+      : (recipientTone[status] ?? recipientTone.pending);
 
   return (
     <span

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
+  formatNotificationDeliveryLastError,
   notificationDeliveryBatchStatusLabel,
   notificationDeliveryRecipientStatusLabel,
 } from "@/lib/notification-delivery";
@@ -13,6 +14,30 @@ describe("notification delivery monitoring", () => {
     assert.equal(notificationDeliveryBatchStatusLabel("sent"), "Sent");
     assert.equal(notificationDeliveryRecipientStatusLabel("sent"), "Sent");
     assert.notEqual(notificationDeliveryBatchStatusLabel("sent"), "Delivered");
+  });
+
+  it("labels superseded notification deliveries distinctly from SMTP failures", () => {
+    assert.equal(
+      notificationDeliveryRecipientStatusLabel(
+        "failed",
+        "Superseded: staff late-order request is no longer pending.",
+      ),
+      "Superseded",
+    );
+    assert.equal(
+      formatNotificationDeliveryLastError(
+        "Superseded: staff late-order request is no longer pending.",
+      ),
+      "Superseded — request no longer pending",
+    );
+    assert.equal(notificationDeliveryRecipientStatusLabel("failed", "SMTP timeout"), "Failed");
+    assert.equal(
+      notificationDeliveryRecipientStatusLabel(
+        "skipped",
+        "Superseded: staff late-order request is no longer pending.",
+      ),
+      "Superseded",
+    );
   });
 
   it("wires admin delivery dashboard routes and auth", () => {

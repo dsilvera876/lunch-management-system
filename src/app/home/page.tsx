@@ -14,6 +14,8 @@ import {
 } from "@/lib/home-dashboard";
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
+import { loadStaffLateOrderRequestContext } from "@/app/home/staff-late-order-request-actions";
+import { StaffLateOrderRequestPanel } from "@/components/dashboard/staff-late-order-request-panel";
 
 export default async function HomePage() {
   const profile = await requireProfile();
@@ -28,7 +30,7 @@ export default async function HomePage() {
     pendingSignupApprovalCount,
   );
 
-  const [ctx, financialResult, recentOrdersResult] = await Promise.all([
+  const [ctx, financialResult, recentOrdersResult, lateRequestContext] = await Promise.all([
     getStaffOrderingContext(profile.id),
     getStaffFinancialDashboardResult(supabase),
     supabase
@@ -44,6 +46,10 @@ export default async function HomePage() {
       .neq("status", "cancelled")
       .order("created_at", { ascending: false })
       .limit(5),
+    loadStaffLateOrderRequestContext().catch(() => ({
+      eligibleCycles: [],
+      requests: [],
+    })),
   ]);
 
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "there";
@@ -98,6 +104,11 @@ export default async function HomePage() {
       lastPeriodSpend={lastPeriod?.amount ?? null}
       deliveryOrders={ctx.deliveryOrders}
       recentOrders={recentOrders}
+      />
+      <StaffLateOrderRequestPanel
+        orderingOpen={ctx.orderingOpen}
+        eligibleCycles={lateRequestContext.eligibleCycles}
+        requests={lateRequestContext.requests}
       />
     </div>
   );
