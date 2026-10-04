@@ -155,6 +155,8 @@ describe("notification presentation", () => {
     assert.match(emailPage, /Email Settings/);
     assert.match(workspace, /Staff Notifications/);
     assert.match(workspace, /Operational Notifications/);
+    assert.doesNotMatch(workspace, /accounts\.period_ready/);
+    assert.doesNotMatch(workspace, /provider\.late_order_supplement/);
     assert.match(workspace, /System Email/);
     assert.match(workspace, /personal preference/);
     assert.doesNotMatch(timingEditor, /type="time"/);

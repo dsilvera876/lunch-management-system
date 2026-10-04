@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(42);
 
 select is(
   (select count(*)::integer from private.notification_event_catalog),
@@ -230,6 +230,81 @@ select throws_ok(
   'P0001',
   'Reminder offset is not configurable for this notification',
   'Immediate event reminder offset mutation rejected'
+);
+
+-- Admin Email Settings omits dormant / non-catalog-controlled events
+select ok(
+  not exists (
+    select 1
+    from public.list_admin_notification_events('accounts') e
+    where e.event_key = 'accounts.period_ready'
+  ),
+  'accounts.period_ready is not listed in Email Settings'
+);
+
+select ok(
+  not exists (
+    select 1
+    from public.list_admin_notification_events('accounts') e
+    where e.event_key = 'accounts.period_finalized'
+  ),
+  'accounts.period_finalized is not listed in Email Settings'
+);
+
+select is(
+  (select count(*)::integer from public.list_admin_notification_events('accounts')),
+  0,
+  'Accounts Notifications audience has no admin-configurable events'
+);
+
+select ok(
+  not exists (
+    select 1
+    from public.list_admin_notification_events('provider') e
+    where e.event_key = 'provider.late_order_supplement'
+  ),
+  'provider.late_order_supplement is not listed in Email Settings'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.list_admin_notification_events('provider') e
+    where e.event_key = 'provider.daily_order_summary'
+  ),
+  'provider.daily_order_summary remains listed in Email Settings'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.list_admin_notification_events('staff') e
+    where e.event_key = 'staff.today_menu'
+  ),
+  'Staff notifications listing is unchanged for today menu'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.list_admin_notification_events('hr') e
+    where e.event_key = 'hr.pending_signup_approval'
+  ),
+  'HR notifications listing is unchanged for pending signup approval'
+);
+
+select throws_ok(
+  $$ select public.update_notification_global_setting('accounts.period_ready', false, null, null) $$,
+  'P0001',
+  'Notification global setting is not manageable in Email Settings',
+  'Dormant accounts.period_ready global toggle update rejected'
+);
+
+select throws_ok(
+  $$ select public.update_notification_global_setting('provider.late_order_supplement', false, null, null) $$,
+  'P0001',
+  'Notification global setting is not manageable in Email Settings',
+  'provider.late_order_supplement global toggle update rejected'
 );
 
 -- Support mode does not grant notification settings access to HR
