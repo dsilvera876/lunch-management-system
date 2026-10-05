@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { submitLunchCheckout } from "@/app/lunch/actions";
 import { ProviderSelector } from "@/components/lunch/provider-selector";
 import { ProviderMenuPanel } from "@/components/lunch/provider-menu-panel";
@@ -28,6 +28,7 @@ import {
 import { draftHasSelectedItems } from "@/lib/lunch-checkout";
 import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
 import { resolvePlaceOrderBlockedMessage, validateLunchCart } from "@/lib/lunch-checkout";
+import { focusFormErrorSummary } from "@/lib/staff-form-accessibility";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 
@@ -76,11 +77,15 @@ export function LunchOrderingWorkspace({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const validationErrorRef = useRef<HTMLDivElement>(null);
+  const skipErrorSummaryFocus = useRef(false);
+  const checkoutErrorSummaryId = useId();
 
   useEffect(() => {
-    if (validationError) {
-      validationErrorRef.current?.focus();
+    if (!validationError || skipErrorSummaryFocus.current) {
+      skipErrorSummaryFocus.current = false;
+      return;
     }
+    focusFormErrorSummary(validationErrorRef.current);
   }, [validationError]);
 
   const selectedProvider =
@@ -166,6 +171,7 @@ export function LunchOrderingWorkspace({
     }
 
     if (officeLocations.length > 0 && !selectedOfficeLocationId) {
+      skipErrorSummaryFocus.current = true;
       setValidationError("Choose a delivery location before placing your order.");
       onRequestLocationPicker();
       return;
@@ -289,7 +295,12 @@ export function LunchOrderingWorkspace({
       </div>
 
       {validationError ? (
-        <FormActionStatus ref={validationErrorRef} variant="error" className="mt-4">
+        <FormActionStatus
+          ref={validationErrorRef}
+          id={checkoutErrorSummaryId}
+          variant="error"
+          className="mt-4"
+        >
           {validationError}
         </FormActionStatus>
       ) : null}

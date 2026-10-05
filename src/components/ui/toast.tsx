@@ -75,9 +75,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
+        role="region"
+        aria-label="Notifications"
         className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-4 sm:items-end"
-        aria-live="polite"
-        aria-relevant="additions"
       >
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={() => dismissToast(toast.id)} />
@@ -113,7 +113,6 @@ function ToastItem({
   return (
     <div
       role={variant === "error" ? "alert" : "status"}
-      aria-live={variant === "error" ? "assertive" : "polite"}
       className={`pointer-events-auto w-full max-w-sm rounded-xl border p-4 shadow-lg ring-1 ${styles.container}`}
     >
       <div className="flex items-start justify-between gap-3">

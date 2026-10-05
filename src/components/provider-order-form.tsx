@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -39,6 +39,14 @@ import {
   calculateMealBundleSubtotal,
   formatMealBundleLabel,
 } from "@/lib/order-payload";
+import {
+  classifyProviderOrderValidationError,
+  focusFormErrorSummary,
+  focusProviderOrderValidationTarget,
+  joinDescribedBy,
+  resolveProviderOrderErrorFocusTargetId,
+  type ProviderOrderFieldKey,
+} from "@/lib/staff-form-accessibility";
 
 function lateOrderMenuOptionClassName(selected: boolean) {
   return [
@@ -185,6 +193,67 @@ export function ProviderOrderForm({
     defaultSpecialInstructions,
   );
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<ProviderOrderFieldKey | "general" | null>(
+    null,
+  );
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const errorSummaryId = useId();
+  const mainGroupId = useId();
+  const sideGroupId = useId();
+  const mainFieldErrorId = useId();
+  const sideFieldErrorId = useId();
+  const officeLocationErrorId = useId();
+  const specialInstructionsHelperId = useId();
+  const specialInstructionsErrorId = useId();
+
+  function clearValidation() {
+    setValidationError(null);
+    setInvalidField(null);
+  }
+
+  function setFormValidation(message: string) {
+    setValidationError(message);
+    setInvalidField(classifyProviderOrderValidationError(message));
+  }
+
+  useLayoutEffect(() => {
+    if (validationError) {
+      focusFormErrorSummary(errorSummaryRef.current);
+    }
+  }, [validationError]);
+
+  const validationSummary = validationError ? (
+    <FormActionStatus
+      ref={errorSummaryRef}
+      id={errorSummaryId}
+      variant="error"
+      className="mt-4"
+    >
+      <p>{validationError}</p>
+      {invalidField && invalidField !== "general" ? (
+        <p className="mt-2 text-sm font-normal">
+          <a
+            href={`#${resolveProviderOrderErrorFocusTargetId(invalidField, {
+              mainGroupId,
+              sideGroupId,
+            })}`}
+            className="font-semibold underline underline-offset-2"
+            onClick={(event) => {
+              event.preventDefault();
+              focusProviderOrderValidationTarget(
+                resolveProviderOrderErrorFocusTargetId(invalidField, {
+                  mainGroupId,
+                  sideGroupId,
+                }),
+              );
+            }}
+          >
+            Go to the affected field
+          </a>
+        </p>
+      ) : null}
+    </FormActionStatus>
+  ) : null;
 
   useEffect(() => {
     if (!isLateOrderLayout || menuSelectionEpoch === 0) {
@@ -198,7 +267,7 @@ export function ProviderOrderForm({
     setMealQuantity(defaultMealQuantity);
     setStandaloneQuantities({});
     setSpecialInstructions(defaultSpecialInstructions);
-    setValidationError(null);
+    clearValidation();
   }, [
     defaultMealQuantity,
     defaultSpecialInstructions,
@@ -236,7 +305,7 @@ export function ProviderOrderForm({
       ...current,
       [itemId]: quantity,
     }));
-    setValidationError(null);
+    clearValidation();
   }
 
   function toggleSide(itemId: string, checked: boolean) {
@@ -249,7 +318,7 @@ export function ProviderOrderForm({
       }
       return next;
     });
-    setValidationError(null);
+    clearValidation();
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -267,13 +336,13 @@ export function ProviderOrderForm({
 
     if (!composition.valid) {
       event.preventDefault();
-      setValidationError(composition.message);
+      setFormValidation(composition.message);
       return;
     }
 
     if (!isValidSpecialInstructions(specialInstructions)) {
       event.preventDefault();
-      setValidationError("Special instructions must be 500 characters or fewer.");
+      setFormValidation("Special instructions must be 500 characters or fewer.");
       return;
     }
 
@@ -285,7 +354,7 @@ export function ProviderOrderForm({
 
     if (officeLocations.length > 0 && !officeLocationId) {
       event.preventDefault();
-      setValidationError("Choose a delivery location before placing your order.");
+      setFormValidation("Choose a delivery location before placing your order.");
     }
   }
 
@@ -375,8 +444,16 @@ export function ProviderOrderForm({
 
   const mainMenuSection =
     offersMeals && grouped.main.length > 0 ? (
-      <section className={compactMenuLayout ? "" : "mb-8"}>
-        <h3
+      <fieldset
+        id={mainGroupId}
+        tabIndex={-1}
+        aria-invalid={invalidField === "main" || undefined}
+        aria-describedby={joinDescribedBy(
+          invalidField === "main" ? mainFieldErrorId : undefined,
+        )}
+        className={`m-0 min-w-0 border-0 p-0 ${compactMenuLayout ? "" : "mb-8"}`}
+      >
+        <legend
           className={
             compactMenuLayout
               ? "text-sm font-semibold text-slate-900"
@@ -384,9 +461,15 @@ export function ProviderOrderForm({
           }
         >
           {compactMenuLayout ? "Mains" : "Main"}
-        </h3>
+          <span className="sr-only"> (required when ordering a meal)</span>
+        </legend>
         {compactMenuLayout ? (
           <p className="mt-0.5 text-xs text-muted">Select one main item (required).</p>
+        ) : null}
+        {invalidField === "main" && validationError ? (
+          <p id={mainFieldErrorId} className="mt-1 text-sm text-red-800">
+            {validationError}
+          </p>
         ) : null}
         <div className={compactMenuLayout ? "mt-2 space-y-2" : "space-y-3"}>
           {grouped.main.map((item) => {
@@ -425,7 +508,7 @@ export function ProviderOrderForm({
                   checked={selectedMainId === item.id}
                   onChange={() => {
                     setSelectedMainId(item.id);
-                    setValidationError(null);
+                    clearValidation();
                   }}
                   className="mt-0.5 size-4 shrink-0"
                 />
@@ -448,7 +531,7 @@ export function ProviderOrderForm({
                     checked={selectedMainId === item.id}
                     onChange={() => {
                       setSelectedMainId(item.id);
-                      setValidationError(null);
+                      clearValidation();
                     }}
                     className="mt-1 size-4 shrink-0"
                   />
@@ -458,13 +541,21 @@ export function ProviderOrderForm({
             );
           })}
         </div>
-      </section>
+      </fieldset>
     ) : null;
 
   const sideMenuSection =
     offersMeals && grouped.side.length > 0 ? (
-      <section className={compactMenuLayout ? "" : "mb-8"}>
-        <h3
+      <fieldset
+        id={sideGroupId}
+        tabIndex={-1}
+        aria-invalid={invalidField === "sides" || undefined}
+        aria-describedby={joinDescribedBy(
+          invalidField === "sides" ? sideFieldErrorId : undefined,
+        )}
+        className={`m-0 min-w-0 border-0 p-0 ${compactMenuLayout ? "" : "mb-8"}`}
+      >
+        <legend
           className={
             compactMenuLayout
               ? "text-sm font-semibold text-slate-900"
@@ -472,9 +563,15 @@ export function ProviderOrderForm({
           }
         >
           Sides
-        </h3>
+          <span className="sr-only"> (select at least one when ordering a meal)</span>
+        </legend>
         {compactMenuLayout ? (
           <p className="mt-0.5 text-xs text-muted">Select at least one side (required).</p>
+        ) : null}
+        {invalidField === "sides" && validationError ? (
+          <p id={sideFieldErrorId} className="mt-1 text-sm text-red-800">
+            {validationError}
+          </p>
         ) : null}
         <div className={compactMenuLayout ? "mt-2 space-y-2" : "space-y-3"}>
           {grouped.side.map((item) => {
@@ -538,7 +635,7 @@ export function ProviderOrderForm({
             );
           })}
         </div>
-      </section>
+      </fieldset>
     ) : null;
 
   if (isLateOrderLayout) {
@@ -575,6 +672,12 @@ export function ProviderOrderForm({
                 allowDefaultLocationUpdate={allowDefaultLocationUpdate}
                 embedded
                 selectDisabled={menuLoading}
+                invalid={invalidField === "officeLocation"}
+                fieldErrorId={officeLocationErrorId}
+                fieldErrorMessage={
+                  invalidField === "officeLocation" ? validationError : null
+                }
+                onValidationClear={clearValidation}
               />
               <LateOrderSummaryPanel
                 providerName={providerName}
@@ -660,7 +763,7 @@ export function ProviderOrderForm({
                 defaultValue={mealQuantity}
                 onQuantityChange={(quantity) => {
                   setMealQuantity(quantity);
-                  setValidationError(null);
+                      clearValidation();
                 }}
               />
             </section>
@@ -709,21 +812,27 @@ export function ProviderOrderForm({
               disabled={menuLoading}
               onChange={(event) => {
                 setSpecialInstructions(event.target.value);
-                setValidationError(null);
+                clearValidation();
               }}
+              aria-invalid={invalidField === "specialInstructions" || undefined}
+              aria-describedby={joinDescribedBy(
+                specialInstructionsHelperId,
+                invalidField === "specialInstructions" ? specialInstructionsErrorId : undefined,
+              )}
               placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
               className={`${textareaClassName} mt-2 disabled:cursor-not-allowed disabled:opacity-60`}
             />
-            <p className="mt-1 text-xs text-muted">
+            <p id={specialInstructionsHelperId} className="mt-1 text-xs text-muted">
               Preparation notes for this order only. Up to 500 characters.
             </p>
+            {invalidField === "specialInstructions" && validationError ? (
+              <p id={specialInstructionsErrorId} className="mt-1 text-sm text-red-800">
+                {validationError}
+              </p>
+            ) : null}
           </section>
 
-          {validationError ? (
-            <FormActionStatus variant="error" className="mt-4">
-              {validationError}
-            </FormActionStatus>
-          ) : null}
+          {validationSummary}
 
           <div className="mt-4">
             <FormSubmitButton
@@ -766,6 +875,12 @@ export function ProviderOrderForm({
             defaultLocationInactive={defaultOfficeLocationInactive}
             preserveExistingLocation={preserveExistingLocation}
             allowDefaultLocationUpdate={allowDefaultLocationUpdate}
+            invalid={invalidField === "officeLocation"}
+            fieldErrorId={officeLocationErrorId}
+            fieldErrorMessage={
+              invalidField === "officeLocation" ? validationError : null
+            }
+            onValidationClear={clearValidation}
           />
         )}
 
@@ -788,7 +903,7 @@ export function ProviderOrderForm({
                 defaultValue={mealQuantity}
                 onQuantityChange={(quantity) => {
                   setMealQuantity(quantity);
-                  setValidationError(null);
+                      clearValidation();
                 }}
               />
             </div>
@@ -838,14 +953,24 @@ export function ProviderOrderForm({
           value={specialInstructions}
           onChange={(event) => {
             setSpecialInstructions(event.target.value);
-            setValidationError(null);
+            clearValidation();
           }}
+          aria-invalid={invalidField === "specialInstructions" || undefined}
+          aria-describedby={joinDescribedBy(
+            specialInstructionsHelperId,
+            invalidField === "specialInstructions" ? specialInstructionsErrorId : undefined,
+          )}
           placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
           className={`${textareaClassName} mt-2`}
         />
-        <p className="mt-1 text-xs text-muted">
+        <p id={specialInstructionsHelperId} className="mt-1 text-xs text-muted">
           Preparation notes for this order only. Up to 500 characters.
         </p>
+        {invalidField === "specialInstructions" && validationError ? (
+          <p id={specialInstructionsErrorId} className="mt-1 text-sm text-red-800">
+            {validationError}
+          </p>
+        ) : null}
       </section>
       </div>
 
@@ -857,11 +982,7 @@ export function ProviderOrderForm({
           </Card>
         )}
 
-        {validationError ? (
-          <FormActionStatus variant="error" className="mb-4">
-            {validationError}
-          </FormActionStatus>
-        ) : null}
+        <div className={validationError ? "mb-4" : ""}>{validationSummary}</div>
 
         <div className="sticky bottom-4 lg:static lg:bottom-auto z-10">
           <FormSubmitButton pendingText={pendingLabel} variant="primary" className="w-full shadow-md lg:shadow-none">

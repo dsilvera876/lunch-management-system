@@ -58,6 +58,7 @@ export function FormSubmitButton({
       type="submit"
       disabled={nativeDisabled}
       aria-disabled={softBlocked ? true : undefined}
+      aria-busy={pending ? true : undefined}
       aria-describedby={ariaDescribedBy}
       onClick={handleClick}
       onKeyDown={handleKeyDown}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import {
   cancelStaffLateOrderRequestAction,
   createStaffLateOrderRequestAction,
@@ -14,12 +14,15 @@ import { Card } from "@/components/ui/card";
 import { FormActionStatus } from "@/components/ui/form-action-status";
 import { formControlLabelClassName, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { formatHumanDate } from "@/lib/format";
+import { focusFormErrorSummary, joinDescribedBy } from "@/lib/staff-form-accessibility";
 
 type Props = {
   orderingOpen: boolean;
   eligibleCycles: EligibleLateOrderCycle[];
   requests: StaffLateOrderRequestRow[];
 };
+
+type FieldKey = "cycle" | "summary" | "quantity" | "instructions";
 
 function cycleKey(c: EligibleLateOrderCycle): string {
   return `${c.provider_id}:${c.scheduled_delivery_date}`;
@@ -29,11 +32,23 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<FieldKey | "general" | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const createFormRef = useRef<HTMLFormElement>(null);
   const cycleSelectRef = useRef<HTMLSelectElement>(null);
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
   const successStatusId = useId();
+  const errorSummaryId = useId();
+  const cycleFieldId = useId();
+  const summaryFieldId = useId();
+  const summaryHelperId = useId();
+  const summaryErrorId = useId();
+  const quantityFieldId = useId();
+  const quantityErrorId = useId();
+  const instructionsFieldId = useId();
+  const instructionsHelperId = useId();
+  const instructionsErrorId = useId();
 
   const showEntry = !orderingOpen && eligibleCycles.length > 0;
 
@@ -54,6 +69,22 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingRequest = requests.find((r) => r.id === editingId) ?? null;
   const editFormRef = useRef<HTMLFormElement>(null);
+
+  function clearFieldValidation() {
+    setError(null);
+    setInvalidField(null);
+  }
+
+  function setFormError(message: string, field: FieldKey | "general" = "general") {
+    setError(message);
+    setInvalidField(field);
+  }
+
+  useLayoutEffect(() => {
+    if (error) {
+      focusFormErrorSummary(errorSummaryRef.current);
+    }
+  }, [error]);
 
   useEffect(() => {
     if (open && showEntry) {
@@ -79,13 +110,39 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
     startTransition(() => router.refresh());
   }
 
+  function validateLateOrderFields(options: { requireCycle: boolean }): boolean {
+    if (options.requireCycle && !selectedCycle) {
+      setFormError("Choose a delivery date and provider.", "cycle");
+      return false;
+    }
+
+    if (!summary.trim()) {
+      setFormError("Describe what you would like to order.", "summary");
+      return false;
+    }
+
+    const parsedQuantity = Number.parseInt(quantity, 10);
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 10) {
+      setFormError("Quantity must be between 1 and 10.", "quantity");
+      return false;
+    }
+
+    if (instructions.length > 500) {
+      setFormError("Special instructions must be 500 characters or fewer.", "instructions");
+      return false;
+    }
+
+    return true;
+  }
+
   function handleCreate(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedCycle) {
+    clearFieldValidation();
+
+    if (!validateLateOrderFields({ requireCycle: true }) || !selectedCycle) {
       return;
     }
 
-    setError(null);
     startTransition(async () => {
       const result = await createStaffLateOrderRequestAction({
         providerId: selectedCycle.provider_id,
@@ -96,7 +153,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
       });
 
       if (!result.ok) {
-        setError(result.error);
+        setFormError(result.error);
         return;
       }
 
@@ -111,11 +168,12 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
 
   function handleUpdate(event: React.FormEvent) {
     event.preventDefault();
-    if (!editingRequest) {
+    clearFieldValidation();
+
+    if (!validateLateOrderFields({ requireCycle: false }) || !editingRequest) {
       return;
     }
 
-    setError(null);
     startTransition(async () => {
       const result = await updateStaffLateOrderRequestAction({
         requestId: editingRequest.id,
@@ -126,7 +184,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
       });
 
       if (!result.ok) {
-        setError(result.error);
+        setFormError(result.error);
         return;
       }
 
@@ -137,11 +195,11 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   }
 
   function handleCancel(requestId: string) {
-    setError(null);
+    clearFieldValidation();
     startTransition(async () => {
       const result = await cancelStaffLateOrderRequestAction(requestId);
       if (!result.ok) {
-        setError(result.error);
+        setFormError(result.error);
         return;
       }
       setSuccessMessage("Late order request cancelled.");
@@ -151,8 +209,110 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
 
   function closeCreateForm() {
     setOpen(false);
-    setError(null);
+    clearFieldValidation();
   }
+
+  const errorSummary =
+    error ? (
+      <FormActionStatus ref={errorSummaryRef} id={errorSummaryId} variant="error" className="mt-3">
+        {error}
+      </FormActionStatus>
+    ) : null;
+
+  const sharedRequestFields = (
+    <>
+      <div>
+        <label htmlFor={summaryFieldId} className={formControlLabelClassName}>
+          What I&apos;d like{" "}
+          <span aria-hidden="true" className="text-red-700" title="Required field">
+            *
+          </span>
+        </label>
+        <textarea
+          id={summaryFieldId}
+          className={inputClassName}
+          rows={3}
+          maxLength={500}
+          required
+          value={summary}
+          onChange={(e) => {
+            setSummary(e.target.value);
+            clearFieldValidation();
+          }}
+          aria-invalid={invalidField === "summary" || undefined}
+          aria-describedby={joinDescribedBy(
+            summaryHelperId,
+            invalidField === "summary" ? summaryErrorId : undefined,
+          )}
+        />
+        <p id={summaryHelperId} className="mt-1 text-xs text-muted">
+          Required. Up to 500 characters.
+        </p>
+        {invalidField === "summary" && error ? (
+          <p id={summaryErrorId} className="mt-1 text-sm text-red-800">
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <div>
+        <label htmlFor={quantityFieldId} className={formControlLabelClassName}>
+          Quantity{" "}
+          <span aria-hidden="true" className="text-red-700" title="Required field">
+            *
+          </span>
+        </label>
+        <input
+          id={quantityFieldId}
+          className={inputClassName}
+          type="number"
+          min={1}
+          max={10}
+          value={quantity}
+          onChange={(e) => {
+            setQuantity(e.target.value);
+            clearFieldValidation();
+          }}
+          required
+          aria-invalid={invalidField === "quantity" || undefined}
+          aria-describedby={invalidField === "quantity" ? quantityErrorId : undefined}
+        />
+        {invalidField === "quantity" && error ? (
+          <p id={quantityErrorId} className="mt-1 text-sm text-red-800">
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <div>
+        <label htmlFor={instructionsFieldId} className={formControlLabelClassName}>
+          Special instructions <span className="font-normal text-muted">(optional)</span>
+        </label>
+        <textarea
+          id={instructionsFieldId}
+          className={inputClassName}
+          rows={2}
+          maxLength={500}
+          value={instructions}
+          onChange={(e) => {
+            setInstructions(e.target.value);
+            clearFieldValidation();
+          }}
+          aria-invalid={invalidField === "instructions" || undefined}
+          aria-describedby={joinDescribedBy(
+            instructionsHelperId,
+            invalidField === "instructions" ? instructionsErrorId : undefined,
+          )}
+        />
+        <p id={instructionsHelperId} className="mt-1 text-xs text-muted">
+          Optional. Up to 500 characters.
+        </p>
+        {invalidField === "instructions" && error ? (
+          <p id={instructionsErrorId} className="mt-1 text-sm text-red-800">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
 
   return (
     <Card padding="md" className="shadow-sm">
@@ -188,26 +348,33 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
         </p>
       ) : null}
 
-      {error ? (
-        <FormActionStatus variant="error" className="mt-3">
-          {error}
-        </FormActionStatus>
-      ) : null}
+      {errorSummary}
 
       {open && showEntry ? (
         <form
           ref={createFormRef}
           onSubmit={handleCreate}
           className="mt-4 space-y-3 border-t border-border pt-4"
+          noValidate
         >
-          <label className={formControlLabelClassName}>
-            Delivery date & provider
+          <div>
+            <label htmlFor={cycleFieldId} className={formControlLabelClassName}>
+              Delivery date & provider{" "}
+              <span aria-hidden="true" className="text-red-700" title="Required field">
+                *
+              </span>
+            </label>
             <select
+              id={cycleFieldId}
               ref={cycleSelectRef}
               className={selectClassName}
               value={selectedCycleKey}
-              onChange={(e) => setSelectedCycleKey(e.target.value)}
+              onChange={(e) => {
+                setSelectedCycleKey(e.target.value);
+                clearFieldValidation();
+              }}
               required
+              aria-invalid={invalidField === "cycle" || undefined}
             >
               {cycleOptions.map((c) => (
                 <option key={cycleKey(c)} value={cycleKey(c)}>
@@ -215,40 +382,8 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
                 </option>
               ))}
             </select>
-          </label>
-          <label className={formControlLabelClassName}>
-            What I&apos;d like
-            <textarea
-              className={inputClassName}
-              rows={3}
-              maxLength={500}
-              required
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-            />
-          </label>
-          <label className={formControlLabelClassName}>
-            Quantity
-            <input
-              className={inputClassName}
-              type="number"
-              min={1}
-              max={10}
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              required
-            />
-          </label>
-          <label className={formControlLabelClassName}>
-            Special instructions (optional)
-            <textarea
-              className={inputClassName}
-              rows={2}
-              maxLength={500}
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-            />
-          </label>
+          </div>
+          {sharedRequestFields}
           <Button type="submit" variant="primary">
             Submit request
           </Button>
@@ -260,41 +395,10 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
           ref={editFormRef}
           onSubmit={handleUpdate}
           className="mt-4 space-y-3 border-t border-border pt-4"
+          noValidate
         >
           <p className="text-sm font-medium text-foreground">Edit pending request</p>
-          <label className={formControlLabelClassName}>
-            What I&apos;d like
-            <textarea
-              className={inputClassName}
-              rows={3}
-              maxLength={500}
-              required
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-            />
-          </label>
-          <label className={formControlLabelClassName}>
-            Quantity
-            <input
-              className={inputClassName}
-              type="number"
-              min={1}
-              max={10}
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              required
-            />
-          </label>
-          <label className={formControlLabelClassName}>
-            Special instructions (optional)
-            <textarea
-              className={inputClassName}
-              rows={2}
-              maxLength={500}
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-            />
-          </label>
+          {sharedRequestFields}
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="primary">
               Save changes
@@ -321,7 +425,9 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
                   <p className="text-muted capitalize">{request.status}</p>
                   <p className="mt-1">{request.requested_summary}</p>
                   {request.status === "declined" && request.decline_reason ? (
-                    <p className="mt-1 text-muted">Reason: {request.decline_reason}</p>
+                    <p className="mt-1 text-muted" role="status">
+                      Reason: {request.decline_reason}
+                    </p>
                   ) : null}
                 </div>
                 {request.status === "pending" ? (
@@ -335,6 +441,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
                         setQuantity(String(request.quantity));
                         setInstructions(request.special_instructions ?? "");
                         setOpen(false);
+                        clearFieldValidation();
                       }}
                     >
                       Edit

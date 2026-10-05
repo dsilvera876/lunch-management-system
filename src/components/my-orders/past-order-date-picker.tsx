@@ -110,18 +110,22 @@ export function PastOrderDatePicker({ selectedDate, onChange, availableDates }: 
         ref={triggerRef}
         type="button"
         onClick={handleTriggerClick}
-        aria-label="Select past order date"
+        aria-labelledby="past-order-date-label past-order-date-value"
         aria-expanded={isMobilePicker ? undefined : popoverOpen}
         aria-haspopup={isMobilePicker ? undefined : "dialog"}
         className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-left shadow-sm transition-colors hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+        <span
+          id="past-order-date-label"
+          className="text-[10px] font-semibold uppercase tracking-wide text-muted"
+        >
           Select date
         </span>
         <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <IconCalendar size={16} />
         </span>
         <span
+          id="past-order-date-value"
           className={`min-w-0 flex-1 truncate text-sm font-medium ${
             selectedDate ? "text-slate-900" : "text-muted"
           }`}
@@ -155,13 +159,15 @@ export function PastOrderDatePicker({ selectedDate, onChange, availableDates }: 
         />
       ) : null}
 
+      {/* Bridge for mobile showPicker() only — keyboard/AT users use the visible button. */}
       <input
         ref={dateInputRef}
         type="date"
         value={inputValue}
         onChange={(event) => onChange(event.target.value)}
         tabIndex={-1}
-        aria-hidden
+        aria-hidden="true"
+        inert
         className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-0"
         list="past-order-date-options"
       />

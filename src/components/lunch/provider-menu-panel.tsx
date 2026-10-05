@@ -106,10 +106,11 @@ export function ProviderMenuPanel({
         </div>
 
         {grouped.main.length > 0 ? (
-          <section className="mt-4">
-            <h3 className="text-sm font-semibold text-slate-900">
+          <fieldset className="mt-4 m-0 min-w-0 border-0 p-0">
+            <legend className="text-sm font-semibold text-slate-900">
               {getMenuItemTypeLabel("main")}s
-            </h3>
+              <span className="sr-only"> — choose one to build a meal</span>
+            </legend>
             <div className="mt-1">
               {grouped.main.map((item) => (
                 <MenuItemRow
@@ -123,11 +124,14 @@ export function ProviderMenuPanel({
                 />
               ))}
             </div>
-          </section>
+          </fieldset>
         ) : null}
 
         {grouped.side.length > 0 ? (
-          <section className="mt-6" aria-labelledby={`${selectMainFirstId}-heading`}>
+          <fieldset
+            className="mt-6 m-0 min-w-0 border-0 p-0"
+            aria-describedby={needsMainBeforeSide ? selectMainFirstId : undefined}
+          >
             {needsMainBeforeSide ? (
               <p id={selectMainFirstId} className="sr-only">
                 {SELECT_MAIN_BEFORE_SIDE_MESSAGE}
@@ -138,12 +142,10 @@ export function ProviderMenuPanel({
                 {MEAL_INCOMPLETE_GUIDANCE}
               </p>
             ) : null}
-            <h3
-              id={`${selectMainFirstId}-heading`}
-              className="text-sm font-semibold text-slate-900"
-            >
+            <legend className="text-sm font-semibold text-slate-900">
               {getMenuItemTypeLabel("side")}s
-            </h3>
+              <span className="sr-only"> — select at least one with a main item</span>
+            </legend>
             <div className="mt-1">
               {grouped.side.map((item) => (
                 <MenuItemRow
@@ -172,12 +174,12 @@ export function ProviderMenuPanel({
                 </div>
               </div>
             ) : null}
-          </section>
+          </fieldset>
         ) : null}
 
         {Object.entries(standaloneGrouped).map(([category, items]) => (
-          <section key={category} className="mt-6">
-            <h3 className="text-sm font-semibold text-slate-900">{category}</h3>
+          <fieldset key={category} className="mt-6 m-0 min-w-0 border-0 p-0">
+            <legend className="text-sm font-semibold text-slate-900">{category}</legend>
             <div className="mt-1">
               {items.map((item) => {
                 const selected = isStandaloneInDraft(draft, item.id);
@@ -207,7 +209,7 @@ export function ProviderMenuPanel({
                 );
               })}
             </div>
-          </section>
+          </fieldset>
         ))}
 
         <div className="mt-6 border-t border-border pt-4">

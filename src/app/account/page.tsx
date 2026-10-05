@@ -144,11 +144,16 @@ export default async function AccountPage({ searchParams }: Props) {
           </p>
         ) : (
           <form action={updateDefaultOfficeLocation} className="space-y-4">
-            <FormField label="Active location" htmlFor="officeLocationId">
+            <FormField
+              label="Active location"
+              htmlFor="officeLocationId"
+              description="Required. Used as the default for new lunch orders."
+            >
               <select
                 id="officeLocationId"
                 name="officeLocationId"
                 required
+                aria-describedby="officeLocationId-description"
                 defaultValue={
                   defaultIsInactive
                     ? ""

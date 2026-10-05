@@ -7,6 +7,7 @@ import {
   formatOfficeLocationLabel,
   type OfficeLocationOption,
 } from "@/lib/office-locations";
+import { joinDescribedBy } from "@/lib/staff-form-accessibility";
 
 type Props = {
   locations: OfficeLocationOption[];
@@ -24,6 +25,10 @@ type Props = {
   embedded?: boolean;
   /** Disables location select while provider menu is loading (shell stays mounted). */
   selectDisabled?: boolean;
+  invalid?: boolean;
+  fieldErrorId?: string;
+  fieldErrorMessage?: string | null;
+  onValidationClear?: () => void;
 };
 
 export function OfficeLocationPicker({
@@ -38,6 +43,10 @@ export function OfficeLocationPicker({
   onExpandSelectorChange,
   embedded = false,
   selectDisabled = false,
+  invalid = false,
+  fieldErrorId,
+  fieldErrorMessage = null,
+  onValidationClear,
 }: Props) {
   const initialSelection = useMemo(() => {
     if (!defaultLocationId) {
@@ -80,6 +89,7 @@ export function OfficeLocationPicker({
 
   function handleLocationChange(nextLocationId: string) {
     setSelectedLocationId(nextLocationId);
+    onValidationClear?.();
     if (hideCollapsedSummary && nextLocationId.length > 0) {
       collapseSelector();
     }
@@ -118,10 +128,15 @@ export function OfficeLocationPicker({
         <select
           id="officeLocationSelect"
           value={selectedLocationId}
-          onChange={(event) => setSelectedLocationId(event.target.value)}
+          onChange={(event) => {
+            setSelectedLocationId(event.target.value);
+            onValidationClear?.();
+          }}
           required={!selectDisabled}
           disabled={selectDisabled}
           aria-busy={selectDisabled || undefined}
+          aria-invalid={invalid || undefined}
+          aria-describedby={joinDescribedBy(invalid ? fieldErrorId : undefined)}
           className={`${selectClassName} mt-2 block w-full disabled:cursor-not-allowed disabled:opacity-60`}
         >
           <option value="" disabled>
@@ -133,6 +148,11 @@ export function OfficeLocationPicker({
             </option>
           ))}
         </select>
+        {invalid && fieldErrorMessage ? (
+          <p id={fieldErrorId} className="mt-1 text-sm text-red-800">
+            {fieldErrorMessage}
+          </p>
+        ) : null}
       </>
     );
 
@@ -175,6 +195,8 @@ export function OfficeLocationPicker({
             value={selectedLocationId}
             onChange={(event) => handleLocationChange(event.target.value)}
             required
+            aria-invalid={invalid || undefined}
+            aria-describedby={joinDescribedBy(invalid ? fieldErrorId : undefined)}
             className={`${selectClassName} mt-2`}
           >
             <option value="" disabled>
@@ -186,6 +208,11 @@ export function OfficeLocationPicker({
               </option>
             ))}
           </select>
+          {invalid && fieldErrorMessage ? (
+            <p id={fieldErrorId} className="mt-1 text-sm text-red-800">
+              {fieldErrorMessage}
+            </p>
+          ) : null}
           {defaultLocationId === null && (
             <label className="mt-4 flex items-start gap-2 text-sm">
               <input
@@ -209,6 +236,8 @@ export function OfficeLocationPicker({
             value={selectedLocationId}
             onChange={(event) => handleLocationChange(event.target.value)}
             required
+            aria-invalid={invalid || undefined}
+            aria-describedby={joinDescribedBy(invalid ? fieldErrorId : undefined)}
             className={`${selectClassName} mt-2`}
           >
             {locations.map((location) => (
@@ -217,6 +246,11 @@ export function OfficeLocationPicker({
               </option>
             ))}
           </select>
+          {invalid && fieldErrorMessage ? (
+            <p id={fieldErrorId} className="mt-1 text-sm text-red-800">
+              {fieldErrorMessage}
+            </p>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
