@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { submitLunchCheckout } from "@/app/lunch/actions";
 import { ProviderSelector } from "@/components/lunch/provider-selector";
 import { ProviderMenuPanel } from "@/components/lunch/provider-menu-panel";
@@ -27,7 +27,7 @@ import {
 } from "@/lib/lunch-order-draft";
 import { draftHasSelectedItems } from "@/lib/lunch-checkout";
 import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
-import { validateLunchCart } from "@/lib/lunch-checkout";
+import { resolvePlaceOrderBlockedMessage, validateLunchCart } from "@/lib/lunch-checkout";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
 
@@ -75,6 +75,13 @@ export function LunchOrderingWorkspace({
   const [cart, setCart] = useState<LunchCartEntry[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const validationErrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (validationError) {
+      validationErrorRef.current?.focus();
+    }
+  }, [validationError]);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ?? null;
@@ -139,7 +146,9 @@ export function LunchOrderingWorkspace({
   const checkoutGuidance =
     unfinishedDrafts.length > 0
       ? formatUnfinishedDraftMessage(unfinishedDrafts)
-      : checkout.guidanceMessage;
+      : officeLocations.length > 0 && !selectedOfficeLocationId
+        ? "Choose a delivery location."
+        : checkout.guidanceMessage;
 
   const canSubmit =
     orderingOpen &&
@@ -150,6 +159,11 @@ export function LunchOrderingWorkspace({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!orderingOpen) {
+      setValidationError(resolvePlaceOrderBlockedMessage(false, false, checkoutGuidance));
+      return;
+    }
 
     if (officeLocations.length > 0 && !selectedOfficeLocationId) {
       setValidationError("Choose a delivery location before placing your order.");
@@ -162,10 +176,9 @@ export function LunchOrderingWorkspace({
       return;
     }
 
-    if (!checkout.canSubmit) {
+    if (!checkout.canSubmit || !canSubmit) {
       setValidationError(
-        checkout.guidanceMessage ??
-          "Complete your lunch cart before placing your order.",
+        resolvePlaceOrderBlockedMessage(true, canSubmit, checkoutGuidance),
       );
       return;
     }
@@ -276,7 +289,7 @@ export function LunchOrderingWorkspace({
       </div>
 
       {validationError ? (
-        <FormActionStatus variant="error" className="mt-4">
+        <FormActionStatus ref={validationErrorRef} variant="error" className="mt-4">
           {validationError}
         </FormActionStatus>
       ) : null}

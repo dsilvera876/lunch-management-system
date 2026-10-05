@@ -138,6 +138,13 @@ export function AppShell({
   return (
     <SupportModeProvider key={supportProviderKey} role={userRole} session={supportSession}>
     <div className="min-h-screen bg-background">
+      <div id="app-shell-inertible">
+      <a
+        href="#main-content"
+        className="fixed left-4 top-4 z-[100] -translate-y-[200%] rounded-lg border border-primary bg-surface px-4 py-2 text-sm font-semibold text-foreground shadow-lg transition-transform focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-sidebar text-sidebar-foreground lg:flex lg:flex-col">
         <div className="border-b border-white/10 px-5 py-5">
           <SidebarBrand homeHref={homeHref} />
@@ -209,8 +216,16 @@ export function AppShell({
       <div className="lg:pl-64">
         <SupportModeBanner />
         <TopHeader profile={profile} notifications={headerNotifications} />
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
+      </div>
+      <div id="staff-modal-layer" />
     </div>
     </SupportModeProvider>
   );

@@ -2,6 +2,8 @@
 
 import { ProviderIcon } from "@/lib/provider-icons";
 import type { ProviderIconKey } from "@/lib/provider-icons";
+import { useAccessibleTablist } from "@/hooks/use-accessible-tablist";
+import { LUNCH_PROVIDER_MENU_TABPANEL_ID } from "@/lib/accessible-tabs";
 
 export type ProviderTab = {
   id: string;
@@ -17,7 +19,15 @@ type Props = {
 };
 
 export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
-  if (providers.length === 0) {
+  const tabIds = providers.map((provider) => provider.id);
+  const resolvedSelectedId = selectedId ?? tabIds[0] ?? "";
+  const { tabProps } = useAccessibleTablist({
+    tabIds,
+    selectedId: resolvedSelectedId,
+    onSelect,
+  });
+
+  if (providers.length === 0 || !selectedId) {
     return null;
   }
 
@@ -30,21 +40,21 @@ export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
       >
         {providers.map((provider) => {
           const selected = provider.id === selectedId;
+          const props = tabProps(provider.id);
 
           return (
             <button
               key={provider.id}
               type="button"
-              role="tab"
-              aria-selected={selected}
               id={`provider-tab-${provider.id}`}
-              aria-controls={`provider-panel-${provider.id}`}
+              aria-controls={LUNCH_PROVIDER_MENU_TABPANEL_ID}
               onClick={() => onSelect(provider.id)}
               className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 selected
                   ? "border-primary bg-primary/10 text-slate-900 ring-1 ring-primary/30"
                   : "border-border bg-surface text-muted hover:border-primary/40 hover:text-foreground"
               }`}
+              {...props}
             >
               <span className="inline-flex shrink-0" aria-hidden>
                 <ProviderIcon iconKey={provider.iconKey} size={18} alt="" />

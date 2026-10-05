@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 
 export type FormActionStatusVariant = "success" | "error" | "info" | "warning";
 
@@ -13,6 +13,7 @@ type Props = {
   variant?: FormActionStatusVariant;
   children: ReactNode;
   className?: string;
+  id?: string;
 };
 
 export function formatFormActionError(actionLabel: string, reason: string): string {
@@ -29,21 +30,23 @@ export function formatFormActionError(actionLabel: string, reason: string): stri
   return `${actionLabel}. ${detail}`;
 }
 
-export function FormActionStatus({
-  variant = "info",
-  children,
-  className = "",
-}: Props) {
+export const FormActionStatus = forwardRef<HTMLDivElement, Props>(function FormActionStatus(
+  { variant = "info", children, className = "", id },
+  ref,
+) {
   const role = variant === "error" ? "alert" : "status";
   const ariaLive = variant === "error" ? "assertive" : "polite";
 
   return (
     <div
+      ref={ref}
+      id={id}
       role={role}
       aria-live={ariaLive}
+      tabIndex={variant === "error" ? -1 : undefined}
       className={`rounded-lg border px-4 py-3 text-sm font-medium ${styles[variant]} ${className}`}
     >
       {children}
     </div>
   );
-}
+});

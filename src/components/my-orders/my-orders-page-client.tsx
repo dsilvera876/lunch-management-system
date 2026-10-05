@@ -14,6 +14,7 @@ import { MyOrdersToolbar } from "@/components/my-orders/my-orders-toolbar";
 import { GroupedCheckoutCard } from "@/components/my-orders/grouped-checkout-card";
 import { PastOrderDatePicker } from "@/components/my-orders/past-order-date-picker";
 import { MyOrdersEmptyState } from "@/components/my-orders/my-orders-empty-state";
+import { MY_ORDERS_TABPANEL_ID } from "@/lib/accessible-tabs";
 
 type Props = {
   checkouts: GroupedCheckout[];
@@ -85,7 +86,7 @@ export function MyOrdersPageClient({
 
       <div
         role="tabpanel"
-        id={`my-orders-panel-${activeTab}`}
+        id={MY_ORDERS_TABPANEL_ID}
         aria-labelledby={`my-orders-tab-${activeTab}`}
         className="space-y-4"
       >

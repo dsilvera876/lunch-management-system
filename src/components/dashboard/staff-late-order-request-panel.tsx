@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import {
   cancelStaffLateOrderRequestAction,
   createStaffLateOrderRequestAction,
@@ -29,23 +29,22 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const createFormRef = useRef<HTMLFormElement>(null);
+  const cycleSelectRef = useRef<HTMLSelectElement>(null);
+  const successStatusId = useId();
 
   const showEntry = !orderingOpen && eligibleCycles.length > 0;
 
-  const cycleOptions = useMemo(() => {
-    const seen = new Set<string>();
-    return eligibleCycles.filter((c) => {
-      const key = cycleKey(c);
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  }, [eligibleCycles]);
+  const cycleOptions = eligibleCycles.filter((c, index, list) => {
+    const key = cycleKey(c);
+    return list.findIndex((item) => cycleKey(item) === key) === index;
+  });
 
-  const [selectedCycleKey, setSelectedCycleKey] = useState(cycleOptions[0] ? cycleKey(cycleOptions[0]) : "");
+  const [selectedCycleKey, setSelectedCycleKey] = useState(
+    cycleOptions[0] ? cycleKey(cycleOptions[0]) : "",
+  );
   const selectedCycle = cycleOptions.find((c) => cycleKey(c) === selectedCycleKey) ?? null;
 
   const [summary, setSummary] = useState("");
@@ -54,6 +53,23 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingRequest = requests.find((r) => r.id === editingId) ?? null;
+  const editFormRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (open && showEntry) {
+      window.requestAnimationFrame(() => {
+        cycleSelectRef.current?.focus();
+      });
+    }
+  }, [open, showEntry]);
+
+  useEffect(() => {
+    if (editingId) {
+      window.requestAnimationFrame(() => {
+        editFormRef.current?.querySelector<HTMLElement>("textarea")?.focus();
+      });
+    }
+  }, [editingId]);
 
   if (!showEntry && requests.length === 0) {
     return null;
@@ -84,6 +100,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
         return;
       }
 
+      setSuccessMessage("Late order request submitted.");
       setOpen(false);
       setSummary("");
       setInstructions("");
@@ -113,6 +130,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
         return;
       }
 
+      setSuccessMessage("Late order request updated.");
       setEditingId(null);
       refresh();
     });
@@ -126,8 +144,14 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
         setError(result.error);
         return;
       }
+      setSuccessMessage("Late order request cancelled.");
       refresh();
     });
+  }
+
+  function closeCreateForm() {
+    setOpen(false);
+    setError(null);
   }
 
   return (
@@ -140,11 +164,29 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
           </p>
         </div>
         {showEntry ? (
-          <Button type="button" variant="secondary" onClick={() => setOpen((v) => !v)}>
+          <Button
+            type="button"
+            variant="secondary"
+            aria-expanded={open}
+            onClick={() => {
+              if (open) {
+                closeCreateForm();
+              } else {
+                setOpen(true);
+                setEditingId(null);
+              }
+            }}
+          >
             {open ? "Close" : "Request a late order"}
           </Button>
         ) : null}
       </div>
+
+      {successMessage ? (
+        <p id={successStatusId} className="sr-only" role="status" aria-live="polite">
+          {successMessage}
+        </p>
+      ) : null}
 
       {error ? (
         <FormActionStatus variant="error" className="mt-3">
@@ -153,10 +195,15 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
       ) : null}
 
       {open && showEntry ? (
-        <form onSubmit={handleCreate} className="mt-4 space-y-3 border-t border-border pt-4">
+        <form
+          ref={createFormRef}
+          onSubmit={handleCreate}
+          className="mt-4 space-y-3 border-t border-border pt-4"
+        >
           <label className={formControlLabelClassName}>
             Delivery date & provider
             <select
+              ref={cycleSelectRef}
               className={selectClassName}
               value={selectedCycleKey}
               onChange={(e) => setSelectedCycleKey(e.target.value)}
@@ -209,7 +256,11 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
       ) : null}
 
       {editingRequest ? (
-        <form onSubmit={handleUpdate} className="mt-4 space-y-3 border-t border-border pt-4">
+        <form
+          ref={editFormRef}
+          onSubmit={handleUpdate}
+          className="mt-4 space-y-3 border-t border-border pt-4"
+        >
           <p className="text-sm font-medium text-foreground">Edit pending request</p>
           <label className={formControlLabelClassName}>
             What I&apos;d like

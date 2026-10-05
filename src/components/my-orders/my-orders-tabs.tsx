@@ -6,6 +6,8 @@ import {
   IconHistory,
 } from "@/components/icons/line-icons";
 import type { MyOrdersTab } from "@/lib/staff-my-orders";
+import { useAccessibleTablist } from "@/hooks/use-accessible-tablist";
+import { MY_ORDERS_TABPANEL_ID } from "@/lib/accessible-tabs";
 
 const TABS: Array<{
   id: MyOrdersTab;
@@ -23,6 +25,13 @@ type Props = {
 };
 
 export function MyOrdersTabs({ activeTab, onTabChange }: Props) {
+  const tabIds = TABS.map((tab) => tab.id);
+  const { tabProps } = useAccessibleTablist({
+    tabIds,
+    selectedId: activeTab,
+    onSelect: onTabChange,
+  });
+
   return (
     <div
       role="tablist"
@@ -32,25 +41,26 @@ export function MyOrdersTabs({ activeTab, onTabChange }: Props) {
       {TABS.map((tab) => {
         const selected = tab.id === activeTab;
         const TabIcon = tab.Icon;
+        const props = tabProps(tab.id);
 
         return (
           <button
             key={tab.id}
             type="button"
-            role="tab"
-            aria-selected={selected}
             id={`my-orders-tab-${tab.id}`}
-            aria-controls={`my-orders-panel-${tab.id}`}
+            aria-controls={MY_ORDERS_TABPANEL_ID}
             onClick={() => onTabChange(tab.id)}
             className={`relative inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors first:rounded-tl-xl last:rounded-tr-xl ${
               selected
                 ? "border-primary text-slate-900"
                 : "border-transparent text-muted hover:text-foreground"
             }`}
+            {...props}
           >
             <TabIcon
               size={18}
               className={selected ? "text-primary" : "text-teal-700/45"}
+              aria-hidden
             />
             <span>{tab.label}</span>
           </button>

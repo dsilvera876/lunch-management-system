@@ -14,6 +14,11 @@ import {
 } from "@/lib/lunch-order-draft";
 import { MEAL_INCOMPLETE_GUIDANCE } from "@/components/lunch/order-summary-panel";
 import {
+  LUNCH_PROVIDER_MENU_TABPANEL_ID,
+  SELECT_MAIN_BEFORE_SIDE_MESSAGE,
+} from "@/lib/accessible-tabs";
+import { useId } from "react";
+import {
   getMenuItemTypeLabel,
   groupMenuItemsByType,
   groupStandaloneItemsByCategory,
@@ -70,11 +75,13 @@ export function ProviderMenuPanel({
   const countBadges = summarizeMenuCounts(menuItems);
   const validation = validateProviderDraft(draft);
   const mealComplete = draft.mainId !== null && draft.sideIds.length > 0;
+  const selectMainFirstId = useId();
+  const needsMainBeforeSide = !disabled && draft.mainId === null && grouped.side.length > 0;
 
   return (
     <div
       role="tabpanel"
-      id={`provider-panel-${providerId}`}
+      id={LUNCH_PROVIDER_MENU_TABPANEL_ID}
       aria-labelledby={`provider-tab-${providerId}`}
       className="min-w-0"
     >
@@ -120,13 +127,21 @@ export function ProviderMenuPanel({
         ) : null}
 
         {grouped.side.length > 0 ? (
-          <section className="mt-6">
+          <section className="mt-6" aria-labelledby={`${selectMainFirstId}-heading`}>
+            {needsMainBeforeSide ? (
+              <p id={selectMainFirstId} className="sr-only">
+                {SELECT_MAIN_BEFORE_SIDE_MESSAGE}
+              </p>
+            ) : null}
             {validation.mealIncomplete && draft.mainId ? (
               <p className="mb-2 text-sm text-amber-900" role="status">
                 {MEAL_INCOMPLETE_GUIDANCE}
               </p>
             ) : null}
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3
+              id={`${selectMainFirstId}-heading`}
+              className="text-sm font-semibold text-slate-900"
+            >
               {getMenuItemTypeLabel("side")}s
             </h3>
             <div className="mt-1">
@@ -137,7 +152,9 @@ export function ProviderMenuPanel({
                   unitLabel={item.unitLabel}
                   price={item.price}
                   selected={draft.sideIds.includes(item.id)}
-                  disabled={disabled || !draft.mainId}
+                  disabled={disabled}
+                  blockedUntilMainSelected={needsMainBeforeSide}
+                  blockedDescribedBy={needsMainBeforeSide ? selectMainFirstId : undefined}
                   onAdd={() => onAddSide(item.id)}
                 />
               ))}

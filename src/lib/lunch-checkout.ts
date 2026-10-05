@@ -193,3 +193,19 @@ export function clearAllCheckoutDrafts(
   }
   return next;
 }
+
+export function resolvePlaceOrderBlockedMessage(
+  orderingOpen: boolean,
+  canSubmit: boolean,
+  guidanceMessage: string | null,
+): string {
+  if (!orderingOpen) {
+    return "Ordering is closed. You cannot place an order right now.";
+  }
+
+  if (!canSubmit && guidanceMessage) {
+    return guidanceMessage;
+  }
+
+  return "Complete your lunch cart before placing your order.";
+}

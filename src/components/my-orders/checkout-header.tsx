@@ -23,7 +23,10 @@ export function CheckoutHeader({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <span
+            className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"
+            aria-hidden
+          >
             <NavIcon id="calendar" size={18} />
           </span>
           <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">
@@ -61,6 +64,7 @@ export function CheckoutHeader({
             type="button"
             onClick={onToggle}
             aria-expanded={expanded}
+            aria-label={expanded ? "Collapse order details" : "Expand order details"}
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-muted hover:text-foreground"
           >
             <svg

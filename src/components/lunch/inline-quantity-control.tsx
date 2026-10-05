@@ -22,6 +22,8 @@ export function InlineQuantityControl({
     onChange(next);
   }
 
+  const quantityAnnouncement = `Quantity ${value}`;
+
   return (
     <div className="flex items-center gap-2" aria-label={label}>
       <button
@@ -29,17 +31,22 @@ export function InlineQuantityControl({
         disabled={disabled || value <= min}
         onClick={() => adjust(-1)}
         className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:opacity-40"
-        aria-label={`Decrease ${label}`}
+        aria-label={`Decrease quantity for ${label}`}
       >
         −
       </button>
-      <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">{value}</span>
+      <span className="relative min-w-[2ch] text-center text-sm font-semibold tabular-nums">
+        <span aria-hidden="true">{value}</span>
+        <span className="sr-only" aria-live="polite" aria-atomic="true">
+          {quantityAnnouncement}
+        </span>
+      </span>
       <button
         type="button"
         disabled={disabled || value >= max}
         onClick={() => adjust(1)}
         className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:opacity-40"
-        aria-label={`Increase ${label}`}
+        aria-label={`Increase quantity for ${label}`}
       >
         +
       </button>

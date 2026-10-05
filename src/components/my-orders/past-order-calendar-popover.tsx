@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, type RefObject } from "react";
+import { useId, useRef, type RefObject } from "react";
+import { FocusTrapPopover } from "@/components/ui/focus-trap-popover";
 import { formatHumanDate } from "@/lib/format";
 import {
   CALENDAR_WEEKDAY_LABELS,
@@ -31,49 +32,19 @@ export function PastOrderCalendarPopover({
   todayDate,
   onSelectDate,
 }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null);
   const headingId = useId();
+  const firstDayRef = useRef<HTMLButtonElement>(null);
   const grid = buildCalendarMonthGrid(view.year, view.month);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (panelRef.current?.contains(target) || anchorRef.current?.contains(target)) {
-        return;
-      }
-      onOpenChange(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-        anchorRef.current?.focus();
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onOpenChange, anchorRef]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby={headingId}
-      className="absolute right-0 top-[calc(100%+8px)] z-50 w-[17.5rem] rounded-xl border border-border bg-surface p-3 shadow-lg"
+    <FocusTrapPopover
+      open={open}
+      onOpenChange={onOpenChange}
+      triggerRef={anchorRef}
+      labelId={headingId}
+      modal
+      initialFocusRef={firstDayRef}
+      className="w-[17.5rem] rounded-xl border border-border bg-surface p-3 shadow-lg"
     >
       <div className="flex items-center justify-between gap-2">
         <button
@@ -114,13 +85,14 @@ export function PastOrderCalendarPopover({
       </div>
 
       <div className="mt-1 grid grid-cols-7 gap-1">
-        {grid.map((cell) => {
+        {grid.map((cell, index) => {
           const isSelected = selectedDate === cell.date;
           const isToday = todayDate === cell.date;
 
           return (
             <button
               key={cell.date}
+              ref={index === 0 ? firstDayRef : undefined}
               type="button"
               aria-label={`Select ${formatHumanDate(cell.date)}`}
               aria-pressed={isSelected}
@@ -140,6 +112,6 @@ export function PastOrderCalendarPopover({
           );
         })}
       </div>
-    </div>
+    </FocusTrapPopover>
   );
 }

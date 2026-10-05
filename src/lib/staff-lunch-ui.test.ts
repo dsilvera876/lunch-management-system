@@ -22,6 +22,21 @@ describe("staff lunch UI wiring", () => {
     assert.match(header, /formatJamaicaHeaderDate/);
   });
 
+  it("exposes select-main-first guidance for blocked side Add controls", () => {
+    const menuPanel = readFileSync(
+      new URL("../components/lunch/provider-menu-panel.tsx", import.meta.url),
+      "utf8",
+    );
+    const menuRow = readFileSync(
+      new URL("../components/lunch/menu-item-row.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(menuPanel, /SELECT_MAIN_BEFORE_SIDE_MESSAGE/);
+    assert.match(menuPanel, /blockedUntilMainSelected/);
+    assert.match(menuRow, /aria-describedby/);
+  });
+
   it("shows side-required guidance above the Sides heading only when needed", () => {
     const menuPanel = readFileSync(
       new URL("../components/lunch/provider-menu-panel.tsx", import.meta.url),

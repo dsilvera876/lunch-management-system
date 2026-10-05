@@ -1,6 +1,8 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { IconCartPlus, IconCheck } from "@/components/icons/line-icons";
+import { shouldBlockAriaDisabledActivation } from "@/lib/aria-disabled-activation";
 import { formatCurrency } from "@/lib/format";
 import { formatMenuItemLabel } from "@/lib/menu-items";
 
@@ -10,6 +12,9 @@ type Props = {
   price: number;
   selected: boolean;
   disabled?: boolean;
+  /** When true, Add stays focusable with aria-disabled until a main is chosen. */
+  blockedUntilMainSelected?: boolean;
+  blockedDescribedBy?: string;
   onAdd: () => void;
 };
 
@@ -27,10 +32,27 @@ export function MenuItemRow({
   price,
   selected,
   disabled = false,
+  blockedUntilMainSelected = false,
+  blockedDescribedBy,
   onAdd,
 }: Props) {
   const label = formatMenuItemLabel(name, unitLabel);
   const priceLabel = price > 0 ? formatCurrency(price) : "Included";
+  const addBlocked = blockedUntilMainSelected && !selected;
+
+  function handleAddClick() {
+    if (addBlocked) {
+      return;
+    }
+    onAdd();
+  }
+
+  function handleAddKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (shouldBlockAriaDisabledActivation(addBlocked, event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
 
   return (
     <div className="flex items-center gap-3 border-b border-border py-3 last:border-b-0">
@@ -53,11 +75,14 @@ export function MenuItemRow({
       ) : (
         <button
           type="button"
-          disabled={disabled}
-          title={`Add ${label}`}
+          disabled={disabled && !addBlocked}
+          aria-disabled={addBlocked ? true : undefined}
+          aria-describedby={addBlocked ? blockedDescribedBy : undefined}
+          title={addBlocked ? undefined : `Add ${label}`}
           aria-label={`Add ${label}`}
-          className={MENU_ITEM_TOGGLE_ADD_CLASS}
-          onClick={onAdd}
+          className={`${MENU_ITEM_TOGGLE_ADD_CLASS} ${addBlocked ? "cursor-not-allowed opacity-60" : ""}`}
+          onClick={handleAddClick}
+          onKeyDown={handleAddKeyDown}
         >
           <IconCartPlus size={16} aria-hidden />
           <span>Add</span>

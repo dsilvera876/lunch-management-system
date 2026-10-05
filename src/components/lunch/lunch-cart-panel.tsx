@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { Card } from "@/components/ui/card";
 import { IconArrowRight, IconX } from "@/components/icons/line-icons";
@@ -366,6 +367,16 @@ export function LunchCartPanel({
     orderSubtotal: checkout.combinedSubtotal,
   });
 
+  const placeOrderGuidanceId = useId();
+  const submitAccessibilityBlocked = !orderingOpen || !canSubmit;
+  const placeOrderGuidanceText = !orderingOpen
+    ? "Ordering is closed. You cannot place an order right now."
+    : !canSubmit && guidanceMessage
+      ? guidanceMessage
+      : !canSubmit
+        ? "Complete your lunch cart before placing your order."
+        : null;
+
   return (
     <Card
       padding="md"
@@ -412,9 +423,13 @@ export function LunchCartPanel({
         </div>
       )}
 
-      {guidanceMessage && !canSubmit ? (
-        <p className="mt-3 text-sm text-amber-900" role="status">
-          {guidanceMessage}
+      {placeOrderGuidanceText ? (
+        <p
+          id={placeOrderGuidanceId}
+          className="mt-3 text-sm text-amber-900"
+          role="status"
+        >
+          {placeOrderGuidanceText}
         </p>
       ) : null}
 
@@ -445,12 +460,15 @@ export function LunchCartPanel({
         <FormSubmitButton
           pendingText="Placing order…"
           variant="primary"
-          disabled={!orderingOpen || !canSubmit}
+          accessibilityBlocked={submitAccessibilityBlocked}
+          ariaDescribedBy={
+            submitAccessibilityBlocked ? placeOrderGuidanceId : undefined
+          }
           forcePending={isSubmitting}
           className="min-h-12 w-full justify-center gap-2 text-base font-semibold"
         >
           Place Order
-          <IconArrowRight size={18} className="opacity-90" />
+          <IconArrowRight size={18} className="opacity-90" aria-hidden />
         </FormSubmitButton>
         {orderCount > 0 ? (
           <p className="mt-2 text-center text-xs text-muted">

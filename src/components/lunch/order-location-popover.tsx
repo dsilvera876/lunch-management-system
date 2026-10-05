@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, type RefObject } from "react";
+import { useId, useRef, type RefObject } from "react";
 import { selectClassName } from "@/components/ui/form-field";
+import { FocusTrapPopover } from "@/components/ui/focus-trap-popover";
 import {
   formatOfficeLocationLabel,
   type OfficeLocationOption,
@@ -34,62 +35,34 @@ export function OrderLocationPopover({
   onSaveAsDefaultChange,
   anchorRef,
 }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null);
   const selectId = useId();
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (panelRef.current?.contains(target) || anchorRef.current?.contains(target)) {
-        return;
-      }
-      onOpenChange(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-        anchorRef.current?.focus();
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onOpenChange, anchorRef]);
-
-  if (!open) {
-    return null;
-  }
+  const labelId = `${selectId}-label`;
+  const selectRef = useRef<HTMLSelectElement>(null);
 
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-labelledby={`${selectId}-label`}
-      className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-border bg-surface p-4 shadow-lg"
+    <FocusTrapPopover
+      open={open}
+      onOpenChange={onOpenChange}
+      triggerRef={anchorRef}
+      labelId={labelId}
+      modal
+      initialFocusRef={selectRef}
+      className="w-[min(100vw-2rem,20rem)] rounded-xl border border-border bg-surface p-4 shadow-lg"
     >
-      <p id={`${selectId}-label`} className="text-sm font-semibold text-slate-900">
+      <p id={labelId} className="text-sm font-semibold text-slate-900">
         Delivery location
       </p>
       <label htmlFor={selectId} className="sr-only">
         Choose delivery location
       </label>
       <select
+        ref={selectRef}
         id={selectId}
         value={selectedLocationId}
         onChange={(event) => {
           onSelectLocation(event.target.value);
         }}
         className={`${selectClassName} mt-3 w-full`}
-        autoFocus
       >
         {!selectedLocationId ? (
           <option value="" disabled>
@@ -126,6 +99,6 @@ export function OrderLocationPopover({
           <span>Save as my default delivery location</span>
         </label>
       ) : null}
-    </div>
+    </FocusTrapPopover>
   );
 }
