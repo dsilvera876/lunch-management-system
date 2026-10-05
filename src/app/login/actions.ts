@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getPostLoginPath } from "@/lib/navigation";
+import { gateApplicationProfileAfterAuth } from "@/lib/post-login-gate";
 import { createClient } from "@/lib/supabase/server";
 
 async function redirectAfterAuth() {
@@ -10,21 +11,13 @@ async function redirectAfterAuth() {
 
   revalidatePath("/", "layout");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const gate = await gateApplicationProfileAfterAuth(supabase);
 
-  if (!user) {
-    redirect("/login");
+  if (!gate.allowed) {
+    redirect(gate.redirectTo);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  redirect(getPostLoginPath(profile?.role ?? "staff"));
+  redirect(getPostLoginPath(gate.role));
 }
 
 export async function login(formData: FormData) {

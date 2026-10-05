@@ -5,6 +5,7 @@ import {
   FORGOT_PASSWORD_PATH,
   getAuthConfirmFailurePath,
   getAuthConfirmSuccessPath,
+  getPasswordResetInvalidLinkPath,
   getPasswordResetRedirectTo,
   getPasswordResetRequestSuccessPath,
   getPasswordUpdateRedirectPath,
@@ -67,6 +68,7 @@ describe("auth recovery helpers", () => {
       getAuthConfirmFailurePath("recovery"),
       "/forgot-password?error=invalid-link",
     );
+    assert.equal(getPasswordResetInvalidLinkPath(), "/forgot-password?error=invalid-link");
   });
 
   it("redirects successful recovery password updates to login", () => {

@@ -7,6 +7,7 @@ import {
   resolveSafeAuthConfirmNextPath,
 } from "@/lib/auth-recovery";
 import { getPostLoginPath } from "@/lib/navigation";
+import { gateApplicationProfileAfterAuth } from "@/lib/post-login-gate";
 import { getApplicationOrigin, getExternalUrl } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,21 +49,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(getExternalUrl(request, successPath));
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const gate = await gateApplicationProfileAfterAuth(supabase);
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
+  if (gate.allowed) {
     return NextResponse.redirect(
-      getExternalUrl(request, getPostLoginPath(profile?.role ?? "staff")),
+      getExternalUrl(request, getPostLoginPath(gate.role)),
     );
   }
 
-  return NextResponse.redirect(getExternalUrl(request, "/home"));
+  return NextResponse.redirect(getExternalUrl(request, gate.redirectTo));
 }

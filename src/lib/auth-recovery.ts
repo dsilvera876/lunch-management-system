@@ -40,9 +40,13 @@ export function getAuthConfirmSuccessPath(type: EmailOtpType): string | "post-lo
   return "post-login";
 }
 
+export function getPasswordResetInvalidLinkPath(): string {
+  return appendSearchParams(FORGOT_PASSWORD_PATH, { error: "invalid-link" });
+}
+
 export function getAuthConfirmFailurePath(type: EmailOtpType | null): string {
   if (type === "recovery") {
-    return appendSearchParams(FORGOT_PASSWORD_PATH, { error: "invalid-link" });
+    return getPasswordResetInvalidLinkPath();
   }
 
   if (type === "invite") {

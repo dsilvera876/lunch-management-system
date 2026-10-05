@@ -124,12 +124,16 @@ export function isDirectSupabaseVerifyUrl(value: string): boolean {
   }
 }
 
+export const RECOVERY_EMAIL_EXPIRY_COPY =
+  "This link expires in about one hour. If it expires, request a new password reset from the sign-in page.";
+
 export function buildAuthEmailContent(input: AuthEmailTemplateInput): {
   subject: string;
   text: string;
   html: string;
 } {
   const subject = SUBJECTS[input.actionType] ?? "Lunch Management System notification";
+  const isRecovery = input.actionType === "recovery";
   const otpLine =
     input.otpCode && input.actionType === "reauthentication"
       ? `\nYour verification code: ${input.otpCode}\n`
@@ -138,8 +142,11 @@ export function buildAuthEmailContent(input: AuthEmailTemplateInput): {
   const text = [
     "Hello,",
     "",
-    "Use the link below to continue:",
+    isRecovery
+      ? "Use the link below to reset your password:"
+      : "Use the link below to continue:",
     input.confirmUrl,
+    isRecovery ? RECOVERY_EMAIL_EXPIRY_COPY : null,
     otpLine,
     "",
     "If you did not request this email, you can ignore it.",
@@ -155,8 +162,11 @@ export function buildAuthEmailContent(input: AuthEmailTemplateInput): {
 
   const html = [
     "<p>Hello,</p>",
-    "<p>Use the link below to continue:</p>",
+    isRecovery
+      ? "<p>Use the link below to reset your password:</p>"
+      : "<p>Use the link below to continue:</p>",
     `<p><a href="${safeUrl}">Open Lunch Management System</a></p>`,
+    isRecovery ? `<p>${RECOVERY_EMAIL_EXPIRY_COPY}</p>` : "",
     input.otpCode && input.actionType === "reauthentication"
       ? `<p>Your verification code: <strong>${input.otpCode}</strong></p>`
       : "",

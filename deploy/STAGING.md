@@ -303,31 +303,29 @@ sudo tail -f /var/log/apache2/lunch-management-staging-ssl-access.log \
 Configure the hosted Supabase project for **HTTPS**:
 
 1. **Authentication → URL Configuration**
-   - **Site URL:** `https://STAGING_HOSTNAME`
-   - **Redirect URLs** — add each explicit route required by auth flows (use these on staging; do not rely on a broad wildcard as the primary deployed configuration):
+   - **Site URL:** `https://STAGING_HOSTNAME` (must match **`APP_ORIGIN`** in `/etc/lunch-management/staging.env`).
+   - **Redirect URLs** — include at minimum:
      - `https://STAGING_HOSTNAME/auth/confirm`
+     - `https://STAGING_HOSTNAME/auth/confirm?type=recovery` (used as `redirectTo` for password reset)
      - `https://STAGING_HOSTNAME/account/update-password`
 
-   > A wildcard such as `https://STAGING_HOSTNAME/**` may be convenient for local Supabase CLI or preview environments, but **staging should use the explicit routes above.**
+   > A wildcard such as `https://STAGING_HOSTNAME/**` may be convenient for local Supabase CLI or preview environments, but **staging should use the explicit routes above** unless your hosted project documents wildcard matching.
 
-2. **Authentication → Emails** — SMTP (SMTP2Go) and email confirmation enabled
+2. **Authentication → Hooks → Send Email** — HTTPS URL that Supabase can reach (often **not** the internal `APP_ORIGIN` hostname). Example: Tailscale Funnel → `https://<funnel-host>/api/auth/hooks/send-email`. Set matching `SEND_EMAIL_HOOK_SECRET` in staging env.
 
-3. **Authentication → Email Templates → Confirm signup** — token-hash link:
+3. **Authentication → Settings** — minimum password length **8** (matches application validation).
 
-   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
+4. **Authentication → Emails** — email auth enabled; **SMTP in the Dashboard is not used** for app delivery when the Send Email hook is active. Configure SMTP in **Admin → Settings → Email delivery** instead.
 
-4. **Authentication → Email Templates → Reset Password** — configure the recovery link for SSR token-hash verification. Use this exact href in the template body (plain link or button):
+5. **Authentication → Email Templates** — optional reference only while the Send Email hook is enabled (actual bodies come from the app). Recovery links in production mail use `APP_ORIGIN/auth/confirm` with `token_hash` and `type=recovery`.
 
-   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
+6. **OTP / recovery expiry** — default ~1 hour on hosted Auth (align with `otp_expiry` in `supabase/config.toml`).
 
-   Example button:
+7. Apply all database migrations to the hosted project
 
-   ```html
-   <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Reset Password</a>
-   ```
+8. Promote at least one staging admin in `public.profiles`
 
-5. Apply all database migrations to the hosted project
-6. Promote at least one staging admin in `public.profiles`
+9. Enable **`lunch-management-mail-queue.timer`** so `auth_hook` queue rows send (see Background workers).
 
 Ensure `APP_ORIGIN` in `/etc/lunch-management/staging.env` matches the Supabase Site URL scheme and host.
 

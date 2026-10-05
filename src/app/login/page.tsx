@@ -9,6 +9,10 @@ import {
   FORGOT_PASSWORD_PATH,
   PASSWORD_UPDATED_MESSAGE,
 } from "@/lib/auth-recovery";
+import {
+  LOGIN_INACTIVE_MESSAGE,
+  LOGIN_INCOMPLETE_SETUP_MESSAGE,
+} from "@/lib/post-login-gate";
 
 type Props = {
   searchParams: Promise<{
@@ -52,6 +56,18 @@ export default async function LoginPage({ searchParams }: Props) {
       {params.error === "unconfirmed" && (
         <Alert variant="error" className="mt-4">
           Confirm your email before signing in.
+        </Alert>
+      )}
+
+      {params.error === "inactive" && (
+        <Alert variant="error" className="mt-4">
+          {LOGIN_INACTIVE_MESSAGE}
+        </Alert>
+      )}
+
+      {params.error === "incomplete-setup" && (
+        <Alert variant="error" className="mt-4">
+          {LOGIN_INCOMPLETE_SETUP_MESSAGE}
         </Alert>
       )}
 

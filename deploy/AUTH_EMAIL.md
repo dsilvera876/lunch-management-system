@@ -9,11 +9,25 @@ Routine provider or sender changes do **not** require application redeployment o
 ## Managed Supabase (hosted)
 
 1. **Before User Created** — `supabase/config.toml` → `public.hook_before_user_created` (Postgres function).
-2. **Send Email** — HTTP hook to the deployed app:
-   - URL: `https://<APP_ORIGIN>/api/auth/hooks/send-email`
-   - Hook secret (`v1,whsec_…`) from **Auth → Hooks** → set on the Next.js server as `SEND_EMAIL_HOOK_SECRET`.
-3. **Auth redirect URLs** — include `APP_ORIGIN` confirm routes (see `deploy/STAGING.md`).
-4. Configure SMTP only in **Admin → Settings → Email delivery** (not Dashboard SMTP).
+2. **Send Email** — HTTP hook to a **publicly reachable** HTTPS endpoint (hosted Supabase must POST to your app):
+   - Path: `/api/auth/hooks/send-email`
+   - **Hook URL is not necessarily `APP_ORIGIN`.** On internal staging, use an existing **Tailscale Funnel** (or similar) hostname that reaches the Next.js server. Email links in user inboxes still use **`APP_ORIGIN`** (internal DNS is fine for browsers on the corporate network).
+   - Hook secret (`v1,whsec_…`) from **Auth → Hooks** → set on the Next.js server as `SEND_EMAIL_HOOK_SECRET` (must match the dashboard).
+3. **Auth redirect URLs** — see **Password recovery configuration** below and `deploy/STAGING.md` §11.
+4. Configure SMTP only in **Admin → Settings → Email delivery** (not Dashboard SMTP). While the Send Email hook is enabled, **Dashboard email template bodies are bypassed**; the app builds auth mail in `src/lib/mail/auth-email-templates.ts`.
+
+### Password recovery configuration (staging / production)
+
+| Item | Requirement |
+|------|-------------|
+| **A. `APP_ORIGIN`** | Canonical browser-visible origin (server env). Used for `resetPasswordForEmail` `redirectTo`, and for links in recovery emails (`/auth/confirm?…`). |
+| **B. Supabase Site URL** | Must match **`APP_ORIGIN`** (scheme + host). |
+| **C. Redirect allow-list** | Must permit the recovery callback used by the app: `{APP_ORIGIN}/auth/confirm?type=recovery` (add this exact URL, or a documented wildcard policy your project uses). Also allow `/auth/confirm` and `/account/update-password` as needed. |
+| **D. Send Email hook** | Public HTTPS URL → `/api/auth/hooks/send-email`; `SEND_EMAIL_HOOK_SECRET` on the app server. |
+| **E. Mail worker** | Enable `lunch-management-mail-queue` timer/service so queued `auth_hook` mail is delivered (see `deploy/STAGING.md`). |
+| **F. SMTP** | Admin → Settings → Email delivery (Vault-backed); authoritative for queued mail. |
+| **G. Hosted password minimum** | **Authentication → Settings** → minimum password length **8** (matches app and `supabase/config.toml`). |
+| **H. OTP / recovery expiry** | Default **~1 hour** (`otp_expiry` / Auth email OTP settings). Recovery emails state this in copy; links stop working after expiry. |
 
 The Send Email hook **enqueues** mail in `private.email_delivery_queue` and returns HTTP 200 immediately (well under Supabase’s 5s hook limit). A background worker (`npm run worker:mail-queue`) performs SMTP delivery using the same Admin-managed configuration.
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  getPasswordResetInvalidLinkPath,
   getPasswordUpdateErrorPath,
   getPasswordUpdateRedirectPath,
 } from "@/lib/auth-recovery";
@@ -35,7 +36,7 @@ export async function updatePassword(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(isRecovery ? getPasswordResetInvalidLinkPath() : "/login");
   }
 
   const { error } = await supabase.auth.updateUser({ password });

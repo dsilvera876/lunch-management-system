@@ -7,6 +7,7 @@ import {
   buildAuthEmailContent,
   isDirectSupabaseVerifyUrl,
   mapAuthEmailOtpType,
+  RECOVERY_EMAIL_EXPIRY_COPY,
 } from "@/lib/mail/auth-email-templates";
 import { enqueueAuthSendEmailHook } from "@/lib/mail/process-auth-send-email-hook";
 import { getBreadcrumbs } from "@/lib/breadcrumbs";
@@ -332,5 +333,19 @@ describe("auth and email admin settings", () => {
     });
     assert.match(content.text, /hash-value/);
     assert.match(content.subject, /Confirm your Lunch Management System account/);
+  });
+
+  it("includes expiry guidance in recovery email without OTP codes", () => {
+    const content = buildAuthEmailContent({
+      actionType: "recovery",
+      confirmUrl: "https://example.test/auth/confirm?token_hash=abc&type=recovery",
+      otpCode: "654321",
+    });
+
+    assert.match(content.text, new RegExp(RECOVERY_EMAIL_EXPIRY_COPY.replace(/\./g, "\\.")));
+    assert.match(content.html, /one hour/i);
+    assert.doesNotMatch(content.text, /654321/);
+    assert.doesNotMatch(content.html, /654321/);
+    assert.match(content.subject, /Reset your Lunch Management System password/);
   });
 });

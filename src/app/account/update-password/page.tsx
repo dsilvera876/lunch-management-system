@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Card } from "@/components/ui/card";
 import { requireProfile } from "@/lib/auth";
-import { FORGOT_PASSWORD_PATH } from "@/lib/auth-recovery";
+import { FORGOT_PASSWORD_PATH, getPasswordResetInvalidLinkPath } from "@/lib/auth-recovery";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
 type Props = {
@@ -34,7 +34,7 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
 
     if (!user) {
       const { redirect } = await import("next/navigation");
-      redirect(isInvite ? "/login?error=setup-link" : FORGOT_PASSWORD_PATH);
+      redirect(isInvite ? "/login?error=setup-link" : getPasswordResetInvalidLinkPath());
     }
   }
 
