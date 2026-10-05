@@ -47,6 +47,7 @@ import {
   resolveProviderOrderErrorFocusTargetId,
   type ProviderOrderFieldKey,
 } from "@/lib/staff-form-accessibility";
+import { STAFF_EDIT_SUBMIT_BAR_CLASS } from "@/lib/staff-layout-reflow";
 
 function lateOrderMenuOptionClassName(selected: boolean) {
   return [
@@ -985,7 +986,7 @@ export function ProviderOrderForm({
 
         <div className={validationError ? "mb-4" : ""}>{validationSummary}</div>
 
-        <div className="sticky bottom-4 lg:static lg:bottom-auto z-10">
+        <div className={`${STAFF_EDIT_SUBMIT_BAR_CLASS} relative z-10 lg:static`}>
           <FormSubmitButton
             pendingText={pendingLabel}
             variant="primary"

@@ -113,7 +113,7 @@ export function PastOrderDatePicker({ selectedDate, onChange, availableDates }: 
         aria-labelledby="past-order-date-label past-order-date-value"
         aria-expanded={isMobilePicker ? undefined : popoverOpen}
         aria-haspopup={isMobilePicker ? undefined : "dialog"}
-        className="flex w-full min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-left shadow-sm transition-colors hover:border-primary/35 focus-visible:outline-none staff-focus-ring"
+        className="flex w-full min-h-10 cursor-pointer items-start gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-left shadow-sm transition-colors hover:border-primary/35 focus-visible:outline-none staff-focus-ring sm:items-center"
       >
         <span
           id="past-order-date-label"
@@ -126,7 +126,7 @@ export function PastOrderDatePicker({ selectedDate, onChange, availableDates }: 
         </span>
         <span
           id="past-order-date-value"
-          className={`min-w-0 flex-1 truncate text-sm font-medium ${
+          className={`min-w-0 flex-1 whitespace-normal break-words text-sm font-medium leading-snug ${
             selectedDate ? "text-slate-900" : "text-muted"
           }`}
         >

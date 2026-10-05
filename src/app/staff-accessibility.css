@@ -54,6 +54,16 @@
   .staff-calendar-day-today {
     box-shadow: inset 0 0 0 2px #0f766e;
   }
+
+  /** Cart internal scroll only when lg+ layout AND enough viewport height. */
+  @media (min-width: 64rem) and (max-height: 40rem) {
+    .staff-cart-sticky-panel {
+      position: static;
+      top: auto;
+      max-height: none;
+      overflow: visible;
+    }
+  }
 }
 
 @media (forced-colors: active) {

@@ -49,17 +49,19 @@ export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
               id={`provider-tab-${provider.id}`}
               aria-controls={LUNCH_PROVIDER_MENU_TABPANEL_ID}
               onClick={() => onSelect(provider.id)}
-              className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`inline-flex max-w-[14rem] min-w-[6.5rem] shrink-0 items-start gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 selected
                   ? "staff-tab-selected border-primary bg-primary/10 text-slate-900 ring-1 ring-primary"
                   : "border-border bg-surface text-staff-instruction hover:border-primary/40 hover:text-foreground"
               }`}
               {...props}
             >
-              <span className="inline-flex shrink-0" aria-hidden>
+              <span className="inline-flex shrink-0 pt-0.5" aria-hidden>
                 <ProviderIcon iconKey={provider.iconKey} size={18} alt="" />
               </span>
-              <span className="max-w-[12rem] truncate sm:max-w-none">{provider.name}</span>
+              <span className="min-w-0 whitespace-normal text-left leading-snug">
+                {provider.name}
+              </span>
               {provider.hasWorkingDraft ? (
                 <span
                   className="size-2 shrink-0 rounded-full bg-staff-cta"

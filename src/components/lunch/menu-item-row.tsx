@@ -18,7 +18,13 @@ type Props = {
   onAdd: () => void;
 };
 
-export const MENU_ITEM_TOGGLE_WIDTH_CLASS = "w-[7.25rem]";
+export const MENU_ITEM_ROW_ROOT_CLASS =
+  "flex flex-col gap-2 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-3";
+
+export const MENU_ITEM_ROW_ACTIONS_CLASS =
+  "flex w-full items-center justify-between gap-3 sm:w-auto sm:shrink-0";
+
+export const MENU_ITEM_TOGGLE_WIDTH_CLASS = "w-[7.25rem] sm:w-[7.25rem] max-sm:min-w-[7.25rem]";
 
 export const MENU_ITEM_TOGGLE_LAYOUT_CLASS = `${MENU_ITEM_TOGGLE_WIDTH_CLASS} inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed`;
 
@@ -55,13 +61,14 @@ export function MenuItemRow({
   }
 
   return (
-    <div className="flex items-center gap-3 border-b border-border py-3 last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <p className="font-medium text-slate-900">{label}</p>
+    <div className={MENU_ITEM_ROW_ROOT_CLASS}>
+      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+        <p className="break-words font-medium text-slate-900">{label}</p>
       </div>
-      <p className="w-[5.5rem] shrink-0 text-right text-sm font-semibold tabular-nums text-slate-900">
-        {priceLabel}
-      </p>
+      <div className={MENU_ITEM_ROW_ACTIONS_CLASS}>
+        <p className="shrink-0 text-left text-sm font-semibold tabular-nums text-slate-900 sm:w-[5.5rem] sm:text-right">
+          {priceLabel}
+        </p>
       {selected ? (
         <button
           type="button"
@@ -88,6 +95,7 @@ export function MenuItemRow({
           <span>Add</span>
         </button>
       )}
+      </div>
     </div>
   );
 }

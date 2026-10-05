@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { FormSubmitButton } from "@/components/form-submit-button";
+import { STAFF_CART_STICKY_PANEL_CLASS } from "@/lib/staff-layout-reflow";
 import { Card } from "@/components/ui/card";
 import { IconArrowRight, IconX } from "@/components/icons/line-icons";
 import { formatCurrency } from "@/lib/format";
@@ -380,7 +381,7 @@ export function LunchCartPanel({
   return (
     <Card
       padding="md"
-      className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto"
+      className={`${STAFF_CART_STICKY_PANEL_CLASS} lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
