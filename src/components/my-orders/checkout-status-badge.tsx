@@ -1,7 +1,7 @@
 import type { GroupedCheckout } from "@/lib/staff-my-orders";
 
 const styles: Record<GroupedCheckout["checkoutStatusKind"], string> = {
-  upcoming: "bg-primary/10 text-primary ring-primary/25",
+  upcoming: "bg-primary/10 text-staff-teal-strong ring-primary/30",
   submitted: "bg-blue-50 text-blue-800 ring-blue-200",
   delivered: "bg-slate-100 text-slate-700 ring-slate-200",
   cancelled: "bg-slate-100 text-slate-600 ring-slate-200",

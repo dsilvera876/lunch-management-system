@@ -51,8 +51,8 @@ export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
               onClick={() => onSelect(provider.id)}
               className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 selected
-                  ? "border-primary bg-primary/10 text-slate-900 ring-1 ring-primary/30"
-                  : "border-border bg-surface text-muted hover:border-primary/40 hover:text-foreground"
+                  ? "staff-tab-selected border-primary bg-primary/10 text-slate-900 ring-1 ring-primary"
+                  : "border-border bg-surface text-staff-instruction hover:border-primary/40 hover:text-foreground"
               }`}
               {...props}
             >
@@ -62,7 +62,7 @@ export function ProviderSelector({ providers, selectedId, onSelect }: Props) {
               <span className="max-w-[12rem] truncate sm:max-w-none">{provider.name}</span>
               {provider.hasWorkingDraft ? (
                 <span
-                  className="size-2 shrink-0 rounded-full bg-primary/70"
+                  className="size-2 shrink-0 rounded-full bg-staff-cta"
                   title="Unadded selection"
                   aria-label="Has an unadded selection"
                 />

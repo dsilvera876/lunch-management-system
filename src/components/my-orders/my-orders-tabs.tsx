@@ -52,14 +52,14 @@ export function MyOrdersTabs({ activeTab, onTabChange }: Props) {
             onClick={() => onTabChange(tab.id)}
             className={`relative inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors first:rounded-tl-xl last:rounded-tr-xl ${
               selected
-                ? "border-primary text-slate-900"
-                : "border-transparent text-muted hover:text-foreground"
+                ? "staff-tab-selected border-primary text-slate-900"
+                : "border-transparent text-staff-instruction hover:text-foreground"
             }`}
             {...props}
           >
             <TabIcon
               size={18}
-              className={selected ? "text-primary" : "text-teal-700/45"}
+              className={selected ? "text-staff-teal" : "text-staff-instruction"}
               aria-hidden
             />
             <span>{tab.label}</span>

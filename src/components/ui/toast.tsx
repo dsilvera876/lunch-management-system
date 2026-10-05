@@ -131,7 +131,7 @@ function ToastItem({
         <button
           type="button"
           aria-label="Dismiss notification"
-          className={`shrink-0 rounded-lg p-1 ${styles.dismiss}`}
+          className={`inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg ${styles.dismiss}`}
           onClick={onDismiss}
         >
           ×

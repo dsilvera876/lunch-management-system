@@ -153,7 +153,7 @@ export function OrderSummaryPanel({
           type="button"
           onClick={onClearAll}
           disabled={!orderingOpen || !hasAnyContent}
-          className="text-sm font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-10 items-center text-sm font-medium text-staff-teal hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
         >
           Clear All
         </button>
@@ -289,7 +289,7 @@ export function OrderSummaryPanel({
           </div>
           <div className="flex justify-between gap-4 pt-1 text-base">
             <dt className="font-semibold text-slate-900">You Pay</dt>
-            <dd className="font-semibold tabular-nums text-primary">
+            <dd className="font-semibold tabular-nums text-staff-teal">
               {formatCurrency(checkout.youPay)}
             </dd>
           </div>
@@ -300,6 +300,7 @@ export function OrderSummaryPanel({
         <FormSubmitButton
           pendingText="Placing order…"
           variant="primary"
+          staffPrimaryCta
           disabled={!orderingOpen || !canSubmit}
           forcePending={isSubmitting}
           className="min-h-12 w-full justify-center gap-2 text-base font-semibold"
@@ -307,7 +308,7 @@ export function OrderSummaryPanel({
           Place Order
           <IconArrowRight size={18} className="opacity-90" />
         </FormSubmitButton>
-        <p className="mt-2 text-center text-xs text-muted">
+        <p className="mt-2 text-center text-sm text-staff-instruction">
           You can place separate orders with different providers before the cutoff time.
         </p>
       </div>

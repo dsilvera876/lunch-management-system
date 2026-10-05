@@ -384,7 +384,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
             </select>
           </div>
           {sharedRequestFields}
-          <Button type="submit" variant="primary">
+          <Button type="submit" variant="primary" staffPrimaryCta>
             Submit request
           </Button>
         </form>
@@ -400,7 +400,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
           <p className="text-sm font-medium text-foreground">Edit pending request</p>
           {sharedRequestFields}
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" staffPrimaryCta>
               Save changes
             </Button>
             <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>

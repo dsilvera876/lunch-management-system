@@ -30,7 +30,7 @@ export function InlineQuantityControl({
         type="button"
         disabled={disabled || value <= min}
         onClick={() => adjust(-1)}
-        className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:opacity-40"
+        className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:border-border disabled:bg-slate-100 disabled:text-slate-400"
         aria-label={`Decrease quantity for ${label}`}
       >
         −
@@ -45,7 +45,7 @@ export function InlineQuantityControl({
         type="button"
         disabled={disabled || value >= max}
         onClick={() => adjust(1)}
-        className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:opacity-40"
+        className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:border-border disabled:bg-slate-100 disabled:text-slate-400"
         aria-label={`Increase quantity for ${label}`}
       >
         +

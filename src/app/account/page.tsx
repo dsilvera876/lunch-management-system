@@ -171,7 +171,7 @@ export default async function AccountPage({ searchParams }: Props) {
                 ))}
               </select>
             </FormField>
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" staffPrimaryCta>
               Save default location
             </Button>
           </form>

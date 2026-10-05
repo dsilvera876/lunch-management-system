@@ -22,9 +22,9 @@ export const MENU_ITEM_TOGGLE_WIDTH_CLASS = "w-[7.25rem]";
 
 export const MENU_ITEM_TOGGLE_LAYOUT_CLASS = `${MENU_ITEM_TOGGLE_WIDTH_CLASS} inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed`;
 
-export const MENU_ITEM_TOGGLE_ADD_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} border-primary bg-surface text-primary hover:bg-primary/5`;
+export const MENU_ITEM_TOGGLE_ADD_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} border-primary bg-surface text-staff-teal hover:bg-primary/5`;
 
-export const MENU_ITEM_TOGGLE_ADDED_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} border-border bg-slate-100 text-slate-500`;
+export const MENU_ITEM_TOGGLE_ADDED_CLASS = `${MENU_ITEM_TOGGLE_LAYOUT_CLASS} border-border bg-slate-100 text-slate-600`;
 
 export function MenuItemRow({
   name,

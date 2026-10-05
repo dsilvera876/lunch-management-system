@@ -43,7 +43,7 @@ export function SpecialInstructionsField({
         placeholder="Add any special instructions for this order…"
         className={`${textareaClassName} mt-2`}
       />
-      <p id={helperId} className="mt-1 text-xs text-muted">
+      <p id={helperId} className="mt-1 text-sm text-staff-instruction">
         Order-level notes for preparation or delivery. Up to 500 characters. Providers cannot
         guarantee allergy accommodation.
       </p>

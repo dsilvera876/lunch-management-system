@@ -96,7 +96,7 @@ export function MyOrdersPageClient({
               title="No upcoming lunch orders."
               icon="calendar"
               action={
-                <Link href="/lunch" className="text-sm font-medium text-primary hover:underline">
+                <Link href="/lunch" className="inline-flex min-h-10 items-center text-sm font-medium text-staff-teal hover:underline">
                   Order lunch
                 </Link>
               }

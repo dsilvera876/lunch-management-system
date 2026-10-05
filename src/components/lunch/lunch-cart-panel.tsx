@@ -72,9 +72,9 @@ function CartLineRemoveButton({
       disabled={disabled}
       onClick={onClick}
       title={label}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-slate-400 disabled:hover:bg-transparent disabled:hover:text-slate-400"
     >
-      <IconX size={14} className="text-slate-900" aria-hidden />
+      <IconX size={14} className="text-current" aria-hidden />
       Remove
     </button>
   );
@@ -90,7 +90,7 @@ function StatusBadge({ kind }: { kind: "in-progress" | "completed" }) {
   }
 
   return (
-    <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/20">
+    <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-staff-teal-strong ring-1 ring-inset ring-primary/30">
       Completed
     </span>
   );
@@ -385,7 +385,7 @@ export function LunchCartPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Lunch Cart</h2>
-          <p className="mt-1 text-xs leading-5 text-muted">
+          <p className="mt-1 text-sm leading-5 text-staff-instruction">
             Add items to build an order, then finish it when you&apos;re ready. You can create
             multiple orders before placing your checkout.
           </p>
@@ -400,7 +400,7 @@ export function LunchCartPanel({
           type="button"
           onClick={onClearAll}
           disabled={!orderingOpen || cart.length === 0}
-          className="shrink-0 text-sm font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-staff-teal hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
         >
           Clear All
         </button>
@@ -449,7 +449,7 @@ export function LunchCartPanel({
           </div>
           <div className="flex justify-between gap-4 pt-1 text-base">
             <dt className="font-semibold text-slate-900">You Pay</dt>
-            <dd className="font-semibold tabular-nums text-primary">
+            <dd className="font-semibold tabular-nums text-staff-teal">
               {formatCurrency(checkoutPreview.youPay)}
             </dd>
           </div>
@@ -460,6 +460,7 @@ export function LunchCartPanel({
         <FormSubmitButton
           pendingText="Placing order…"
           variant="primary"
+          staffPrimaryCta
           accessibilityBlocked={submitAccessibilityBlocked}
           ariaDescribedBy={
             submitAccessibilityBlocked ? placeOrderGuidanceId : undefined
@@ -471,7 +472,7 @@ export function LunchCartPanel({
           <IconArrowRight size={18} className="opacity-90" aria-hidden />
         </FormSubmitButton>
         {orderCount > 0 ? (
-          <p className="mt-2 text-center text-xs text-muted">
+          <p className="mt-2 text-center text-sm text-staff-instruction">
             This will submit all {orderCount} completed{" "}
             {orderCount === 1 ? "order" : "orders"} in your lunch cart.
           </p>

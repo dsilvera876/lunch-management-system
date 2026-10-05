@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { STAFF_PRIMARY_CTA_CLASS } from "@/lib/staff-visual-contrast";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -14,17 +15,23 @@ const variantClasses: Record<Variant, string> = {
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
+  /** Staff Phase C1: darker teal for primary button label contrast. */
+  staffPrimaryCta?: boolean;
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { variant = "secondary", className = "", type = "button", ...props },
+  { variant = "secondary", className = "", type = "button", staffPrimaryCta = false, ...props },
   ref,
 ) {
   return (
     <button
       ref={ref}
       type={type}
-      className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]} ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]} ${
+        staffPrimaryCta && variant === "primary"
+          ? `${STAFF_PRIMARY_CTA_CLASS} hover:bg-[#115e59]`
+          : ""
+      } ${className}`}
       {...props}
     />
   );

@@ -838,6 +838,7 @@ export function ProviderOrderForm({
             <FormSubmitButton
               pendingText={pendingLabel}
               variant="primary"
+              staffPrimaryCta={!isLateOrderLayout}
               disabled={menuLoading || submitDisabled}
             >
               {submitLabel}
@@ -985,7 +986,12 @@ export function ProviderOrderForm({
         <div className={validationError ? "mb-4" : ""}>{validationSummary}</div>
 
         <div className="sticky bottom-4 lg:static lg:bottom-auto z-10">
-          <FormSubmitButton pendingText={pendingLabel} variant="primary" className="w-full shadow-md lg:shadow-none">
+          <FormSubmitButton
+            pendingText={pendingLabel}
+            variant="primary"
+            staffPrimaryCta={!isLateOrderLayout}
+            className="w-full shadow-md lg:shadow-none"
+          >
             {submitLabel}
           </FormSubmitButton>
         </div>

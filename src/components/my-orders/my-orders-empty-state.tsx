@@ -16,7 +16,7 @@ export function MyOrdersEmptyState({
 }: Props) {
   return (
     <div className="rounded-xl border border-dashed border-border/80 bg-surface/60 px-4 py-6 text-center">
-      <span className="mx-auto inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <span className="mx-auto inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-staff-teal">
         <NavIcon id={icon} size={20} />
       </span>
       <p className="mt-3 text-sm font-medium text-foreground">{title}</p>

@@ -31,7 +31,7 @@ export function CheckoutFinancialSummary({ checkout }: Props) {
       </div>
       <div className="flex justify-between gap-4 pt-1 text-base">
         <dt className="font-semibold text-slate-900">{checkout.payLabel}</dt>
-        <dd className="font-semibold tabular-nums text-primary">
+        <dd className="font-semibold tabular-nums text-staff-teal">
           {formatCurrency(checkout.youPay)}
         </dd>
       </div>

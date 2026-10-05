@@ -1,0 +1,84 @@
+/**
+ * Staff accessibility (Phase C1) — additive tokens and utilities.
+ * Does not override global --primary or --muted.
+ */
+
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-staff-teal {
+    color: #0f766e;
+  }
+
+  .text-staff-teal-strong {
+    color: #115e59;
+  }
+
+  .text-staff-instruction {
+    color: #475569;
+  }
+
+  .bg-staff-cta {
+    background-color: #0f766e;
+  }
+
+  .ring-staff-teal {
+    --tw-ring-color: #0f766e;
+  }
+
+  .staff-focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--surface, #fff), 0 0 0 4px #0f766e;
+  }
+
+  .staff-tab-selected {
+    border-color: #0f766e;
+  }
+
+  .staff-calendar-day-selected {
+    background-color: #0f766e;
+    color: #fff;
+  }
+
+  .staff-calendar-day-today {
+    box-shadow: inset 0 0 0 2px #0f766e;
+  }
+}
+
+@media (forced-colors: active) {
+  .staff-tab-selected {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .staff-calendar-day-selected {
+    outline: 2px solid Highlight;
+    forced-color-adjust: none;
+  }
+
+  .staff-calendar-day-today:not(.staff-calendar-day-selected) {
+    outline: 1px solid CanvasText;
+    outline-offset: 1px;
+  }
+
+  .staff-focus-ring:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  .bg-staff-cta {
+    border: 2px solid ButtonText;
+  }
+}

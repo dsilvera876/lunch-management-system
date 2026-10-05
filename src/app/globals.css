@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./staff-accessibility.css";
 
 :root {
   --background: #f4f6f9;

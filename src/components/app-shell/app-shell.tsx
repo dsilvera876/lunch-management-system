@@ -41,6 +41,8 @@ function NavLinks({
   variant?: "sidebar" | "light";
 }) {
   const isSidebar = variant === "sidebar";
+  /** Mobile drawer only — staff gets darker teal on primary/10 for AA contrast. */
+  const staffMobileNav = !isSidebar && role === "staff";
 
   return (
     <div className="space-y-5">
@@ -79,7 +81,9 @@ function NavLinks({
                       active
                         ? isSidebar
                           ? "border-primary bg-sidebar-active text-white"
-                          : "border-primary bg-primary/10 text-primary"
+                          : staffMobileNav
+                            ? "staff-tab-selected border-primary bg-primary/10 text-staff-teal"
+                            : "border-primary bg-primary/10 text-primary"
                         : isSidebar
                           ? "border-transparent text-sidebar-muted hover:bg-white/5 hover:text-white"
                           : "border-transparent text-foreground hover:bg-background"
@@ -92,9 +96,11 @@ function NavLinks({
                         active
                           ? isSidebar
                             ? "shrink-0 text-accent"
-                            : "shrink-0 text-primary"
+                            : staffMobileNav
+                              ? "shrink-0 text-staff-teal"
+                              : "shrink-0 text-primary"
                           : isSidebar
-                            ? "shrink-0 text-teal-400/45"
+                            ? "shrink-0 text-sidebar-muted"
                             : "shrink-0 text-muted"
                       }
                     />

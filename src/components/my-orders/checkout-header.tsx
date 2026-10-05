@@ -24,7 +24,7 @@ export function CheckoutHeader({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"
+            className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-staff-teal"
             aria-hidden
           >
             <NavIcon id="calendar" size={18} />

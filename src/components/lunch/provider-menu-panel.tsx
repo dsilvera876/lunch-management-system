@@ -18,6 +18,7 @@ import {
   SELECT_MAIN_BEFORE_SIDE_MESSAGE,
 } from "@/lib/accessible-tabs";
 import { useId } from "react";
+import { STAFF_PRIMARY_CTA_CLASS, STAFF_SOLID_FOCUS_CLASS } from "@/lib/staff-visual-contrast";
 import {
   getMenuItemTypeLabel,
   groupMenuItemsByType,
@@ -96,7 +97,7 @@ export function ProviderMenuPanel({
               {countBadges.map((badge) => (
                 <span
                   key={badge}
-                  className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                  className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-staff-teal-strong"
                 >
                   {badge}
                 </span>
@@ -231,12 +232,12 @@ export function ProviderMenuPanel({
             type="button"
             disabled={disabled || !canFinishOrder}
             onClick={onFinishOrder}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:border disabled:border-border disabled:bg-slate-100 disabled:text-slate-500 ${STAFF_PRIMARY_CTA_CLASS} hover:bg-[#115e59] ${STAFF_SOLID_FOCUS_CLASS}`}
           >
             <IconCheck size={20} aria-hidden />
             Finish This Order
           </button>
-          <p className="mt-2 text-center text-xs text-muted">
+          <p className="mt-2 text-center text-sm text-staff-instruction">
             Validates this order and moves it to completed in your lunch cart so you can start
             another.
           </p>

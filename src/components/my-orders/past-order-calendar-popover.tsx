@@ -3,6 +3,7 @@
 import { useId, useRef, type RefObject } from "react";
 import { FocusTrapPopover } from "@/components/ui/focus-trap-popover";
 import { formatHumanDate } from "@/lib/format";
+import { STAFF_SOLID_FOCUS_CLASS } from "@/lib/staff-visual-contrast";
 import {
   CALENDAR_WEEKDAY_LABELS,
   addCalendarMonths,
@@ -50,7 +51,7 @@ export function PastOrderCalendarPopover({
         <button
           type="button"
           aria-label="Previous month"
-          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md text-staff-instruction transition-colors hover:bg-primary/10 hover:text-staff-teal ${STAFF_SOLID_FOCUS_CLASS}`}
           onClick={() => {
             onViewChange(addCalendarMonths(view.year, view.month, -1));
           }}
@@ -65,7 +66,7 @@ export function PastOrderCalendarPopover({
         <button
           type="button"
           aria-label="Next month"
-          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md text-staff-instruction transition-colors hover:bg-primary/10 hover:text-staff-teal ${STAFF_SOLID_FOCUS_CLASS}`}
           onClick={() => {
             onViewChange(addCalendarMonths(view.year, view.month, 1));
           }}
@@ -76,7 +77,7 @@ export function PastOrderCalendarPopover({
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted">
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase tracking-wide text-staff-instruction">
         {CALENDAR_WEEKDAY_LABELS.map((label) => (
           <span key={label} aria-hidden>
             {label}
@@ -99,13 +100,13 @@ export function PastOrderCalendarPopover({
               onClick={() => {
                 onSelectDate(cell.date);
               }}
-              className={`inline-flex size-8 items-center justify-center rounded-md text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+              className={`inline-flex size-9 items-center justify-center rounded-md text-sm transition-colors ${STAFF_SOLID_FOCUS_CLASS} ${
                 isSelected
-                  ? "bg-primary font-semibold text-white"
+                  ? "staff-calendar-day-selected bg-staff-cta font-semibold text-white"
                   : cell.inCurrentMonth
                     ? "font-medium text-slate-900 hover:bg-primary/10"
-                    : "text-muted/70 hover:bg-primary/5"
-              } ${isToday && !isSelected ? "ring-1 ring-primary/35" : ""}`}
+                    : "text-staff-instruction hover:bg-primary/5"
+              } ${isToday && !isSelected ? "staff-calendar-day-today" : ""}`}
             >
               {cell.day}
             </button>

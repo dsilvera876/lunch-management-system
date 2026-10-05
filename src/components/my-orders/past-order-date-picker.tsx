@@ -113,15 +113,15 @@ export function PastOrderDatePicker({ selectedDate, onChange, availableDates }: 
         aria-labelledby="past-order-date-label past-order-date-value"
         aria-expanded={isMobilePicker ? undefined : popoverOpen}
         aria-haspopup={isMobilePicker ? undefined : "dialog"}
-        className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-left shadow-sm transition-colors hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+        className="flex w-full min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-left shadow-sm transition-colors hover:border-primary/35 focus-visible:outline-none staff-focus-ring"
       >
         <span
           id="past-order-date-label"
-          className="text-[10px] font-semibold uppercase tracking-wide text-muted"
+          className="text-xs font-semibold uppercase tracking-wide text-staff-instruction"
         >
           Select date
         </span>
-        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-staff-teal">
           <IconCalendar size={16} />
         </span>
         <span

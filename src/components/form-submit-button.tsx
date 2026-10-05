@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { buttonClass } from "@/components/ui/button";
 import { shouldBlockAriaDisabledActivation } from "@/lib/aria-disabled-activation";
+import { STAFF_PRIMARY_CTA_CLASS } from "@/lib/staff-visual-contrast";
 
 type Props = {
   children: ReactNode;
@@ -16,6 +17,8 @@ type Props = {
   /** Keeps the control focusable while blocking activation (aria-disabled). */
   accessibilityBlocked?: boolean;
   ariaDescribedBy?: string;
+  /** Staff Phase C1: darker teal background for primary submit contrast. */
+  staffPrimaryCta?: boolean;
 };
 
 export function FormSubmitButton({
@@ -28,6 +31,7 @@ export function FormSubmitButton({
   forcePending = false,
   accessibilityBlocked = false,
   ariaDescribedBy,
+  staffPrimaryCta = false,
 }: Props) {
   const { pending: formPending } = useFormStatus();
   const pending = forcePending || formPending;
@@ -62,7 +66,11 @@ export function FormSubmitButton({
       aria-describedby={ariaDescribedBy}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`${buttonClass(variant)} ${softBlocked ? "cursor-not-allowed opacity-60" : ""} ${className}`}
+      className={`${buttonClass(variant)} ${
+        staffPrimaryCta && variant === "primary"
+          ? `${STAFF_PRIMARY_CTA_CLASS} hover:bg-[#115e59]`
+          : ""
+      } ${softBlocked ? "cursor-not-allowed opacity-60" : ""} ${className}`}
     >
       {pending ? pendingText : children}
     </button>

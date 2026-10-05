@@ -79,7 +79,7 @@ export function OrderLocationPopover({
       {initialDefaultLocationId.length > 0 ? (
         <button
           type="button"
-          className="mt-3 text-sm font-medium text-primary hover:underline"
+          className="mt-3 inline-flex min-h-10 items-center text-sm font-medium text-staff-teal hover:underline"
           onClick={() => {
             onSelectLocation(initialDefaultLocationId);
           }}

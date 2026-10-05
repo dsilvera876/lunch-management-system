@@ -111,7 +111,7 @@ export function OrderingStatusBar({
 
         <div className="md:px-6">
           <div className="flex items-start gap-2.5">
-            <IconCalendar size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+            <IconCalendar size={18} className="mt-0.5 shrink-0 text-staff-teal" aria-hidden />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Delivery
@@ -125,7 +125,7 @@ export function OrderingStatusBar({
 
         <div className="md:pl-6">
           <div className="relative flex items-start gap-2.5">
-            <IconMapPin size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+            <IconMapPin size={18} className="mt-0.5 shrink-0 text-staff-teal" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Deliver to
@@ -140,7 +140,7 @@ export function OrderingStatusBar({
                       type="button"
                       aria-expanded={locationPickerOpen}
                       aria-haspopup="dialog"
-                      className="font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-10 items-center font-semibold text-staff-teal hover:underline"
                       onClick={openLocationPicker}
                     >
                       · {locationName ? "Change" : "Choose"}

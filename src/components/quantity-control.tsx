@@ -68,7 +68,7 @@ export function QuantityControl({
         aria-label={`Decrease quantity for ${label}`}
         disabled={quantity <= 0}
         onClick={() => updateQuantity(quantity - 1)}
-        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-l-lg border-r border-border text-lg font-medium transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-l-lg border-r border-border text-lg font-medium transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-border disabled:bg-slate-100 disabled:text-slate-400"
       >
         −
       </button>
@@ -89,7 +89,7 @@ export function QuantityControl({
         type="button"
         aria-label={`Increase quantity for ${label}`}
         onClick={() => updateQuantity(quantity + 1)}
-        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-r-lg border-l border-border text-lg font-medium transition-colors hover:bg-slate-50"
+        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-r-lg border-l border-border text-lg font-medium transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-border disabled:bg-slate-100 disabled:text-slate-400"
       >
         +
       </button>

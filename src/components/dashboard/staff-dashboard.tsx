@@ -66,7 +66,7 @@ export function StaffDashboard({
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
           Welcome back, {firstName}!
         </h1>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-staff-instruction">
           Here&apos;s your lunch overview
           {deliveryLabel ? ` for ${deliveryLabel}` : " for your next delivery"}.
         </p>
@@ -76,7 +76,7 @@ export function StaffDashboard({
         <Card padding="lg">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-staff-teal">
                 <IconUtensils size={22} />
               </span>
               <div>
@@ -93,16 +93,20 @@ export function StaffDashboard({
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-border bg-background px-4 py-2.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted">Order cutoff time</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-staff-instruction">
+                Order cutoff time
+              </p>
               <p className="mt-1 text-sm font-semibold text-foreground">
                 {formatJamaicaWallClockTime(cutoffTime)}
               </p>
               {orderDeadline && deliveryDate ? (
-                <p className="mt-0.5 text-xs text-muted">{formatDisplayDate(deliveryDate)}</p>
+                <p className="mt-0.5 text-xs text-staff-instruction">{formatDisplayDate(deliveryDate)}</p>
               ) : null}
             </div>
             <div className="rounded-lg border border-border bg-background px-4 py-2.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted">Time remaining</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-staff-instruction">
+                Time remaining
+              </p>
               <p className="mt-1 text-sm font-semibold text-foreground">
                 {timeRemainingLabel ?? "Not available"}
               </p>
@@ -142,7 +146,7 @@ export function StaffDashboard({
       <div className="grid gap-4 lg:grid-cols-2">
         <Card padding="md">
           <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-staff-teal">
               <IconBag size={18} />
             </span>
             <h2 className="text-base font-semibold text-slate-900">Your Next Lunch Order</h2>
@@ -169,12 +173,12 @@ export function StaffDashboard({
         <Card padding="md">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-staff-teal">
                 <IconStarOutline size={18} />
               </span>
               <h2 className="text-base font-semibold text-slate-900">Rate Recent Orders</h2>
             </div>
-            <Link href="/my-orders" className="text-sm font-medium text-primary hover:underline">
+            <Link href="/my-orders" className="inline-flex min-h-10 items-center text-sm font-medium text-staff-teal hover:underline">
               View all →
             </Link>
           </div>
