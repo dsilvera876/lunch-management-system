@@ -81,6 +81,7 @@ export default async function LunchPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Today's Order"
+        staffAccessibleDescription
         description="Choose a provider and submit a separate order for that provider before today's cutoff."
         actions={
           <Link

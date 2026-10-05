@@ -31,7 +31,7 @@ type Props = {
 
 type LunchDaysPeriodKey = "current" | "previous";
 
-const exportLinkClass = `${linkButtonClass("secondary")} gap-1.5 border-primary/25 bg-surface text-primary hover:bg-primary/5`;
+const exportLinkClass = `${linkButtonClass("secondary")} gap-1.5 border-primary/25 bg-surface text-staff-teal hover:bg-primary/5`;
 
 export function MySpendPageView({ dashboard, canExport }: Props) {
   const [lunchDaysPeriod, setLunchDaysPeriod] = useState<LunchDaysPeriodKey>("current");
@@ -115,7 +115,7 @@ export function MySpendPageView({ dashboard, canExport }: Props) {
               {showPreviousPeriodSelector ? (
                 <label className="relative block min-w-[11.5rem]">
                   <span className="sr-only">Lunch period</span>
-                  <span className="pointer-events-none absolute left-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <span className="pointer-events-none absolute left-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md bg-primary/10 text-staff-teal">
                     <IconHistory size={14} aria-hidden />
                   </span>
                   <select
@@ -135,7 +135,7 @@ export function MySpendPageView({ dashboard, canExport }: Props) {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
-                    className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted"
+                    className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-staff-instruction"
                     aria-hidden
                   >
                     <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />

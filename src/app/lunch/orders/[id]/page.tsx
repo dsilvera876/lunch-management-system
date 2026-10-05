@@ -202,6 +202,7 @@ export default async function OrderDetailPage({
   return (
     <>
       <PageHeader
+        staffAccessibleDescription
         title={`${provider?.name ? `${provider.name} · ` : ""}Delivery ${formatDisplayDate(lunchDay.lunch_date)}`}
         description={
           lunchDay.order_date
@@ -221,7 +222,7 @@ export default async function OrderDetailPage({
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <StatusBadge status={order.status} />
-        <span className="text-sm text-muted">
+        <span className="text-sm text-staff-instruction">
           Deadline:{" "}
           {effectiveDeadline
             ? formatDeadline(effectiveDeadline)
@@ -263,10 +264,10 @@ export default async function OrderDetailPage({
 
           {order.office_location_name && (
             <Card className="mb-4" padding="sm">
-              <p className="text-sm text-muted">Deliver to</p>
+              <p className="text-sm text-staff-instruction">Deliver to</p>
               <p className="font-medium">{order.office_location_name}</p>
               {order.office_location_address && (
-                <p className="mt-1 text-sm text-muted">
+                <p className="mt-1 text-sm text-staff-instruction">
                   {order.office_location_address}
                 </p>
               )}
@@ -279,14 +280,14 @@ export default async function OrderDetailPage({
                 <p className="font-semibold">
                   {formatMealBundleLabel(order.meal_quantity)}
                 </p>
-                <ul className="mt-2 space-y-1 text-sm text-muted">
+                <ul className="mt-2 space-y-1 text-sm text-staff-instruction">
                   {[...groupedOrderItems.main, ...groupedOrderItems.side].map(
                     (item) => (
                       <li key={item.name}>{formatMenuItemLabel(item.name, item.unitLabel)}</li>
                     ),
                   )}
                 </ul>
-                <p className="mt-2 text-sm text-muted">
+                <p className="mt-2 text-sm text-staff-instruction">
                   Subtotal{" "}
                   {formatCurrency(
                     [...groupedOrderItems.main, ...groupedOrderItems.side].reduce(
@@ -301,13 +302,13 @@ export default async function OrderDetailPage({
 
           {groupedOrderItems.standalone.length > 0 && (
             <div className="mb-4">
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-staff-instruction">
                 {order.meal_quantity ? "Optional items" : "Items"}
               </h3>
               <div className="space-y-6">
                 {Object.entries(standaloneGrouped).map(([category, items]) => (
                   <div key={category}>
-                    <h4 className="mb-2 text-sm font-medium text-muted">{category}</h4>
+                    <h4 className="mb-2 text-sm font-medium text-staff-instruction">{category}</h4>
                     <div className="space-y-3">
                       {items.map((item) => (
                         <Card key={item.id} padding="sm">
@@ -318,7 +319,7 @@ export default async function OrderDetailPage({
                               item.quantity,
                             )}
                           </p>
-                          <p className="mt-1 text-sm text-muted">
+                          <p className="mt-1 text-sm text-staff-instruction">
                             {formatCurrency(item.unitPrice)} per{" "}
                             {item.unitLabel.toLowerCase()} · Subtotal{" "}
                             {formatCurrency(Number(item.unitPrice) * item.quantity)}
@@ -402,7 +403,7 @@ export default async function OrderDetailPage({
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href={`/lunch/providers/${lunchDay.provider_id}`}
-            className={linkButtonClass("primary")}
+            className={linkButtonClass("primary", { staffPrimaryCta: true })}
           >
             Place another order from {provider?.name ?? "this provider"}
           </Link>

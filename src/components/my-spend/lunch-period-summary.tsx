@@ -42,13 +42,16 @@ function PeriodMetric({
   icon: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 sm:gap-3 sm:px-4">
+    <div
+      role="listitem"
+      className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 sm:gap-3 sm:px-4"
+    >
       <TealIconWell size="sm" className="shrink-0">
         {icon}
       </TealIconWell>
       <div className="min-w-0">
-        <dt className="text-xs text-muted">{label}</dt>
-        <dd className="mt-0.5 text-lg font-semibold text-slate-900 sm:text-xl">{value}</dd>
+        <p className="text-xs text-staff-instruction">{label}</p>
+        <p className="mt-0.5 text-lg font-semibold text-slate-900 sm:text-xl">{value}</p>
       </div>
     </div>
   );
@@ -65,16 +68,20 @@ export function LunchPeriodSummary({ title, period, emptyMessage }: Props) {
       {period ? (
         <>
           <div className="mt-2 space-y-0.5">
-            <p className="flex items-center gap-1.5 text-sm text-muted">
-              <IconCalendar size={15} className="shrink-0 text-primary/70" aria-hidden />
+            <p className="flex items-center gap-1.5 text-sm text-staff-instruction">
+              <IconCalendar size={15} className="shrink-0 text-staff-teal" aria-hidden />
               {formatLunchPeriodRange(period.start_date, period.end_date)}
             </p>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-staff-instruction">
               Daily subsidy: {formatCurrency(Number(period.daily_subsidy_rate))}
             </p>
           </div>
 
-          <dl className="mt-5 grid grid-cols-1 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div
+            className="mt-5 grid grid-cols-1 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0"
+            role="list"
+            aria-label={`${title} metrics`}
+          >
             <PeriodMetric
               label="Salary Deduction"
               value={formatCurrency(period.net_deduction)}
@@ -90,10 +97,10 @@ export function LunchPeriodSummary({ title, period, emptyMessage }: Props) {
               value={period.order_count}
               icon={<IconClipboard size={15} />}
             />
-          </dl>
+          </div>
         </>
       ) : (
-        <p className="mt-4 text-sm text-muted">{emptyMessage}</p>
+        <p className="mt-4 text-sm text-staff-instruction">{emptyMessage}</p>
       )}
     </Card>
   );

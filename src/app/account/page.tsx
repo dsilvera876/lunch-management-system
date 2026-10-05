@@ -64,6 +64,7 @@ export default async function AccountPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Preferences"
+        staffAccessibleDescription
         description="Your profile and delivery settings for the lunch management system."
       />
 
@@ -88,11 +89,11 @@ export default async function AccountPage({ searchParams }: Props) {
       <Card className="mb-6 max-w-xl">
         <dl className="space-y-4">
           <div>
-            <dt className="text-sm text-muted">Name</dt>
+            <dt className="text-sm text-staff-instruction">Name</dt>
             <dd className="mt-1 font-medium">{profile.full_name ?? "Not provided"}</dd>
           </div>
           <div>
-            <dt className="text-sm text-muted">Role</dt>
+            <dt className="text-sm text-staff-instruction">Role</dt>
             <dd className="mt-1 font-medium">{getRoleLabel(profile.role)}</dd>
           </div>
         </dl>
@@ -120,7 +121,7 @@ export default async function AccountPage({ searchParams }: Props) {
         )}
 
         {!defaultLocation && (
-          <p className="mb-4 text-sm text-muted">
+          <p className="mb-4 text-sm text-staff-instruction">
             No default delivery location saved yet. Choose one before ordering, or
             save a default here.
           </p>
@@ -139,7 +140,7 @@ export default async function AccountPage({ searchParams }: Props) {
         )}
 
         {(activeLocations ?? []).length === 0 ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-staff-instruction">
             No active office locations are available yet.
           </p>
         ) : (

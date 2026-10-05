@@ -63,6 +63,16 @@
       max-height: none;
       overflow: visible;
     }
+
+    .staff-edit-order-form {
+      display: block;
+    }
+
+    .staff-edit-order-aside {
+      position: static;
+      top: auto;
+      margin-top: 1.5rem;
+    }
   }
 }
 

@@ -23,7 +23,7 @@ export function DashboardOrderSummary({ order }: { order: DeliveryOrderSummary }
         <p className="font-medium text-foreground">{order.providerName ?? "Lunch order"}</p>
         <StatusBadge status={order.status} />
       </div>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-staff-instruction">
         Delivery {formatDisplayDate(order.deliveryDate)}
         {order.office_location_name ? ` · ${order.office_location_name}` : ""}
       </p>
@@ -31,11 +31,11 @@ export function DashboardOrderSummary({ order }: { order: DeliveryOrderSummary }
       {!isCancelled && (
         <>
           {order.mealQuantity && mealItems.length > 0 ? (
-            <p className="mt-2 text-xs font-medium text-muted">
+            <p className="mt-2 text-xs font-medium text-staff-instruction">
               {formatMealBundleLabel(order.mealQuantity)}
             </p>
           ) : null}
-          <ul className="mt-1 space-y-0.5 text-muted">
+          <ul className="mt-1 space-y-0.5 text-staff-instruction">
             {previewItems.map((item) => (
               <li key={`${order.id}-${item.name}-${item.unitLabel}`} className="truncate">
                 {item.itemType === "standalone"

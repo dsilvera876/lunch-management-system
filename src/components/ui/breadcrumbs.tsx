@@ -8,7 +8,10 @@ type Props = {
 
 export function Breadcrumbs({ items, className = "" }: Props) {
   return (
-    <nav aria-label="Breadcrumb" className={`min-w-0 text-sm text-muted ${className}`}>
+    <nav
+      aria-label="Breadcrumb"
+      className={`min-w-0 text-sm ${className || "text-muted"}`}
+    >
       <ol className="flex flex-wrap items-center gap-1.5">
         {items.map((item, index) => {
           const isLast = index === items.length - 1;

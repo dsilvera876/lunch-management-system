@@ -99,7 +99,7 @@ export function OrderLineRow({
       <span className={`min-w-0 ${nameClassName}`}>
         {formatMenuItemLabel(name, unitLabel)}
       </span>
-      <span className="text-right text-sm tabular-nums text-muted">
+      <span className="text-right text-sm tabular-nums text-staff-instruction">
         {formatLinePrice(price)}
       </span>
       <TrashButton label={removeLabel} disabled={!orderingOpen} onClick={onRemove} />
@@ -158,15 +158,15 @@ export function OrderSummaryPanel({
           Clear All
         </button>
       </div>
-      <p className="mt-1 text-sm text-muted">{providerName}</p>
+      <p className="mt-1 text-sm text-staff-instruction">{providerName}</p>
 
       {!hasAnyContent ? (
-        <p className="mt-3 text-sm text-muted">Add menu items to build your order.</p>
+        <p className="mt-3 text-sm text-staff-instruction">Add menu items to build your order.</p>
       ) : null}
 
       {hasMealSection && main ? (
         <section className="mt-3 border-b border-border pb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Meal</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-staff-instruction">Meal</h3>
           <ul className="mt-2 space-y-2">
             <OrderLineRow
               name={main.name}
@@ -197,7 +197,7 @@ export function OrderSummaryPanel({
           ) : (
             <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
               <div>
-                <p className="text-xs font-medium text-muted">Quantity</p>
+                <p className="text-xs font-medium text-staff-instruction">Quantity</p>
                 <div className="mt-2">
                   <InlineQuantityControl
                     label="Meal quantity"
@@ -208,7 +208,7 @@ export function OrderSummaryPanel({
                 </div>
               </div>
               <dl className="flex justify-between gap-4 text-sm">
-                <dt className="font-medium text-muted">Meal total</dt>
+                <dt className="font-medium text-staff-instruction">Meal total</dt>
                 <dd className="font-semibold tabular-nums text-foreground">
                   {formatCurrency(mealLineTotal)}
                 </dd>
@@ -220,7 +220,7 @@ export function OrderSummaryPanel({
 
       {hasStandalone ? (
         <section className="mt-3 border-b border-border pb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Extras</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-staff-instruction">Extras</h3>
           <ul className="mt-2 space-y-3">
             {standaloneItems.map((item) => {
               const lineTotal = calculateLineSubtotal(item.price, item.quantity);
@@ -230,7 +230,7 @@ export function OrderSummaryPanel({
                     <p className="min-w-0 text-sm font-medium text-foreground">
                       {formatMenuItemLabel(item.name, item.unitLabel)}
                     </p>
-                    <span className="text-right text-sm tabular-nums text-muted">
+                    <span className="text-right text-sm tabular-nums text-staff-instruction">
                       {item.quantity} × {formatCurrency(item.price)}
                     </span>
                     <TrashButton
@@ -276,12 +276,12 @@ export function OrderSummaryPanel({
       {orderSubtotal > 0 ? (
         <dl className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-muted">Subtotal</dt>
+            <dt className="text-staff-instruction">Subtotal</dt>
             <dd className="font-medium tabular-nums">{formatCurrency(checkout.subtotal)}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted">Lunch Subsidy</dt>
-            <dd className="font-medium tabular-nums text-muted">
+            <dt className="text-staff-instruction">Lunch Subsidy</dt>
+            <dd className="font-medium tabular-nums text-staff-instruction">
               {checkout.lunchSubsidy > 0
                 ? `-${formatCurrency(checkout.lunchSubsidy)}`
                 : formatCurrency(0)}

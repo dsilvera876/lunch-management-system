@@ -16,7 +16,7 @@ const sizeClasses = {
 export function TealIconWell({ children, size = "md", className = "" }: Props) {
   return (
     <span
-      className={`flex shrink-0 items-center justify-center bg-primary/10 text-primary ${sizeClasses[size]} ${className}`}
+      className={`flex shrink-0 items-center justify-center bg-primary/10 text-staff-teal ${sizeClasses[size]} ${className}`}
     >
       {children}
     </span>

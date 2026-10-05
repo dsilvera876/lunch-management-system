@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
+/tests/accessibility/.auth/
 
 # next.js
 /.next/

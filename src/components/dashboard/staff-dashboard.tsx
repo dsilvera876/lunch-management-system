@@ -62,7 +62,9 @@ export function StaffDashboard({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted">{greeting},</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-staff-instruction">
+          {greeting},
+        </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
           Welcome back, {firstName}!
         </h1>
@@ -81,7 +83,7 @@ export function StaffDashboard({
               </span>
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Next Lunch Ordering</h2>
-                <p className="mt-1 text-sm text-muted">
+                <p className="mt-1 text-sm text-staff-instruction">
                   {deliveryLabel
                     ? `Order for ${deliveryLabel} on the Order Lunch page before the cutoff.`
                     : "Place orders on the Order Lunch page before the cutoff."}
@@ -116,12 +118,12 @@ export function StaffDashboard({
           <div className="mt-5">
             <Link
               href="/lunch"
-              className={`${linkButtonClass("primary")} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
+              className={`${linkButtonClass("primary", { staffPrimaryCta: true })} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
             >
               {orderCtaLabel}
               <IconArrowRight size={18} className="opacity-90" />
             </Link>
-            <p className="mt-2 text-xs text-muted">
+            <p className="mt-2 text-xs text-staff-instruction">
               You&apos;ll be taken to the Order Lunch page. Ordering is not completed from the dashboard.
             </p>
           </div>
@@ -183,7 +185,9 @@ export function StaffDashboard({
             </Link>
           </div>
           {recentOrders.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Recent orders will appear here after you place lunch orders.</p>
+            <p className="mt-3 text-sm text-staff-instruction">
+              Recent orders will appear here after you place lunch orders.
+            </p>
           ) : (
             <ul className="mt-3 space-y-2">
               {recentOrders.map((order) => (
@@ -193,14 +197,16 @@ export function StaffDashboard({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{order.providerName}</p>
-                    <p className="text-xs text-muted">{formatHumanDate(order.deliveryDate)}</p>
+                    <p className="text-xs text-staff-instruction">
+                      {formatHumanDate(order.deliveryDate)}
+                    </p>
                   </div>
                   <RatingStars value={0} readOnly label={`Rate ${order.providerName}`} />
                 </li>
               ))}
             </ul>
           )}
-          <p className="mt-2 text-[11px] text-muted">
+          <p className="mt-2 text-[11px] text-staff-instruction">
             Ratings are display-only until a rating workflow is configured.
           </p>
         </Card>

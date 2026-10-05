@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:a11y": "playwright test",
     "worker": "tsx src/worker/run.ts",
     "worker:snapshots": "tsx src/worker/run.ts --task=snapshots",
     "worker:automatic-dispatch": "tsx src/worker/run.ts --task=automatic-dispatch",
@@ -27,6 +28,8 @@
     "standardwebhooks": "^1.1.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.2",

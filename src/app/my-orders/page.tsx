@@ -37,9 +37,10 @@ export default async function MyOrdersPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="My Orders"
+        staffAccessibleDescription
         description="Your lunch orders grouped by checkout."
         actions={
-          <Link href="/lunch" className={linkButtonClass("primary")}>
+          <Link href="/lunch" className={linkButtonClass("primary", { staffPrimaryCta: true })}>
             Place another order
           </Link>
         }

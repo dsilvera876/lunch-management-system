@@ -7,9 +7,10 @@ import type { AppNotificationItem } from "@/lib/app-notification-sources";
 
 type Props = {
   items: AppNotificationItem[];
+  mutedTextClass?: string;
 };
 
-export function HeaderNotifications({ items }: Props) {
+export function HeaderNotifications({ items, mutedTextClass = "text-muted" }: Props) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -75,7 +76,7 @@ export function HeaderNotifications({ items }: Props) {
           className="absolute right-0 z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-3 shadow-lg"
         >
           {items.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-muted">No new notifications.</p>
+            <p className={`px-2 py-3 text-sm ${mutedTextClass}`}>No new notifications.</p>
           ) : (
             <ul className="space-y-2">
               {items.map((item) => (
@@ -84,7 +85,7 @@ export function HeaderNotifications({ items }: Props) {
                   className="rounded-lg border border-border/80 bg-background px-3 py-2.5"
                 >
                   <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                  <p className="mt-1 text-sm text-muted">{item.message}</p>
+                  <p className={`mt-1 text-sm ${mutedTextClass}`}>{item.message}</p>
                   <Link
                     href={item.href}
                     className="mt-2 inline-flex text-sm font-medium text-primary underline-offset-2 hover:underline"

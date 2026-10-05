@@ -28,7 +28,7 @@ export function SpecialInstructionsField({
     <div>
       <label htmlFor={fieldId} className="block text-sm font-medium text-slate-900">
         Special instructions{" "}
-        <span className="font-normal text-muted">(optional)</span>
+        <span className="font-normal text-staff-instruction">(optional)</span>
       </label>
       <textarea
         id={fieldId}

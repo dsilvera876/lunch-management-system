@@ -96,8 +96,10 @@ export function OrderingStatusBar({
 
             {orderingOpen && timeRemaining ? (
               <div className="min-w-0">
-                <p className="text-lg font-bold leading-snug text-slate-900">{timeRemaining}</p>
-                <p className="mt-0.5 text-sm text-muted">
+                <p className="text-lg font-bold leading-snug text-slate-900" suppressHydrationWarning>
+                  {timeRemaining}
+                </p>
+                <p className="mt-0.5 text-sm text-staff-instruction">
                   Orders close at {formatJamaicaWallClockTime(cutoffTime)}
                 </p>
               </div>

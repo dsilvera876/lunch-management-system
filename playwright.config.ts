@@ -1,0 +1,53 @@
+import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
+
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+const staffAuthFile = path.join(__dirname, "tests/accessibility/.auth/staff.json");
+
+export default defineConfig({
+  globalSetup: path.join(__dirname, "tests/accessibility/global-setup.ts"),
+  globalTeardown: path.join(__dirname, "tests/accessibility/global-teardown.ts"),
+  testDir: path.join(__dirname, "tests/accessibility"),
+  testIgnore: ["**/helpers/**", "**/*.test.ts"],
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
+  use: {
+    baseURL,
+    trace: "on-first-retry",
+  },
+  webServer: {
+    command: "npm run dev",
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+  projects: [
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
+      name: "chromium-a11y",
+      testIgnore: /firefox-smoke\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup"],
+    },
+    {
+      name: "firefox-smoke",
+      testMatch: /firefox-smoke\.spec\.ts/,
+      use: {
+        ...devices["Desktop Firefox"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup"],
+    },
+  ],
+});

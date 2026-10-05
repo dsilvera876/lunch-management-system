@@ -41,6 +41,13 @@ export function buttonClass(variant: Variant = "secondary") {
   return `inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]}`;
 }
 
-export function linkButtonClass(variant: Variant = "secondary") {
-  return `inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium no-underline transition-colors ${variantClasses[variant]}`;
+export function linkButtonClass(
+  variant: Variant = "secondary",
+  options?: { staffPrimaryCta?: boolean },
+) {
+  const base = `inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium no-underline transition-colors ${variantClasses[variant]}`;
+  if (options?.staffPrimaryCta && variant === "primary") {
+    return `${base} ${STAFF_PRIMARY_CTA_CLASS} hover:bg-[#115e59]`;
+  }
+  return base;
 }

@@ -135,7 +135,7 @@ function DraftOrderLines({
                 {formatMenuItemLabel(main.name, main.unitLabel)}
               </span>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="text-sm tabular-nums text-muted">{formatLinePrice(main.price)}</span>
+                <span className="text-sm tabular-nums text-staff-instruction">{formatLinePrice(main.price)}</span>
                 {allowLineRemove ? (
                   <CartLineRemoveButton
                     label={main.name}
@@ -151,7 +151,7 @@ function DraftOrderLines({
                   {formatMenuItemLabel(side.name, side.unitLabel)}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-sm tabular-nums text-muted">
+                  <span className="text-sm tabular-nums text-staff-instruction">
                     {formatLinePrice(side.price)}
                   </span>
                   {allowLineRemove ? (
@@ -165,7 +165,7 @@ function DraftOrderLines({
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-sm text-muted">Meal quantity ×{draft.mealQuantity}</p>
+          <p className="mt-2 text-sm text-staff-instruction">Meal quantity ×{draft.mealQuantity}</p>
         </div>
       ) : null}
 
@@ -181,7 +181,7 @@ function DraftOrderLines({
                       <p className="text-sm font-medium text-foreground">
                         {formatMenuItemLabel(item.name, item.unitLabel)}
                       </p>
-                      <p className="text-xs tabular-nums text-muted">
+                      <p className="text-xs tabular-nums text-staff-instruction">
                         {item.quantity} × {formatCurrency(item.price)}
                       </p>
                     </div>
@@ -201,7 +201,7 @@ function DraftOrderLines({
                     <span className="min-w-0 text-sm font-medium text-foreground">
                       {formatMenuItemLabel(item.name, item.unitLabel)}
                     </span>
-                    <span className="text-right text-sm tabular-nums text-muted">
+                    <span className="text-right text-sm tabular-nums text-staff-instruction">
                       {item.quantity} × {formatCurrency(item.price)}
                     </span>
                     <span aria-hidden className="size-9" />
@@ -282,12 +282,12 @@ function renderProviderSections(
 
               {instructions ? (
                 <p className="mt-2 text-sm text-foreground">
-                  <span className="font-medium text-muted">Instructions:</span> {instructions}
+                  <span className="font-medium text-staff-instruction">Instructions:</span> {instructions}
                 </p>
               ) : null}
 
               <dl className="mt-3 flex justify-between gap-4 border-t border-border/60 pt-2 text-sm">
-                <dt className="font-medium text-muted">Subtotal</dt>
+                <dt className="font-medium text-staff-instruction">Subtotal</dt>
                 <dd className="font-semibold tabular-nums text-foreground">
                   {formatCurrency(orderTotal)}
                 </dd>
@@ -319,13 +319,13 @@ function renderProviderSections(
 
             {formatInstructionsPreview(section.inProgress.draft.specialInstructions) ? (
               <p className="mt-2 text-sm text-foreground">
-                <span className="font-medium text-muted">Instructions:</span>{" "}
+                <span className="font-medium text-staff-instruction">Instructions:</span>{" "}
                 {formatInstructionsPreview(section.inProgress.draft.specialInstructions)}
               </p>
             ) : null}
 
             <dl className="mt-3 flex justify-between gap-4 border-t border-border/60 pt-2 text-sm">
-              <dt className="font-medium text-muted">Subtotal</dt>
+              <dt className="font-medium text-staff-instruction">Subtotal</dt>
               <dd className="font-semibold tabular-nums text-foreground">
                 {formatCurrency(
                   calculateEntrySubtotal(section.inProgress.draft, menuItems),
@@ -391,7 +391,7 @@ export function LunchCartPanel({
             multiple orders before placing your checkout.
           </p>
           {orderCount > 0 ? (
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm text-staff-instruction">
               {orderCount} completed {orderCount === 1 ? "order" : "orders"} from {providerCount}{" "}
               {providerCount === 1 ? "provider" : "providers"}
             </p>
@@ -408,7 +408,7 @@ export function LunchCartPanel({
       </div>
 
       {!hasVisibleContent ? (
-        <p className="mt-3 text-sm text-muted">
+        <p className="mt-3 text-sm text-staff-instruction">
           Your lunch cart is empty. Use Add beside menu items to start building an order.
         </p>
       ) : (
@@ -437,12 +437,12 @@ export function LunchCartPanel({
       {checkout.combinedSubtotal > 0 ? (
         <dl className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-muted">Subtotal</dt>
+            <dt className="text-staff-instruction">Subtotal</dt>
             <dd className="font-medium tabular-nums">{formatCurrency(checkoutPreview.subtotal)}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted">Lunch Subsidy</dt>
-            <dd className="font-medium tabular-nums text-muted">
+            <dt className="text-staff-instruction">Lunch Subsidy</dt>
+            <dd className="font-medium tabular-nums text-staff-instruction">
               {checkoutPreview.lunchSubsidy > 0
                 ? `-${formatCurrency(checkoutPreview.lunchSubsidy)}`
                 : formatCurrency(0)}

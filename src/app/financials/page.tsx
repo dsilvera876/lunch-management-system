@@ -14,6 +14,7 @@ export default async function FinancialsPage() {
     <div className="space-y-4">
       <PageHeader
         className="!mb-0"
+        staffAccessibleDescription
         title="My Spend"
         description="Track your lunch spending and salary deductions over time."
       />

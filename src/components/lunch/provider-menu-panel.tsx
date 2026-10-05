@@ -90,7 +90,7 @@ export function ProviderMenuPanel({
         <div className="border-b border-border pb-4">
           <h2 className="text-xl font-semibold text-slate-900">{providerName}</h2>
           {providerDescription ? (
-            <p className="mt-1 text-sm text-muted">{providerDescription}</p>
+            <p className="mt-1 text-sm text-staff-instruction">{providerDescription}</p>
           ) : null}
           {countBadges.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -164,7 +164,7 @@ export function ProviderMenuPanel({
             </div>
             {mealComplete ? (
               <div className="mt-4 border-t border-border/60 pt-4">
-                <p className="text-xs font-medium text-muted">Meal quantity</p>
+                <p className="text-xs font-medium text-staff-instruction">Meal quantity</p>
                 <div className="mt-2">
                   <InlineQuantityControl
                     label={`${providerName} meal quantity`}

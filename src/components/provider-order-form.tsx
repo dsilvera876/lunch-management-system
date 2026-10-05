@@ -123,7 +123,7 @@ function StandaloneItemCard({
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{formatMenuItemLabel(item.name, item.unitLabel)}</p>
           {item.description && (
-            <p className="mt-1 text-sm text-muted">{item.description}</p>
+            <p className="mt-1 text-sm text-staff-instruction">{item.description}</p>
           )}
           <p className="mt-1 text-sm font-medium">
             {Number(item.price) > 0 ? `${formatPrice(item.price)} per ${item.unitLabel.toLowerCase()}` : "Included"}
@@ -370,17 +370,17 @@ export function ProviderOrderForm({
     <>
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-muted">Provider</dt>
+          <dt className="text-staff-instruction">Provider</dt>
           <dd className="text-right font-medium">{providerName}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-muted">Delivery</dt>
+          <dt className="text-staff-instruction">Delivery</dt>
           <dd className="text-right font-medium">{formatDisplayDate(deliveryDate)}</dd>
         </div>
       </dl>
 
       {orderTotal === 0 && (stableSplitLayout || isLateOrderLayout) ? (
-        <p className="mt-3 text-sm text-muted">
+        <p className="mt-3 text-sm text-staff-instruction">
           Select items below to see line items and your order total.
         </p>
       ) : null}
@@ -391,7 +391,7 @@ export function ProviderOrderForm({
             <span>{formatMealBundleLabel(mealQuantity)}</span>
             <span>{formatCurrency(mealSubtotal)}</span>
           </div>
-          <ul className="mt-2 space-y-1 text-sm text-muted">
+          <ul className="mt-2 space-y-1 text-sm text-staff-instruction">
             <li>{formatMenuItemLabel(selectedMain.name, selectedMain.unitLabel)}</li>
             {selectedSides.map((item) => (
               <li key={item.id}>{formatMenuItemLabel(item.name, item.unitLabel)}</li>
@@ -402,7 +402,7 @@ export function ProviderOrderForm({
 
       {selectedStandalone.length > 0 && (
         <div className="mt-4 border-t border-border pt-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-staff-instruction">
             {offersMeals ? "Optional items" : "Items"}
           </h4>
           <ul className="mt-2 space-y-2 text-sm">
@@ -420,7 +420,7 @@ export function ProviderOrderForm({
 
       {specialInstructions.trim().length > 0 && (
         <div className="mt-4 border-t border-border pt-4 text-sm">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-staff-instruction">
             Special instructions
           </h4>
           <p className="mt-2 whitespace-pre-wrap">{specialInstructions.trim()}</p>
@@ -435,7 +435,7 @@ export function ProviderOrderForm({
       ) : null}
 
       {showSubsidyNote && orderTotal > 0 ? (
-        <p className="mt-3 text-xs text-muted">
+        <p className="mt-3 text-xs text-staff-instruction">
           Any daily lunch subsidy is calculated across all of your qualifying orders for this
           delivery date, not per individual order.
         </p>
@@ -458,14 +458,14 @@ export function ProviderOrderForm({
           className={
             compactMenuLayout
               ? "text-sm font-semibold text-slate-900"
-              : "mb-3 text-sm font-semibold uppercase tracking-wide text-muted"
+              : "mb-3 text-sm font-semibold uppercase tracking-wide text-staff-instruction"
           }
         >
           {compactMenuLayout ? "Mains" : "Main"}
           <span className="sr-only"> (required when ordering a meal)</span>
         </legend>
         {compactMenuLayout ? (
-          <p className="mt-0.5 text-xs text-muted">Select one main item (required).</p>
+          <p className="mt-0.5 text-xs text-staff-instruction">Select one main item (required).</p>
         ) : null}
         {invalidField === "main" && validationError ? (
           <p id={mainFieldErrorId} className="mt-1 text-sm text-red-800">
@@ -478,10 +478,10 @@ export function ProviderOrderForm({
               <>
                 <span className="font-medium">{formatMenuItemLabel(item.name, item.unitLabel)}</span>
                 {!compactMenuLayout && item.description ? (
-                  <span className="mt-1 block text-sm text-muted">{item.description}</span>
+                  <span className="mt-1 block text-sm text-staff-instruction">{item.description}</span>
                 ) : null}
                 <span
-                  className={`block ${compactMenuLayout ? "text-xs text-muted" : "mt-1 text-sm font-medium"}`}
+                  className={`block ${compactMenuLayout ? "text-xs text-staff-instruction" : "mt-1 text-sm font-medium"}`}
                 >
                   {Number(item.price) > 0
                     ? `${formatPrice(item.price)} per ${item.unitLabel.toLowerCase()}`
@@ -518,7 +518,7 @@ export function ProviderOrderForm({
                     {formatMenuItemLabel(item.name, item.unitLabel)}
                   </span>
                   {mainPriceLabel ? (
-                    <span className="mt-0.5 block text-xs text-muted">{mainPriceLabel}</span>
+                    <span className="mt-0.5 block text-xs text-staff-instruction">{mainPriceLabel}</span>
                   ) : null}
                 </span>
               </label>
@@ -560,14 +560,14 @@ export function ProviderOrderForm({
           className={
             compactMenuLayout
               ? "text-sm font-semibold text-slate-900"
-              : "mb-3 text-sm font-semibold uppercase tracking-wide text-muted"
+              : "mb-3 text-sm font-semibold uppercase tracking-wide text-staff-instruction"
           }
         >
           Sides
           <span className="sr-only"> (select at least one when ordering a meal)</span>
         </legend>
         {compactMenuLayout ? (
-          <p className="mt-0.5 text-xs text-muted">Select at least one side (required).</p>
+          <p className="mt-0.5 text-xs text-staff-instruction">Select at least one side (required).</p>
         ) : null}
         {invalidField === "sides" && validationError ? (
           <p id={sideFieldErrorId} className="mt-1 text-sm text-red-800">
@@ -580,10 +580,10 @@ export function ProviderOrderForm({
               <>
                 <span className="font-medium">{formatMenuItemLabel(item.name, item.unitLabel)}</span>
                 {!compactMenuLayout && item.description ? (
-                  <span className="mt-1 block text-sm text-muted">{item.description}</span>
+                  <span className="mt-1 block text-sm text-staff-instruction">{item.description}</span>
                 ) : null}
                 <span
-                  className={`block ${compactMenuLayout ? "text-xs text-muted" : "mt-1 text-sm font-medium"}`}
+                  className={`block ${compactMenuLayout ? "text-xs text-staff-instruction" : "mt-1 text-sm font-medium"}`}
                 >
                   {Number(item.price) > 0
                     ? `${formatPrice(item.price)} per ${item.unitLabel.toLowerCase()}`
@@ -616,7 +616,7 @@ export function ProviderOrderForm({
                     {formatMenuItemLabel(item.name, item.unitLabel)}
                   </span>
                   {sidePriceLabel ? (
-                    <span className="mt-0.5 block text-xs text-muted">{sidePriceLabel}</span>
+                    <span className="mt-0.5 block text-xs text-staff-instruction">{sidePriceLabel}</span>
                   ) : null}
                 </span>
               </label>
@@ -778,7 +778,7 @@ export function ProviderOrderForm({
               <div className="mt-3 space-y-4">
                 {Object.entries(standaloneGrouped).map(([category, items]) => (
                   <div key={category}>
-                    <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
+                    <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-staff-instruction">
                       {category}
                     </h4>
                     <div className="space-y-2">
@@ -802,7 +802,7 @@ export function ProviderOrderForm({
 
           <section className="mt-6">
             <label htmlFor="specialInstructions" className="block text-sm font-medium">
-              Special instructions <span className="font-normal text-muted">(optional)</span>
+              Special instructions <span className="font-normal text-staff-instruction">(optional)</span>
             </label>
             <textarea
               id="specialInstructions"
@@ -823,7 +823,7 @@ export function ProviderOrderForm({
               placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
               className={`${textareaClassName} mt-2 disabled:cursor-not-allowed disabled:opacity-60`}
             />
-            <p id={specialInstructionsHelperId} className="mt-1 text-xs text-muted">
+            <p id={specialInstructionsHelperId} className="mt-1 text-xs text-staff-instruction">
               Preparation notes for this order only. Up to 500 characters.
             </p>
             {invalidField === "specialInstructions" && validationError ? (
@@ -856,7 +856,7 @@ export function ProviderOrderForm({
       onSubmit={handleSubmit}
       className={
         useSplitLayout
-          ? "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_384px]"
+          ? "staff-edit-order-form lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_384px]"
           : "max-w-2xl mx-auto"
       }
     >
@@ -909,7 +909,7 @@ export function ProviderOrderForm({
                 }}
               />
             </div>
-            <p className="mt-2 text-xs text-muted">
+            <p className="mt-2 text-xs text-staff-instruction">
               Applies to the selected main and sides.
             </p>
           </section>
@@ -917,13 +917,13 @@ export function ProviderOrderForm({
 
       {grouped.standalone.length > 0 && (
         <section className="mb-8">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-staff-instruction">
             {offersMeals ? "Optional items" : "Items"}
           </h3>
           <div className="space-y-6">
             {Object.entries(standaloneGrouped).map(([category, items]) => (
               <div key={category}>
-                <h4 className="mb-2 text-sm font-medium text-muted">{category}</h4>
+                <h4 className="mb-2 text-sm font-medium text-staff-instruction">{category}</h4>
                 <div className="space-y-3">
                   {items.map((item) => (
                     <StandaloneItemCard
@@ -945,7 +945,7 @@ export function ProviderOrderForm({
 
       <section className="mb-8">
         <label htmlFor="specialInstructions" className="block text-sm font-medium">
-          Special instructions <span className="font-normal text-muted">(optional)</span>
+          Special instructions <span className="font-normal text-staff-instruction">(optional)</span>
         </label>
         <textarea
           id="specialInstructions"
@@ -965,7 +965,7 @@ export function ProviderOrderForm({
           placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
           className={`${textareaClassName} mt-2`}
         />
-        <p id={specialInstructionsHelperId} className="mt-1 text-xs text-muted">
+        <p id={specialInstructionsHelperId} className="mt-1 text-xs text-staff-instruction">
           Preparation notes for this order only. Up to 500 characters.
         </p>
         {invalidField === "specialInstructions" && validationError ? (
@@ -976,7 +976,13 @@ export function ProviderOrderForm({
       </section>
       </div>
 
-      <div className={useSplitLayout ? "lg:sticky lg:top-8 lg:self-start" : "mt-8"}>
+      <div
+        className={
+          useSplitLayout
+            ? "staff-edit-order-aside lg:sticky lg:top-8 lg:self-start"
+            : "mt-8"
+        }
+      >
         {(orderTotal > 0 || stableSplitLayout) && (
           <Card className="mb-6" padding="sm">
             <h3 className="text-sm font-semibold">Order summary</h3>

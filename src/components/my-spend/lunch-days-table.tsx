@@ -15,7 +15,7 @@ export function LunchDaysTable({ rows, emptyMessage }: Props) {
         <TealIconWell size="sm">
           <IconReceipt size={15} />
         </TealIconWell>
-        <p className="max-w-sm text-sm text-muted">{emptyMessage}</p>
+        <p className="max-w-sm text-sm text-staff-instruction">{emptyMessage}</p>
       </div>
     );
   }
@@ -24,7 +24,7 @@ export function LunchDaysTable({ rows, emptyMessage }: Props) {
     <div className="overflow-x-auto rounded-lg border border-border/80">
       <table className="min-w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-border bg-slate-50/90 text-muted">
+          <tr className="border-b border-border bg-slate-50/90 text-staff-instruction">
             <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide">Date</th>
             <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide">
               Provider(s)

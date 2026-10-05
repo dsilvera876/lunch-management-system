@@ -101,7 +101,9 @@ function NavLinks({
                               : "shrink-0 text-primary"
                           : isSidebar
                             ? "shrink-0 text-sidebar-muted"
-                            : "shrink-0 text-muted"
+                            : staffMobileNav
+                              ? "shrink-0 text-staff-instruction"
+                              : "shrink-0 text-muted"
                       }
                     />
                     <span className="truncate">{item.label}</span>
@@ -210,7 +212,9 @@ export function AppShell({
             <form action="/auth/signout" method="post" className="mt-5 border-t border-border pt-5 pb-2">
               <button
                 type="submit"
-                className="text-sm font-medium text-muted underline-offset-2 hover:underline"
+                className={`text-sm font-medium underline-offset-2 hover:underline ${
+                  userRole === "staff" ? "text-staff-instruction" : "text-muted"
+                }`}
               >
                 Sign out
               </button>

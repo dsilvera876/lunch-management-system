@@ -5,9 +5,17 @@ type Props = {
   description?: string;
   actions?: ReactNode;
   className?: string;
+  /** Staff routes: use Phase C1 instruction text color for AA contrast on app background. */
+  staffAccessibleDescription?: boolean;
 };
 
-export function PageHeader({ title, description, actions, className = "" }: Props) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  className = "",
+  staffAccessibleDescription = false,
+}: Props) {
   return (
     <div
       className={`mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between ${className}`}
@@ -17,7 +25,11 @@ export function PageHeader({ title, description, actions, className = "" }: Prop
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+          <p
+            className={`mt-2 max-w-3xl text-sm leading-6 ${
+              staffAccessibleDescription ? "text-staff-instruction" : "text-muted"
+            }`}
+          >
             {description}
           </p>
         )}

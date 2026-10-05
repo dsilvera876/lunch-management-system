@@ -25,7 +25,7 @@ export function SpendSummaryCard({
       <div className="flex h-full items-center gap-3">
         <TealIconWell className="shrink-0">{icon}</TealIconWell>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-staff-instruction">{label}</p>
           <p
             className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[1.65rem]"
             title={SALARY_DEDUCTION_HINT}
@@ -33,7 +33,7 @@ export function SpendSummaryCard({
           >
             {formatCurrency(payrollDeduction)}
           </p>
-          <p className="mt-0.5 text-sm text-muted">{formatLunchDayCount(lunchDayCount)}</p>
+          <p className="mt-0.5 text-sm text-staff-instruction">{formatLunchDayCount(lunchDayCount)}</p>
         </div>
       </div>
     </Card>
