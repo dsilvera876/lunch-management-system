@@ -97,7 +97,8 @@ cross join generate_series(1, 5) as weekday;
 \ir support/isolate_lunch_periods.inc
 \ir support/late_order_cycle.inc
 
-select set_config('test.jamaica_today', private.jamaica_today_date()::text, false);
+\ir support/pgtap_test_session.inc
+select set_config('test.jamaica_today', private.jamaica_today_date()::text, true);
 
 do $$
 begin

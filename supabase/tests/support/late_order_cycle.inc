@@ -138,7 +138,8 @@ begin
   order by candidate.order_date desc
   limit 1;
 
-  perform set_config('test.jamaica_today', v_today::text, false);
+  perform set_config('app.pgtap_test_session', 'true', true);
+  perform set_config('test.jamaica_today', v_today::text, true);
   perform set_config('test.current_order_date', v_current_order_date::text, false);
   perform set_config('test.late_order_date', v_order_date::text, false);
   perform set_config('test.late_delivery_date', v_delivery_date::text, false);

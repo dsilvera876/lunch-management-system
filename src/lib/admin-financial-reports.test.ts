@@ -116,6 +116,8 @@ describe("admin financial reports presentation", () => {
     assert.doesNotMatch(pageSource, /DailyLunchSubsidy/);
     assert.match(reportSource, /admin\/financials\/export\?periodId=/);
     assert.match(reportSource, /finalizeLunchPeriod/);
+    assert.match(reportSource, /isLunchPeriodEligibleForFinalization/);
+    assert.match(reportSource, /lunchPeriodFinalizationEligibilityMessage/);
     assert.match(reportSource, /formatFinalizationBlockedMessage/);
     assert.match(reportSource, /FINANCIAL_PERIOD_SUBSIDY_DISPLAY_PREFIX/);
     assert.match(employeeSource, /FINANCIAL_EMPLOYEE_TABLE_LABELS\.salaryDeduction/);

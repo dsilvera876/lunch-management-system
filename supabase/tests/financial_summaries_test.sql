@@ -429,6 +429,7 @@ select results_eq(
 -- Finalization
 -- ============================================================
 
+\ir support/finalize_eligible_jamaica_today.inc
 \ir support/reconcile_lunch_period_orders.inc
 
 select pg_temp.reconcile_lunch_period_orders_by_label('September Payroll A');

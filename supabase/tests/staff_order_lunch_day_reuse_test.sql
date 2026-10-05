@@ -2,6 +2,10 @@ begin;
 
 select plan(14);
 
+-- Clear session-scoped test date overrides leaked from earlier pgTAP files.
+select set_config('test.jamaica_today', '', false);
+select set_config('app.pgtap_test_session', '', false);
+
 \ir support/reset_app_settings_baseline.inc
 
 insert into auth.users (id, email, raw_user_meta_data)
@@ -281,6 +285,7 @@ select is(
     select count(*)::integer
     from public.lunch_days
     where provider_id = 'b9000000-0000-0000-0000-000000000088'
+      and lunch_date = public.delivery_date_for_order_date('2099-01-05'::date)
   ),
   1,
   'Repeated ensure does not insert duplicate lunch_days'

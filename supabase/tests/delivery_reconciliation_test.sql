@@ -434,6 +434,8 @@ select lives_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
+\ir support/finalize_eligible_jamaica_today.inc
+
 select lives_ok(
   $$ select public.finalize_lunch_period((select id from public.lunch_periods where label = 'Rec Payroll')) $$,
   'Finalization succeeds after unresolved delivery issues are cleared'

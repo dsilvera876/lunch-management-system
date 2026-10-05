@@ -82,6 +82,8 @@ select pg_temp.reconcile_lunch_period_orders_by_label('Guard Payroll A');
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '10444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
+\ir support/finalize_eligible_jamaica_today.inc
+
 select public.finalize_lunch_period(
   (select id from public.lunch_periods where label = 'Guard Payroll A')
 );

@@ -6,6 +6,10 @@ import {
   getEffectivePeriodSubsidyAmount,
 } from "@/lib/admin-financial-reports";
 import { formatFinalizationBlockedMessage } from "@/lib/delivery-reconciliation";
+import {
+  isLunchPeriodEligibleForFinalization,
+  lunchPeriodFinalizationEligibilityMessage,
+} from "@/lib/lunch-period-finalization";
 import { formatLunchPeriodCompactAdminRange } from "@/lib/lunch-periods";
 import { formatCurrency } from "@/lib/format";
 import { finalizeLunchPeriod } from "@/app/admin/financials/actions";
@@ -37,8 +41,19 @@ export function FinancialPeriodReport({
 }: Props) {
   const metrics = buildFinancialGrandMetrics(summary);
   const effectiveSubsidy = getEffectivePeriodSubsidyAmount(summary);
+  const periodEligibleForFinalization = isLunchPeriodEligibleForFinalization(
+    summary.period.end_date,
+  );
   const showFinalize =
-    canFinalize && summary.period.status === "open" && unresolvedIssueCount === 0;
+    canFinalize &&
+    summary.period.status === "open" &&
+    unresolvedIssueCount === 0 &&
+    periodEligibleForFinalization;
+  const showFinalizationEndDateNotice =
+    canFinalize &&
+    summary.period.status === "open" &&
+    unresolvedIssueCount === 0 &&
+    !periodEligibleForFinalization;
   const showReconciliationWarning =
     unresolvedIssueCount > 0 && summary.period.status === "open";
 
@@ -101,6 +116,11 @@ export function FinancialPeriodReport({
                   Finalize period
                 </Button>
               </form>
+            ) : null}
+            {showFinalizationEndDateNotice ? (
+              <p className="text-sm text-muted min-[520px]:max-w-xs min-[520px]:text-right">
+                {lunchPeriodFinalizationEligibilityMessage(summary.period.end_date)}
+              </p>
             ) : null}
             {supportReadOnly ? (
               <p className="text-sm text-muted min-[520px]:text-right">

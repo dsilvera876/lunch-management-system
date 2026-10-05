@@ -377,6 +377,7 @@ from public.lunch_periods
 where label = 'Deadline Reminder Guard';
 \ir support/reconcile_lunch_period_orders.inc
 select pg_temp.reconcile_lunch_period_orders_by_label('Deadline Reminder Guard');
+\ir support/finalize_eligible_jamaica_today.inc
 select public.finalize_lunch_period(
   (select id from public.lunch_periods where label = 'Deadline Reminder Guard')
 );

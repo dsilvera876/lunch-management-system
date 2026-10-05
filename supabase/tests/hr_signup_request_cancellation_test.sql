@@ -687,31 +687,37 @@ values (
 
 reset role;
 
-update public.lunch_days ld
-set
-  status = 'open',
-  order_deadline = now() + interval '1 day'
-where ld.id = (
-  select ld2.id
-  from public.lunch_days ld2
-  where not (select private.is_order_date_in_finalized_period(ld2.order_date))
-  order by ld2.order_date desc
-  limit 1
+insert into public.lunch_providers (id, name, active, primary_order_email)
+values (
+  'c1999999-9999-4999-8999-999999999998',
+  'History Block Kitchen',
+  true,
+  'provider-order+fixture@example.test'
+);
+
+insert into public.lunch_days (
+  id,
+  lunch_date,
+  order_date,
+  provider_id,
+  order_deadline,
+  status
+)
+values (
+  'c1999999-9999-4999-8999-999999999999',
+  public.delivery_date_for_order_date('2099-06-10'::date),
+  '2099-06-10'::date,
+  'c1999999-9999-4999-8999-999999999998',
+  public.order_deadline_for_order_date('2099-06-10'::date),
+  'open'
 );
 
 insert into public.orders (id, profile_id, lunch_day_id, status)
-select
+values (
   'c1888888-8888-4888-8888-888888888888',
   'c1777777-7777-4777-8777-777777777777',
-  ld.id,
+  'c1999999-9999-4999-8999-999999999999',
   'submitted'
-from public.lunch_days ld
-where ld.id = (
-  select ld2.id
-  from public.lunch_days ld2
-  where not (select private.is_order_date_in_finalized_period(ld2.order_date))
-  order by ld2.order_date desc
-  limit 1
 );
 
 set local role authenticated;

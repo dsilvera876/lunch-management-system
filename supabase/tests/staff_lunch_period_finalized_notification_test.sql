@@ -54,6 +54,8 @@ select pg_temp.reconcile_lunch_period_orders_by_label('Notice Payroll');
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'f1333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
+\ir support/finalize_eligible_jamaica_today.inc
+
 select lives_ok(
   $$ select public.finalize_lunch_period(current_setting('test.period_id')::uuid) $$,
   'finalize succeeds without staff notice'
