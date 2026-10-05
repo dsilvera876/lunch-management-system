@@ -15,6 +15,10 @@ import { ProviderOrderForm } from "@/components/provider-order-form";
 import { formatMenuItemLabel, formatOrderLineLabel, groupMenuItemsByType, groupStandaloneItemsByCategory, type MenuItemType } from "@/lib/menu-items";
 import { formatMealBundleLabel } from "@/lib/order-payload";
 import { linkButtonClass } from "@/components/ui/button";
+import {
+  ORDER_CANCELLED_CONFIRMATION_DETAIL,
+  ORDER_CANCELLED_CONFIRMATION_TITLE,
+} from "@/lib/staff-order-cancel-ux";
 
 type Props = {
   params: Promise<{
@@ -192,6 +196,8 @@ export default async function OrderDetailPage({
   );
 
   const standaloneGrouped = groupStandaloneItemsByCategory(groupedOrderItems.standalone);
+  const showCancelConfirmation =
+    order.status === "cancelled" && query.cancelled === "1";
 
   return (
     <>
@@ -203,7 +209,11 @@ export default async function OrderDetailPage({
             : undefined
         }
         actions={
-          <Link href="/my-orders" className={linkButtonClass("ghost")}>
+          <Link
+            href="/my-orders"
+            className={`${linkButtonClass("secondary")} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+            aria-label="View my orders"
+          >
             My orders
           </Link>
         }
@@ -232,12 +242,14 @@ export default async function OrderDetailPage({
         </Alert>
       )}
 
-      {query.cancelled && (
-        <Alert variant="info" className="mb-6">
-          This order was cancelled. You may place another order while ordering
-          remains open.
-        </Alert>
-      )}
+      {showCancelConfirmation ? (
+        <div role="status" aria-live="polite" className="mb-6">
+          <Alert variant="success">
+            <p className="font-medium">{ORDER_CANCELLED_CONFIRMATION_TITLE}</p>
+            <p className="mt-1 text-sm">{ORDER_CANCELLED_CONFIRMATION_DETAIL}</p>
+          </Alert>
+        </div>
+      ) : null}
 
       {query.error && (
         <Alert variant="error" className="mb-6">
@@ -351,9 +363,7 @@ export default async function OrderDetailPage({
             </div>
           )}
         </section>
-      ) : order.status === "cancelled" ? (
-        <Alert variant="info">This order has been cancelled.</Alert>
-      ) : order.status === "fulfilled" ? (
+      ) : order.status === "cancelled" ? null : order.status === "fulfilled" ? (
         <Alert variant="info">This order has been fulfilled.</Alert>
       ) : isEditing ? (
         <ProviderOrderForm

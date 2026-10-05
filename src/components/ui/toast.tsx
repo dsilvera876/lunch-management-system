@@ -123,7 +123,7 @@ function ToastItem({
           {toast.action ? (
             <Link
               href={toast.action.href}
-              className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+              className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-primary/30 bg-white/80 px-3 py-1.5 text-sm font-semibold text-primary no-underline transition-colors hover:border-primary hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               {toast.action.label}
             </Link>

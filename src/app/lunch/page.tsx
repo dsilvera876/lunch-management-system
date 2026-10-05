@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
+import { linkButtonClass } from "@/components/ui/button";
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { loadProviderMenusForOrderDate } from "@/lib/staff-provider-menu";
 import { getDailyLunchSubsidy } from "@/lib/financial-summaries";
@@ -80,6 +82,15 @@ export default async function LunchPage({ searchParams }: Props) {
       <PageHeader
         title="Today's Order"
         description="Choose a provider and submit a separate order for that provider before today's cutoff."
+        actions={
+          <Link
+            href="/my-orders"
+            className={`${linkButtonClass("secondary")} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+            aria-label="View my orders"
+          >
+            My orders
+          </Link>
+        }
       />
 
       {params.error && (
