@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { linkButtonClass } from "@/components/ui/button";
+import { Button, linkButtonClass } from "@/components/ui/button";
 import { DashboardOrderSummary } from "@/components/dashboard/dashboard-order-summary";
 import {
   IconArrowRight,
@@ -38,6 +38,9 @@ type Props = {
     providerName: string;
     deliveryDate: string;
   }>;
+  lateOrderRequestAvailable: boolean;
+  lateOrderTodayAvailable: boolean;
+  hasLateOrderRequests: boolean;
 };
 
 export function StaffDashboard({
@@ -55,9 +58,25 @@ export function StaffDashboard({
   lastPeriodSpend,
   deliveryOrders,
   recentOrders,
+  lateOrderRequestAvailable,
+  lateOrderTodayAvailable,
+  hasLateOrderRequests,
 }: Props) {
   const orderCtaLabel = hasOrderForDelivery ? "Order Again" : "Order Lunch";
   const deliveryLabel = deliveryDate ? formatHumanDate(deliveryDate) : null;
+  const orderingCardLead = orderingOpen
+    ? deliveryLabel
+      ? `Order for ${deliveryLabel} on Today's Order before the cutoff.`
+      : "Place orders on Today's Order before the cutoff."
+    : lateOrderRequestAvailable
+      ? deliveryLabel
+        ? `Normal ordering has closed for ${deliveryLabel}.`
+        : "Normal ordering has closed for today."
+      : hasLateOrderRequests
+        ? "Normal ordering is closed. Your late order request status is on Today's Order."
+        : deliveryLabel
+          ? `Ordering is closed for ${deliveryLabel}.`
+          : "Ordering is closed for today.";
 
   return (
     <div className="space-y-6">
@@ -83,11 +102,7 @@ export function StaffDashboard({
               </span>
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Next Lunch Ordering</h2>
-                <p className="mt-1 text-sm text-staff-instruction">
-                  {deliveryLabel
-                    ? `Order for ${deliveryLabel} on the Order Lunch page before the cutoff.`
-                    : "Place orders on the Order Lunch page before the cutoff."}
-                </p>
+                <p className="mt-1 text-sm text-staff-instruction">{orderingCardLead}</p>
               </div>
             </div>
             <StatusBadge status={orderingOpen ? "open" : "closed"} />
@@ -116,16 +131,75 @@ export function StaffDashboard({
           </div>
 
           <div className="mt-5">
-            <Link
-              href="/lunch"
-              className={`${linkButtonClass("primary", { staffPrimaryCta: true })} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
-            >
-              {orderCtaLabel}
-              <IconArrowRight size={18} className="opacity-90" />
-            </Link>
-            <p className="mt-2 text-xs text-staff-instruction">
-              You&apos;ll be taken to the Order Lunch page. Ordering is not completed from the dashboard.
-            </p>
+            {orderingOpen ? (
+              <>
+                <Link
+                  href="/lunch"
+                  className={`${linkButtonClass("primary", { staffPrimaryCta: true })} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
+                >
+                  {orderCtaLabel}
+                  <IconArrowRight size={18} className="opacity-90" />
+                </Link>
+                <p className="mt-2 text-xs text-staff-instruction">
+                  You&apos;ll be taken to Today&apos;s Order. Ordering is not completed from the
+                  dashboard.
+                </p>
+                {lateOrderTodayAvailable ? (
+                  <Link
+                    href="/lunch?lateOrder=1"
+                    className={`${linkButtonClass("secondary")} mt-3 min-h-10 w-full max-w-full justify-center px-5 py-2 text-sm font-medium`}
+                  >
+                    Late order for today
+                  </Link>
+                ) : null}
+              </>
+            ) : lateOrderRequestAvailable ? (
+              <>
+                <p className="text-sm text-staff-instruction">
+                  Normal ordering has closed. You can still request a late order before the provider
+                  cutoff.
+                </p>
+                <Link
+                  href="/lunch?lateOrder=1"
+                  className={`${linkButtonClass("primary", { staffPrimaryCta: true })} mt-3 min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
+                >
+                  Request a late order
+                  <IconArrowRight size={18} className="opacity-90" />
+                </Link>
+                <p className="mt-2 text-xs text-staff-instruction">
+                  You&apos;ll submit the request on Today&apos;s Order. HR must review it before an
+                  order is placed.
+                </p>
+              </>
+            ) : hasLateOrderRequests ? (
+              <>
+                <Link
+                  href="/lunch"
+                  className={`${linkButtonClass("secondary")} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
+                >
+                  View Today&apos;s Order
+                  <IconArrowRight size={18} className="opacity-90" />
+                </Link>
+                <p className="mt-2 text-xs text-staff-instruction">
+                  Your late order request status is on Today&apos;s Order.
+                </p>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled
+                  aria-disabled
+                  className="min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold"
+                >
+                  Lunch Ordering Closed
+                </Button>
+                <p className="mt-2 text-xs text-staff-instruction">
+                  Normal ordering is closed and late order requests are not available right now.
+                </p>
+              </>
+            )}
           </div>
         </Card>
 
@@ -158,7 +232,15 @@ export function StaffDashboard({
               <EmptyState
                 compact
                 title="No order placed for your next lunch yet."
-                description="Select Order Lunch above to choose your lunch."
+                description={
+                  lateOrderRequestAvailable
+                    ? "Use Request a late order above to ask HR for a late lunch."
+                    : orderingOpen
+                      ? "Select Order Lunch above to choose your lunch."
+                      : hasLateOrderRequests
+                        ? "View Today's Order above to see your late order request status."
+                        : "Normal ordering is closed for your next delivery."
+                }
               />
             </div>
           ) : (

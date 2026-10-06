@@ -110,12 +110,11 @@ describe("staff accessibility phase A wiring", () => {
 
   it("late order success uses polite status region", () => {
     const panel = readFileSync(
-      new URL("../components/dashboard/staff-late-order-request-panel.tsx", import.meta.url),
+      new URL("../components/lunch/staff-late-order-request-panel.tsx", import.meta.url),
       "utf8",
     );
 
-    assert.match(panel, /role="status"/);
-    assert.match(panel, /aria-live="polite"/);
+    assert.match(panel, /FormActionStatus variant="success"/);
     assert.match(panel, /Late order request submitted/);
     assert.match(panel, /Late order request updated/);
     assert.match(panel, /Late order request cancelled/);

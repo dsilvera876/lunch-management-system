@@ -25,6 +25,8 @@ select private.apply_profile_role('d8111111-1111-4111-8111-111111111111', 'hr');
 select private.apply_profile_role('d8222222-2222-4222-8222-222222222222', 'staff');
 select private.apply_profile_role('d8333333-3333-4333-8333-333333333333', 'accounts');
 
+\ir support/assign_test_office_defaults.inc
+
 insert into public.lunch_providers (
   id,
   name,
@@ -44,7 +46,7 @@ values
   true,
   true,
   'delivery_day',
-  '23:59:00',
+  '12:00:00',
   'automatic',
   'delivery_day',
   '10:00:00',
@@ -56,7 +58,7 @@ values
   true,
   true,
   'delivery_day',
-  '23:59:00',
+  '12:00:00',
   'manual',
   null,
   null,
@@ -93,9 +95,12 @@ from (
 ) as items(item_id)
 cross join generate_series(1, 5) as weekday;
 
-\ir support/open_ordering.inc
 \ir support/isolate_lunch_periods.inc
 \ir support/late_order_cycle.inc
+
+update public.app_settings
+set order_cutoff_time = '10:00:00'
+where id = 1;
 
 \ir support/pgtap_test_session.inc
 select set_config('test.jamaica_today', private.jamaica_today_date()::text, true);
@@ -362,7 +367,7 @@ update public.lunch_providers
 set automatic_supplement_send_day = 'order_day',
     automatic_supplement_send_time = '00:00:00',
     late_order_deadline_day = 'delivery_day',
-    late_order_deadline_time = '23:59:00'
+    late_order_deadline_time = '12:00:00'
 where id = 'd9111111-1111-4111-8111-111111111111';
 
 select ok(
@@ -790,7 +795,7 @@ insert into public.lunch_providers (
 values (
   'e9111111-1111-4111-8111-111111111111',
   'Worker Auto Empty',
-  true, true, 'delivery_day', '23:59:00', 'automatic',
+  true, true, 'delivery_day', '12:00:00', 'automatic',
   'order_day', '00:00:00', 'empty-auto@example.com'
 );
 

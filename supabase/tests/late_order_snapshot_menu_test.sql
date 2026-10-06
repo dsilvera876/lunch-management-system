@@ -41,7 +41,7 @@ values (
   true,
   true,
   'delivery_day',
-  '23:59:00',
+  '12:00:00',
   'manual',
   'snapshot-late@example.com'
 )

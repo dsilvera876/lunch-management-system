@@ -12,7 +12,7 @@ values (
   true,
   true,
   'delivery_day',
-  '23:59:00',
+  '12:00:00',
   'manual',
   'suppress-kitchen@example.com'
 )
@@ -21,8 +21,11 @@ on conflict (id) do update set
   accepts_late_orders = true,
   primary_order_email = excluded.primary_order_email;
 
-\ir support/open_ordering.inc
 \ir support/late_order_cycle.inc
+
+update public.app_settings
+set order_cutoff_time = '10:00:00'
+where id = 1;
 
 insert into auth.users (id, email, raw_user_meta_data)
 values

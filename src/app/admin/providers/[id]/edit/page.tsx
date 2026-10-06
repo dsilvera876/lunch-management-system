@@ -77,7 +77,8 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
   const lateOrderError =
     query.error === "late-settings" ||
     query.error === "late-schedule" ||
-    query.error === "late-update"
+    query.error === "late-update" ||
+    query.error === "late-cutoff-noon"
       ? query.error
       : undefined;
   const dangerZoneError =
@@ -183,6 +184,11 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
                 {lateOrderError === "late-update" && (
                   <Alert variant="error" className="mb-4">
                     Unable to save late-order settings.
+                  </Alert>
+                )}
+                {lateOrderError === "late-cutoff-noon" && (
+                  <Alert variant="error" className="mb-4">
+                    The late-order cutoff cannot be later than 12:00 PM on the delivery date.
                   </Alert>
                 )}
 

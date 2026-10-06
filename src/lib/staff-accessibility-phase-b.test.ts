@@ -77,7 +77,7 @@ describe("Phase B staff form wiring", () => {
 
   it("late order request form wires invalid fields and error summary", () => {
     const panel = readFileSync(
-      new URL("../components/dashboard/staff-late-order-request-panel.tsx", import.meta.url),
+      new URL("../components/lunch/staff-late-order-request-panel.tsx", import.meta.url),
       "utf8",
     );
     assert.match(panel, /aria-invalid/);

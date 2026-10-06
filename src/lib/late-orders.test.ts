@@ -11,7 +11,56 @@ import {
   isValidProviderOrderEmail,
   providerLateOrderAnchorAt,
   validateAutomaticSupplementSchedule,
+  validateDeliveryDayLateOrderCutoff,
+  effectiveLateOrderDeadlineTime,
+  DELIVERY_DAY_LATE_CUTOFF_NOON_ERROR,
 } from "./late-orders";
+
+describe("delivery-day late cutoff noon cap", () => {
+  const base = {
+    acceptsLateOrders: true,
+    lateOrderDeadlineDay: "delivery_day" as const,
+  };
+
+  it("allows delivery-day cutoffs through 12:00 PM", () => {
+    assert.equal(
+      validateDeliveryDayLateOrderCutoff({ ...base, lateOrderDeadlineTime: "11:59:00" }),
+      null,
+    );
+    assert.equal(
+      validateDeliveryDayLateOrderCutoff({ ...base, lateOrderDeadlineTime: "12:00:00" }),
+      null,
+    );
+  });
+
+  it("rejects delivery-day cutoffs after 12:00 PM", () => {
+    assert.equal(
+      validateDeliveryDayLateOrderCutoff({ ...base, lateOrderDeadlineTime: "12:01:00" }),
+      DELIVERY_DAY_LATE_CUTOFF_NOON_ERROR,
+    );
+    assert.equal(
+      validateDeliveryDayLateOrderCutoff({ ...base, lateOrderDeadlineTime: "18:00:00" }),
+      DELIVERY_DAY_LATE_CUTOFF_NOON_ERROR,
+    );
+  });
+
+  it("caps effective runtime deadline time for legacy delivery_day values", () => {
+    assert.equal(effectiveLateOrderDeadlineTime("delivery_day", "21:00:00"), "12:00:00");
+    assert.equal(effectiveLateOrderDeadlineTime("delivery_day", "12:00:00"), "12:00:00");
+    assert.equal(effectiveLateOrderDeadlineTime("order_day", "21:00:00"), "21:00:00");
+  });
+
+  it("does not apply to previous-day cutoffs", () => {
+    assert.equal(
+      validateDeliveryDayLateOrderCutoff({
+        acceptsLateOrders: true,
+        lateOrderDeadlineDay: "order_day",
+        lateOrderDeadlineTime: "18:00:00",
+      }),
+      null,
+    );
+  });
+});
 
 describe("late order deadline helpers", () => {
   it("calculates delivery-day and order-day anchors in Jamaica time", () => {

@@ -14,8 +14,11 @@ import {
 } from "@/lib/home-dashboard";
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
+import {
+  filterStaffLateOrderForDeliveryDate,
+  staffLateOrderCreateAvailable,
+} from "@/lib/staff-late-order-today";
 import { loadStaffLateOrderRequestContext } from "@/app/home/staff-late-order-request-actions";
-import { StaffLateOrderRequestPanel } from "@/components/dashboard/staff-late-order-request-panel";
 
 export default async function HomePage() {
   const profile = await requireProfile();
@@ -66,6 +69,16 @@ export default async function HomePage() {
     currentPeriod?.period_id ?? null,
   );
 
+  const todayLateOrderContext = filterStaffLateOrderForDeliveryDate(
+    lateRequestContext,
+    today,
+  );
+  const lateOrderRequestAvailable =
+    !ctx.orderingOpen && staffLateOrderCreateAvailable(todayLateOrderContext);
+  const lateOrderTodayAvailable =
+    ctx.orderingOpen && staffLateOrderCreateAvailable(todayLateOrderContext);
+  const hasLateOrderRequests = todayLateOrderContext.requests.length > 0;
+
   const recentOrders =
     recentOrdersResult.data?.map((order) => {
       const lunchDay = Array.isArray(order.lunch_days) ? order.lunch_days[0] : order.lunch_days;
@@ -104,11 +117,9 @@ export default async function HomePage() {
       lastPeriodSpend={lastPeriod?.amount ?? null}
       deliveryOrders={ctx.deliveryOrders}
       recentOrders={recentOrders}
-      />
-      <StaffLateOrderRequestPanel
-        orderingOpen={ctx.orderingOpen}
-        eligibleCycles={lateRequestContext.eligibleCycles}
-        requests={lateRequestContext.requests}
+      lateOrderRequestAvailable={lateOrderRequestAvailable}
+      lateOrderTodayAvailable={lateOrderTodayAvailable}
+      hasLateOrderRequests={hasLateOrderRequests}
       />
     </div>
   );

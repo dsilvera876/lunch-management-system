@@ -63,6 +63,26 @@ export function formatLateOrderTimeLabel(time: string | null): string {
   }).format(date);
 }
 
+export function effectiveLateOrderDeadlineTime(
+  deadlineDay: LateOrderDeadlineDay | null,
+  deadlineTime: string | null,
+): string | null {
+  if (!deadlineDay || !deadlineTime) {
+    return deadlineTime;
+  }
+
+  const normalized = parseTimeValue(deadlineTime);
+  if (!normalized) {
+    return null;
+  }
+
+  if (deadlineDay === "delivery_day" && normalized > "12:00:00") {
+    return "12:00:00";
+  }
+
+  return normalized;
+}
+
 export function providerLateOrderAnchorAt(
   anchorDay: LateOrderDeadlineDay,
   anchorTime: string,
@@ -70,7 +90,11 @@ export function providerLateOrderAnchorAt(
   deliveryDate: string,
 ): Date {
   const anchorDate = anchorDay === "order_day" ? orderDate : deliveryDate;
-  return new Date(`${anchorDate}T${anchorTime}-05:00`);
+  const effectiveTime =
+    anchorDay === "delivery_day"
+      ? (effectiveLateOrderDeadlineTime(anchorDay, anchorTime) ?? anchorTime)
+      : anchorTime;
+  return new Date(`${anchorDate}T${effectiveTime}-05:00`);
 }
 
 export function isProviderLateOrderingOpen(
@@ -99,6 +123,35 @@ export function isProviderLateOrderingOpen(
   );
 
   return now.getTime() <= deadline.getTime();
+}
+
+export const DELIVERY_DAY_LATE_CUTOFF_NOON_ERROR =
+  "The late-order cutoff cannot be later than 12:00 PM on the delivery date.";
+
+export function validateDeliveryDayLateOrderCutoff(
+  settings: Pick<
+    ProviderLateOrderSettings,
+    "acceptsLateOrders" | "lateOrderDeadlineDay" | "lateOrderDeadlineTime"
+  >,
+): string | null {
+  if (!settings.acceptsLateOrders) {
+    return null;
+  }
+
+  if (settings.lateOrderDeadlineDay !== "delivery_day" || !settings.lateOrderDeadlineTime) {
+    return null;
+  }
+
+  const normalized = parseTimeValue(settings.lateOrderDeadlineTime);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized > "12:00:00") {
+    return DELIVERY_DAY_LATE_CUTOFF_NOON_ERROR;
+  }
+
+  return null;
 }
 
 export function validateAutomaticSupplementSchedule(

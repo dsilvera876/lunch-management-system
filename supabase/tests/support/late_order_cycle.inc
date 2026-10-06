@@ -12,6 +12,17 @@
 
 set time zone 'America/Jamaica';
 
+select set_config(
+  'test.late_order_cycle_prev_cutoff',
+  (select order_cutoff_time::text from public.app_settings where id = 1),
+  true
+);
+
+-- Late-order RPCs require company ordering closed during cycle resolution only.
+update public.app_settings
+set order_cutoff_time = '10:00:00'
+where id = 1;
+
 do $$
 declare
   v_today date := private.jamaica_today_date();
@@ -119,6 +130,30 @@ begin
       and candidate.order_date < v_today
       and candidate.delivery_date = v_today
       and not private.is_order_date_in_finalized_period(candidate.order_date)
+      and now() <= public.provider_late_order_deadline_at(
+        v_provider_id,
+        candidate.order_date,
+        candidate.delivery_date
+      )
+    order by candidate.order_date desc
+    limit 1;
+  end if;
+
+  if v_order_date is null or v_delivery_date is null then
+    select candidate.order_date, candidate.delivery_date
+    into v_order_date, v_delivery_date
+    from (
+      select
+        (v_today - offs) as order_date,
+        public.delivery_date_for_order_date((v_today - offs)) as delivery_date
+      from generate_series(0, 21) as offs
+    ) candidate
+    where public.iso_weekday(candidate.order_date) is not null
+      and candidate.delivery_date is not null
+      and candidate.delivery_date > v_today
+      and candidate.order_date <= v_today
+      and not private.is_order_date_in_finalized_period(candidate.order_date)
+      and now() > public.order_deadline_for_order_date(candidate.order_date)
     order by candidate.order_date desc
     limit 1;
   end if;
@@ -150,3 +185,10 @@ begin
   );
 end;
 $$;
+
+update public.app_settings
+set order_cutoff_time = coalesce(
+  nullif(current_setting('test.late_order_cycle_prev_cutoff', true), '')::time,
+  order_cutoff_time
+)
+where id = 1;

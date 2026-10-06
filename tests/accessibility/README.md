@@ -61,7 +61,7 @@ Tests do not place orders, send email, or mutate HR/account configuration.
 
 ## Skips
 
-Only optional: **late order panel** on `/home` when the seed has no eligible late-order cycle.
+Optional skips when the seed has no eligible late-order cycle: **home late-order link** and **lunch late-order panel** tests.
 
 ## Manual checks
 

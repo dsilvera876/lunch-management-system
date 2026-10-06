@@ -1,7 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type RefObject,
+} from "react";
 import {
   cancelStaffLateOrderRequestAction,
   createStaffLateOrderRequestAction,
@@ -12,15 +21,46 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormActionStatus } from "@/components/ui/form-action-status";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formControlLabelClassName, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { formatHumanDate } from "@/lib/format";
 import { focusFormErrorSummary, joinDescribedBy } from "@/lib/staff-form-accessibility";
 
-type Props = {
+export type StaffLateOrderRequestPanelProps = {
   orderingOpen: boolean;
   eligibleCycles: EligibleLateOrderCycle[];
   requests: StaffLateOrderRequestRow[];
+  deliveryDate: string;
+  variant?: "drawer" | "embedded" | "card";
+  sectionHeadingRef?: RefObject<HTMLHeadingElement | null>;
+  /** @deprecated Use variant="embedded" */
+  embedded?: boolean;
 };
+
+const LATE_ORDER_ONE_PER_PROVIDER_HELPER =
+  "You can only place one late lunch order per lunch provider today.";
+
+function lateOrderRequestStatusBadgeStatus(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "pending") {
+    return "pending";
+  }
+  if (normalized === "fulfilled") {
+    return "fulfilled";
+  }
+  if (normalized === "declined") {
+    return "declined";
+  }
+  if (normalized === "cancelled") {
+    return "cancelled";
+  }
+  if (normalized === "expired") {
+    return "expired";
+  }
+  return normalized;
+}
+
+type Props = StaffLateOrderRequestPanelProps;
 
 type FieldKey = "cycle" | "summary" | "quantity" | "instructions";
 
@@ -28,8 +68,19 @@ function cycleKey(c: EligibleLateOrderCycle): string {
   return `${c.provider_id}:${c.scheduled_delivery_date}`;
 }
 
-export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, requests }: Props) {
+export function StaffLateOrderRequestPanel({
+  orderingOpen,
+  eligibleCycles,
+  requests,
+  deliveryDate,
+  variant = "card",
+  sectionHeadingRef,
+  embedded = false,
+}: Props) {
+  const layoutVariant = embedded ? "embedded" : variant;
+  void orderingOpen;
   const router = useRouter();
+  const [optimisticCancelledIds, setOptimisticCancelledIds] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<FieldKey | "general" | null>(null);
@@ -50,7 +101,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   const instructionsHelperId = useId();
   const instructionsErrorId = useId();
 
-  const showEntry = !orderingOpen && eligibleCycles.length > 0;
+  const showEntry = eligibleCycles.length > 0;
 
   const cycleOptions = eligibleCycles.filter((c, index, list) => {
     const key = cycleKey(c);
@@ -67,12 +118,29 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   const [instructions, setInstructions] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const editingRequest = requests.find((r) => r.id === editingId) ?? null;
+  const requestRows = useMemo(
+    () =>
+      requests.map((row) => {
+        if (
+          optimisticCancelledIds.includes(row.id) &&
+          row.status.toLowerCase() === "pending"
+        ) {
+          return { ...row, status: "cancelled" };
+        }
+        return row;
+      }),
+    [optimisticCancelledIds, requests],
+  );
+  const editingRequest = requestRows.find((r) => r.id === editingId) ?? null;
   const editFormRef = useRef<HTMLFormElement>(null);
 
   function clearFieldValidation() {
     setError(null);
     setInvalidField(null);
+  }
+
+  function clearSuccessMessage() {
+    setSuccessMessage(null);
   }
 
   function setFormError(message: string, field: FieldKey | "general" = "general") {
@@ -102,7 +170,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
     }
   }, [editingId]);
 
-  if (!showEntry && requests.length === 0) {
+  if (!showEntry && requestRows.length === 0) {
     return null;
   }
 
@@ -202,6 +270,10 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
         setFormError(result.error);
         return;
       }
+      setOptimisticCancelledIds((current) =>
+        current.includes(requestId) ? current : [...current, requestId],
+      );
+      setEditingId(null);
       setSuccessMessage("Late order request cancelled.");
       refresh();
     });
@@ -210,6 +282,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
   function closeCreateForm() {
     setOpen(false);
     clearFieldValidation();
+    clearSuccessMessage();
   }
 
   const errorSummary =
@@ -314,16 +387,71 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
     </>
   );
 
-  return (
-    <Card padding="md" className="shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Late order request</h2>
-          <p className="mt-1 text-sm text-muted">
-            Normal ordering is closed, but you can still ask for a late lunch before the provider cutoff.
-          </p>
+  const panelBody = (
+    <>
+      {layoutVariant !== "drawer" ? (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2
+              id="late-order-request-heading"
+              ref={sectionHeadingRef}
+              tabIndex={-1}
+              className="text-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Late order request
+            </h2>
+            <p className="mt-1 text-sm text-staff-instruction">
+              Delivery date: {formatHumanDate(deliveryDate)}.{" "}
+              {showEntry ? (
+                <>
+                  Submit a late order request before the provider cutoff. HR must review and fulfill
+                  approved requests—submitting does not create an order by itself.
+                </>
+              ) : (
+                <>
+                  Your late order request status is shown below. HR must review and fulfill approved
+                  requests—submitting a request does not create an order by itself.
+                </>
+              )}
+            </p>
+          </div>
+          {showEntry ? (
+            <Button
+              type="button"
+              variant="secondary"
+              aria-expanded={open}
+              onClick={() => {
+                if (open) {
+                  closeCreateForm();
+                } else {
+                  clearSuccessMessage();
+                  setOpen(true);
+                  setEditingId(null);
+                }
+              }}
+            >
+              {open ? "Close" : "Request a late order"}
+            </Button>
+          ) : null}
         </div>
-        {showEntry ? (
+      ) : (
+        <p className="text-sm text-staff-instruction">
+          {showEntry ? (
+            <>
+              Submit a late order request before the provider cutoff. HR must review and fulfill
+              approved requests—submitting does not create an order by itself.
+            </>
+          ) : (
+            <>
+              Your late order request status is shown below. HR must review and fulfill approved
+              requests—submitting a request does not create an order by itself.
+            </>
+          )}
+        </p>
+      )}
+
+      {layoutVariant === "drawer" && showEntry ? (
+        <div className="mt-4">
           <Button
             type="button"
             variant="secondary"
@@ -332,20 +460,21 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
               if (open) {
                 closeCreateForm();
               } else {
+                clearSuccessMessage();
                 setOpen(true);
                 setEditingId(null);
               }
             }}
           >
-            {open ? "Close" : "Request a late order"}
+            {open ? "Close request form" : "Request a late order"}
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {successMessage ? (
-        <p id={successStatusId} className="sr-only" role="status" aria-live="polite">
+        <FormActionStatus variant="success" id={successStatusId} className="mt-3">
           {successMessage}
-        </p>
+        </FormActionStatus>
       ) : null}
 
       {errorSummary}
@@ -384,6 +513,7 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
             </select>
           </div>
           {sharedRequestFields}
+          <p className="text-sm text-staff-instruction">{LATE_ORDER_ONE_PER_PROVIDER_HELPER}</p>
           <Button type="submit" variant="primary" staffPrimaryCta>
             Submit request
           </Button>
@@ -410,32 +540,35 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
         </form>
       ) : null}
 
-      {requests.length > 0 ? (
+      {requestRows.length > 0 ? (
         <ul className="mt-4 space-y-2 border-t border-border pt-4">
-          {requests.map((request) => (
+          {requestRows.map((request) => (
             <li
               key={request.id}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-foreground">
                     {request.provider_name} · {formatHumanDate(request.scheduled_delivery_date)}
                   </p>
-                  <p className="text-muted capitalize">{request.status}</p>
+                  <div className="mt-1.5">
+                    <StatusBadge status={lateOrderRequestStatusBadgeStatus(request.status)} />
+                  </div>
                   <p className="mt-1">{request.requested_summary}</p>
-                  {request.status === "declined" && request.decline_reason ? (
-                    <p className="mt-1 text-muted" role="status">
+                  {request.status.toLowerCase() === "declined" && request.decline_reason ? (
+                    <p className="mt-1 text-sm text-staff-instruction" role="status">
                       Reason: {request.decline_reason}
                     </p>
                   ) : null}
                 </div>
-                {request.status === "pending" ? (
+                {request.status.toLowerCase() === "pending" ? (
                   <div className="flex shrink-0 gap-2">
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => {
+                        clearSuccessMessage();
                         setEditingId(request.id);
                         setSummary(request.requested_summary);
                         setQuantity(String(request.quantity));
@@ -456,6 +589,28 @@ export function StaffLateOrderRequestPanel({ orderingOpen, eligibleCycles, reque
           ))}
         </ul>
       ) : null}
+    </>
+  );
+
+  if (layoutVariant === "drawer") {
+    return panelBody;
+  }
+
+  if (layoutVariant === "embedded") {
+    return (
+      <section
+        id="late-order-request"
+        className="mt-6 border-t border-border pt-6 text-left"
+        aria-labelledby="late-order-request-heading"
+      >
+        {panelBody}
+      </section>
+    );
+  }
+
+  return (
+    <Card id="late-order-request" padding="md" className="border-l-4 border-amber-500/70 shadow-sm">
+      {panelBody}
     </Card>
   );
 }

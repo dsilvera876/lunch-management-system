@@ -6,6 +6,7 @@ import { requireMutateHrOperationalData } from "@/lib/auth";
 import {
   parseTimeValue,
   validateAutomaticSupplementSchedule,
+  validateDeliveryDayLateOrderCutoff,
   type LateOrderDeadlineDay,
   type ProviderLateOrderSettings,
   type SupplementalDispatchMode,
@@ -57,6 +58,11 @@ export async function updateProviderLateOrderSettings(formData: FormData) {
 
   if (acceptsLateOrders && (!settings.lateOrderDeadlineDay || !settings.lateOrderDeadlineTime)) {
     redirect(`/admin/providers/${id}/edit?error=late-settings`);
+  }
+
+  const deliveryDayCutoffError = validateDeliveryDayLateOrderCutoff(settings);
+  if (deliveryDayCutoffError) {
+    redirect(`/admin/providers/${id}/edit?error=late-cutoff-noon`);
   }
 
   const orderDate = getJamaicaTodayDate();

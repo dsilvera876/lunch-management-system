@@ -13,7 +13,7 @@ values
   true,
   true,
   'delivery_day',
-  '23:59:00',
+  '12:00:00',
   'manual',
   'slor-kitchen@example.com'
 )
@@ -50,7 +50,7 @@ values
   true,
   true,
   'delivery_day',
-  '23:59:00',
+  '12:00:00',
   'manual',
   'slor-kitchen-c@example.com'
 )
@@ -77,8 +77,11 @@ select 'c8333333-3333-4333-8333-333333333333'::uuid, weekday
 from generate_series(1, 5) as weekday
 on conflict do nothing;
 
-\ir support/open_ordering.inc
 \ir support/late_order_cycle.inc
+
+update public.app_settings
+set order_cutoff_time = '10:00:00'
+where id = 1;
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
