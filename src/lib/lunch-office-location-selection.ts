@@ -20,6 +20,23 @@ export function resolveInitialOfficeLocationId(
   return "";
 }
 
+/** Persist default when confirming delivery location on /lunch (not deferred to checkout). */
+export function shouldPersistDefaultOnLocationConfirm(
+  saveAsDefault: boolean,
+  savedDefaultOfficeLocationId: string | null,
+  selectedOfficeLocationId: string,
+): boolean {
+  if (!saveAsDefault || selectedOfficeLocationId.length === 0) {
+    return false;
+  }
+
+  if (savedDefaultOfficeLocationId === null) {
+    return true;
+  }
+
+  return selectedOfficeLocationId !== savedDefaultOfficeLocationId;
+}
+
 export function getOfficeLocationDisplayName(
   locations: OfficeLocationOption[],
   selectedLocationId: string,

@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { saveMyDefaultOfficeLocation } from "@/app/account/actions";
 import { OrderingStatusBar } from "@/components/lunch/ordering-status-bar";
 import { LunchOrderingWorkspace } from "@/components/lunch/lunch-ordering-workspace";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import {
   getOfficeLocationDisplayName,
   resolveInitialOfficeLocationId,
+  shouldPersistDefaultOnLocationConfirm,
 } from "@/lib/lunch-office-location-selection";
 import { buildCheckoutSuccessToastBody } from "@/lib/lunch-order-submit-ui";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
@@ -54,6 +57,8 @@ function LunchOrderingShellInner({
   closedMessage,
 }: Props) {
   const { showToast } = useToast();
+  const router = useRouter();
+  const [, startTransition] = useTransition();
 
   const initialDefaultLocationId = useMemo(
     () =>
@@ -70,6 +75,7 @@ function LunchOrderingShellInner({
   const [locationPickerOpen, setLocationPickerOpen] = useState(
     () => officeLocations.length > 0 && initialDefaultLocationId === "",
   );
+  const [defaultSaveError, setDefaultSaveError] = useState<string | null>(null);
 
   const locationName = getOfficeLocationDisplayName(
     officeLocations,
@@ -84,7 +90,38 @@ function LunchOrderingShellInner({
 
     setSelectedLocationId(locationId);
     setLocationPickerOpen(false);
+    setDefaultSaveError(null);
+
+    if (
+      !shouldPersistDefaultOnLocationConfirm(
+        saveAsDefault,
+        defaultOfficeLocationId,
+        locationId,
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await saveMyDefaultOfficeLocation(locationId);
+
+      if (!result.ok) {
+        setDefaultSaveError(
+          "Your delivery location was selected for this order, but your default preference could not be saved. Try again from Preferences or re-select with save checked.",
+        );
+        return;
+      }
+
+      setSaveAsDefault(false);
+      router.refresh();
+    });
   }
+
+  const persistDefaultOnCheckout = shouldPersistDefaultOnLocationConfirm(
+    saveAsDefault,
+    defaultOfficeLocationId,
+    selectedLocationId,
+  );
 
   function handleCheckoutSuccess(payload: { orderCount: number; providerCount: number }) {
     showToast({
@@ -112,11 +149,11 @@ function LunchOrderingShellInner({
         onSelectLocation={handleSelectLocation}
         locationPickerOpen={locationPickerOpen}
         onLocationPickerOpenChange={setLocationPickerOpen}
-        defaultOfficeLocationId={defaultOfficeLocationId}
         initialDefaultLocationId={initialDefaultLocationId}
-        showSaveAsDefault={defaultOfficeLocationId === null}
+        showSaveAsDefault
         saveAsDefault={saveAsDefault}
         onSaveAsDefaultChange={setSaveAsDefault}
+        defaultSaveError={defaultSaveError}
       />
 
       <LunchOrderingWorkspace
@@ -128,7 +165,7 @@ function LunchOrderingShellInner({
         existingOrderDateGross={existingOrderDateGross}
         officeLocations={officeLocations}
         selectedOfficeLocationId={selectedLocationId}
-        saveAsDefault={saveAsDefault}
+        saveAsDefault={persistDefaultOnCheckout}
         onRequestLocationPicker={() => setLocationPickerOpen(true)}
         onCheckoutSuccess={handleCheckoutSuccess}
       />

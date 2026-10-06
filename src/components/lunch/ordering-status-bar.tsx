@@ -21,11 +21,11 @@ type Props = {
   onSelectLocation?: (locationId: string) => void;
   locationPickerOpen?: boolean;
   onLocationPickerOpenChange?: (open: boolean) => void;
-  defaultOfficeLocationId?: string | null;
   initialDefaultLocationId?: string;
   showSaveAsDefault?: boolean;
   saveAsDefault?: boolean;
   onSaveAsDefaultChange?: (value: boolean) => void;
+  defaultSaveError?: string | null;
 };
 
 export function OrderingStatusBar({
@@ -40,11 +40,11 @@ export function OrderingStatusBar({
   onSelectLocation,
   locationPickerOpen = false,
   onLocationPickerOpenChange,
-  defaultOfficeLocationId = null,
   initialDefaultLocationId = "",
   showSaveAsDefault = false,
   saveAsDefault = false,
   onSaveAsDefaultChange,
+  defaultSaveError = null,
 }: Props) {
   const changeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -151,6 +151,12 @@ export function OrderingStatusBar({
                 ) : null}
               </p>
 
+              {defaultSaveError ? (
+                <p className="mt-2 text-sm text-red-700" role="alert">
+                  {defaultSaveError}
+                </p>
+              ) : null}
+
               {canPickLocation ? (
                 <OrderLocationPopover
                   open={locationPickerOpen}
@@ -158,7 +164,6 @@ export function OrderingStatusBar({
                   locations={officeLocations}
                   selectedLocationId={selectedLocationId}
                   onSelectLocation={onSelectLocation}
-                  defaultLocationId={defaultOfficeLocationId}
                   initialDefaultLocationId={initialDefaultLocationId}
                   showSaveAsDefault={showSaveAsDefault}
                   saveAsDefault={saveAsDefault}

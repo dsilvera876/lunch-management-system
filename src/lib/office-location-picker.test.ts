@@ -28,7 +28,41 @@ describe("OfficeLocationPicker", () => {
       new URL("../app/lunch/actions.ts", import.meta.url),
       "utf8",
     );
+    const accountActions = readFileSync(
+      new URL("../app/account/actions.ts", import.meta.url),
+      "utf8",
+    );
+    const lunchShell = readFileSync(
+      new URL("../components/lunch/lunch-ordering-shell.tsx", import.meta.url),
+      "utf8",
+    );
+    const statusBar = readFileSync(
+      new URL("../components/lunch/ordering-status-bar.tsx", import.meta.url),
+      "utf8",
+    );
 
-    assert.match(lunchActions, /saveAsDefault === "on"/);
+    assert.match(lunchActions, /saveMyDefaultOfficeLocation/);
+    assert.match(accountActions, /set_my_default_office_location/);
+    assert.match(lunchShell, /saveMyDefaultOfficeLocation/);
+    assert.match(lunchShell, /shouldPersistDefaultOnLocationConfirm\([\s\S]*selectedLocationId/);
+    assert.match(lunchShell, /showSaveAsDefault/);
+    assert.doesNotMatch(
+      readFileSync(
+        new URL("../components/lunch/order-location-popover.tsx", import.meta.url),
+        "utf8",
+      ),
+      /defaultLocationId === null \?/,
+    );
+    assert.match(lunchShell, /defaultSaveError/);
+    assert.match(statusBar, /role="alert"/);
+  });
+
+  it("account preferences read the same profiles default column", () => {
+    const accountPage = readFileSync(
+      new URL("../app/account/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(accountPage, /default_office_location_id/);
   });
 });

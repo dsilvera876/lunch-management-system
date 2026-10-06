@@ -22,6 +22,7 @@ import type {
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 import { loadProviderMenusForOrderDate } from "@/lib/staff-provider-menu";
 import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
+import { saveMyDefaultOfficeLocation } from "@/app/account/actions";
 function getOrderErrorCode(message: string) {
   const normalized = message.toLowerCase();
 
@@ -140,9 +141,7 @@ export async function submitProviderOrder(
   }
 
   if (saveAsDefault === "on") {
-    await supabase.rpc("set_my_default_office_location", {
-      p_office_location_id: officeLocationId,
-    });
+    await saveMyDefaultOfficeLocation(officeLocationId);
   }
 
   revalidatePath("/lunch");
@@ -268,9 +267,7 @@ export async function submitLunchCheckout(
   }
 
   if (saveAsDefault) {
-    await supabase.rpc("set_my_default_office_location", {
-      p_office_location_id: officeLocationId,
-    });
+    await saveMyDefaultOfficeLocation(officeLocationId);
   }
 
   revalidatePath("/lunch");

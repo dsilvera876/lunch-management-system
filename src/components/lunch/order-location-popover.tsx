@@ -14,7 +14,6 @@ type Props = {
   locations: OfficeLocationOption[];
   selectedLocationId: string;
   onSelectLocation: (locationId: string) => void;
-  defaultLocationId: string | null;
   initialDefaultLocationId: string;
   showSaveAsDefault: boolean;
   saveAsDefault: boolean;
@@ -28,7 +27,6 @@ export function OrderLocationPopover({
   locations,
   selectedLocationId,
   onSelectLocation,
-  defaultLocationId,
   initialDefaultLocationId,
   showSaveAsDefault,
   saveAsDefault,
@@ -88,7 +86,7 @@ export function OrderLocationPopover({
         </button>
       ) : null}
 
-      {showSaveAsDefault && defaultLocationId === null ? (
+      {showSaveAsDefault ? (
         <label className="mt-3 flex items-start gap-2 text-sm">
           <input
             type="checkbox"
