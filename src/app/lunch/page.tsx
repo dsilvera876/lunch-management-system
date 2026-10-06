@@ -187,8 +187,9 @@ export default async function LunchPage({ searchParams }: Props) {
   const lateOrderDrawer = buildStaffLateOrderDrawerContext(lateRequestContext, todayDeliveryDate);
 
   const lateOrderDrawerProps = {
-    deliveryDate: lateOrderDrawer.deliveryDate,
     jamaicaToday: todayDeliveryDate,
+    defaultDeliveryDate: lateOrderDrawer.defaultDeliveryDate,
+    deliveryDates: lateOrderDrawer.deliveryDates,
     orderingOpen: ctx.orderingOpen,
     eligibleCycles: lateOrderDrawer.context.eligibleCycles,
     requests: lateOrderDrawer.context.requests,

@@ -2,35 +2,38 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildStaffLateOrderDrawerContext,
-  filterStaffLateOrderForJamaicaToday,
+  collectStaffLateOrderDeliveryDates,
+  defaultStaffLateOrderDeliveryDate,
+  filterStaffLateOrderForDeliveryDate,
   staffLateOrderCreateAvailable,
+  staffLateOrderDrawerTitle,
   staffLateOrderDrawerVisible,
   staffLateOrderTriggerLabel,
 } from "./staff-late-order-today";
 
-const today = "2099-01-06";
-const future = "2099-01-07";
+const tuesday = "2099-01-07";
+const wednesday = "2099-01-08";
 
 const cycleToday = {
   provider_id: "p1",
   provider_name: "A",
-  order_date: "2099-01-05",
-  scheduled_delivery_date: today,
+  order_date: "2099-01-06",
+  scheduled_delivery_date: tuesday,
 };
 
 const cycleFuture = {
   provider_id: "p2",
   provider_name: "B",
-  order_date: "2099-01-06",
-  scheduled_delivery_date: future,
+  order_date: tuesday,
+  scheduled_delivery_date: wednesday,
 };
 
 const requestToday = {
   id: "r1",
   provider_id: "p1",
   provider_name: "A",
-  order_date: "2099-01-05",
-  scheduled_delivery_date: today,
+  order_date: "2099-01-06",
+  scheduled_delivery_date: tuesday,
   status: "pending" as const,
   requested_summary: "Salad",
   quantity: 1,
@@ -41,75 +44,105 @@ const requestToday = {
   updated_at: "",
 };
 
-describe("staff late order today helpers", () => {
-  it("narrows RPC payload to Jamaica today only", () => {
-    const full = {
-      eligibleCycles: [cycleToday, cycleFuture],
+describe("staff late order delivery helpers", () => {
+  it("collects distinct sorted delivery dates from cycles and requests", () => {
+    const dates = collectStaffLateOrderDeliveryDates({
+      eligibleCycles: [cycleFuture, cycleToday],
       requests: [requestToday],
-    };
-
-    const narrowed = filterStaffLateOrderForJamaicaToday(full, today);
-    assert.equal(narrowed.eligibleCycles.length, 1);
-    assert.equal(narrowed.eligibleCycles[0]?.provider_id, "p1");
-    assert.equal(narrowed.requests.length, 1);
+    });
+    assert.deepEqual(dates, [tuesday, wednesday]);
   });
 
-  it("today eligible -> Late order for today trigger", () => {
-    const ctx = filterStaffLateOrderForJamaicaToday({ eligibleCycles: [cycleToday], requests: [] }, today);
-    assert.equal(staffLateOrderTriggerLabel(ctx), "Late order for today");
-    assert.equal(staffLateOrderTriggerLabel(ctx, { orderingOpen: true }), "Late order for today");
+  it("defaults to Jamaica today when eligible, otherwise earliest date", () => {
+    assert.equal(
+      defaultStaffLateOrderDeliveryDate([wednesday, tuesday], tuesday),
+      tuesday,
+    );
+    assert.equal(defaultStaffLateOrderDeliveryDate([wednesday], tuesday), wednesday);
   });
 
-  it("today status only -> Late order status trigger", () => {
-    const ctx = filterStaffLateOrderForJamaicaToday({ eligibleCycles: [], requests: [requestToday] }, today);
-    assert.equal(staffLateOrderCreateAvailable(ctx), false);
-    assert.equal(staffLateOrderTriggerLabel(ctx), "Late order status");
+  it("filters providers and requests for a selected delivery date", () => {
+    const scoped = filterStaffLateOrderForDeliveryDate(
+      { eligibleCycles: [cycleToday, cycleFuture], requests: [requestToday] },
+      wednesday,
+    );
+    assert.equal(scoped.eligibleCycles.length, 1);
+    assert.equal(scoped.eligibleCycles[0]?.provider_id, "p2");
+    assert.equal(scoped.requests.length, 0);
+  });
+});
+
+describe("staff late order drawer context", () => {
+  it("Tuesday repro: future-only eligible cycle exposes drawer and Late order label", () => {
+    const full = { eligibleCycles: [cycleFuture], requests: [] };
+    const drawer = buildStaffLateOrderDrawerContext(full, tuesday);
+
+    assert.equal(drawer.visible, true);
+    assert.equal(drawer.context.eligibleCycles.length, 1);
+    assert.equal(drawer.defaultDeliveryDate, wednesday);
+    assert.equal(drawer.deliveryDates.length, 1);
+    assert.equal(staffLateOrderTriggerLabel(full, tuesday), "Late order");
+    assert.equal(staffLateOrderDrawerTitle(wednesday, tuesday), "Late order request");
   });
 
-  it("future eligible only -> no same-day drawer", () => {
+  it("today only -> Late order for today", () => {
+    const full = { eligibleCycles: [cycleToday], requests: [] };
+    const drawer = buildStaffLateOrderDrawerContext(full, tuesday);
+
+    assert.equal(drawer.visible, true);
+    assert.equal(drawer.defaultDeliveryDate, tuesday);
+    assert.equal(staffLateOrderTriggerLabel(full, tuesday), "Late order for today");
+    assert.equal(staffLateOrderDrawerTitle(tuesday, tuesday), "Late order for today");
+  });
+
+  it("today + future -> Late orders with today default", () => {
+    const full = { eligibleCycles: [cycleToday, cycleFuture], requests: [] };
+    const drawer = buildStaffLateOrderDrawerContext(full, tuesday);
+
+    assert.equal(drawer.visible, true);
+    assert.equal(drawer.defaultDeliveryDate, tuesday);
+    assert.deepEqual(drawer.deliveryDates, [tuesday, wednesday]);
+    assert.equal(staffLateOrderTriggerLabel(full, tuesday), "Late orders");
+  });
+
+  it("future only with no create on today still lists future provider when scoped", () => {
     const drawer = buildStaffLateOrderDrawerContext(
       { eligibleCycles: [cycleFuture], requests: [] },
-      today,
+      tuesday,
     );
+    const wednesdayScope = filterStaffLateOrderForDeliveryDate(drawer.context, wednesday);
+    assert.equal(staffLateOrderCreateAvailable(wednesdayScope), true);
+    assert.equal(wednesdayScope.eligibleCycles[0]?.provider_name, "B");
+  });
+
+  it("status only -> Late order status", () => {
+    const full = { eligibleCycles: [], requests: [requestToday] };
+    assert.equal(staffLateOrderCreateAvailable(full), false);
+    assert.equal(staffLateOrderTriggerLabel(full, tuesday), "Late order status");
+    assert.equal(buildStaffLateOrderDrawerContext(full, tuesday).visible, true);
+  });
+
+  it("no eligible cycles and no requests -> hidden drawer", () => {
+    const drawer = buildStaffLateOrderDrawerContext({ eligibleCycles: [], requests: [] }, tuesday);
+    assert.equal(staffLateOrderDrawerVisible(drawer.context), false);
     assert.equal(drawer.visible, false);
-    assert.equal(staffLateOrderTriggerLabel(drawer.context), null);
+    assert.equal(staffLateOrderTriggerLabel(drawer.context, tuesday), null);
   });
 
-  it("today + future eligible -> drawer shows today only", () => {
-    const drawer = buildStaffLateOrderDrawerContext(
-      { eligibleCycles: [cycleToday, cycleFuture], requests: [] },
-      today,
-    );
-    assert.equal(drawer.visible, true);
-    assert.equal(drawer.deliveryDate, today);
-    assert.equal(drawer.context.eligibleCycles.length, 1);
-    assert.equal(drawer.context.eligibleCycles[0]?.scheduled_delivery_date, today);
-  });
-
-  it("normal ordering open + today late eligible -> create available", () => {
-    const drawer = buildStaffLateOrderDrawerContext({ eligibleCycles: [cycleToday], requests: [] }, today);
-    assert.equal(drawer.visible, true);
-    assert.equal(staffLateOrderCreateAvailable(drawer.context), true);
+  it("closed ordering + eligible -> prominent request label", () => {
+    const full = { eligibleCycles: [cycleFuture], requests: [] };
     assert.equal(
-      staffLateOrderTriggerLabel(drawer.context, { orderingOpen: true }),
-      "Late order for today",
-    );
-  });
-
-  it("closed + today late eligible -> prominent request action label", () => {
-    const drawer = buildStaffLateOrderDrawerContext({ eligibleCycles: [cycleToday], requests: [] }, today);
-    assert.equal(
-      staffLateOrderTriggerLabel(drawer.context, { orderingOpen: false, prominent: true }),
+      staffLateOrderTriggerLabel(full, tuesday, { orderingOpen: false, prominent: true }),
       "Request a late order",
     );
   });
 
-  it("no today eligibility or status -> no drawer", () => {
-    const drawer = buildStaffLateOrderDrawerContext(
-      { eligibleCycles: [cycleFuture], requests: [] },
-      today,
+  it("normal ordering open + today late eligible -> create available", () => {
+    const drawer = buildStaffLateOrderDrawerContext({ eligibleCycles: [cycleToday], requests: [] }, tuesday);
+    assert.equal(staffLateOrderCreateAvailable(drawer.context), true);
+    assert.equal(
+      staffLateOrderTriggerLabel(drawer.context, tuesday, { orderingOpen: true }),
+      "Late order for today",
     );
-    assert.equal(staffLateOrderDrawerVisible(drawer.context), false);
-    assert.equal(drawer.visible, false);
   });
 });

@@ -40,6 +40,7 @@ type Props = {
   }>;
   lateOrderRequestAvailable: boolean;
   lateOrderTodayAvailable: boolean;
+  lateOrderSecondaryLabel: string | null;
   hasLateOrderRequests: boolean;
 };
 
@@ -60,6 +61,7 @@ export function StaffDashboard({
   recentOrders,
   lateOrderRequestAvailable,
   lateOrderTodayAvailable,
+  lateOrderSecondaryLabel,
   hasLateOrderRequests,
 }: Props) {
   const orderCtaLabel = hasOrderForDelivery ? "Order Again" : "Order Lunch";
@@ -144,12 +146,12 @@ export function StaffDashboard({
                   You&apos;ll be taken to Today&apos;s Order. Ordering is not completed from the
                   dashboard.
                 </p>
-                {lateOrderTodayAvailable ? (
+                {lateOrderTodayAvailable && lateOrderSecondaryLabel ? (
                   <Link
                     href="/lunch?lateOrder=1"
                     className={`${linkButtonClass("secondary")} mt-3 min-h-10 w-full max-w-full justify-center px-5 py-2 text-sm font-medium`}
                   >
-                    Late order for today
+                    {lateOrderSecondaryLabel}
                   </Link>
                 ) : null}
               </>

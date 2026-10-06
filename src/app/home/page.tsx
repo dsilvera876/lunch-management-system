@@ -15,8 +15,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import {
-  filterStaffLateOrderForDeliveryDate,
   staffLateOrderCreateAvailable,
+  staffLateOrderTriggerLabel,
 } from "@/lib/staff-late-order-today";
 import { loadStaffLateOrderRequestContext } from "@/app/home/staff-late-order-request-actions";
 
@@ -69,15 +69,14 @@ export default async function HomePage() {
     currentPeriod?.period_id ?? null,
   );
 
-  const todayLateOrderContext = filterStaffLateOrderForDeliveryDate(
-    lateRequestContext,
-    today,
-  );
   const lateOrderRequestAvailable =
-    !ctx.orderingOpen && staffLateOrderCreateAvailable(todayLateOrderContext);
+    !ctx.orderingOpen && staffLateOrderCreateAvailable(lateRequestContext);
+  const lateOrderSecondaryLabel = staffLateOrderTriggerLabel(lateRequestContext, today, {
+    orderingOpen: ctx.orderingOpen,
+  });
   const lateOrderTodayAvailable =
-    ctx.orderingOpen && staffLateOrderCreateAvailable(todayLateOrderContext);
-  const hasLateOrderRequests = todayLateOrderContext.requests.length > 0;
+    ctx.orderingOpen && lateOrderSecondaryLabel !== null && staffLateOrderCreateAvailable(lateRequestContext);
+  const hasLateOrderRequests = lateRequestContext.requests.length > 0;
 
   const recentOrders =
     recentOrdersResult.data?.map((order) => {
@@ -119,6 +118,7 @@ export default async function HomePage() {
       recentOrders={recentOrders}
       lateOrderRequestAvailable={lateOrderRequestAvailable}
       lateOrderTodayAvailable={lateOrderTodayAvailable}
+      lateOrderSecondaryLabel={lateOrderTodayAvailable ? lateOrderSecondaryLabel : null}
       hasLateOrderRequests={hasLateOrderRequests}
       />
     </div>

@@ -11,7 +11,7 @@ describe("staff late order UX", () => {
 
     assert.match(dashboard, /orderingOpen \?/);
     assert.match(dashboard, /lateOrderTodayAvailable/);
-    assert.match(dashboard, /Late order for today/);
+    assert.match(dashboard, /lateOrderSecondaryLabel/);
     assert.match(dashboard, /lateOrderRequestAvailable \?/);
     assert.match(dashboard, /hasLateOrderRequests \?/);
     assert.match(dashboard, /Lunch Ordering Closed/);
@@ -32,13 +32,16 @@ describe("staff late order UX", () => {
     assert.match(lunch, /StaffLateOrderDrawerRoot/);
     assert.match(lunch, /StaffLateOrderDrawerTrigger/);
     assert.match(lunch, /buildStaffLateOrderDrawerContext/);
-    assert.match(lunch, /filterStaffLateOrderForJamaicaToday|buildStaffLateOrderDrawerContext/);
+    assert.match(lunch, /defaultDeliveryDate/);
+    assert.match(lunch, /deliveryDates/);
     assert.doesNotMatch(lunch, /StaffLateOrderRequestSection/);
     assert.match(drawer, /FocusTrapPopover/);
-    assert.match(drawer, /FocusTrapPopover/);
     assert.match(drawer, /aria-label="Close late order drawer"/);
-    assert.match(drawer, /LATE_ORDER_DRAWER_TITLE/);
-    assert.doesNotMatch(drawer, /resolveLateOrderDrawerDeliveryDate/);
+    assert.match(drawer, /staffLateOrderDrawerTitle/);
+    assert.match(drawer, /Delivery date/);
+    assert.match(drawer, /filterStaffLateOrderForDeliveryDate/);
+    assert.match(drawer, /deliveryDates\.length > 1/);
+    assert.match(drawer, /key=\{selectedDeliveryDate\}/);
     assert.doesNotMatch(panel, /type="date"|delivery date selector/i);
     assert.match(panel, /const showEntry = eligibleCycles\.length > 0/);
     assert.match(drawer, /variant="drawer"/);

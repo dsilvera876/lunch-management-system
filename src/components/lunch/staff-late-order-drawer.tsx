@@ -14,10 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { FocusTrapPopover } from "@/components/ui/focus-trap-popover";
 import { IconX } from "@/components/icons/line-icons";
+import { formControlLabelClassName, selectClassName } from "@/components/ui/form-field";
 import { formatHumanDate } from "@/lib/format";
 import {
-  LATE_ORDER_DRAWER_TITLE,
+  filterStaffLateOrderForDeliveryDate,
   staffLateOrderCreateAvailable,
+  staffLateOrderDrawerTitle,
   staffLateOrderDrawerVisible,
   staffLateOrderTriggerLabel,
   type StaffLateOrderTodayContext,
@@ -28,10 +30,12 @@ import {
 } from "@/components/lunch/staff-late-order-request-panel";
 
 type DrawerContextValue = {
-  deliveryDate: string;
   jamaicaToday: string;
   orderingOpen: boolean;
-  context: StaffLateOrderTodayContext;
+  fullContext: StaffLateOrderTodayContext;
+  selectedDeliveryDate: string;
+  setSelectedDeliveryDate: (date: string) => void;
+  deliveryDates: string[];
   highlightFromQuery: boolean;
   triggerRef: RefObject<HTMLButtonElement | null>;
   drawerOpen: boolean;
@@ -48,16 +52,21 @@ function useStaffLateOrderDrawer() {
   return value;
 }
 
-type RootProps = StaffLateOrderRequestPanelProps & {
-  deliveryDate: string;
+type RootProps = Pick<
+  StaffLateOrderRequestPanelProps,
+  "orderingOpen" | "eligibleCycles" | "requests"
+> & {
   jamaicaToday: string;
+  defaultDeliveryDate: string;
+  deliveryDates: string[];
   highlightFromQuery?: boolean;
   children: ReactNode;
 };
 
 export function StaffLateOrderDrawerRoot({
-  deliveryDate,
   jamaicaToday,
+  defaultDeliveryDate,
+  deliveryDates,
   orderingOpen,
   eligibleCycles,
   requests,
@@ -65,38 +74,41 @@ export function StaffLateOrderDrawerRoot({
   children,
 }: RootProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const context = useMemo(
+  const fullContext = useMemo(
     (): StaffLateOrderTodayContext => ({ eligibleCycles, requests }),
     [eligibleCycles, requests],
   );
+  const [selectedDeliveryDate, setSelectedDeliveryDate] = useState(defaultDeliveryDate);
   const [drawerOpen, setDrawerOpen] = useState(
     () =>
       highlightFromQuery &&
       !orderingOpen &&
-      staffLateOrderCreateAvailable({ eligibleCycles, requests }),
+      staffLateOrderCreateAvailable(fullContext),
   );
 
   useEffect(() => {
-    if (!highlightFromQuery || !staffLateOrderDrawerVisible(context)) {
+    if (!highlightFromQuery || !staffLateOrderDrawerVisible(fullContext)) {
       return;
     }
 
     window.requestAnimationFrame(() => {
       triggerRef.current?.focus({ preventScroll: true });
     });
-  }, [context, highlightFromQuery]);
+  }, [fullContext, highlightFromQuery]);
 
-  if (!staffLateOrderDrawerVisible(context)) {
+  if (!staffLateOrderDrawerVisible(fullContext)) {
     return null;
   }
 
   return (
     <StaffLateOrderDrawerContext.Provider
       value={{
-        deliveryDate,
         jamaicaToday,
         orderingOpen,
-        context,
+        fullContext,
+        selectedDeliveryDate,
+        setSelectedDeliveryDate,
+        deliveryDates,
         highlightFromQuery,
         triggerRef,
         drawerOpen,
@@ -104,12 +116,7 @@ export function StaffLateOrderDrawerRoot({
       }}
     >
       {children}
-      <StaffLateOrderDrawerSurface
-        deliveryDate={deliveryDate}
-        orderingOpen={orderingOpen}
-        eligibleCycles={eligibleCycles}
-        requests={requests}
-      />
+      <StaffLateOrderDrawerSurface orderingOpen={orderingOpen} />
     </StaffLateOrderDrawerContext.Provider>
   );
 }
@@ -120,8 +127,9 @@ type TriggerProps = {
 };
 
 export function StaffLateOrderDrawerTrigger({ prominent = false, className = "" }: TriggerProps) {
-  const { context, orderingOpen, triggerRef, setDrawerOpen } = useStaffLateOrderDrawer();
-  const label = staffLateOrderTriggerLabel(context, { orderingOpen, prominent });
+  const { fullContext, jamaicaToday, orderingOpen, triggerRef, setDrawerOpen } =
+    useStaffLateOrderDrawer();
+  const label = staffLateOrderTriggerLabel(fullContext, jamaicaToday, { orderingOpen, prominent });
 
   if (!label) {
     return null;
@@ -141,15 +149,27 @@ export function StaffLateOrderDrawerTrigger({ prominent = false, className = "" 
   );
 }
 
-function StaffLateOrderDrawerSurface({
-  deliveryDate,
-  orderingOpen,
-  eligibleCycles,
-  requests,
-}: StaffLateOrderRequestPanelProps & { deliveryDate: string }) {
-  const { drawerOpen, setDrawerOpen, triggerRef } = useStaffLateOrderDrawer();
+function StaffLateOrderDrawerSurface({ orderingOpen }: { orderingOpen: boolean }) {
+  const {
+    drawerOpen,
+    setDrawerOpen,
+    triggerRef,
+    jamaicaToday,
+    fullContext,
+    selectedDeliveryDate,
+    setSelectedDeliveryDate,
+    deliveryDates,
+  } = useStaffLateOrderDrawer();
   const titleId = useId();
+  const deliveryFieldId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
+
+  const scopedContext = useMemo(
+    () => filterStaffLateOrderForDeliveryDate(fullContext, selectedDeliveryDate),
+    [fullContext, selectedDeliveryDate],
+  );
+
+  const drawerTitle = staffLateOrderDrawerTitle(selectedDeliveryDate, jamaicaToday);
 
   return (
     <FocusTrapPopover
@@ -173,16 +193,35 @@ function StaffLateOrderDrawerSurface({
         className="relative flex h-full w-full max-w-md flex-col border-l border-border bg-surface shadow-xl motion-reduce:transition-none"
       >
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <h2
               id={titleId}
               ref={headingRef}
               tabIndex={-1}
               className="text-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              {LATE_ORDER_DRAWER_TITLE}
+              {drawerTitle}
             </h2>
-            <p className="mt-1 text-sm text-staff-instruction">{formatHumanDate(deliveryDate)}</p>
+            <p className="mt-1 text-sm text-staff-instruction">{formatHumanDate(selectedDeliveryDate)}</p>
+            {deliveryDates.length > 1 ? (
+              <div className="mt-3">
+                <label htmlFor={deliveryFieldId} className={formControlLabelClassName}>
+                  Delivery date
+                </label>
+                <select
+                  id={deliveryFieldId}
+                  className={`${selectClassName} mt-1 w-full`}
+                  value={selectedDeliveryDate}
+                  onChange={(event) => setSelectedDeliveryDate(event.target.value)}
+                >
+                  {deliveryDates.map((date) => (
+                    <option key={date} value={date}>
+                      {formatHumanDate(date)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </div>
           <Button
             type="button"
@@ -195,11 +234,12 @@ function StaffLateOrderDrawerSurface({
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <StaffLateOrderRequestPanel
+            key={selectedDeliveryDate}
             variant="drawer"
             orderingOpen={orderingOpen}
-            eligibleCycles={eligibleCycles}
-            requests={requests}
-            deliveryDate={deliveryDate}
+            eligibleCycles={scopedContext.eligibleCycles}
+            requests={scopedContext.requests}
+            deliveryDate={selectedDeliveryDate}
           />
         </div>
       </div>
