@@ -25,12 +25,19 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formControlLabelClassName, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { formatHumanDate } from "@/lib/format";
 import { focusFormErrorSummary, joinDescribedBy } from "@/lib/staff-form-accessibility";
+import { useStaffLateOrderDrawerOptional } from "@/components/lunch/staff-late-order-drawer";
+import { buildLateOrderSubmitFeedback } from "@/lib/staff-late-order-submission-feedback";
 
 export type StaffLateOrderRequestPanelProps = {
   orderingOpen: boolean;
   eligibleCycles: EligibleLateOrderCycle[];
   requests: StaffLateOrderRequestRow[];
   deliveryDate: string;
+  officeLocationId?: string;
+  savedDefaultOfficeLocationId?: string | null;
+  saveAsDefault?: boolean;
+  locationRequired?: boolean;
+  eligibilityLoading?: boolean;
   variant?: "drawer" | "embedded" | "card";
   sectionHeadingRef?: RefObject<HTMLHeadingElement | null>;
   /** @deprecated Use variant="embedded" */
@@ -73,6 +80,11 @@ export function StaffLateOrderRequestPanel({
   eligibleCycles,
   requests,
   deliveryDate,
+  officeLocationId = "",
+  savedDefaultOfficeLocationId = null,
+  saveAsDefault = false,
+  locationRequired = false,
+  eligibilityLoading = false,
   variant = "card",
   sectionHeadingRef,
   embedded = false,
@@ -80,8 +92,9 @@ export function StaffLateOrderRequestPanel({
   const layoutVariant = embedded ? "embedded" : variant;
   void orderingOpen;
   const router = useRouter();
+  const lateOrderDrawer = useStaffLateOrderDrawerOptional();
   const [optimisticCancelledIds, setOptimisticCancelledIds] = useState<string[]>([]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => variant === "drawer");
   const [error, setError] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<FieldKey | "general" | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -111,7 +124,19 @@ export function StaffLateOrderRequestPanel({
   const [selectedCycleKey, setSelectedCycleKey] = useState(
     cycleOptions[0] ? cycleKey(cycleOptions[0]) : "",
   );
-  const selectedCycle = cycleOptions.find((c) => cycleKey(c) === selectedCycleKey) ?? null;
+  const effectiveSelectedCycleKey = useMemo(() => {
+    if (cycleOptions.length === 0) {
+      return "";
+    }
+
+    if (cycleOptions.some((cycle) => cycleKey(cycle) === selectedCycleKey)) {
+      return selectedCycleKey;
+    }
+
+    return cycleKey(cycleOptions[0]!);
+  }, [cycleOptions, selectedCycleKey]);
+  const selectedCycle =
+    cycleOptions.find((cycle) => cycleKey(cycle) === effectiveSelectedCycleKey) ?? null;
 
   const [summary, setSummary] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -154,6 +179,8 @@ export function StaffLateOrderRequestPanel({
     }
   }, [error]);
 
+  const createFormOpen = layoutVariant === "drawer" ? showEntry : open;
+
   useEffect(() => {
     if (open && showEntry) {
       window.requestAnimationFrame(() => {
@@ -170,8 +197,28 @@ export function StaffLateOrderRequestPanel({
     }
   }, [editingId]);
 
+  if (locationRequired && requestRows.length === 0) {
+    return (
+      <p className="text-sm text-staff-instruction">
+        Select a delivery location above to view eligible providers or submit a new late order.
+      </p>
+    );
+  }
+
+  if (eligibilityLoading && requestRows.length === 0) {
+    return (
+      <p className="text-sm text-staff-instruction" role="status" aria-live="polite">
+        Checking late-order availability…
+      </p>
+    );
+  }
+
   if (!showEntry && requestRows.length === 0) {
-    return null;
+    return (
+      <p className="text-sm text-staff-instruction">
+        No late-order providers are available for this delivery date at the selected location.
+      </p>
+    );
   }
 
   function refresh() {
@@ -211,6 +258,17 @@ export function StaffLateOrderRequestPanel({
       return;
     }
 
+    if (!officeLocationId) {
+      setFormError("Choose a delivery location before submitting.", "general");
+      return;
+    }
+
+    if (layoutVariant === "drawer") {
+      lateOrderDrawer?.clearSubmissionFeedback();
+    } else {
+      clearSuccessMessage();
+    }
+
     startTransition(async () => {
       const result = await createStaffLateOrderRequestAction({
         providerId: selectedCycle.provider_id,
@@ -218,6 +276,9 @@ export function StaffLateOrderRequestPanel({
         requestedSummary: summary,
         quantity: Number.parseInt(quantity, 10),
         specialInstructions: instructions,
+        officeLocationId,
+        saveAsDefault,
+        savedDefaultOfficeLocationId,
       });
 
       if (!result.ok) {
@@ -225,8 +286,18 @@ export function StaffLateOrderRequestPanel({
         return;
       }
 
-      setSuccessMessage("Late order request submitted.");
-      setOpen(false);
+      if (layoutVariant === "drawer" && lateOrderDrawer) {
+        lateOrderDrawer.setSubmissionFeedback(
+          buildLateOrderSubmitFeedback(result.defaultSaveWarning),
+        );
+      } else {
+        setSuccessMessage(
+          result.defaultSaveWarning
+            ? result.defaultSaveWarning
+            : "Late order request submitted.",
+        );
+        setOpen(false);
+      }
       setSummary("");
       setInstructions("");
       setQuantity("1");
@@ -256,7 +327,11 @@ export function StaffLateOrderRequestPanel({
         return;
       }
 
-      setSuccessMessage("Late order request updated.");
+      if (layoutVariant === "drawer") {
+        lateOrderDrawer?.clearSubmissionFeedback();
+      } else {
+        setSuccessMessage("Late order request updated.");
+      }
       setEditingId(null);
       refresh();
     });
@@ -274,7 +349,11 @@ export function StaffLateOrderRequestPanel({
         current.includes(requestId) ? current : [...current, requestId],
       );
       setEditingId(null);
-      setSuccessMessage("Late order request cancelled.");
+      if (layoutVariant === "drawer") {
+        lateOrderDrawer?.clearSubmissionFeedback();
+      } else {
+        setSuccessMessage("Late order request cancelled.");
+      }
       refresh();
     });
   }
@@ -450,28 +529,7 @@ export function StaffLateOrderRequestPanel({
         </p>
       )}
 
-      {layoutVariant === "drawer" && showEntry ? (
-        <div className="mt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            aria-expanded={open}
-            onClick={() => {
-              if (open) {
-                closeCreateForm();
-              } else {
-                clearSuccessMessage();
-                setOpen(true);
-                setEditingId(null);
-              }
-            }}
-          >
-            {open ? "Close request form" : "Request a late order"}
-          </Button>
-        </div>
-      ) : null}
-
-      {successMessage ? (
+      {layoutVariant !== "drawer" && successMessage ? (
         <FormActionStatus variant="success" id={successStatusId} className="mt-3">
           {successMessage}
         </FormActionStatus>
@@ -479,7 +537,7 @@ export function StaffLateOrderRequestPanel({
 
       {errorSummary}
 
-      {open && showEntry ? (
+      {createFormOpen && showEntry ? (
         <form
           ref={createFormRef}
           onSubmit={handleCreate}
@@ -497,7 +555,7 @@ export function StaffLateOrderRequestPanel({
               id={cycleFieldId}
               ref={cycleSelectRef}
               className={selectClassName}
-              value={selectedCycleKey}
+              value={effectiveSelectedCycleKey}
               onChange={(e) => {
                 setSelectedCycleKey(e.target.value);
                 clearFieldValidation();
@@ -515,7 +573,7 @@ export function StaffLateOrderRequestPanel({
           {sharedRequestFields}
           <p className="text-sm text-staff-instruction">{LATE_ORDER_ONE_PER_PROVIDER_HELPER}</p>
           <Button type="submit" variant="primary" staffPrimaryCta>
-            Submit request
+            {layoutVariant === "drawer" ? "Submit late order" : "Submit request"}
           </Button>
         </form>
       ) : null}
@@ -569,6 +627,7 @@ export function StaffLateOrderRequestPanel({
                       variant="ghost"
                       onClick={() => {
                         clearSuccessMessage();
+                        lateOrderDrawer?.clearSubmissionFeedback();
                         setEditingId(request.id);
                         setSummary(request.requested_summary);
                         setQuantity(String(request.quantity));

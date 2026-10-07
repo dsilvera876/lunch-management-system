@@ -30,6 +30,8 @@ type Props = {
   cutoffTime: string;
   orderDeadline: string | null;
   closedMessage?: string | null;
+  /** When true, do not auto-open the normal-order location popover on mount. */
+  deferInitialLocationPicker?: boolean;
 };
 
 export function LunchOrderingShell(props: Props) {
@@ -55,6 +57,7 @@ function LunchOrderingShellInner({
   cutoffTime,
   orderDeadline,
   closedMessage,
+  deferInitialLocationPicker = false,
 }: Props) {
   const { showToast } = useToast();
   const router = useRouter();
@@ -73,7 +76,10 @@ function LunchOrderingShellInner({
   const [selectedLocationId, setSelectedLocationId] = useState(initialDefaultLocationId);
   const [saveAsDefault, setSaveAsDefault] = useState(defaultOfficeLocationId === null);
   const [locationPickerOpen, setLocationPickerOpen] = useState(
-    () => officeLocations.length > 0 && initialDefaultLocationId === "",
+    () =>
+      !deferInitialLocationPicker &&
+      officeLocations.length > 0 &&
+      initialDefaultLocationId === "",
   );
   const [defaultSaveError, setDefaultSaveError] = useState<string | null>(null);
 

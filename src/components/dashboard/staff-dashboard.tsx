@@ -39,9 +39,9 @@ type Props = {
     deliveryDate: string;
   }>;
   lateOrderRequestAvailable: boolean;
-  lateOrderTodayAvailable: boolean;
-  lateOrderSecondaryLabel: string | null;
-  hasLateOrderRequests: boolean;
+  lateOrderStatusAvailable: boolean;
+  lateOrderActionWhileOrderingOpen: boolean;
+  lateOrderActionLabel: string | null;
 };
 
 export function StaffDashboard({
@@ -60,9 +60,9 @@ export function StaffDashboard({
   deliveryOrders,
   recentOrders,
   lateOrderRequestAvailable,
-  lateOrderTodayAvailable,
-  lateOrderSecondaryLabel,
-  hasLateOrderRequests,
+  lateOrderStatusAvailable,
+  lateOrderActionWhileOrderingOpen,
+  lateOrderActionLabel,
 }: Props) {
   const orderCtaLabel = hasOrderForDelivery ? "Order Again" : "Order Lunch";
   const deliveryLabel = deliveryDate ? formatHumanDate(deliveryDate) : null;
@@ -74,8 +74,8 @@ export function StaffDashboard({
       ? deliveryLabel
         ? `Normal ordering has closed for ${deliveryLabel}.`
         : "Normal ordering has closed for today."
-      : hasLateOrderRequests
-        ? "Normal ordering is closed. Your late order request status is on Today's Order."
+      : lateOrderStatusAvailable
+        ? "Normal ordering is closed. Check your late order request status on Today's Order."
         : deliveryLabel
           ? `Ordering is closed for ${deliveryLabel}.`
           : "Ordering is closed for today.";
@@ -146,12 +146,12 @@ export function StaffDashboard({
                   You&apos;ll be taken to Today&apos;s Order. Ordering is not completed from the
                   dashboard.
                 </p>
-                {lateOrderTodayAvailable && lateOrderSecondaryLabel ? (
+                {lateOrderActionWhileOrderingOpen && lateOrderActionLabel ? (
                   <Link
                     href="/lunch?lateOrder=1"
                     className={`${linkButtonClass("secondary")} mt-3 min-h-10 w-full max-w-full justify-center px-5 py-2 text-sm font-medium`}
                   >
-                    {lateOrderSecondaryLabel}
+                    {lateOrderActionLabel}
                   </Link>
                 ) : null}
               </>
@@ -165,7 +165,7 @@ export function StaffDashboard({
                   href="/lunch?lateOrder=1"
                   className={`${linkButtonClass("primary", { staffPrimaryCta: true })} mt-3 min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
                 >
-                  Request a late order
+                  {lateOrderActionLabel ?? "Submit late order"}
                   <IconArrowRight size={18} className="opacity-90" />
                 </Link>
                 <p className="mt-2 text-xs text-staff-instruction">
@@ -173,17 +173,18 @@ export function StaffDashboard({
                   order is placed.
                 </p>
               </>
-            ) : hasLateOrderRequests ? (
+            ) : lateOrderStatusAvailable ? (
               <>
                 <Link
-                  href="/lunch"
+                  href="/lunch?lateOrder=1"
                   className={`${linkButtonClass("secondary")} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
                 >
-                  View Today&apos;s Order
+                  Late order status
                   <IconArrowRight size={18} className="opacity-90" />
                 </Link>
                 <p className="mt-2 text-xs text-staff-instruction">
-                  Your late order request status is on Today&apos;s Order.
+                  New late order requests are not available right now. Open the drawer to see your
+                  request status.
                 </p>
               </>
             ) : (
@@ -234,13 +235,14 @@ export function StaffDashboard({
               <EmptyState
                 compact
                 title="No order placed for your next lunch yet."
+                descriptionClassName="text-staff-instruction"
                 description={
                   lateOrderRequestAvailable
-                    ? "Use Request a late order above to ask HR for a late lunch."
+                    ? "Use the late-order action above to ask HR for a late lunch."
                     : orderingOpen
                       ? "Select Order Lunch above to choose your lunch."
-                      : hasLateOrderRequests
-                        ? "View Today's Order above to see your late order request status."
+                      : lateOrderStatusAvailable
+                        ? "Use Late order status above to see your request on Today's Order."
                         : "Normal ordering is closed for your next delivery."
                 }
               />

@@ -33,12 +33,23 @@ export default defineConfig({
     },
     {
       name: "chromium-a11y",
-      testIgnore: /firefox-smoke\.spec\.ts/,
+      testIgnore: [/firefox-smoke\.spec\.ts/, /staff-late-order-drawer\.spec\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         storageState: staffAuthFile,
       },
       dependencies: ["setup"],
+    },
+    {
+      name: "chromium-late-order-a11y",
+      testMatch: /staff-late-order-drawer\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup", "chromium-a11y"],
     },
     {
       name: "firefox-smoke",

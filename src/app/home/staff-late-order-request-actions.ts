@@ -10,6 +10,7 @@ import {
   LATE_ORDER_DEFAULT_SAVE_WARNING,
   shouldSaveDefaultOnLateOrderSubmit,
 } from "@/lib/staff-late-order-location-save";
+import type { StaffLateOrderNewRequestSummary } from "@/lib/staff-late-order-today";
 
 export type StaffLateOrderRequestRow = {
   id: string;
@@ -107,6 +108,47 @@ export async function loadStaffLateOrderRequestContext(options?: {
     eligibleCycles,
     requests: (requests ?? []) as StaffLateOrderRequestRow[],
   };
+}
+
+function parseStaffLateOrderNewRequestSummary(
+  data: unknown,
+): StaffLateOrderNewRequestSummary {
+  if (!data || typeof data !== "object") {
+    return { available: false, eligibleDeliveryDates: [] };
+  }
+
+  const record = data as Record<string, unknown>;
+  const dates = Array.isArray(record.eligible_delivery_dates)
+    ? record.eligible_delivery_dates
+        .map((value) => String(value).slice(0, 10))
+        .filter(Boolean)
+        .sort()
+    : [];
+
+  return {
+    available: record.available === true,
+    eligibleDeliveryDates: dates,
+  };
+}
+
+/** DB-authoritative: eligible delivery dates across active offices (no provider details). */
+export async function loadStaffLateOrderNewRequestSummary(): Promise<StaffLateOrderNewRequestSummary> {
+  await requireProfile();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("staff_late_order_new_request_summary");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return parseStaffLateOrderNewRequestSummary(data);
+}
+
+/** DB-authoritative: any new late-order opportunity at an active office for the actor. */
+export async function loadStaffLateOrderNewRequestAvailable(): Promise<boolean> {
+  const summary = await loadStaffLateOrderNewRequestSummary();
+  return summary.available;
 }
 
 export async function createStaffLateOrderRequestAction(input: {

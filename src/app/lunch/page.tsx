@@ -1,8 +1,4 @@
-import Link from "next/link";
-
 import { requireProfile } from "@/lib/auth";
-
-import { linkButtonClass } from "@/components/ui/button";
 
 import { getStaffOrderingContext } from "@/lib/staff-ordering";
 
@@ -34,7 +30,12 @@ import {
 
 } from "@/components/lunch/staff-late-order-drawer";
 
-import { loadStaffLateOrderRequestContext } from "@/app/home/staff-late-order-request-actions";
+import {
+  loadStaffLateOrderNewRequestSummary,
+  loadStaffLateOrderRequestContext,
+} from "@/app/home/staff-late-order-request-actions";
+import { staffLateOrderActionLabel } from "@/lib/staff-late-order-today";
+import { resolveLateOrderEligibilityOfficeLocationId } from "@/lib/staff-late-order-location-save";
 
 import { getJamaicaTodayDate } from "@/lib/datetime";
 
@@ -174,17 +175,27 @@ export default async function LunchPage({ searchParams }: Props) {
 
 
 
-  const lateRequestContext = await loadStaffLateOrderRequestContext().catch(() => ({
+  const defaultOfficeLocationId = profileRow?.default_office_location_id ?? null;
+  const defaultOfficeLocationInactive = Boolean(
+    defaultLocation && defaultLocation.is_active === false,
+  );
 
-    eligibleCycles: [],
+  const eligibilityOfficeLocationId = resolveLateOrderEligibilityOfficeLocationId(
+    defaultOfficeLocationId,
+    defaultOfficeLocationInactive,
+  );
 
-    requests: [],
+  const [lateRequestContext, lateOrderSummary] = await Promise.all([
+    loadStaffLateOrderRequestContext({ officeLocationId: eligibilityOfficeLocationId }),
+    loadStaffLateOrderNewRequestSummary(),
+  ]);
+  const newLateOrderOpportunity = lateOrderSummary.available;
 
-  }));
-
-
-
-  const lateOrderDrawer = buildStaffLateOrderDrawerContext(lateRequestContext, todayDeliveryDate);
+  const lateOrderDrawer = buildStaffLateOrderDrawerContext(lateRequestContext, todayDeliveryDate, {
+    newLateOrderOpportunity,
+    summary: lateOrderSummary,
+    preLocationOnly: eligibilityOfficeLocationId == null,
+  });
 
   const lateOrderDrawerProps = {
     jamaicaToday: todayDeliveryDate,
@@ -193,41 +204,31 @@ export default async function LunchPage({ searchParams }: Props) {
     orderingOpen: ctx.orderingOpen,
     eligibleCycles: lateOrderDrawer.context.eligibleCycles,
     requests: lateOrderDrawer.context.requests,
+    officeLocations: officeLocations ?? [],
+    defaultOfficeLocationId,
+    defaultOfficeLocationInactive,
+    newLateOrderOpportunity,
+    lateOrderSummary,
     highlightFromQuery: params.lateOrder === "1",
   } as const;
 
+  const lateOrderHeaderActionLabel = staffLateOrderActionLabel(
+    lateOrderDrawer.context,
+    todayDeliveryDate,
+    { newLateOrderOpportunity, summary: lateOrderSummary },
+  );
 
-
-  return (
-
+  const pageBody = (
     <>
-
       <PageHeader
-
         title="Today's Order"
-
         staffAccessibleDescription
-
         description="Choose a provider and submit a separate order for that provider before today's cutoff."
-
         actions={
-
-          <Link
-
-            href="/my-orders"
-
-            className={`${linkButtonClass("secondary")} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
-
-            aria-label="View my orders"
-
-          >
-
-            My orders
-
-          </Link>
-
+          lateOrderDrawer.visible && lateOrderHeaderActionLabel ? (
+            <StaffLateOrderDrawerTrigger />
+          ) : null
         }
-
       />
 
 
@@ -241,16 +242,6 @@ export default async function LunchPage({ searchParams }: Props) {
         </Alert>
 
       )}
-
-
-
-      {lateOrderDrawer.visible && ctx.orderingOpen ? (
-        <StaffLateOrderDrawerRoot {...lateOrderDrawerProps}>
-          <div className="mb-4 flex justify-end">
-            <StaffLateOrderDrawerTrigger />
-          </div>
-        </StaffLateOrderDrawerRoot>
-      ) : null}
 
 
 
@@ -289,6 +280,8 @@ export default async function LunchPage({ searchParams }: Props) {
           orderDeadline={ctx.orderDeadline}
 
           closedMessage={closedReason?.description}
+
+          deferInitialLocationPicker={params.lateOrder === "1"}
 
         />
 
@@ -350,16 +343,6 @@ export default async function LunchPage({ searchParams }: Props) {
 
             </p>
 
-            <div className="mt-4 flex justify-center">
-
-              <StaffLateOrderDrawerRoot {...lateOrderDrawerProps}>
-
-                <StaffLateOrderDrawerTrigger prominent />
-
-              </StaffLateOrderDrawerRoot>
-
-            </div>
-
           </div>
 
         ) : (
@@ -377,9 +360,17 @@ export default async function LunchPage({ searchParams }: Props) {
       ) : null}
 
     </>
-
   );
 
+  if (lateOrderDrawer.visible) {
+    return (
+      <StaffLateOrderDrawerRoot {...lateOrderDrawerProps}>
+        {pageBody}
+      </StaffLateOrderDrawerRoot>
+    );
+  }
+
+  return pageBody;
 }
 
 

@@ -10,31 +10,6 @@ test.describe("Staff pages — axe WCAG scans", () => {
     await expectNoAxeViolations(page, "/home", { mainContentOnly: true });
   });
 
-  test("home — late order CTA routes to Today's Order when eligible", async ({ page }) => {
-    await page.goto("/home");
-    const lateOrderLink = page.getByRole("link", { name: "Request a late order" });
-    if (!(await lateOrderLink.isVisible())) {
-      test.skip(true, "Late order entry not available for current seed/timing");
-    }
-    await expect(lateOrderLink).toHaveAttribute("href", "/lunch?lateOrder=1");
-  });
-
-  test("lunch — late order drawer opens when entry is available", async ({ page }) => {
-    await page.goto("/lunch?lateOrder=1");
-    const trigger = page.getByRole("button", { name: /Late order for today|Request a late order/i });
-    if (!(await trigger.isVisible())) {
-      test.skip(true, "Late order entry not available for current seed/timing");
-    }
-    await expect(trigger).toBeFocused();
-    const dialog = page.getByRole("dialog", { name: "Late order for today" });
-    if (!(await dialog.isVisible())) {
-      await trigger.click();
-    }
-    await expect(dialog).toBeVisible();
-    await expectNoAxeViolations(page, "/lunch late-order drawer open", { mainContentOnly: true });
-    await page.getByRole("button", { name: "Close late order drawer" }).first().click();
-  });
-
   test("lunch — initial ordering screen", async ({ page }) => {
     await page.goto(`/lunch?provider=${STAFF_SEED.providerAlberries}`);
     await expect(page.getByRole("heading", { name: "Today's Order" })).toBeVisible();

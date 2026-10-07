@@ -4,6 +4,8 @@
  */
 export const STAFF_SEED = {
   providerAlberries: "30000001-0001-4001-8001-000000000001",
+  /** Matches development seed staff1 default office (Camp Road). */
+  staff1OfficeLocationId: "20000001-0001-4001-8001-000000000001",
   providerDavis: "30000002-0002-4002-8002-000000000002",
   /** Staff1 upcoming meal order (editable when ordering rules allow). */
   upcomingOrderId: "60000001-0001-4001-8001-000000000001",

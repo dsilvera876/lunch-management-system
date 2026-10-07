@@ -1,9 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
+import { STAFF_SEED } from "./seed-fixtures";
 import { runLocalDbExec, runLocalDbQuery } from "./e2e-local-db";
 
 /** Extended cutoff for deterministic Staff E2E (local only). */
 export const E2E_ORDER_CUTOFF = "23:59:00";
+
+/** Legacy label — late-order fixture sets cutoff to one minute before Jamaica now (local E2E only). */
+export const E2E_LATE_ORDER_ELIGIBILITY_CUTOFF = "10:00:00";
+
+/** Provider late cutoff within delivery-day noon cap (local E2E only). */
+export const E2E_LATE_ORDER_PROVIDER_DEADLINE_TIME = "12:00:00";
 
 /** Traceable manual calendar rows created by the fixture (local DB only). */
 export const E2E_CALENDAR_ENTRY_IDS = {
@@ -14,10 +21,27 @@ export const E2E_CALENDAR_ENTRY_IDS = {
 /** Development seed: staff1 default office location. */
 export const E2E_STAFF1_OFFICE_LOCATION_ID = "20000001-0001-4001-8001-000000000001";
 
+/** Development seed: staff1 profile id (staff1@lunch.test). */
+export const E2E_STAFF1_PROFILE_ID = "10000004-0004-4004-8004-000000000004";
+
 /** Development seed: HR profile used for calendar created_by when required. */
 export const E2E_HR_PROFILE_ID = "10000003-0003-4003-8003-000000000003";
 
 const SNAPSHOT_FILE = path.join(__dirname, "..", ".auth", "e2e-ordering-fixture-snapshot.json");
+
+/** Isolated restore payload for late-order drawer tests (survives ordering snapshot teardown). */
+const LATE_ORDER_DRAWER_RESTORE_FILE = path.join(
+  __dirname,
+  "..",
+  ".auth",
+  "late-order-drawer-restore.json",
+);
+
+export type LateOrderDrawerRestorePayload = {
+  version: 1;
+  orderCutoffTime: string;
+  provider: LunchProviderLateOrderSnapshot;
+};
 
 export const FIXTURE_SNAPSHOT_PATH = SNAPSHOT_FILE;
 
@@ -39,6 +63,13 @@ export type LunchPeriodSnapshot = {
   is_current: boolean;
 };
 
+export type LunchProviderLateOrderSnapshot = {
+  id: string;
+  accepts_late_orders: boolean;
+  late_order_deadline_day: string | null;
+  late_order_deadline_time: string | null;
+};
+
 export type E2eOrderingFixtureSnapshot = {
   version: 1;
   supabaseApiUrl: string;
@@ -55,6 +86,12 @@ export type E2eOrderingFixtureSnapshot = {
   insertedCalendarEntryIds: string[];
   /** Period rows whose status was changed from finalized → open. */
   lunchPeriodRestores: LunchPeriodSnapshot[];
+  /** Provider late-order settings restored on teardown when late-order drawer fixture runs. */
+  lateOrderProviderRestores?: LunchProviderLateOrderSnapshot[];
+  /** When set, fixture applied E2E_LATE_ORDER_ELIGIBILITY_CUTOFF after ordering-open setup. */
+  lateOrderEligibilityCutoffApplied?: string | null;
+  /** Exact app_settings.order_cutoff_time before late-order drawer fixture (restored after late-order tests). */
+  lateOrderCutoffRestore?: string | null;
 };
 
 export function loadLocalEnvFiles() {
@@ -375,6 +412,147 @@ function applyCalendarAndPeriodFixtures(orderDate: string, snapshot: E2eOrdering
   }
 }
 
+function normalizeCutoffTime(value: unknown): string {
+  if (typeof value !== "string" || !value) {
+    return "16:00:00";
+  }
+  return value.length >= 8 ? value.slice(0, 8) : value;
+}
+
+function readLateOrderDrawerRestorePayload(): LateOrderDrawerRestorePayload | null {
+  if (!fs.existsSync(LATE_ORDER_DRAWER_RESTORE_FILE)) {
+    return null;
+  }
+  try {
+    return JSON.parse(
+      fs.readFileSync(LATE_ORDER_DRAWER_RESTORE_FILE, "utf8"),
+    ) as LateOrderDrawerRestorePayload;
+  } catch {
+    return null;
+  }
+}
+
+function writeLateOrderDrawerRestorePayload(payload: LateOrderDrawerRestorePayload) {
+  fs.mkdirSync(path.dirname(LATE_ORDER_DRAWER_RESTORE_FILE), { recursive: true });
+  fs.writeFileSync(LATE_ORDER_DRAWER_RESTORE_FILE, JSON.stringify(payload, null, 2), "utf8");
+}
+
+function clearLateOrderDrawerRestorePayload() {
+  if (fs.existsSync(LATE_ORDER_DRAWER_RESTORE_FILE)) {
+    fs.unlinkSync(LATE_ORDER_DRAWER_RESTORE_FILE);
+  }
+}
+
+function captureLateOrderDrawerRestorePayload(): LateOrderDrawerRestorePayload {
+  const providerId = STAFF_SEED.providerAlberries;
+  const rows = runLocalDbQuery(`
+    select
+      accepts_late_orders,
+      late_order_deadline_day::text as late_order_deadline_day,
+      late_order_deadline_time::text as late_order_deadline_time
+    from public.lunch_providers
+    where id = '${providerId}'::uuid
+  `);
+  const row = rows[0];
+  if (!row) {
+    throw new Error(`[a11y fixture] Missing seed provider ${providerId} for late-order drawer setup.`);
+  }
+
+  const cutoffRow = runLocalDbQuery(
+    "select order_cutoff_time::text as t from public.app_settings where id = 1",
+  )[0];
+
+  return {
+    version: 1,
+    orderCutoffTime: normalizeCutoffTime(cutoffRow?.t),
+    provider: {
+      id: providerId,
+      accepts_late_orders: row.accepts_late_orders === true || row.accepts_late_orders === "t",
+      late_order_deadline_day: row.late_order_deadline_day
+        ? String(row.late_order_deadline_day)
+        : null,
+      late_order_deadline_time: row.late_order_deadline_time
+        ? String(row.late_order_deadline_time).slice(0, 8)
+        : null,
+    },
+  };
+}
+
+function applyLateOrderDrawerDbChanges() {
+  const providerId = STAFF_SEED.providerAlberries;
+  runLocalDbQuery(`
+    update public.lunch_providers
+    set
+      accepts_late_orders = true,
+      late_order_deadline_day = 'delivery_day',
+      late_order_deadline_time = '${E2E_LATE_ORDER_PROVIDER_DEADLINE_TIME}'::time
+    where id = '${providerId}'::uuid
+    returning id
+  `);
+  runLocalDbQuery(`
+    update public.app_settings
+    set order_cutoff_time = (
+      select ((timezone('America/Jamaica', now()))::time - interval '1 minute')::time
+    )
+    where id = 1
+    returning id
+  `);
+
+  const orderDate = normalizeDate(
+    runLocalDbQuery("select public.jamaica_today_date() as d")[0]?.d,
+  );
+  const orderingAfterCutoff = probeSelfServiceOrderingState(
+    orderDate,
+    E2E_STAFF1_OFFICE_LOCATION_ID,
+  );
+  if (orderingAfterCutoff.isOpen) {
+    throw new Error(
+      "[a11y fixture] Late-order drawer setup expected self-service ordering to be closed after moving cutoff into the past.",
+    );
+  }
+
+  const availability = runLocalDbQuery(`
+    select public.staff_late_order_new_request_available() as available
+    from (
+      select set_config(
+        'request.jwt.claims',
+        '{"sub":"${E2E_STAFF1_PROFILE_ID}","role":"authenticated"}',
+        true
+      )
+    ) as _cfg
+  `);
+  const available =
+    availability[0]?.available === true || availability[0]?.available === "t";
+  if (!available) {
+    throw new Error(
+      "[a11y fixture] Late-order drawer setup did not produce a staff1 late-order opportunity.",
+    );
+  }
+}
+
+function restoreLateOrderDrawerFromPayload(payload: LateOrderDrawerRestorePayload) {
+  const provider = payload.provider;
+  runLocalDbQuery(`
+    update public.lunch_providers
+    set
+      accepts_late_orders = ${provider.accepts_late_orders ? "true" : "false"},
+      late_order_deadline_day = ${provider.late_order_deadline_day ? sqlString(provider.late_order_deadline_day) : "null"},
+      late_order_deadline_time = ${
+        provider.late_order_deadline_time
+          ? `${sqlString(provider.late_order_deadline_time)}::time`
+          : "null"
+      }
+    where id = '${provider.id}'::uuid
+    returning id
+  `);
+  runLocalDbQuery(`
+    update public.app_settings
+    set order_cutoff_time = ${sqlString(payload.orderCutoffTime)}::time
+    where id = 1
+    returning id
+  `);
+}
+
 function applyCutoffFixture(snapshot: E2eOrderingFixtureSnapshot) {
   if (snapshot.appSettings.order_cutoff_time === E2E_ORDER_CUTOFF) {
     return;
@@ -452,6 +630,7 @@ export function applyLocalStaffOrderingFixture(): E2eOrderingFixtureSnapshot {
         `[a11y fixture] Ordering still closed after fixture (businessDay=${after.isBusinessDay}, periodFinalized=${after.periodFinalized}, isoWeekday=${after.isoWeekday}).`,
       );
     }
+
   } catch (error) {
     try {
       restoreLocalStaffOrderingFixture(snapshot);
@@ -531,7 +710,37 @@ export function restoreLocalStaffOrderingFixture(snapshot: E2eOrderingFixtureSna
   }
 }
 
+/** Applies late-order drawer setup after open-ordering tests (local E2E only). */
+export function applyLateOrderDrawerToActiveSnapshot(): void {
+  if (readLateOrderDrawerRestorePayload()) {
+    return;
+  }
+
+  const restorePayload = captureLateOrderDrawerRestorePayload();
+  writeLateOrderDrawerRestorePayload(restorePayload);
+  try {
+    applyLateOrderDrawerDbChanges();
+  } catch (error) {
+    restoreLateOrderDrawerFromPayload(restorePayload);
+    clearLateOrderDrawerRestorePayload();
+    throw error;
+  }
+}
+
+/** Restores exact provider/cutoff values captured before the late-order drawer fixture. */
+export function restoreLateOrderDrawerFromActiveSnapshot(): void {
+  const payload = readLateOrderDrawerRestorePayload();
+  if (!payload) {
+    return;
+  }
+
+  restoreLateOrderDrawerFromPayload(payload);
+  clearLateOrderDrawerRestorePayload();
+}
+
 export function teardownLocalStaffOrderingFixture() {
+  restoreLateOrderDrawerFromActiveSnapshot();
+
   const snapshot = readFixtureSnapshot();
   if (!snapshot) {
     return;

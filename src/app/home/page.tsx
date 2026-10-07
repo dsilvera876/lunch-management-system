@@ -15,10 +15,14 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import {
-  staffLateOrderCreateAvailable,
-  staffLateOrderTriggerLabel,
+  staffLateOrderActionLabel,
+  staffLateOrderNewRequestAvailable,
 } from "@/lib/staff-late-order-today";
-import { loadStaffLateOrderRequestContext } from "@/app/home/staff-late-order-request-actions";
+import {
+  loadStaffLateOrderNewRequestSummary,
+  loadStaffLateOrderRequestContext,
+} from "@/app/home/staff-late-order-request-actions";
+import { resolveLateOrderEligibilityOfficeLocationId } from "@/lib/staff-late-order-location-save";
 
 export default async function HomePage() {
   const profile = await requireProfile();
@@ -33,7 +37,7 @@ export default async function HomePage() {
     pendingSignupApprovalCount,
   );
 
-  const [ctx, financialResult, recentOrdersResult, lateRequestContext] = await Promise.all([
+  const [ctx, financialResult, recentOrdersResult, profileRow] = await Promise.all([
     getStaffOrderingContext(profile.id),
     getStaffFinancialDashboardResult(supabase),
     supabase
@@ -49,11 +53,37 @@ export default async function HomePage() {
       .neq("status", "cancelled")
       .order("created_at", { ascending: false })
       .limit(5),
-    loadStaffLateOrderRequestContext().catch(() => ({
-      eligibleCycles: [],
-      requests: [],
-    })),
+    supabase
+      .from("profiles")
+      .select(`
+        default_office_location_id,
+        office_locations:default_office_location_id (
+          is_active
+        )
+      `)
+      .eq("id", profile.id)
+      .single(),
   ]);
+
+  const homeDefaultLocation = profileRow.data?.office_locations
+    ? Array.isArray(profileRow.data.office_locations)
+      ? profileRow.data.office_locations[0]
+      : profileRow.data.office_locations
+    : null;
+  const homeDefaultOfficeLocationInactive = Boolean(
+    homeDefaultLocation && homeDefaultLocation.is_active === false,
+  );
+
+  const eligibilityOfficeLocationId = resolveLateOrderEligibilityOfficeLocationId(
+    profileRow.data?.default_office_location_id ?? null,
+    homeDefaultOfficeLocationInactive,
+  );
+
+  const [lateRequestContext, lateOrderSummary] = await Promise.all([
+    loadStaffLateOrderRequestContext({ officeLocationId: eligibilityOfficeLocationId }),
+    loadStaffLateOrderNewRequestSummary(),
+  ]);
+  const newLateOrderOpportunity = lateOrderSummary.available;
 
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "there";
   const hasOrderForDelivery = ctx.deliveryOrders.some(
@@ -69,14 +99,21 @@ export default async function HomePage() {
     currentPeriod?.period_id ?? null,
   );
 
-  const lateOrderRequestAvailable =
-    !ctx.orderingOpen && staffLateOrderCreateAvailable(lateRequestContext);
-  const lateOrderSecondaryLabel = staffLateOrderTriggerLabel(lateRequestContext, today, {
-    orderingOpen: ctx.orderingOpen,
-  });
-  const lateOrderTodayAvailable =
-    ctx.orderingOpen && lateOrderSecondaryLabel !== null && staffLateOrderCreateAvailable(lateRequestContext);
   const hasLateOrderRequests = lateRequestContext.requests.length > 0;
+  const hasNewLateOrderOpportunity = staffLateOrderNewRequestAvailable(
+    lateRequestContext,
+    newLateOrderOpportunity,
+  );
+
+  const lateOrderRequestAvailable = !ctx.orderingOpen && hasNewLateOrderOpportunity;
+  const lateOrderStatusAvailable =
+    !ctx.orderingOpen && !lateOrderRequestAvailable && hasLateOrderRequests;
+  const lateOrderActionLabel = staffLateOrderActionLabel(lateRequestContext, today, {
+    newLateOrderOpportunity,
+    summary: lateOrderSummary,
+  });
+  const lateOrderActionWhileOrderingOpen =
+    ctx.orderingOpen && lateOrderActionLabel !== null;
 
   const recentOrders =
     recentOrdersResult.data?.map((order) => {
@@ -117,9 +154,9 @@ export default async function HomePage() {
       deliveryOrders={ctx.deliveryOrders}
       recentOrders={recentOrders}
       lateOrderRequestAvailable={lateOrderRequestAvailable}
-      lateOrderTodayAvailable={lateOrderTodayAvailable}
-      lateOrderSecondaryLabel={lateOrderTodayAvailable ? lateOrderSecondaryLabel : null}
-      hasLateOrderRequests={hasLateOrderRequests}
+      lateOrderStatusAvailable={lateOrderStatusAvailable}
+      lateOrderActionWhileOrderingOpen={lateOrderActionWhileOrderingOpen}
+      lateOrderActionLabel={lateOrderActionLabel}
       />
     </div>
   );

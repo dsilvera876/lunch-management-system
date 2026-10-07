@@ -59,9 +59,9 @@ Route IDs: `helpers/seed-fixtures.ts` (from `supabase/seeds/development.sql`).
 
 Tests do not place orders, send email, or mutate HR/account configuration.
 
-## Skips
+## Late-order drawer scans
 
-Optional skips when the seed has no eligible late-order cycle: **home late-order link** and **lunch late-order panel** tests.
+`staff-late-order-drawer.spec.ts` runs in the **chromium-late-order-a11y** project after all **chromium-a11y** tests finish, so shared DB cutoff/provider changes do not overlap open-ordering tests. Exact pre-test DB values are written to `.auth/late-order-drawer-restore.json` and restored in `afterAll` (including on failure), independent of the open-ordering snapshot file.
 
 ## Manual checks
 

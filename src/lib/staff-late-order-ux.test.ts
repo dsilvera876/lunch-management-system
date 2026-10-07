@@ -10,10 +10,11 @@ describe("staff late order UX", () => {
     );
 
     assert.match(dashboard, /orderingOpen \?/);
-    assert.match(dashboard, /lateOrderTodayAvailable/);
-    assert.match(dashboard, /lateOrderSecondaryLabel/);
+    assert.match(dashboard, /lateOrderActionWhileOrderingOpen/);
+    assert.match(dashboard, /lateOrderActionLabel/);
+    assert.match(dashboard, /Submit late order/);
     assert.match(dashboard, /lateOrderRequestAvailable \?/);
-    assert.match(dashboard, /hasLateOrderRequests \?/);
+    assert.match(dashboard, /lateOrderStatusAvailable \?/);
     assert.match(dashboard, /Lunch Ordering Closed/);
     assert.match(dashboard, /disabled/);
   });
@@ -34,16 +35,29 @@ describe("staff late order UX", () => {
     assert.match(lunch, /buildStaffLateOrderDrawerContext/);
     assert.match(lunch, /defaultDeliveryDate/);
     assert.match(lunch, /deliveryDates/);
+    assert.match(lunch, /StaffLateOrderDrawerTrigger/);
     assert.doesNotMatch(lunch, /StaffLateOrderRequestSection/);
     assert.match(drawer, /FocusTrapPopover/);
     assert.match(drawer, /aria-label="Close late order drawer"/);
     assert.match(drawer, /staffLateOrderDrawerTitle/);
+    assert.match(drawer, /Delivery location/);
     assert.match(drawer, /Delivery date/);
+    assert.match(drawer, /Save as my default delivery location/);
+    assert.match(drawer, /locationFetchGenerationRef/);
+    assert.match(drawer, /beginLocationEligibilityFetch/);
+    assert.match(drawer, /eligibilityLoading=\{cyclesLoading\}/);
+    assert.match(panel, /Checking late-order availability/);
+    assert.match(panel, /eligibilityLoading/);
+    assert.doesNotMatch(
+      drawer,
+      /handleSelectOfficeLocation[\s\S]*saveMyDefaultOfficeLocation/,
+    );
     assert.match(drawer, /filterStaffLateOrderForDeliveryDate/);
     assert.match(drawer, /deliveryDates\.length > 1/);
-    assert.match(drawer, /key=\{selectedDeliveryDate\}/);
+    assert.match(drawer, /key=\{\`\$\{selectedDeliveryDate\}:\$\{selectedOfficeLocationId\}\`\}/);
     assert.doesNotMatch(panel, /type="date"|delivery date selector/i);
     assert.match(panel, /const showEntry = eligibleCycles\.length > 0/);
+    assert.match(panel, /locationRequired && requestRows\.length === 0/);
     assert.match(drawer, /variant="drawer"/);
   });
 
@@ -62,15 +76,34 @@ describe("staff late order UX", () => {
     assert.match(panel, /FormActionStatus variant="success"/);
   });
 
-  it("drawer deep-link focuses trigger and only auto-opens when ordering is closed", () => {
+  it("home and lunch expose late-order context without staff-only role gating", () => {
+    const home = readFileSync(new URL("../app/home/page.tsx", import.meta.url), "utf8");
+    const lunch = readFileSync(new URL("../app/lunch/page.tsx", import.meta.url), "utf8");
+    const actions = readFileSync(
+      new URL("../app/home/staff-late-order-request-actions.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(home, /loadStaffLateOrderRequestContext\(/);
+    assert.match(lunch, /loadStaffLateOrderRequestContext\(/);
+    assert.doesNotMatch(actions, /role === ["']staff["']/);
+    assert.doesNotMatch(home, /profile\.role === ["']staff["'][\\s\\S]*lateOrder/);
+    assert.doesNotMatch(lunch, /profile\.role === ["']staff["']/);
+    assert.doesNotMatch(
+      home,
+      /loadStaffLateOrderRequestContext[\s\S]*requests: \[\]/,
+    );
+  });
+
+  it("drawer deep-link auto-opens when lateOrder=1 and late-order entry exists", () => {
     const drawer = readFileSync(
       new URL("../components/lunch/staff-late-order-drawer.tsx", import.meta.url),
       "utf8",
     );
 
     assert.match(drawer, /highlightFromQuery/);
-    assert.match(drawer, /triggerRef\.current\?\.focus/);
-    assert.match(drawer, /highlightFromQuery &&[\s\S]*!orderingOpen/);
+    assert.match(drawer, /highlightFromQuery &&[\s\S]*staffLateOrderDrawerVisible/);
+    assert.doesNotMatch(drawer, /highlightFromQuery &&[\s\S]*!orderingOpen/);
     assert.match(drawer, /setDrawerOpen\(true\)/);
   });
 });
