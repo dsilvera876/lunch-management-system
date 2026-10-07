@@ -8,6 +8,23 @@ export const USER_ROLES = [
 
 export type UserRole = (typeof USER_ROLES)[number];
 
+/** Active lunch self-service participants (matches private.is_active_lunch_ordering_profile). */
+export const ACTIVE_LUNCH_ORDERING_ROLES = [
+  "staff",
+  "hr",
+  "accounts",
+  "admin",
+  "owner",
+] as const;
+
+export type ActiveLunchOrderingRole = (typeof ACTIVE_LUNCH_ORDERING_ROLES)[number];
+
+export function isActiveLunchOrderingParticipantRole(
+  role: string,
+): role is ActiveLunchOrderingRole {
+  return (ACTIVE_LUNCH_ORDERING_ROLES as readonly string[]).includes(role);
+}
+
 export const ASSIGNABLE_ROLES = [
   "staff",
   "hr",

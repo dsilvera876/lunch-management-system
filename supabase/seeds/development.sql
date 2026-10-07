@@ -320,12 +320,20 @@ begin
     'staff2@lunch.test',
     'Dev Staff Two'
   );
+  perform private.dev_seed_create_auth_user(
+    '10000006-0006-4006-8006-000000000006',
+    'staff3@lunch.test',
+    'Dev Staff Three'
+  );
 end;
 $$;
 
 select private.apply_profile_role('10000001-0001-4001-8001-000000000001', 'owner');
 select private.apply_profile_role('10000002-0002-4002-8002-000000000002', 'hr');
 select private.apply_profile_role('10000003-0003-4003-8003-000000000003', 'accounts');
+select private.apply_profile_role('10000004-0004-4004-8004-000000000004', 'staff');
+select private.apply_profile_role('10000005-0005-4005-8005-000000000005', 'staff');
+select private.apply_profile_role('10000006-0006-4006-8006-000000000006', 'staff');
 
 update public.app_settings
 set
@@ -362,8 +370,10 @@ begin
   update public.profiles
   set default_office_location_id = '20000001-0001-4001-8001-000000000001'
   where id in (
-    '10000004-0004-4004-8004-000000000004',
-    '10000001-0001-4001-8001-000000000001'
+    '10000001-0001-4001-8001-000000000001',
+    '10000002-0002-4002-8002-000000000002',
+    '10000003-0003-4003-8003-000000000003',
+    '10000004-0004-4004-8004-000000000004'
   );
   update public.profiles
   set default_office_location_id = '20000002-0002-4002-8002-000000000002'

@@ -26,7 +26,25 @@ import {
   canViewHrOperationalData,
   ADMIN_USER_MANAGEMENT_HREF,
   getRoleLabel,
+  ACTIVE_LUNCH_ORDERING_ROLES,
+  isActiveLunchOrderingParticipantRole,
 } from "./roles";
+
+describe("active lunch ordering participants", () => {
+  it("includes all five active business roles", () => {
+    assert.deepEqual(ACTIVE_LUNCH_ORDERING_ROLES, [
+      "staff",
+      "hr",
+      "accounts",
+      "admin",
+      "owner",
+    ]);
+    for (const role of ACTIVE_LUNCH_ORDERING_ROLES) {
+      assert.equal(isActiveLunchOrderingParticipantRole(role), true);
+    }
+    assert.equal(isActiveLunchOrderingParticipantRole("guest"), false);
+  });
+});
 
 describe("getRoleLabel", () => {
   it("returns clean labels for all roles", () => {

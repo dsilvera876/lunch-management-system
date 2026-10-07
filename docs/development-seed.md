@@ -21,10 +21,11 @@ That reapplies migrations and runs `supabase/seeds/development.sql` (configured 
 | Accounts | `accounts@lunch.test` | `LunchTest123!` |
 | Staff    | `staff1@lunch.test` | `LunchTest123!` |
 | Staff    | `staff2@lunch.test` | `LunchTest123!` |
+| Staff    | `staff3@lunch.test` | `LunchTest123!` (no default delivery location; use late-order location picker) |
 
 ## What is seeded
 
-- Office locations (Camp Road, Office 2)
+- Office locations (Camp Road, Office 2); all development lunch participants (owner, HR, accounts, staff) default to Camp Road, staff2 to Office 2
 - Lunch providers (Alberries Caterors, Davis Catering, Peel Good Food) with recurring menus
 - Daily lunch subsidy (`500` JMD in app settings)
 - Previous (finalized) and current lunch periods aligned to Jamaica calendar dates
