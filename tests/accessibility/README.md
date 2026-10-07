@@ -18,7 +18,7 @@ Playwright starts `npm run dev` automatically unless a server is already running
 
 ## Local ordering fixture (global setup / teardown)
 
-Before tests, Playwright runs `global-setup.ts`, which uses **`npx supabase db query --local`** (Postgres on localhost only — not the Supabase HTTP API host) to guarantee self-service ordering is open for **Jamaica today** when today is **Mon–Fri**.
+Before tests, Playwright runs `global-setup.ts`, which uses **`npx supabase db query --local --output-format json --agent no`** (Postgres on localhost only — not the Supabase HTTP API host) to guarantee self-service ordering is open for **Jamaica today** when today is **Mon–Fri**. Requires Supabase CLI **≥ 2.116.0** so human terminals and CI get JSON, not pretty-table output.
 
 Authoritative guards mirrored in app/DB logic:
 
