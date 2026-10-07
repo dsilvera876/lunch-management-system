@@ -31,6 +31,7 @@ export type StaffProviderOrder = {
   lines: ProviderOrderLine[];
   orderTotal: number;
   statusLabel: string;
+  isLateOrder: boolean;
   createdAt: string;
 };
 
@@ -56,7 +57,8 @@ export type GroupedCheckout = {
 
 export type StaffMyOrdersRawRow = {
   id: string;
-  order_group_id: string;
+  order_group_id: string | null;
+  is_late_order: boolean;
   status: string;
   created_at: string;
   updated_at: string;
@@ -93,6 +95,11 @@ export type StaffMyOrdersRawRow = {
 
 function compareDeliveryDates(a: string, b: string): number {
   return a.localeCompare(b);
+}
+
+/** Self-service checkouts use order_group_id; legacy HR late orders may omit it until backfilled. */
+export function resolveStaffMyOrdersCheckoutGroupKey(row: StaffMyOrdersRawRow): string {
+  return row.order_group_id ?? row.id;
 }
 
 function comparePlacedNewestFirst(a: GroupedCheckout, b: GroupedCheckout): number {
@@ -146,6 +153,7 @@ export function mapRawOrderToProviderOrder(
     lines,
     orderTotal,
     statusLabel: deriveProviderStatusLabel(order),
+    isLateOrder: Boolean(order.is_late_order),
     createdAt: order.created_at,
   };
 }
@@ -229,13 +237,10 @@ export function groupOrdersIntoCheckouts(
   const byGroup = new Map<string, StaffMyOrdersRawRow[]>();
 
   for (const row of rows) {
-    if (!row.order_group_id) {
-      continue;
-    }
-
-    const list = byGroup.get(row.order_group_id) ?? [];
+    const groupKey = resolveStaffMyOrdersCheckoutGroupKey(row);
+    const list = byGroup.get(groupKey) ?? [];
     list.push(row);
-    byGroup.set(row.order_group_id, list);
+    byGroup.set(groupKey, list);
   }
 
   const draftGroups: Array<Omit<GroupedCheckout, "subtotal" | "lunchSubsidy" | "youPay" | "payLabel"> & {

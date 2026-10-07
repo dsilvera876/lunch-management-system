@@ -14,6 +14,7 @@ export async function loadStaffGroupedCheckouts(profileId: string): Promise<Grou
       .select(`
         id,
         order_group_id,
+        is_late_order,
         status,
         created_at,
         updated_at,
@@ -42,7 +43,7 @@ export async function loadStaffGroupedCheckouts(profileId: string): Promise<Grou
         )
       `)
       .eq("profile_id", profileId)
-      .not("order_group_id", "is", null)
+      .or("order_group_id.not.is.null,is_late_order.eq.true")
       .order("created_at", { ascending: false })
       .limit(250),
     supabase.rpc("get_daily_lunch_subsidy"),

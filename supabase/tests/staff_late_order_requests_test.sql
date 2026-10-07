@@ -1,6 +1,6 @@
 begin;
 
-select plan(44);
+select plan(49);
 
 \ir support/reset_app_settings_baseline.inc
 \ir support/isolate_lunch_periods.inc
@@ -346,6 +346,20 @@ select ok(
   'Fulfilled order is marked is_late_order'
 );
 
+select ok(
+  (
+    select o.order_group_id is not null
+    from public.orders o
+    where o.id = (
+      select fulfilled_order_id
+      from private.staff_late_order_requests
+      where status = 'fulfilled'
+      limit 1
+    )
+  ),
+  'Fulfilled HR late order has checkout order_group_id for My Orders'
+);
+
 reset role;
 select set_config(
   'test.slor_fulfilled_request_id',
@@ -403,6 +417,54 @@ select throws_ok(
 );
 
 reset role;
+
+update public.orders
+set status = 'cancelled', updated_at = now()
+where id = current_setting('test.slor_fulfilled_order_id')::uuid;
+
+select ok(
+  (
+    select status
+    from private.staff_late_order_requests
+    where id = current_setting('test.slor_fulfilled_request_id')::uuid
+  ) = 'fulfilled',
+  'Request remains fulfilled after HR cancels the resulting order'
+);
+
+select ok(
+  (
+    select status
+    from public.orders
+    where id = current_setting('test.slor_fulfilled_order_id')::uuid
+  ) = 'cancelled',
+  'Fulfilled late order row is cancelled when HR cancels the order'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+
+select is(
+  (
+    select count(*)::integer
+    from public.orders
+    where id = current_setting('test.slor_fulfilled_order_id')::uuid
+  ),
+  0,
+  'Other staff cannot read peer cancelled fulfilled late order'
+);
+
+reset role;
+
+select ok(
+  (
+    select count(*)::integer
+    from private.staff_late_order_requests
+    where status in ('pending', 'declined', 'cancelled', 'expired')
+      and fulfilled_order_id is not null
+  ) = 0,
+  'Non-fulfilled staff late-order requests do not reference order rows'
+);
+
 insert into private.staff_late_order_requests (
   requester_profile_id,
   provider_id,

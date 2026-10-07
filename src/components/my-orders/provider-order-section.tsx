@@ -10,6 +10,7 @@ import {
   type StaffProviderOrder,
 } from "@/lib/staff-my-orders";
 import { linkButtonClass } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type Props = {
   order: StaffProviderOrder;
@@ -27,7 +28,10 @@ export function ProviderOrderSection({ order, showViewLink = true }: Props) {
     <section className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-slate-900">{order.providerName}</h4>
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-sm font-semibold text-slate-900">{order.providerName}</h4>
+            {order.isLateOrder ? <StatusBadge status="late_order" /> : null}
+          </div>
           <p className="mt-0.5 text-xs text-muted">
             Order {order.indexInGroup} of {order.groupOrderCount}
           </p>

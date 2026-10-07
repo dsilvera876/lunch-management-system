@@ -12,7 +12,8 @@ type StatusKind =
   | "approved"
   | "rejected"
   | "declined"
-  | "expired";
+  | "expired"
+  | "late_order";
 
 const styles: Record<StatusKind, string> = {
   submitted: "bg-blue-50 text-blue-800 ring-blue-200",
@@ -29,6 +30,7 @@ const styles: Record<StatusKind, string> = {
   rejected: "bg-slate-100 text-slate-700 ring-slate-200",
   declined: "bg-rose-50 text-rose-900 ring-rose-200",
   expired: "bg-amber-50 text-amber-950 ring-amber-200",
+  late_order: "bg-violet-50 text-violet-900 ring-violet-200",
 };
 
 const labels: Record<StatusKind, string> = {
@@ -46,6 +48,7 @@ const labels: Record<StatusKind, string> = {
   rejected: "Rejected",
   declined: "Declined",
   expired: "Expired",
+  late_order: "Late order",
 };
 
 export function StatusBadge({ status }: { status: string }) {

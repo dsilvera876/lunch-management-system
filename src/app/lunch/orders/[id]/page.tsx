@@ -76,6 +76,7 @@ export default async function OrderDetailPage({
     .select(`
       id,
       status,
+      is_late_order,
       created_at,
       special_instructions,
       meal_quantity,
@@ -152,9 +153,10 @@ export default async function OrderDetailPage({
   const provider = getRelated(lunchDay.lunch_providers);
   const activeItems = lunchDay.menu_items.filter((item) => item.is_active);
 
-  const isEditing =
-    query.edit === "1" &&
-    canEditOrder(order.status, orderingOpen);
+  const selfServiceMutable =
+    !order.is_late_order && canEditOrder(order.status, orderingOpen);
+
+  const isEditing = query.edit === "1" && selfServiceMutable;
 
   const selectedMainId =
     order.order_items.find((item) => {
@@ -342,7 +344,7 @@ export default async function OrderDetailPage({
             </Card>
           )}
 
-          {order.status === "submitted" && orderingOpen && (
+          {order.status === "submitted" && selfServiceMutable && (
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={`/lunch/orders/${order.id}?edit=1`}

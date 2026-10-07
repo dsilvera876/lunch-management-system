@@ -10,11 +10,12 @@ import {
   selectCancelledCheckouts,
   selectPastCheckoutsForDate,
   selectUpcomingCheckouts,
+  resolveStaffMyOrdersCheckoutGroupKey,
 } from "./staff-my-orders";
 
 function buildRawOrder(overrides: {
   id: string;
-  groupId: string;
+  groupId?: string | null;
   providerId: string;
   providerName: string;
   deliveryDate: string;
@@ -24,11 +25,13 @@ function buildRawOrder(overrides: {
   createdAt?: string;
   instructions?: string;
   gross?: number;
+  isLateOrder?: boolean;
 }) {
   const gross = overrides.gross ?? 850;
   return {
     id: overrides.id,
-    order_group_id: overrides.groupId,
+    order_group_id: overrides.groupId ?? null,
+    is_late_order: overrides.isLateOrder ?? false,
     status: overrides.status ?? "submitted",
     created_at: overrides.createdAt ?? "2026-09-18T19:14:00Z",
     updated_at: overrides.createdAt ?? "2026-09-18T19:14:00Z",
@@ -284,7 +287,7 @@ describe("staff my orders grouping", () => {
     assert.match(pickerSource, /value=\{inputValue\}/);
     assert.match(pickerSource, /Choose a date/);
     assert.match(pickerSource, /type="button"/);
-    assert.match(pickerSource, /aria-label="Select past order date"/);
+    assert.match(pickerSource, /aria-labelledby="past-order-date-label past-order-date-value"/);
     assert.match(pickerSource, /type="date"/);
     assert.match(pickerSource, /pointer-events-none/);
     assert.match(pickerSource, /PastOrderCalendarPopover/);
@@ -330,13 +333,139 @@ describe("staff my orders grouping", () => {
     assert.equal(status.label, "Upcoming");
   });
 
-  it("does not include legacy order_group_id null fallback in page loader", () => {
-    const pageSource = readFileSync(
-      new URL("../app/my-orders/page.tsx", import.meta.url),
-      "utf8",
-    );
+  it("loads fulfilled HR late orders and groups null order_group_id by order id", () => {
     const libSource = readFileSync(
       new URL("./staff-my-orders-load.ts", import.meta.url),
+      "utf8",
+    );
+    const providerSectionSource = readFileSync(
+      new URL("../components/my-orders/provider-order-section.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(libSource, /is_late_order/);
+    assert.match(libSource, /is_late_order\.eq\.true/);
+    assert.match(libSource, /order_group_id\.not\.is\.null/);
+    assert.match(providerSectionSource, /StatusBadge status="late_order"/);
+
+    const lateOrder = buildRawOrder({
+      id: "late-1",
+      groupId: null,
+      providerId: "p1",
+      providerName: "Kitchen A",
+      deliveryDate: "2099-09-22",
+      orderDate: "2099-09-19",
+      isLateOrder: true,
+    });
+
+    assert.equal(resolveStaffMyOrdersCheckoutGroupKey(lateOrder), "late-1");
+
+    const upcoming = selectUpcomingCheckouts(groupOrdersIntoCheckouts([lateOrder], 500, new Map()));
+    assert.equal(upcoming.length, 1);
+    assert.equal(upcoming[0]!.providerOrders[0]!.isLateOrder, true);
+  });
+
+  it("classifies fulfilled late orders into past after delivery date", () => {
+    const pastLate = buildRawOrder({
+      id: "late-past",
+      groupId: "g-late",
+      providerId: "p1",
+      providerName: "Kitchen A",
+      deliveryDate: "2020-01-02",
+      orderDate: "2020-01-01",
+      isLateOrder: true,
+      status: "submitted",
+    });
+
+    const groups = groupOrdersIntoCheckouts([pastLate], 500, new Map());
+    const upcoming = selectUpcomingCheckouts(groups);
+    assert.equal(upcoming.length, 0);
+    assert.ok(groups[0]!.checkoutStatusKind === "submitted" || groups[0]!.deliveryDate < "2099-01-01");
+  });
+
+  it("does not treat pending staff late-order requests as My Orders rows", () => {
+    const libSource = readFileSync(
+      new URL("./staff-my-orders-load.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(libSource, /\.from\("orders"\)/);
+    assert.doesNotMatch(libSource, /staff_late_order_requests/);
+  });
+
+  it("scopes My Orders loader to the signed-in profile", () => {
+    const libSource = readFileSync(
+      new URL("./staff-my-orders-load.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(libSource, /\.eq\("profile_id", profileId\)/);
+  });
+
+  it("includes cancelled fulfilled late orders in the cancelled tab", () => {
+    const cancelledLate = buildRawOrder({
+      id: "late-cancelled",
+      groupId: "g-late-cancel",
+      providerId: "p1",
+      providerName: "Kitchen A",
+      deliveryDate: "2099-09-22",
+      orderDate: "2099-09-19",
+      isLateOrder: true,
+      status: "cancelled",
+    });
+
+    const cancelled = selectCancelledCheckouts(
+      groupOrdersIntoCheckouts([cancelledLate], 500, new Map()),
+    );
+    assert.equal(cancelled.length, 1);
+    assert.equal(cancelled[0]!.providerOrders[0]!.isLateOrder, true);
+  });
+
+  it("does not expose staff self-service edit/cancel for HR late orders on detail page", () => {
+    const pageSource = readFileSync(
+      new URL("../app/lunch/orders/[id]/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(pageSource, /is_late_order/);
+    assert.match(pageSource, /selfServiceMutable/);
+    assert.match(pageSource, /!order\.is_late_order/);
+    assert.doesNotMatch(pageSource, /order_group_id/);
+  });
+
+  it("my orders cards do not expose group cancel or edit actions", () => {
+    const cardSource = readFileSync(
+      new URL("../components/my-orders/grouped-checkout-card.tsx", import.meta.url),
+      "utf8",
+    );
+    const providerSectionSource = readFileSync(
+      new URL("../components/my-orders/provider-order-section.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.doesNotMatch(cardSource, /cancelLunchOrder|Cancel order|Edit order/);
+    assert.doesNotMatch(providerSectionSource, /cancelLunchOrder|Cancel order|Edit order/);
+    assert.match(providerSectionSource, /View order/);
+  });
+
+  it("backfill migration only assigns groups to late orders missing one", () => {
+    const migrationSource = readFileSync(
+      new URL("../../supabase/migrations/20261006140000_hr_late_order_checkout_group.sql", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(migrationSource, /where is_late_order = true/);
+    assert.match(migrationSource, /and order_group_id is null/);
+    assert.match(migrationSource, /gen_random_uuid\(\)/);
+    assert.doesNotMatch(
+      migrationSource,
+      /update public\.orders[\s\S]*set order_group_id[\s\S]*where order_group_id is null[\s\S]*;/,
+    );
+  });
+
+  it("my orders page wiring remains unchanged aside from late-order inclusion", () => {
+    const pageSource = readFileSync(
+      new URL("../app/my-orders/page.tsx", import.meta.url),
       "utf8",
     );
     const cancelledSource = readFileSync(
@@ -346,8 +475,6 @@ describe("staff my orders grouping", () => {
 
     assert.match(pageSource, /loadStaffGroupedCheckouts/);
     assert.match(pageSource, /Place another order/);
-    assert.match(libSource, /not\("order_group_id", "is", null\)/);
-    assert.doesNotMatch(libSource, /legacy/i);
     assert.doesNotMatch(cancelledSource, /bg-red|text-red|ring-red/);
     assert.match(cancelledSource, /cancellationSummary/);
   });
