@@ -3,8 +3,10 @@
 import {
   IconCalendar,
   IconCircleX,
+  IconClipboard,
   IconHistory,
 } from "@/components/icons/line-icons";
+import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB } from "@/lib/staff-late-order-submissions";
 import type { MyOrdersTab } from "@/lib/staff-my-orders";
 import { useAccessibleTablist } from "@/hooks/use-accessible-tablist";
 import { MY_ORDERS_TABPANEL_ID } from "@/lib/accessible-tabs";
@@ -17,6 +19,11 @@ const TABS: Array<{
   { id: "upcoming", label: "Upcoming", Icon: IconCalendar },
   { id: "past", label: "Past Orders", Icon: IconHistory },
   { id: "cancelled", label: "Cancelled", Icon: IconCircleX },
+  {
+    id: MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB,
+    label: "Late order submissions",
+    Icon: IconClipboard,
+  },
 ];
 
 type Props = {

@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import type { StaffLateOrderRequestRow } from "@/app/home/staff-late-order-request-actions";
 import type { GroupedCheckout, MyOrdersTab } from "@/lib/staff-my-orders";
+import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB } from "@/lib/staff-late-order-submissions";
+import { sortLateOrderSubmissions } from "@/lib/staff-late-order-submissions";
+import { LateOrderSubmissionCard } from "@/components/my-orders/late-order-submission-card";
 import {
   getMostRecentPastDeliveryDate,
   selectCancelledCheckouts,
@@ -18,9 +22,11 @@ import { MY_ORDERS_TABPANEL_ID } from "@/lib/accessible-tabs";
 
 type Props = {
   checkouts: GroupedCheckout[];
+  lateOrderSubmissions: StaffLateOrderRequestRow[];
   activeTab: MyOrdersTab;
   selectedPastDate: string | null;
   pastDeliveryDates: string[];
+  showLateOrderSubmissionLink: boolean;
 };
 
 function buildMyOrdersHref(tab: MyOrdersTab, date: string | null): string {
@@ -37,14 +43,21 @@ function buildMyOrdersHref(tab: MyOrdersTab, date: string | null): string {
 
 export function MyOrdersPageClient({
   checkouts,
+  lateOrderSubmissions,
   activeTab,
   selectedPastDate,
   pastDeliveryDates,
+  showLateOrderSubmissionLink,
 }: Props) {
   const router = useRouter();
 
   const upcoming = useMemo(() => selectUpcomingCheckouts(checkouts), [checkouts]);
   const cancelled = useMemo(() => selectCancelledCheckouts(checkouts), [checkouts]);
+
+  const sortedLateOrderSubmissions = useMemo(
+    () => sortLateOrderSubmissions(lateOrderSubmissions),
+    [lateOrderSubmissions],
+  );
 
   const pastCheckoutsForSelectedDate = useMemo(() => {
     if (!selectedPastDate) {
@@ -154,6 +167,29 @@ export function MyOrdersPageClient({
                 defaultExpanded
                 showViewLinks={false}
               />
+            ))
+          )
+        ) : null}
+
+        {activeTab === MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB ? (
+          sortedLateOrderSubmissions.length === 0 ? (
+            <MyOrdersEmptyState
+              title="No late order submissions yet."
+              icon="receipt"
+              action={
+                showLateOrderSubmissionLink ? (
+                  <Link
+                    href="/lunch?lateOrder=1"
+                    className="inline-flex min-h-10 items-center text-sm font-medium text-staff-teal hover:underline"
+                  >
+                    Submit a late order
+                  </Link>
+                ) : undefined
+              }
+            />
+          ) : (
+            sortedLateOrderSubmissions.map((submission) => (
+              <LateOrderSubmissionCard key={submission.id} request={submission} />
             ))
           )
         ) : null}

@@ -109,15 +109,19 @@ describe("staff accessibility phase A wiring", () => {
   });
 
   it("late order success uses polite status region", () => {
-    const panel = readFileSync(
-      new URL("../components/lunch/staff-late-order-request-panel.tsx", import.meta.url),
+    const drawer = readFileSync(
+      new URL("../components/lunch/staff-late-order-drawer.tsx", import.meta.url),
+      "utf8",
+    );
+    const card = readFileSync(
+      new URL("../components/my-orders/late-order-submission-card.tsx", import.meta.url),
       "utf8",
     );
 
-    assert.match(panel, /FormActionStatus variant="success"/);
-    assert.match(panel, /Late order request submitted/);
-    assert.match(panel, /Late order request updated/);
-    assert.match(panel, /Late order request cancelled/);
+    assert.match(drawer, /FormActionStatus variant="success"/);
+    assert.match(drawer, /submissionFeedback\.successMessage/);
+    assert.match(card, /Late order submission updated/);
+    assert.match(card, /Late order submission cancelled/);
   });
 
   it("app shell exposes skip link to main content", () => {

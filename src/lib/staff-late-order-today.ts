@@ -2,6 +2,7 @@ import type {
   EligibleLateOrderCycle,
   StaffLateOrderRequestRow,
 } from "@/app/home/staff-late-order-request-actions";
+import { shouldMountStaffLateOrderSubmissionDrawer } from "@/lib/staff-late-order-submissions";
 
 export type StaffLateOrderTodayContext = {
   eligibleCycles: EligibleLateOrderCycle[];
@@ -110,11 +111,42 @@ export function staffLateOrderDrawerVisible(
   context: StaffLateOrderTodayContext,
   options?: { newLateOrderOpportunity?: boolean },
 ): boolean {
-  if (context.eligibleCycles.length > 0 || context.requests.length > 0) {
-    return true;
+  const newLateOrderOpportunity = options?.newLateOrderOpportunity === true;
+  return shouldMountStaffLateOrderSubmissionDrawer(
+    context.eligibleCycles.length,
+    newLateOrderOpportunity,
+  );
+}
+
+export function staffLateOrderHasSubmissionStatusOnly(
+  context: StaffLateOrderTodayContext,
+  options?: { newLateOrderOpportunity?: boolean },
+): boolean {
+  return (
+    context.requests.length > 0 &&
+    !staffLateOrderDrawerVisible(context, options)
+  );
+}
+
+export type StaffLateOrderActionKind = "submit" | "status" | null;
+
+export function staffLateOrderActionKind(
+  context: StaffLateOrderTodayContext,
+  options?: { newLateOrderOpportunity?: boolean },
+): StaffLateOrderActionKind {
+  if (!staffLateOrderDrawerVisible(context, options) && !staffLateOrderHasSubmissionStatusOnly(context, options)) {
+    return null;
   }
 
-  return options?.newLateOrderOpportunity === true;
+  if (staffLateOrderNewRequestAvailable(context, options?.newLateOrderOpportunity === true)) {
+    return "submit";
+  }
+
+  if (context.requests.length > 0) {
+    return "status";
+  }
+
+  return null;
 }
 
 export function buildStaffLateOrderDrawerContext(
@@ -195,23 +227,22 @@ export function staffLateOrderActionLabel(
   },
 ): string | null {
   const newLateOrderOpportunity = options?.newLateOrderOpportunity === true;
+  const kind = staffLateOrderActionKind(context, { newLateOrderOpportunity });
 
-  if (!staffLateOrderDrawerVisible(context, { newLateOrderOpportunity })) {
+  if (kind === null) {
     return null;
   }
 
-  const hasCreate = staffLateOrderNewRequestAvailable(context, newLateOrderOpportunity);
-
-  if (hasCreate) {
-    const deliveryDates = collectCreateDeliveryDatesForActionLabel(
-      context,
-      options?.summary,
-      newLateOrderOpportunity,
-    );
-    return staffLateOrderCreateActionLabel(deliveryDates, jamaicaToday);
+  if (kind === "status") {
+    return "Late order status";
   }
 
-  return "Late order status";
+  const deliveryDates = collectCreateDeliveryDatesForActionLabel(
+    context,
+    options?.summary,
+    newLateOrderOpportunity,
+  );
+  return staffLateOrderCreateActionLabel(deliveryDates, jamaicaToday);
 }
 
 /** @deprecated Use staffLateOrderActionLabel */

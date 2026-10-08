@@ -44,6 +44,17 @@ test.describe("Staff pages — axe WCAG scans", () => {
     await expectNoAxeViolations(page, "/lunch cart with draft item", { mainContentOnly: true });
   });
 
+  test("my-orders — late order submissions deep link", async ({ page }) => {
+    await page.goto("/my-orders?tab=late-order-submissions");
+    await expect(page.getByRole("tab", { name: "Late order submissions" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expectNoAxeViolations(page, "/my-orders late order submissions", {
+      mainContentOnly: true,
+    });
+  });
+
   test("my-orders — upcoming tab", async ({ page }) => {
     await page.goto("/my-orders");
     await expect(page.getByRole("tab", { name: "Upcoming" })).toHaveAttribute("aria-selected", "true");

@@ -42,6 +42,7 @@ type Props = {
   lateOrderStatusAvailable: boolean;
   lateOrderActionWhileOrderingOpen: boolean;
   lateOrderActionLabel: string | null;
+  lateOrderSecondaryHref: string | null;
 };
 
 export function StaffDashboard({
@@ -63,6 +64,7 @@ export function StaffDashboard({
   lateOrderStatusAvailable,
   lateOrderActionWhileOrderingOpen,
   lateOrderActionLabel,
+  lateOrderSecondaryHref,
 }: Props) {
   const orderCtaLabel = hasOrderForDelivery ? "Order Again" : "Order Lunch";
   const deliveryLabel = deliveryDate ? formatHumanDate(deliveryDate) : null;
@@ -146,9 +148,9 @@ export function StaffDashboard({
                   You&apos;ll be taken to Today&apos;s Order. Ordering is not completed from the
                   dashboard.
                 </p>
-                {lateOrderActionWhileOrderingOpen && lateOrderActionLabel ? (
+                {lateOrderActionWhileOrderingOpen && lateOrderActionLabel && lateOrderSecondaryHref ? (
                   <Link
-                    href="/lunch?lateOrder=1"
+                    href={lateOrderSecondaryHref}
                     className={`${linkButtonClass("secondary")} mt-3 min-h-10 w-full max-w-full justify-center px-5 py-2 text-sm font-medium`}
                   >
                     {lateOrderActionLabel}
@@ -176,15 +178,15 @@ export function StaffDashboard({
             ) : lateOrderStatusAvailable ? (
               <>
                 <Link
-                  href="/lunch?lateOrder=1"
+                  href="/my-orders?tab=late-order-submissions"
                   className={`${linkButtonClass("secondary")} min-h-12 w-full max-w-full justify-center gap-2 px-5 py-3 text-base font-semibold`}
                 >
                   Late order status
                   <IconArrowRight size={18} className="opacity-90" />
                 </Link>
                 <p className="mt-2 text-xs text-staff-instruction">
-                  New late order requests are not available right now. Open the drawer to see your
-                  request status.
+                  New late order requests are not available right now. View your submission status in
+                  My Orders.
                 </p>
               </>
             ) : (
@@ -242,7 +244,7 @@ export function StaffDashboard({
                     : orderingOpen
                       ? "Select Order Lunch above to choose your lunch."
                       : lateOrderStatusAvailable
-                        ? "Use Late order status above to see your request on Today's Order."
+                        ? "Use Late order status above to review your submissions in My Orders."
                         : "Normal ordering is closed for your next delivery."
                 }
               />

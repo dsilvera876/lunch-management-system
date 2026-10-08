@@ -31,11 +31,11 @@ describe("staff late order UX", () => {
     );
 
     assert.match(lunch, /StaffLateOrderDrawerRoot/);
-    assert.match(lunch, /StaffLateOrderDrawerTrigger/);
+    assert.match(lunch, /StaffLateOrderHeaderAction/);
     assert.match(lunch, /buildStaffLateOrderDrawerContext/);
     assert.match(lunch, /defaultDeliveryDate/);
     assert.match(lunch, /deliveryDates/);
-    assert.match(lunch, /StaffLateOrderDrawerTrigger/);
+    assert.match(lunch, /StaffLateOrderHeaderAction/);
     assert.doesNotMatch(lunch, /StaffLateOrderRequestSection/);
     assert.match(drawer, /FocusTrapPopover/);
     assert.match(drawer, /aria-label="Close late order drawer"/);
@@ -54,26 +54,26 @@ describe("staff late order UX", () => {
     );
     assert.match(drawer, /filterStaffLateOrderForDeliveryDate/);
     assert.match(drawer, /deliveryDates\.length > 1/);
-    assert.match(drawer, /key=\{\`\$\{selectedDeliveryDate\}:\$\{selectedOfficeLocationId\}\`\}/);
     assert.doesNotMatch(panel, /type="date"|delivery date selector/i);
-    assert.match(panel, /const showEntry = eligibleCycles\.length > 0/);
-    assert.match(panel, /locationRequired && requestRows\.length === 0/);
+    assert.match(panel, /const showEntry = cycleOptions\.length > 0/);
+    assert.match(panel, /locationRequired && !officeLocationId/);
+    assert.match(panel, /View late order submissions/);
+    assert.doesNotMatch(panel, /requestRows\.map/);
     assert.match(drawer, /variant="drawer"/);
   });
 
-  it("late-order panel keeps badges, helper copy, and optimistic cancel feedback", () => {
+  it("late-order panel keeps submission helper copy and duplicate block link", () => {
     const panel = readFileSync(
       new URL("../components/lunch/staff-late-order-request-panel.tsx", import.meta.url),
       "utf8",
     );
 
-    assert.match(panel, /StatusBadge/);
     assert.match(
       panel,
       /You can only place one late lunch order per lunch provider today\./,
     );
-    assert.match(panel, /optimisticCancelledIds/);
-    assert.match(panel, /FormActionStatus variant="success"/);
+    assert.match(panel, /findBlockingLateOrderSubmission/);
+    assert.match(panel, /MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF/);
   });
 
   it("home and lunch expose late-order context without staff-only role gating", () => {
@@ -102,7 +102,7 @@ describe("staff late order UX", () => {
     );
 
     assert.match(drawer, /highlightFromQuery/);
-    assert.match(drawer, /highlightFromQuery &&[\s\S]*staffLateOrderDrawerVisible/);
+    assert.match(drawer, /highlightFromQuery &&[\s\S]*staffLateOrderNewRequestAvailable/);
     assert.doesNotMatch(drawer, /highlightFromQuery &&[\s\S]*!orderingOpen/);
     assert.match(drawer, /setDrawerOpen\(true\)/);
   });

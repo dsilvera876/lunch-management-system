@@ -8,6 +8,7 @@ import {
   filterStaffLateOrderForDeliveryDate,
   reconcileStaffLateOrderDeliveryDate,
   staffLateOrderActionLabel,
+  staffLateOrderActionKind,
   staffLateOrderCreateAvailable,
   staffLateOrderDrawerTitle,
   staffLateOrderDrawerVisible,
@@ -43,6 +44,8 @@ const requestToday = {
   special_instructions: null,
   decline_reason: null,
   fulfilled_order_id: null,
+  office_location_id: "loc-1",
+  office_location_name: "Camp Road",
   created_at: "",
   updated_at: "",
 };
@@ -107,11 +110,11 @@ describe("staff late order drawer context", () => {
     assert.equal(staffLateOrderActionLabel(full, tuesday), "Submit late order for today");
   });
 
-  it("status only -> Late order status", () => {
+  it("status only -> Late order status without submission drawer", () => {
     const full = { eligibleCycles: [], requests: [requestToday] };
     assert.equal(staffLateOrderCreateAvailable(full), false);
     assert.equal(staffLateOrderActionLabel(full, tuesday), "Late order status");
-    assert.equal(buildStaffLateOrderDrawerContext(full, tuesday).visible, true);
+    assert.equal(buildStaffLateOrderDrawerContext(full, tuesday).visible, false);
   });
 
   it("no eligible cycles and no requests -> hidden unless DB reports new opportunity", () => {
@@ -225,5 +228,27 @@ describe("staff late order drawer context", () => {
       staffLateOrderNewRequestAvailable({ eligibleCycles: [cycleToday], requests: [] }, false),
       true,
     );
+  });
+
+  it("status only when DB reports no actionable opportunity and cycles are blocked", () => {
+    const blockedAll = {
+      eligibleCycles: [],
+      requests: [requestToday],
+    };
+    assert.equal(staffLateOrderActionKind(blockedAll, { newLateOrderOpportunity: false }), "status");
+    assert.equal(
+      staffLateOrderActionLabel(blockedAll, tuesday, { newLateOrderOpportunity: false }),
+      "Late order status",
+    );
+    assert.equal(staffLateOrderDrawerVisible(blockedAll, { newLateOrderOpportunity: false }), false);
+  });
+
+  it("submit remains when another provider cycle is still actionable", () => {
+    const partial = {
+      eligibleCycles: [cycleFuture],
+      requests: [requestToday],
+    };
+    assert.equal(staffLateOrderActionKind(partial, { newLateOrderOpportunity: false }), "submit");
+    assert.equal(staffLateOrderDrawerVisible(partial, { newLateOrderOpportunity: false }), true);
   });
 });

@@ -125,11 +125,11 @@ describe("late-order submit partial failure handling", () => {
     assert.match(createAction, /defaultSaveWarning = LATE_ORDER_DEFAULT_SAVE_WARNING/);
     assert.match(createAction, /return \{ ok: true, requestId: String\(data\), defaultSaveWarning \}/);
 
-    const panel = readFileSync(
-      new URL("../components/lunch/staff-late-order-request-panel.tsx", import.meta.url),
+    const card = readFileSync(
+      new URL("../components/my-orders/late-order-submission-card.tsx", import.meta.url),
       "utf8",
     );
-    assert.match(panel, /result\.defaultSaveWarning/);
+    assert.match(card, /LateOrderSubmissionEditModal/);
   });
 });
 

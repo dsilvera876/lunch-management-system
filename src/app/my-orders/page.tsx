@@ -4,6 +4,10 @@ import { requireProfile } from "@/lib/auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { linkButtonClass } from "@/components/ui/button";
 import { MyOrdersPageClient } from "@/components/my-orders/my-orders-page-client";
+import {
+  loadMyStaffLateOrderRequests,
+  loadStaffLateOrderNewRequestAvailable,
+} from "@/app/home/staff-late-order-request-actions";
 import { loadStaffGroupedCheckouts } from "@/lib/staff-my-orders-load";
 import {
   getMostRecentPastDeliveryDate,
@@ -23,7 +27,11 @@ export default async function MyOrdersPage({ searchParams }: Props) {
   const profile = await requireProfile();
   const query = await searchParams;
   const tab = parseMyOrdersTab(query.tab);
-  const checkouts = await loadStaffGroupedCheckouts(profile.id);
+  const [checkouts, lateOrderSubmissions, lateOrderOpportunityAvailable] = await Promise.all([
+    loadStaffGroupedCheckouts(profile.id),
+    loadMyStaffLateOrderRequests(),
+    loadStaffLateOrderNewRequestAvailable(),
+  ]);
   const pastDates = selectPastDeliveryDates(checkouts);
   const dateFromQuery = normalizePastOrderDateParam(query.date);
 
@@ -48,9 +56,11 @@ export default async function MyOrdersPage({ searchParams }: Props) {
 
       <MyOrdersPageClient
         checkouts={checkouts}
+        lateOrderSubmissions={lateOrderSubmissions}
         activeTab={tab}
         selectedPastDate={selectedPastDate}
         pastDeliveryDates={pastDates}
+        showLateOrderSubmissionLink={lateOrderOpportunityAvailable}
       />
     </>
   );

@@ -87,6 +87,8 @@ describe("staff late-order flow labels (A–G)", () => {
               special_instructions: null,
               decline_reason: null,
               fulfilled_order_id: null,
+              office_location_id: "loc-1",
+              office_location_name: "Camp Road",
               created_at: "",
               updated_at: "",
             },
@@ -129,7 +131,7 @@ describe("staff late-order routing guards", () => {
     const drawer = readFileSync("src/components/lunch/staff-late-order-drawer.tsx", "utf8");
     assert.match(
       drawer,
-      /highlightFromQuery &&\s*\n\s*staffLateOrderDrawerVisible/,
+      /highlightFromQuery &&\s*\n\s*staffLateOrderNewRequestAvailable/,
     );
     assert.doesNotMatch(drawer, /highlightFromQuery &&\s*\n\s*!orderingOpen/);
   });

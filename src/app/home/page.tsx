@@ -15,9 +15,11 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import {
+  staffLateOrderActionKind,
   staffLateOrderActionLabel,
   staffLateOrderNewRequestAvailable,
 } from "@/lib/staff-late-order-today";
+import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF } from "@/lib/staff-late-order-submissions";
 import {
   loadStaffLateOrderNewRequestSummary,
   loadStaffLateOrderRequestContext,
@@ -114,6 +116,14 @@ export default async function HomePage() {
   });
   const lateOrderActionWhileOrderingOpen =
     ctx.orderingOpen && lateOrderActionLabel !== null;
+  const lateOrderSecondaryHref =
+    lateOrderActionWhileOrderingOpen && lateOrderActionLabel
+      ? staffLateOrderActionKind(lateRequestContext, {
+          newLateOrderOpportunity,
+        }) === "status"
+        ? MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF
+        : "/lunch?lateOrder=1"
+      : null;
 
   const recentOrders =
     recentOrdersResult.data?.map((order) => {
@@ -157,6 +167,7 @@ export default async function HomePage() {
       lateOrderStatusAvailable={lateOrderStatusAvailable}
       lateOrderActionWhileOrderingOpen={lateOrderActionWhileOrderingOpen}
       lateOrderActionLabel={lateOrderActionLabel}
+      lateOrderSecondaryHref={lateOrderSecondaryHref}
       />
     </div>
   );

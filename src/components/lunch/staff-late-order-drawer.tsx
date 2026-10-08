@@ -40,8 +40,10 @@ import {
   filterStaffLateOrderForDeliveryDate,
   reconcileStaffLateOrderDeliveryDate,
   staffLateOrderActionLabel,
+  staffLateOrderActionKind,
   staffLateOrderDrawerTitle,
   staffLateOrderDrawerVisible,
+  staffLateOrderNewRequestAvailable,
   type StaffLateOrderNewRequestSummary,
   type StaffLateOrderTodayContext,
 } from "@/lib/staff-late-order-today";
@@ -162,7 +164,7 @@ export function StaffLateOrderDrawerRoot({
   const [drawerOpen, setDrawerOpen] = useState(
     () =>
       highlightFromQuery &&
-      staffLateOrderDrawerVisible(fullContext, { newLateOrderOpportunity }),
+      staffLateOrderNewRequestAvailable(fullContext, newLateOrderOpportunity),
   );
   const [submissionFeedback, setSubmissionFeedbackState] =
     useState<LateOrderSubmissionFeedback>(EMPTY_SUBMISSION_FEEDBACK);
@@ -352,12 +354,13 @@ export function StaffLateOrderDrawerTrigger({ prominent = false, className = "" 
     newLateOrderOpportunity,
     lateOrderSummary,
   } = useStaffLateOrderDrawer();
+  const kind = staffLateOrderActionKind(fullContext, { newLateOrderOpportunity });
   const label = staffLateOrderActionLabel(fullContext, jamaicaToday, {
     newLateOrderOpportunity,
     summary: lateOrderSummary,
   });
 
-  if (!label) {
+  if (!label || kind !== "submit") {
     return null;
   }
 

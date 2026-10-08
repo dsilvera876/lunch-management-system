@@ -6,7 +6,9 @@ import {
 } from "@/lib/menu-items";
 import type { DeliveryState, FinancialDisposition } from "@/lib/delivery-reconciliation";
 import { calculateMarginalOrderCheckout } from "@/lib/order-subsidy-preview";
-export type MyOrdersTab = "upcoming" | "past" | "cancelled";
+import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB } from "@/lib/staff-late-order-submissions";
+
+export type MyOrdersTab = "upcoming" | "past" | "cancelled" | typeof MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB;
 
 export type ProviderOrderLine = {
   name: string;
@@ -469,6 +471,10 @@ export function selectCancelledCheckouts(
 export function parseMyOrdersTab(value: string | undefined): MyOrdersTab {
   if (value === "past" || value === "cancelled") {
     return value;
+  }
+
+  if (value === MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB) {
+    return MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB;
   }
 
   return "upcoming";

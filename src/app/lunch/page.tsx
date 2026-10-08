@@ -22,19 +22,17 @@ import { OrderingStatusBar } from "@/components/lunch/ordering-status-bar";
 
 import { LunchOrderingShell } from "@/components/lunch/lunch-ordering-shell";
 
-import {
-
-  StaffLateOrderDrawerRoot,
-
-  StaffLateOrderDrawerTrigger,
-
-} from "@/components/lunch/staff-late-order-drawer";
+import { StaffLateOrderDrawerRoot } from "@/components/lunch/staff-late-order-drawer";
+import { StaffLateOrderHeaderAction } from "@/components/lunch/staff-late-order-header-action";
 
 import {
   loadStaffLateOrderNewRequestSummary,
   loadStaffLateOrderRequestContext,
 } from "@/app/home/staff-late-order-request-actions";
-import { staffLateOrderActionLabel } from "@/lib/staff-late-order-today";
+import {
+  staffLateOrderDrawerVisible,
+  staffLateOrderHasSubmissionStatusOnly,
+} from "@/lib/staff-late-order-today";
 import { resolveLateOrderEligibilityOfficeLocationId } from "@/lib/staff-late-order-location-save";
 
 import { getJamaicaTodayDate } from "@/lib/datetime";
@@ -212,11 +210,12 @@ export default async function LunchPage({ searchParams }: Props) {
     highlightFromQuery: params.lateOrder === "1",
   } as const;
 
-  const lateOrderHeaderActionLabel = staffLateOrderActionLabel(
-    lateOrderDrawer.context,
-    todayDeliveryDate,
-    { newLateOrderOpportunity, summary: lateOrderSummary },
-  );
+  const showLateOrderSubmissionDrawer = staffLateOrderDrawerVisible(lateOrderDrawer.context, {
+    newLateOrderOpportunity,
+  });
+  const showLateOrderHeaderAction =
+    showLateOrderSubmissionDrawer ||
+    staffLateOrderHasSubmissionStatusOnly(lateOrderDrawer.context, { newLateOrderOpportunity });
 
   const pageBody = (
     <>
@@ -225,8 +224,13 @@ export default async function LunchPage({ searchParams }: Props) {
         staffAccessibleDescription
         description="Choose a provider and submit a separate order for that provider before today's cutoff."
         actions={
-          lateOrderDrawer.visible && lateOrderHeaderActionLabel ? (
-            <StaffLateOrderDrawerTrigger />
+          showLateOrderHeaderAction ? (
+            <StaffLateOrderHeaderAction
+              context={lateOrderDrawer.context}
+              jamaicaToday={todayDeliveryDate}
+              newLateOrderOpportunity={newLateOrderOpportunity}
+              summary={lateOrderSummary}
+            />
           ) : null
         }
       />
@@ -331,7 +335,7 @@ export default async function LunchPage({ searchParams }: Props) {
 
       {!ctx.orderingOpen && closedReason ? (
 
-        lateOrderDrawer.visible ? (
+        showLateOrderSubmissionDrawer || showLateOrderHeaderAction ? (
 
           <div className="rounded-xl border border-dashed border-border bg-surface px-6 py-10 text-center">
 
@@ -362,7 +366,7 @@ export default async function LunchPage({ searchParams }: Props) {
     </>
   );
 
-  if (lateOrderDrawer.visible) {
+  if (showLateOrderSubmissionDrawer) {
     return (
       <StaffLateOrderDrawerRoot {...lateOrderDrawerProps}>
         {pageBody}

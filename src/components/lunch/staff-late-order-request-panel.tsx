@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
@@ -9,24 +10,23 @@ import {
   useRef,
   useState,
   useTransition,
-  type RefObject,
 } from "react";
 import {
-  cancelStaffLateOrderRequestAction,
   createStaffLateOrderRequestAction,
-  updateStaffLateOrderRequestAction,
   type EligibleLateOrderCycle,
   type StaffLateOrderRequestRow,
 } from "@/app/home/staff-late-order-request-actions";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FormActionStatus } from "@/components/ui/form-action-status";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { formControlLabelClassName, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { formatHumanDate } from "@/lib/format";
 import { focusFormErrorSummary, joinDescribedBy } from "@/lib/staff-form-accessibility";
 import { useStaffLateOrderDrawerOptional } from "@/components/lunch/staff-late-order-drawer";
 import { buildLateOrderSubmitFeedback } from "@/lib/staff-late-order-submission-feedback";
+import {
+  findBlockingLateOrderSubmission,
+  MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF,
+} from "@/lib/staff-late-order-submissions";
 
 export type StaffLateOrderRequestPanelProps = {
   orderingOpen: boolean;
@@ -38,36 +38,11 @@ export type StaffLateOrderRequestPanelProps = {
   saveAsDefault?: boolean;
   locationRequired?: boolean;
   eligibilityLoading?: boolean;
-  variant?: "drawer" | "embedded" | "card";
-  sectionHeadingRef?: RefObject<HTMLHeadingElement | null>;
-  /** @deprecated Use variant="embedded" */
-  embedded?: boolean;
+  variant?: "drawer";
 };
 
 const LATE_ORDER_ONE_PER_PROVIDER_HELPER =
   "You can only place one late lunch order per lunch provider today.";
-
-function lateOrderRequestStatusBadgeStatus(status: string): string {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "pending") {
-    return "pending";
-  }
-  if (normalized === "fulfilled") {
-    return "fulfilled";
-  }
-  if (normalized === "declined") {
-    return "declined";
-  }
-  if (normalized === "cancelled") {
-    return "cancelled";
-  }
-  if (normalized === "expired") {
-    return "expired";
-  }
-  return normalized;
-}
-
-type Props = StaffLateOrderRequestPanelProps;
 
 type FieldKey = "cycle" | "summary" | "quantity" | "instructions";
 
@@ -85,24 +60,18 @@ export function StaffLateOrderRequestPanel({
   saveAsDefault = false,
   locationRequired = false,
   eligibilityLoading = false,
-  variant = "card",
-  sectionHeadingRef,
-  embedded = false,
-}: Props) {
-  const layoutVariant = embedded ? "embedded" : variant;
+  variant = "drawer",
+}: StaffLateOrderRequestPanelProps) {
   void orderingOpen;
+  void variant;
   const router = useRouter();
   const lateOrderDrawer = useStaffLateOrderDrawerOptional();
-  const [optimisticCancelledIds, setOptimisticCancelledIds] = useState<string[]>([]);
-  const [open, setOpen] = useState(() => variant === "drawer");
   const [error, setError] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<FieldKey | "general" | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const createFormRef = useRef<HTMLFormElement>(null);
   const cycleSelectRef = useRef<HTMLSelectElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
-  const successStatusId = useId();
   const errorSummaryId = useId();
   const cycleFieldId = useId();
   const summaryFieldId = useId();
@@ -114,12 +83,25 @@ export function StaffLateOrderRequestPanel({
   const instructionsHelperId = useId();
   const instructionsErrorId = useId();
 
-  const showEntry = eligibleCycles.length > 0;
+  const cycleOptions = useMemo(
+    () =>
+      eligibleCycles
+        .filter((c, index, list) => {
+          const key = cycleKey(c);
+          return list.findIndex((item) => cycleKey(item) === key) === index;
+        })
+        .filter(
+          (cycle) =>
+            !findBlockingLateOrderSubmission(
+              requests,
+              cycle.provider_id,
+              cycle.scheduled_delivery_date,
+            ),
+        ),
+    [eligibleCycles, requests],
+  );
 
-  const cycleOptions = eligibleCycles.filter((c, index, list) => {
-    const key = cycleKey(c);
-    return list.findIndex((item) => cycleKey(item) === key) === index;
-  });
+  const showEntry = cycleOptions.length > 0;
 
   const [selectedCycleKey, setSelectedCycleKey] = useState(
     cycleOptions[0] ? cycleKey(cycleOptions[0]) : "",
@@ -138,39 +120,22 @@ export function StaffLateOrderRequestPanel({
   const selectedCycle =
     cycleOptions.find((cycle) => cycleKey(cycle) === effectiveSelectedCycleKey) ?? null;
 
+  const blockingSubmission =
+    selectedCycle != null
+      ? findBlockingLateOrderSubmission(
+          requests,
+          selectedCycle.provider_id,
+          selectedCycle.scheduled_delivery_date,
+        )
+      : null;
+
   const [summary, setSummary] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [instructions, setInstructions] = useState("");
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const requestRows = useMemo(
-    () =>
-      requests.map((row) => {
-        if (
-          optimisticCancelledIds.includes(row.id) &&
-          row.status.toLowerCase() === "pending"
-        ) {
-          return { ...row, status: "cancelled" };
-        }
-        return row;
-      }),
-    [optimisticCancelledIds, requests],
-  );
-  const editingRequest = requestRows.find((r) => r.id === editingId) ?? null;
-  const editFormRef = useRef<HTMLFormElement>(null);
-
   function clearFieldValidation() {
     setError(null);
     setInvalidField(null);
-  }
-
-  function clearSuccessMessage() {
-    setSuccessMessage(null);
-  }
-
-  function setFormError(message: string, field: FieldKey | "general" = "general") {
-    setError(message);
-    setInvalidField(field);
   }
 
   useLayoutEffect(() => {
@@ -179,25 +144,15 @@ export function StaffLateOrderRequestPanel({
     }
   }, [error]);
 
-  const createFormOpen = layoutVariant === "drawer" ? showEntry : open;
-
   useEffect(() => {
-    if (open && showEntry) {
+    if (showEntry) {
       window.requestAnimationFrame(() => {
         cycleSelectRef.current?.focus();
       });
     }
-  }, [open, showEntry]);
+  }, [showEntry]);
 
-  useEffect(() => {
-    if (editingId) {
-      window.requestAnimationFrame(() => {
-        editFormRef.current?.querySelector<HTMLElement>("textarea")?.focus();
-      });
-    }
-  }, [editingId]);
-
-  if (locationRequired && requestRows.length === 0) {
+  if (locationRequired && !officeLocationId) {
     return (
       <p className="text-sm text-staff-instruction">
         Select a delivery location above to view eligible providers or submit a new late order.
@@ -205,7 +160,7 @@ export function StaffLateOrderRequestPanel({
     );
   }
 
-  if (eligibilityLoading && requestRows.length === 0) {
+  if (eligibilityLoading && !showEntry) {
     return (
       <p className="text-sm text-staff-instruction" role="status" aria-live="polite">
         Checking late-order availability…
@@ -213,7 +168,36 @@ export function StaffLateOrderRequestPanel({
     );
   }
 
-  if (!showEntry && requestRows.length === 0) {
+  if (!showEntry && !blockingSubmission) {
+    const hasBlockedProvidersOnly =
+      eligibleCycles.length > 0 &&
+      eligibleCycles.every((cycle) =>
+        findBlockingLateOrderSubmission(requests, cycle.provider_id, cycle.scheduled_delivery_date),
+      );
+    const hasExistingSubmissionOnDate = requests.some((request) => {
+      if (request.scheduled_delivery_date !== deliveryDate) {
+        return false;
+      }
+      const status = request.status.trim().toLowerCase();
+      return status === "pending" || status === "fulfilled";
+    });
+
+    if (hasBlockedProvidersOnly || hasExistingSubmissionOnDate) {
+      return (
+        <div className="space-y-2 text-sm text-staff-instruction">
+          <p role="status">
+            You already have a late order submission for this provider and delivery date.
+          </p>
+          <Link
+            href={MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF}
+            className="inline-flex min-h-10 items-center font-medium text-staff-teal hover:underline"
+          >
+            View late order submissions
+          </Link>
+        </div>
+      );
+    }
+
     return (
       <p className="text-sm text-staff-instruction">
         No late-order providers are available for this delivery date at the selected location.
@@ -250,6 +234,11 @@ export function StaffLateOrderRequestPanel({
     return true;
   }
 
+  function setFormError(message: string, field: FieldKey | "general" = "general") {
+    setError(message);
+    setInvalidField(field);
+  }
+
   function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     clearFieldValidation();
@@ -263,11 +252,7 @@ export function StaffLateOrderRequestPanel({
       return;
     }
 
-    if (layoutVariant === "drawer") {
-      lateOrderDrawer?.clearSubmissionFeedback();
-    } else {
-      clearSuccessMessage();
-    }
+    lateOrderDrawer?.clearSubmissionFeedback();
 
     startTransition(async () => {
       const result = await createStaffLateOrderRequestAction({
@@ -286,82 +271,16 @@ export function StaffLateOrderRequestPanel({
         return;
       }
 
-      if (layoutVariant === "drawer" && lateOrderDrawer) {
+      if (lateOrderDrawer) {
         lateOrderDrawer.setSubmissionFeedback(
           buildLateOrderSubmitFeedback(result.defaultSaveWarning),
         );
-      } else {
-        setSuccessMessage(
-          result.defaultSaveWarning
-            ? result.defaultSaveWarning
-            : "Late order request submitted.",
-        );
-        setOpen(false);
       }
       setSummary("");
       setInstructions("");
       setQuantity("1");
       refresh();
     });
-  }
-
-  function handleUpdate(event: React.FormEvent) {
-    event.preventDefault();
-    clearFieldValidation();
-
-    if (!validateLateOrderFields({ requireCycle: false }) || !editingRequest) {
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await updateStaffLateOrderRequestAction({
-        requestId: editingRequest.id,
-        requestedSummary: summary,
-        quantity: Number.parseInt(quantity, 10),
-        specialInstructions: instructions,
-        expectedUpdatedAt: editingRequest.updated_at,
-      });
-
-      if (!result.ok) {
-        setFormError(result.error);
-        return;
-      }
-
-      if (layoutVariant === "drawer") {
-        lateOrderDrawer?.clearSubmissionFeedback();
-      } else {
-        setSuccessMessage("Late order request updated.");
-      }
-      setEditingId(null);
-      refresh();
-    });
-  }
-
-  function handleCancel(requestId: string) {
-    clearFieldValidation();
-    startTransition(async () => {
-      const result = await cancelStaffLateOrderRequestAction(requestId);
-      if (!result.ok) {
-        setFormError(result.error);
-        return;
-      }
-      setOptimisticCancelledIds((current) =>
-        current.includes(requestId) ? current : [...current, requestId],
-      );
-      setEditingId(null);
-      if (layoutVariant === "drawer") {
-        lateOrderDrawer?.clearSubmissionFeedback();
-      } else {
-        setSuccessMessage("Late order request cancelled.");
-      }
-      refresh();
-    });
-  }
-
-  function closeCreateForm() {
-    setOpen(false);
-    clearFieldValidation();
-    clearSuccessMessage();
   }
 
   const errorSummary =
@@ -466,82 +385,36 @@ export function StaffLateOrderRequestPanel({
     </>
   );
 
-  const panelBody = (
-    <>
-      {layoutVariant !== "drawer" ? (
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2
-              id="late-order-request-heading"
-              ref={sectionHeadingRef}
-              tabIndex={-1}
-              className="text-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              Late order request
-            </h2>
-            <p className="mt-1 text-sm text-staff-instruction">
-              Delivery date: {formatHumanDate(deliveryDate)}.{" "}
-              {showEntry ? (
-                <>
-                  Submit a late order request before the provider cutoff. HR must review and fulfill
-                  approved requests—submitting does not create an order by itself.
-                </>
-              ) : (
-                <>
-                  Your late order request status is shown below. HR must review and fulfill approved
-                  requests—submitting a request does not create an order by itself.
-                </>
-              )}
-            </p>
-          </div>
-          {showEntry ? (
-            <Button
-              type="button"
-              variant="secondary"
-              aria-expanded={open}
-              onClick={() => {
-                if (open) {
-                  closeCreateForm();
-                } else {
-                  clearSuccessMessage();
-                  setOpen(true);
-                  setEditingId(null);
-                }
-              }}
-            >
-              {open ? "Close" : "Request a late order"}
-            </Button>
-          ) : null}
-        </div>
-      ) : (
-        <p className="text-sm text-staff-instruction">
-          {showEntry ? (
-            <>
-              Submit a late order request before the provider cutoff. HR must review and fulfill
-              approved requests—submitting does not create an order by itself.
-            </>
-          ) : (
-            <>
-              Your late order request status is shown below. HR must review and fulfill approved
-              requests—submitting a request does not create an order by itself.
-            </>
-          )}
+  if (blockingSubmission) {
+    return (
+      <div className="space-y-2 text-sm text-staff-instruction">
+        <p role="status">
+          You already have a late order submission for this provider and delivery date.
         </p>
-      )}
+        <Link
+          href={MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF}
+          className="inline-flex min-h-10 items-center font-medium text-staff-teal hover:underline"
+        >
+          View late order submissions
+        </Link>
+      </div>
+    );
+  }
 
-      {layoutVariant !== "drawer" && successMessage ? (
-        <FormActionStatus variant="success" id={successStatusId} className="mt-3">
-          {successMessage}
-        </FormActionStatus>
-      ) : null}
+  return (
+    <>
+      <p className="text-sm text-staff-instruction">
+        Submit a late order request before the provider cutoff. HR must review and fulfill approved
+        requests—submitting does not create an order by itself.
+      </p>
 
       {errorSummary}
 
-      {createFormOpen && showEntry ? (
+      {showEntry ? (
         <form
           ref={createFormRef}
           onSubmit={handleCreate}
-          className="mt-4 space-y-3 border-t border-border pt-4"
+          className="mt-4 space-y-3"
           noValidate
         >
           <div>
@@ -573,103 +446,10 @@ export function StaffLateOrderRequestPanel({
           {sharedRequestFields}
           <p className="text-sm text-staff-instruction">{LATE_ORDER_ONE_PER_PROVIDER_HELPER}</p>
           <Button type="submit" variant="primary" staffPrimaryCta>
-            {layoutVariant === "drawer" ? "Submit late order" : "Submit request"}
+            Submit late order
           </Button>
         </form>
       ) : null}
-
-      {editingRequest ? (
-        <form
-          ref={editFormRef}
-          onSubmit={handleUpdate}
-          className="mt-4 space-y-3 border-t border-border pt-4"
-          noValidate
-        >
-          <p className="text-sm font-medium text-foreground">Edit pending request</p>
-          {sharedRequestFields}
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="primary" staffPrimaryCta>
-              Save changes
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
-              Cancel edit
-            </Button>
-          </div>
-        </form>
-      ) : null}
-
-      {requestRows.length > 0 ? (
-        <ul className="mt-4 space-y-2 border-t border-border pt-4">
-          {requestRows.map((request) => (
-            <li
-              key={request.id}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">
-                    {request.provider_name} · {formatHumanDate(request.scheduled_delivery_date)}
-                  </p>
-                  <div className="mt-1.5">
-                    <StatusBadge status={lateOrderRequestStatusBadgeStatus(request.status)} />
-                  </div>
-                  <p className="mt-1">{request.requested_summary}</p>
-                  {request.status.toLowerCase() === "declined" && request.decline_reason ? (
-                    <p className="mt-1 text-sm text-staff-instruction" role="status">
-                      Reason: {request.decline_reason}
-                    </p>
-                  ) : null}
-                </div>
-                {request.status.toLowerCase() === "pending" ? (
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        clearSuccessMessage();
-                        lateOrderDrawer?.clearSubmissionFeedback();
-                        setEditingId(request.id);
-                        setSummary(request.requested_summary);
-                        setQuantity(String(request.quantity));
-                        setInstructions(request.special_instructions ?? "");
-                        setOpen(false);
-                        clearFieldValidation();
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => handleCancel(request.id)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </>
-  );
-
-  if (layoutVariant === "drawer") {
-    return panelBody;
-  }
-
-  if (layoutVariant === "embedded") {
-    return (
-      <section
-        id="late-order-request"
-        className="mt-6 border-t border-border pt-6 text-left"
-        aria-labelledby="late-order-request-heading"
-      >
-        {panelBody}
-      </section>
-    );
-  }
-
-  return (
-    <Card id="late-order-request" padding="md" className="border-l-4 border-amber-500/70 shadow-sm">
-      {panelBody}
-    </Card>
   );
 }

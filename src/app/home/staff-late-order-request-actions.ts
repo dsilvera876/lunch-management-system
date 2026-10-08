@@ -24,9 +24,23 @@ export type StaffLateOrderRequestRow = {
   special_instructions: string | null;
   decline_reason: string | null;
   fulfilled_order_id: string | null;
+  office_location_id: string;
+  office_location_name: string;
   created_at: string;
   updated_at: string;
 };
+
+export async function loadMyStaffLateOrderRequests(): Promise<StaffLateOrderRequestRow[]> {
+  await requireProfile();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_my_staff_late_order_requests");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as StaffLateOrderRequestRow[];
+}
 
 export type EligibleLateOrderCycle = {
   provider_id: string;
@@ -201,6 +215,7 @@ export async function createStaffLateOrderRequestAction(input: {
 
   revalidatePath("/home");
   revalidatePath("/lunch");
+  revalidatePath("/my-orders");
   revalidatePath("/account");
 
   return { ok: true, requestId: String(data), defaultSaveWarning };
@@ -230,6 +245,7 @@ export async function updateStaffLateOrderRequestAction(input: {
 
   revalidatePath("/home");
   revalidatePath("/lunch");
+  revalidatePath("/my-orders");
 
   return { ok: true };
 }
@@ -250,6 +266,7 @@ export async function cancelStaffLateOrderRequestAction(
 
   revalidatePath("/home");
   revalidatePath("/lunch");
+  revalidatePath("/my-orders");
 
   return { ok: true };
 }
