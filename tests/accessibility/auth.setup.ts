@@ -1,12 +1,13 @@
 import { test as setup } from "@playwright/test";
 import path from "node:path";
 import { hasStaffCredentials, requireStaffCredentials } from "./helpers/env";
-import { loadLocalEnvFiles } from "./helpers/e2e-ordering-fixture";
+import { ensureLocalStaffOrderingFixtureForPlaywright, loadLocalEnvFiles } from "./helpers/e2e-ordering-fixture";
 
 const authFile = path.join(__dirname, ".auth/staff.json");
 
 setup("authenticate staff user", async ({ page }) => {
   loadLocalEnvFiles();
+  ensureLocalStaffOrderingFixtureForPlaywright();
   if (!hasStaffCredentials()) {
     throw new Error(
       "Set E2E_STAFF_EMAIL and E2E_STAFF_PASSWORD before running test:a11y " +

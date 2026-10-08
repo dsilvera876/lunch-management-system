@@ -158,6 +158,10 @@ export function runLocalDbExec(sql: string): void {
     if (message.includes("missing \"rows\"")) {
       return;
     }
+    const trimmed = output.trim();
+    if (/^(INSERT|UPDATE|DELETE)\s+\d+/i.test(trimmed) && !/"rows"\s*:/.test(output)) {
+      return;
+    }
     if (/error|fatal|failed/i.test(output)) {
       throw new Error(`[a11y local-db] SQL failed:\n${output}`);
     }

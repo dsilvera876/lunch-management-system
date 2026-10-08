@@ -33,7 +33,11 @@ export default defineConfig({
     },
     {
       name: "chromium-a11y",
-      testIgnore: [/firefox-smoke\.spec\.ts/, /staff-late-order-drawer\.spec\.ts/],
+      testIgnore: [
+        /firefox-smoke\.spec\.ts/,
+        /staff-late-order-drawer\.spec\.ts/,
+        /staff-late-order-submission-edit\.spec\.ts/,
+      ],
       use: {
         ...devices["Desktop Chrome"],
         storageState: staffAuthFile,
@@ -42,7 +46,7 @@ export default defineConfig({
     },
     {
       name: "chromium-late-order-a11y",
-      testMatch: /staff-late-order-drawer\.spec\.ts/,
+      testMatch: /staff-late-order-(drawer|submission-edit)\.spec\.ts/,
       fullyParallel: false,
       workers: 1,
       use: {

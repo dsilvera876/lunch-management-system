@@ -29,6 +29,14 @@ export const E2E_HR_PROFILE_ID = "10000003-0003-4003-8003-000000000003";
 
 const SNAPSHOT_FILE = path.join(__dirname, "..", ".auth", "e2e-ordering-fixture-snapshot.json");
 
+/** Set during Playwright global setup; integration tests must not tear down the shared snapshot. */
+const PLAYWRIGHT_ORDERING_LOCK_FILE = path.join(
+  __dirname,
+  "..",
+  ".auth",
+  "playwright-ordering-lock",
+);
+
 /** Isolated restore payload for late-order drawer tests (survives ordering snapshot teardown). */
 const LATE_ORDER_DRAWER_RESTORE_FILE = path.join(
   __dirname,
@@ -159,6 +167,57 @@ export function clearFixtureSnapshotFile() {
   if (fs.existsSync(SNAPSHOT_FILE)) {
     fs.unlinkSync(SNAPSHOT_FILE);
   }
+}
+
+export function markPlaywrightOrderingFixtureActive() {
+  fs.mkdirSync(path.dirname(PLAYWRIGHT_ORDERING_LOCK_FILE), { recursive: true });
+  fs.writeFileSync(PLAYWRIGHT_ORDERING_LOCK_FILE, "1", "utf8");
+}
+
+export function clearPlaywrightOrderingFixtureLock() {
+  if (fs.existsSync(PLAYWRIGHT_ORDERING_LOCK_FILE)) {
+    fs.unlinkSync(PLAYWRIGHT_ORDERING_LOCK_FILE);
+  }
+}
+
+/** True while `test:a11y` global setup owns the ordering snapshot (local E2E only). */
+export function isPlaywrightOrderingFixtureActive(): boolean {
+  return fs.existsSync(PLAYWRIGHT_ORDERING_LOCK_FILE);
+}
+
+/**
+ * Ensures open self-service ordering for Playwright after any harness restored seed cutoff.
+ * No-op when ordering is already open with an active snapshot.
+ */
+export function ensureLocalStaffOrderingFixtureForPlaywright(): void {
+  loadLocalEnvFiles();
+
+  const supabaseApiUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+
+  if (!supabaseApiUrl || !isLocalSupabaseApiUrl(supabaseApiUrl)) {
+    return;
+  }
+
+  const orderDate = normalizeDate(
+    runLocalDbQuery("select public.jamaica_today_date() as d")[0]?.d,
+  );
+  const probe = probeSelfServiceOrderingState(orderDate, E2E_STAFF1_OFFICE_LOCATION_ID);
+  const snapshot = readFixtureSnapshot();
+
+  if (probe.isOpen && snapshot) {
+    return;
+  }
+
+  if (snapshot) {
+    restoreLocalStaffOrderingFixture(snapshot);
+    clearFixtureSnapshotFile();
+  } else if (probe.isOpen) {
+    return;
+  }
+
+  applyLocalStaffOrderingFixture();
+  markPlaywrightOrderingFixtureActive();
 }
 
 function sqlString(value: string | null): string {
@@ -739,6 +798,7 @@ export function restoreLateOrderDrawerFromActiveSnapshot(): void {
 }
 
 export function teardownLocalStaffOrderingFixture() {
+  restoreLateOrderSubmissionEditFixture();
   restoreLateOrderDrawerFromActiveSnapshot();
 
   const snapshot = readFixtureSnapshot();
@@ -748,4 +808,197 @@ export function teardownLocalStaffOrderingFixture() {
 
   restoreLocalStaffOrderingFixture(snapshot);
   clearFixtureSnapshotFile();
+  clearPlaywrightOrderingFixtureLock();
+}
+
+/** Traceable pending submission rows for My Orders edit-modal E2E (local DB only). */
+export const E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS = {
+  requestA: "00000001-e2e0-4003-8003-000000000001",
+  requestB: "00000002-e2e0-4004-8004-000000000002",
+} as const;
+
+export const E2E_LATE_ORDER_SUBMISSION_EDIT_SUMMARIES = {
+  A: "E2E edit fixture A",
+  B: "E2E edit fixture B",
+} as const;
+
+const LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE = path.join(
+  __dirname,
+  "..",
+  ".auth",
+  "e2e-late-order-submission-edit-cutoff-restore.json",
+);
+
+type LateOrderSubmissionEditCutoffRestore = {
+  orderCutoffTime: string;
+};
+
+function readLateOrderSubmissionEditCutoffRestore(): LateOrderSubmissionEditCutoffRestore | null {
+  if (!fs.existsSync(LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE)) {
+    return null;
+  }
+  return JSON.parse(
+    fs.readFileSync(LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE, "utf8"),
+  ) as LateOrderSubmissionEditCutoffRestore;
+}
+
+function writeLateOrderSubmissionEditCutoffRestore(payload: LateOrderSubmissionEditCutoffRestore) {
+  fs.mkdirSync(path.dirname(LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE), { recursive: true });
+  fs.writeFileSync(
+    LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE,
+    JSON.stringify(payload, null, 2),
+    "utf8",
+  );
+}
+
+function clearLateOrderSubmissionEditCutoffRestore() {
+  if (fs.existsSync(LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE)) {
+    fs.unlinkSync(LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE);
+  }
+}
+
+function ensureLateOrderSubmissionEditWindowOpen(): void {
+  if (readLateOrderSubmissionEditCutoffRestore()) {
+    return;
+  }
+
+  const cutoffRow = runLocalDbQuery(
+    "select order_cutoff_time::text as t from public.app_settings where id = 1",
+  )[0];
+  writeLateOrderSubmissionEditCutoffRestore({
+    orderCutoffTime: normalizeCutoffTime(cutoffRow?.t),
+  });
+
+  runLocalDbQuery(`
+    update public.app_settings
+    set order_cutoff_time = (
+      select ((timezone('America/Jamaica', now()))::time - interval '1 minute')::time
+    )
+    where id = 1
+    returning id
+  `);
+
+  for (const providerId of [STAFF_SEED.providerAlberries, STAFF_SEED.providerDavis]) {
+    runLocalDbQuery(`
+      update public.lunch_providers
+      set
+        accepts_late_orders = true,
+        late_order_deadline_day = 'delivery_day',
+        late_order_deadline_time = '${E2E_LATE_ORDER_PROVIDER_DEADLINE_TIME}'::time
+      where id = '${providerId}'::uuid
+      returning id
+    `);
+  }
+}
+
+function restoreLateOrderSubmissionEditWindow(): void {
+  const payload = readLateOrderSubmissionEditCutoffRestore();
+  if (!payload) {
+    return;
+  }
+
+  runLocalDbQuery(`
+    update public.app_settings
+    set order_cutoff_time = ${sqlString(payload.orderCutoffTime)}::time
+    where id = 1
+    returning id
+  `);
+  clearLateOrderSubmissionEditCutoffRestore();
+}
+
+export function restoreLateOrderSubmissionEditFixture(): void {
+  const ids = Object.values(E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS);
+  runLocalDbQuery(`
+    delete from private.staff_late_order_requests
+    where id in (${ids.map((id) => `'${id}'::uuid`).join(", ")})
+    returning id
+  `);
+  restoreLateOrderSubmissionEditWindow();
+}
+
+export function applyLateOrderSubmissionEditFixture(): void {
+  const profileId = E2E_STAFF1_PROFILE_ID;
+  const officeId = E2E_STAFF1_OFFICE_LOCATION_ID;
+
+  restoreLateOrderSubmissionEditFixture();
+  ensureLateOrderSubmissionEditWindowOpen();
+
+  const cycleRows = runLocalDbQuery(`
+    with _jwt as (
+      select set_config(
+        'request.jwt.claims',
+        '{"sub":"${profileId}","role":"authenticated"}',
+        true
+      )
+    )
+    select
+      c.provider_id::text as provider_id,
+      c.order_date::text as order_date,
+      c.scheduled_delivery_date::text as scheduled_delivery_date
+    from _jwt,
+    public.list_staff_late_order_eligible_cycles('${officeId}'::uuid) c
+    where c.provider_id in (
+      '${STAFF_SEED.providerAlberries}'::uuid,
+      '${STAFF_SEED.providerDavis}'::uuid
+    )
+  `);
+
+  const cycleByProvider = new Map(
+    cycleRows.map((row) => [String(row.provider_id), row]),
+  );
+
+  const fixtures = [
+    {
+      id: E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS.requestA,
+      providerId: STAFF_SEED.providerAlberries,
+      summary: E2E_LATE_ORDER_SUBMISSION_EDIT_SUMMARIES.A,
+      createdAt: "2099-01-01T10:00:00Z",
+    },
+    {
+      id: E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS.requestB,
+      providerId: STAFF_SEED.providerDavis,
+      summary: E2E_LATE_ORDER_SUBMISSION_EDIT_SUMMARIES.B,
+      createdAt: "2099-01-02T10:00:00Z",
+    },
+  ];
+
+  for (const row of fixtures) {
+    const cycle = cycleByProvider.get(row.providerId);
+    if (!cycle) {
+      throw new Error(
+        `[a11y fixture] No eligible late-order cycle for provider ${row.providerId} during edit-modal setup.`,
+      );
+    }
+    const orderDate = normalizeDate(cycle.order_date);
+    const deliveryDate = normalizeDate(cycle.scheduled_delivery_date);
+
+    runLocalDbExec(`
+      insert into private.staff_late_order_requests (
+        id,
+        requester_profile_id,
+        provider_id,
+        office_location_id,
+        order_date,
+        scheduled_delivery_date,
+        status,
+        requested_summary,
+        quantity,
+        created_at,
+        updated_at
+      )
+      values (
+        '${row.id}'::uuid,
+        '${profileId}'::uuid,
+        '${row.providerId}'::uuid,
+        '${officeId}'::uuid,
+        '${orderDate}'::date,
+        '${deliveryDate}'::date,
+        'pending',
+        ${sqlString(row.summary)},
+        1,
+        '${row.createdAt}'::timestamptz,
+        '${row.createdAt}'::timestamptz
+      )
+    `);
+  }
 }

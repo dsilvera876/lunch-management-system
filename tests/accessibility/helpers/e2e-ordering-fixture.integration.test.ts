@@ -7,6 +7,7 @@ import {
   probeSelfServiceOrderingState,
   readFixtureSnapshot,
   teardownLocalStaffOrderingFixture,
+  isPlaywrightOrderingFixtureActive,
   E2E_STAFF1_OFFICE_LOCATION_ID,
 } from "./e2e-ordering-fixture";
 import { runLocalDbExec } from "./e2e-local-db";
@@ -14,16 +15,33 @@ import { runLocalDbExec } from "./e2e-local-db";
 describe("Staff E2E ordering fixture (local DB integration)", () => {
   before(() => {
     loadLocalEnvFiles();
+    if (isPlaywrightOrderingFixtureActive()) {
+      return;
+    }
     teardownLocalStaffOrderingFixture();
   });
 
   after(() => {
+    if (isPlaywrightOrderingFixtureActive()) {
+      return;
+    }
     teardownLocalStaffOrderingFixture();
   });
 
   it("opens self-service ordering for Jamaica today on loopback when today is a weekday", () => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
     if (!url || !isLocalSupabaseApiUrl(url)) {
+      return;
+    }
+
+    const existing = readFixtureSnapshot();
+    if (existing && isPlaywrightOrderingFixtureActive()) {
+      const probe = probeSelfServiceOrderingState(
+        existing.orderDate,
+        E2E_STAFF1_OFFICE_LOCATION_ID,
+      );
+      assert.equal(probe.isOpen, true);
+      assert.notEqual(probe.isoWeekday, null);
       return;
     }
 
