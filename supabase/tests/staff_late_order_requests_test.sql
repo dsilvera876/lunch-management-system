@@ -1,6 +1,6 @@
 begin;
 
-select plan(49);
+select plan(54);
 
 \ir support/reset_app_settings_baseline.inc
 \ir support/isolate_lunch_periods.inc
@@ -223,6 +223,12 @@ select set_config(
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'f8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
+select isnt(
+  (select office_location_name from public.get_my_staff_late_order_requests() limit 1),
+  null,
+  'get_my_staff_late_order_requests exposes office location name'
+);
+
 select lives_ok(
   $$ select public.update_staff_late_order_request(
     current_setting('test.slor_request_id')::uuid,
@@ -242,7 +248,7 @@ select throws_ok(
     1,
     null
   ) $$,
-  'A pending request already exists for this provider and delivery date',
+  'A late order request already exists for this provider and delivery date',
   'Second pending request for same provider/date rejected'
 );
 
@@ -412,7 +418,7 @@ select throws_ok(
     1,
     null
   ) $$,
-  'A late order already exists for this provider and delivery date',
+  'A late order request already exists for this provider and delivery date',
   'Staff cannot create request when submitted late order exists'
 );
 
@@ -438,6 +444,34 @@ select ok(
     where id = current_setting('test.slor_fulfilled_order_id')::uuid
   ) = 'cancelled',
   'Fulfilled late order row is cancelled when HR cancels the order'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+
+select throws_ok(
+  $$ select public.create_staff_late_order_request(
+    'b1111111-1111-4111-8111-111111111111',
+    current_setting('test.late_delivery_date')::date,
+    'Blocked after fulfilled order cancelled',
+    1,
+    null,
+    'f9000000-0000-4000-8000-000000000001'
+  ) $$,
+  'A late order request already exists for this provider and delivery date',
+  'Staff create rejected when fulfilled request remains after order cancellation'
+);
+
+select lives_ok(
+  $$ select public.create_staff_late_order_request(
+    'b3333333-3333-4333-8333-333333333333',
+    current_setting('test.late_delivery_date')::date,
+    'Provider B after A fulfilled',
+    1,
+    null,
+    'f9000000-0000-4000-8000-000000000001'
+  ) $$,
+  'Fulfilled request for provider A does not block staff create for provider B'
 );
 
 set local role authenticated;
@@ -832,6 +866,32 @@ select lives_ok(
     'f9000000-0000-4000-8000-000000000001'
   ) $$,
   'Direct HR create allowed after staff request expired'
+);
+
+reset role;
+select lives_ok(
+  $$
+    select private.ensure_provider_lunch_day(
+      'b3333333-3333-4333-8333-333333333333',
+      current_setting('test.late_order_date')::date
+    )
+  $$,
+  'Alt provider snapshot for resubmit-after-expired test'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8777777-7777-4777-8777-777777777777', 'role', 'authenticated')::text, true);
+
+select lives_ok(
+  $$ select public.create_staff_late_order_request(
+    'b3333333-3333-4333-8333-333333333333',
+    current_setting('test.late_delivery_date')::date,
+    'Resubmit after expired',
+    1,
+    null,
+    'f9000000-0000-4000-8000-000000000001'
+  ) $$,
+  'Staff can create new request after prior request expired'
 );
 
 reset role;
