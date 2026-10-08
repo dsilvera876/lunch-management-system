@@ -90,6 +90,7 @@ cross join generate_series(1, 5) as weekday;
 
 \ir support/open_ordering.inc
 \ir support/isolate_lunch_periods.inc
+select set_config('test.late_order_preserve_open_company_ordering', 'true', true);
 \ir support/late_order_cycle.inc
 
 select lives_ok(

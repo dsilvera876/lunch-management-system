@@ -79,10 +79,6 @@ on conflict do nothing;
 
 \ir support/late_order_cycle.inc
 
-update public.app_settings
-set order_cutoff_time = '10:00:00'
-where id = 1;
-
 insert into auth.users (id, email, raw_user_meta_data)
 values
   ('f8111111-1111-4111-8111-111111111111', 'slor-staff@test.local', '{"full_name":"SLOR Staff"}'),

@@ -186,9 +186,20 @@ begin
 end;
 $$;
 
-update public.app_settings
-set order_cutoff_time = coalesce(
-  nullif(current_setting('test.late_order_cycle_prev_cutoff', true), '')::time,
-  order_cutoff_time
-)
-where id = 1;
+do $$
+begin
+  if coalesce(current_setting('test.late_order_preserve_open_company_ordering', true), '') = 'true' then
+    update public.app_settings
+    set order_cutoff_time = coalesce(
+      nullif(current_setting('test.late_order_cycle_prev_cutoff', true), '')::time,
+      order_cutoff_time
+    )
+    where id = 1;
+  else
+    -- Keep normal ordering closed for late-order RPC tests at any wall-clock time.
+    update public.app_settings
+    set order_cutoff_time = '00:00:00'::time
+    where id = 1;
+  end if;
+end;
+$$;
