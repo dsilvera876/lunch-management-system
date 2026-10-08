@@ -23,6 +23,7 @@ export type PendingStaffLateOrderRequest = {
   specialInstructions: string | null;
   officeLocationId: string;
   createdAt: string;
+  fulfillmentWindowOpen: boolean;
 };
 
 type Props = {
@@ -103,9 +104,11 @@ export function PendingStaffLateOrderRequestsPanel({ requests, onFulfill }: Prop
               </div>
               {!readOnly ? (
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button type="button" variant="primary" onClick={() => onFulfill(request)}>
-                    Fulfill
-                  </Button>
+                  {request.fulfillmentWindowOpen ? (
+                    <Button type="button" variant="primary" onClick={() => onFulfill(request)}>
+                      Fulfill
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="secondary"

@@ -1,6 +1,6 @@
 begin;
 
-select plan(54);
+select plan(59);
 
 \ir support/reset_app_settings_baseline.inc
 \ir support/isolate_lunch_periods.inc
@@ -277,6 +277,96 @@ select ok(
   exists (select 1 from public.list_pending_staff_late_order_requests_for_hr()),
   'HR can list pending staff requests'
 );
+
+reset role;
+
+select is(
+  (
+    select private.staff_late_order_request_fulfillment_window_open(
+      'f8111111-1111-4111-8111-111111111111',
+      'b1111111-1111-4111-8111-111111111111',
+      current_setting('test.late_delivery_date')::date,
+      now(),
+      'f9000000-0000-4000-8000-000000000001'
+    )
+  ),
+  true,
+  'pending request fulfillment window is open during late-order fixture cycle'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+
+select is(
+  (
+    select fulfillment_window_open
+    from public.list_pending_staff_late_order_requests_for_hr()
+    where id = current_setting('test.slor_request_id')::uuid
+  ),
+  true,
+  'HR pending list marks request fulfillable while window is open'
+);
+
+reset role;
+
+select is(
+  (
+    select private.staff_late_order_request_fulfillment_window_open(
+      'f8111111-1111-4111-8111-111111111111',
+      'b1111111-1111-4111-8111-111111111111',
+      current_setting('test.late_delivery_date')::date,
+      public.provider_late_order_deadline_at(
+        'b1111111-1111-4111-8111-111111111111',
+        current_setting('test.late_order_date')::date,
+        current_setting('test.late_delivery_date')::date
+      ) + interval '1 second',
+      'f9000000-0000-4000-8000-000000000001'
+    )
+  ),
+  false,
+  'fulfillment window boolean false after provider deadline'
+);
+
+reset role;
+update public.lunch_providers
+set
+  late_order_deadline_day = 'order_day',
+  late_order_deadline_time = '00:00:00'
+where id = 'b1111111-1111-4111-8111-111111111111';
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+
+select is(
+  (
+    select fulfillment_window_open
+    from public.list_pending_staff_late_order_requests_for_hr()
+    where id = current_setting('test.slor_request_id')::uuid
+  ),
+  false,
+  'HR pending list hides fulfillability after provider deadline'
+);
+
+select throws_ok(
+  $$ select public.fulfill_staff_late_order_request(
+    current_setting('test.slor_request_id')::uuid,
+    jsonb_build_object('standalone_items', '[]'::jsonb),
+    null,
+    'f9000000-0000-4000-8000-000000000001'
+  ) $$,
+  'Provider late-order deadline has passed',
+  'stale fulfill RPC rejected after provider deadline'
+);
+
+reset role;
+update public.lunch_providers
+set
+  late_order_deadline_day = 'delivery_day',
+  late_order_deadline_time = '12:00:00'
+where id = 'b1111111-1111-4111-8111-111111111111';
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'f8222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 
 select throws_ok(
   $$

@@ -422,6 +422,7 @@ export default async function LateOrdersPage() {
           specialInstructions: (row.special_instructions as string | null) ?? null,
           officeLocationId: row.office_location_id as string,
           createdAt: row.created_at as string,
+          fulfillmentWindowOpen: row.fulfillment_window_open === true,
         }))}
       />
     </div>
