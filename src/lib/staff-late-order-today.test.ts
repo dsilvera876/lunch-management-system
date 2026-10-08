@@ -51,12 +51,34 @@ const requestToday = {
 };
 
 describe("staff late order delivery helpers", () => {
-  it("collects distinct sorted delivery dates from cycles and requests", () => {
+  it("collects distinct sorted delivery dates from actionable cycles only", () => {
     const dates = collectStaffLateOrderDeliveryDates({
       eligibleCycles: [cycleFuture, cycleToday],
       requests: [requestToday],
     });
     assert.deepEqual(dates, [tuesday, wednesday]);
+  });
+
+  it("does not include historical request dates in submission drawer options", () => {
+    const pastRequestDate = "2099-01-06";
+    const currentDate = wednesday;
+    const historicalRequest = {
+      ...requestToday,
+      scheduled_delivery_date: pastRequestDate,
+      status: "fulfilled" as const,
+    };
+    const actionableCycle = {
+      ...cycleFuture,
+      scheduled_delivery_date: currentDate,
+    };
+
+    const drawer = buildStaffLateOrderDrawerContext(
+      { eligibleCycles: [actionableCycle], requests: [historicalRequest] },
+      currentDate,
+    );
+
+    assert.deepEqual(drawer.deliveryDates, [currentDate]);
+    assert.equal(drawer.deliveryDates.includes(pastRequestDate), false);
   });
 
   it("defaults to Jamaica today when eligible, otherwise earliest date; empty list does not invent today", () => {
@@ -114,7 +136,9 @@ describe("staff late order drawer context", () => {
     const full = { eligibleCycles: [], requests: [requestToday] };
     assert.equal(staffLateOrderCreateAvailable(full), false);
     assert.equal(staffLateOrderActionLabel(full, tuesday), "Late order status");
-    assert.equal(buildStaffLateOrderDrawerContext(full, tuesday).visible, false);
+    const drawer = buildStaffLateOrderDrawerContext(full, tuesday);
+    assert.equal(drawer.visible, false);
+    assert.deepEqual(drawer.deliveryDates, []);
   });
 
   it("no eligible cycles and no requests -> hidden unless DB reports new opportunity", () => {
@@ -250,5 +274,20 @@ describe("staff late order drawer context", () => {
     };
     assert.equal(staffLateOrderActionKind(partial, { newLateOrderOpportunity: false }), "submit");
     assert.equal(staffLateOrderDrawerVisible(partial, { newLateOrderOpportunity: false }), true);
+    assert.deepEqual(
+      buildStaffLateOrderDrawerContext(partial, tuesday).deliveryDates,
+      [wednesday],
+    );
+  });
+
+  it("pre-location summary ignores request history when no scoped cycles", () => {
+    const dates = collectStaffLateOrderDrawerDeliveryDates(
+      { eligibleCycles: [], requests: [requestToday] },
+      {
+        newLateOrderOpportunity: true,
+        summary: { available: true, eligibleDeliveryDates: [wednesday] },
+      },
+    );
+    assert.deepEqual(dates, [wednesday]);
   });
 });

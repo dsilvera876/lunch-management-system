@@ -35,18 +35,16 @@ export function filterStaffLateOrderForJamaicaToday(
   return filterStaffLateOrderForDeliveryDate(context, jamaicaToday);
 }
 
+/** Delivery dates from actionable eligible cycles only (never request history). */
 export function collectStaffLateOrderDeliveryDates(context: StaffLateOrderTodayContext): string[] {
   const dates = new Set<string>();
   for (const cycle of context.eligibleCycles) {
     dates.add(cycle.scheduled_delivery_date);
   }
-  for (const request of context.requests) {
-    dates.add(request.scheduled_delivery_date);
-  }
   return [...dates].sort();
 }
 
-/** Drawer delivery dates: scoped cycles when loaded; otherwise summary (pre-location) plus request history. */
+/** Drawer delivery dates: location-scoped actionable cycles, or pre-location summary dates only. */
 export function collectStaffLateOrderDrawerDeliveryDates(
   context: StaffLateOrderTodayContext,
   options?: {
@@ -60,26 +58,18 @@ export function collectStaffLateOrderDrawerDeliveryDates(
     return collectStaffLateOrderDeliveryDates(context);
   }
 
-  const dates = new Set<string>();
-  for (const request of context.requests) {
-    dates.add(request.scheduled_delivery_date);
-  }
-
   const newLateOrderOpportunity = options?.newLateOrderOpportunity === true;
   const preLocationOnly = options?.preLocationOnly !== false;
-  const summaryDates =
+  if (
     preLocationOnly &&
     newLateOrderOpportunity &&
     options?.summary &&
     options.summary.eligibleDeliveryDates.length > 0
-      ? options.summary.eligibleDeliveryDates
-      : [];
-
-  for (const date of summaryDates) {
-    dates.add(date);
+  ) {
+    return [...options.summary.eligibleDeliveryDates].sort();
   }
 
-  return [...dates].sort();
+  return [];
 }
 
 export function defaultStaffLateOrderDeliveryDate(
