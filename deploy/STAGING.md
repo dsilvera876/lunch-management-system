@@ -553,16 +553,27 @@ Schedules (IANA timezone in each `OnCalendar` expression — no standalone `Time
   Persistent=true
   AccuracySec=1s
   ```
+- **Operational attention retention purge** (`lunch-management-operational-attention-purge.timer`):
+  ```
+  OnCalendar=*-*-* 03:15:00 America/Jamaica
+  Persistent=true
+  AccuracySec=1h
+  OnBootSec=10min
+  ```
+  Runs once daily (no overlap with other purge timers). `Persistent=true` catches up one missed run after downtime.
 
 Before enabling on staging, validate timer syntax:
 
 ```bash
 systemd-analyze calendar '*-*-* 00:01:00 America/Jamaica'
 systemd-analyze calendar '*-*-* *:*:00 America/Jamaica'
+systemd-analyze calendar '*-*-* 03:15:00 America/Jamaica'
 systemd-analyze verify deploy/systemd/lunch-management-snapshot.service \
   deploy/systemd/lunch-management-snapshot.timer \
   deploy/systemd/lunch-management-late-orders-worker.service \
-  deploy/systemd/lunch-management-late-orders-worker.timer
+  deploy/systemd/lunch-management-late-orders-worker.timer \
+  deploy/systemd/lunch-management-operational-attention-purge.service \
+  deploy/systemd/lunch-management-operational-attention-purge.timer
 ```
 
 The worker code still derives the authoritative Jamaica order date in the database; systemd timing is only the wake-up schedule.
@@ -575,6 +586,7 @@ sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs)
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:automatic-dispatch
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:mail-queue
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:auth-deletion-cleanup
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:operational-attention-purge
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:user-import
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
 ```
@@ -646,6 +658,47 @@ sudo systemctl disable --now lunch-management-user-import.timer
 
 **Local development:** run `supabase status` and copy the **Secret** key (`sb_secret_...`) into a local `worker.env` (or export `SUPABASE_URL` + `SUPABASE_SECRET_KEY`). Do not use the legacy JWT `service_role` key for the worker. Normal app auth continues to use `.env.local` publishable credentials only.
 
+### Operational attention retention purge
+
+Deletes expired in-app operational attention rows older than seven days. Does **not** modify signup requests, orders, audit tables, or email delivery logs.
+
+**Prerequisite:** Apply database migration `20261009120000_operational_attention_items.sql` (creates `private.operational_attention_items` and `public.worker_purge_expired_operational_attention_items`) **before** enabling the timer. If the migration is missing, the worker fails with an undefined-function or missing-relation error.
+
+Install units (same **`lunchapp`** user, **`/var/www/lunch-management-system`** working directory, and **`/etc/lunch-management/worker.env`** service-role credentials as other workers):
+
+```bash
+sudo cp deploy/systemd/lunch-management-operational-attention-purge.service /etc/systemd/system/
+sudo cp deploy/systemd/lunch-management-operational-attention-purge.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now lunch-management-operational-attention-purge.timer
+```
+
+Verification:
+
+```bash
+sudo systemctl status lunch-management-operational-attention-purge.timer
+sudo systemctl list-timers 'lunch-management-operational-attention-purge*'
+sudo systemctl start lunch-management-operational-attention-purge.service
+sudo journalctl -u lunch-management-operational-attention-purge.service -n 50 --no-pager
+sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:operational-attention-purge
+```
+
+Expect a log line like `Operational attention purge: deleted=N` (`deleted=0` is normal when nothing is older than seven days).
+
+Timer schedule: daily at **03:15 America/Jamaica** (`OnCalendar=*-*-* 03:15:00 America/Jamaica`, `Persistent=true`). Uses **`/etc/lunch-management/worker.env`** only (`SUPABASE_URL`, `SUPABASE_SECRET_KEY` via the existing worker service-role path — do not commit secrets to the repo).
+
+**Local development:** `npm run worker:operational-attention-purge` with the same worker env as other tasks.
+
+**Troubleshooting:**
+
+| Symptom | Likely cause | Action |
+|--------|----------------|--------|
+| `Service role required` | Web publishable key or wrong env file | Use `/etc/lunch-management/worker.env` with `SUPABASE_SECRET_KEY` (`sb_secret_...`), not the Next.js web env |
+| RPC / relation does not exist | Migration not applied | Run Supabase migrations through `20261009120000_operational_attention_items` before enabling the timer |
+| Timer inactive / no runs | Unit not enabled or clock skew | `systemctl enable --now lunch-management-operational-attention-purge.timer`; check `list-timers` next elapse |
+| `Operational attention purge failed` in journal | DB connectivity or permissions | Confirm `SUPABASE_URL`, secret key, and project reachability from the host |
+| Missed daily run after outage | Expected once | `Persistent=true` runs one catch-up activation after the host returns |
+
 ### Logs and maintenance
 
 ```bash
@@ -653,12 +706,14 @@ journalctl -u lunch-management-snapshot.service -n 100 --no-pager
 journalctl -u lunch-management-late-orders-worker.service -n 100 --no-pager
 journalctl -u lunch-management-mail-queue.service -n 100 --no-pager
 journalctl -u lunch-management-auth-deletion-cleanup.service -n 100 --no-pager
+journalctl -u lunch-management-operational-attention-purge.service -n 50 --no-pager
 journalctl -u lunch-management-snapshot.timer -n 20 --no-pager
 journalctl -u lunch-management-late-orders-worker.timer -n 20 --no-pager
 sudo systemctl disable --now lunch-management-snapshot.timer
 sudo systemctl disable --now lunch-management-late-orders-worker.timer
 sudo systemctl disable --now lunch-management-auth-deletion-cleanup.timer
 sudo systemctl disable --now lunch-management-user-import.timer
+sudo systemctl disable --now lunch-management-operational-attention-purge.timer
 ```
 
 ### Operational notes

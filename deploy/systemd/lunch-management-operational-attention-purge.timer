@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Lunch Management operational attention purge worker daily
+
+[Timer]
+OnBootSec=10min
+OnCalendar=*-*-* 03:15:00 America/Jamaica
+Persistent=true
+AccuracySec=1h
+Unit=lunch-management-operational-attention-purge.service
+
+[Install]
+WantedBy=timers.target
