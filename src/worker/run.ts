@@ -37,6 +37,7 @@ type WorkerTask =
   | "staff-late-order-request-expiry"
   | "staff-lunch-period-finalized-notifications"
   | "auth-deletion-cleanup"
+  | "operational-attention-purge"
   | "user-import"
   | "all";
 
@@ -69,6 +70,7 @@ function parseArgs(argv: string[]): WorkerOptions {
         value === "staff-late-order-request-expiry" ||
         value === "staff-lunch-period-finalized-notifications" ||
         value === "auth-deletion-cleanup" ||
+        value === "operational-attention-purge" ||
         value === "user-import" ||
         value === "all"
       ) {
@@ -262,6 +264,24 @@ async function runMailQueue(dryRun: boolean): Promise<number> {
       console.log("Email queue processed: claimed=0 sent=0 retried=0 failed=0");
     }
   }
+}
+
+async function runOperationalAttentionPurge(dryRun: boolean): Promise<number> {
+  if (dryRun) {
+    console.log("Dry run: operational attention purge skipped");
+    return 0;
+  }
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc("worker_purge_expired_operational_attention_items");
+
+  if (error) {
+    throw new Error(`Operational attention purge failed: ${error.message}`);
+  }
+
+  const deleted = Number(data ?? 0);
+  console.log(`Operational attention purge: deleted=${deleted}`);
+  return 0;
 }
 
 async function runAuthDeletionCleanup(dryRun: boolean): Promise<number> {
@@ -479,6 +499,17 @@ async function main(): Promise<void> {
   } else if (options.task === "all") {
     const failures = await runMailQueue(options.dryRun);
     if (failures > 0) {
+      process.exitCode = 1;
+    }
+  }
+
+  if (options.task === "operational-attention-purge" || options.task === "all") {
+    try {
+      await runOperationalAttentionPurge(options.dryRun);
+    } catch (error) {
+      console.error(
+        `Operational attention purge worker aborted: ${error instanceof Error ? error.message : error}`,
+      );
       process.exitCode = 1;
     }
   }
