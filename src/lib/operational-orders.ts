@@ -35,6 +35,7 @@ export type OperationalOrder = {
   actualDeliveryDate: string | null;
   lunchDayId: string;
   createdAt: string;
+  updatedAt: string;
   specialInstructions: string | null;
   mealQuantity: number | null;
   employeeName: string;

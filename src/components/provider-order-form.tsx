@@ -48,6 +48,11 @@ import {
   type ProviderOrderFieldKey,
 } from "@/lib/staff-form-accessibility";
 import { STAFF_EDIT_SUBMIT_BAR_CLASS } from "@/lib/staff-layout-reflow";
+import {
+  createClientSubmitLock,
+  releaseClientSubmitLock,
+  tryBeginClientSubmit,
+} from "@/lib/provider-order-client-submit";
 
 function lateOrderMenuOptionClassName(selected: boolean) {
   return [
@@ -104,6 +109,10 @@ type Props = {
   menuUnavailableVariant?: FormActionStatusVariant;
   /** HR late-order: reset menu selections when provider/delivery menu reloads or after create. */
   menuSelectionEpoch?: number;
+  includeSpecialInstructions?: boolean;
+  onClientSubmit?: (
+    formData: FormData,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 function StandaloneItemCard({
@@ -174,6 +183,8 @@ export function ProviderOrderForm({
   menuUnavailableMessage = null,
   menuUnavailableVariant = "warning",
   menuSelectionEpoch = 0,
+  includeSpecialInstructions = true,
+  onClientSubmit,
 }: Props) {
   const isLateOrderLayout = layoutVariant === "late-order";
   const compactMenuLayout = isLateOrderLayout;
@@ -198,6 +209,8 @@ export function ProviderOrderForm({
     null,
   );
   const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const clientSubmitLockRef = useRef(createClientSubmitLock());
+  const [clientSubmitPending, setClientSubmitPending] = useState(false);
   const errorSummaryId = useId();
   const mainGroupId = useId();
   const sideGroupId = useId();
@@ -323,7 +336,7 @@ export function ProviderOrderForm({
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (isLateOrderLayout && (menuLoading || submitDisabled)) {
+    if (menuLoading || submitDisabled || clientSubmitLockRef.current.held) {
       event.preventDefault();
       return;
     }
@@ -341,7 +354,10 @@ export function ProviderOrderForm({
       return;
     }
 
-    if (!isValidSpecialInstructions(specialInstructions)) {
+    if (
+      includeSpecialInstructions
+      && !isValidSpecialInstructions(specialInstructions)
+    ) {
       event.preventDefault();
       setFormValidation("Special instructions must be 500 characters or fewer.");
       return;
@@ -356,6 +372,24 @@ export function ProviderOrderForm({
     if (officeLocations.length > 0 && !officeLocationId) {
       event.preventDefault();
       setFormValidation("Choose a delivery location before placing your order.");
+      return;
+    }
+
+    if (onClientSubmit) {
+      event.preventDefault();
+      if (!tryBeginClientSubmit(clientSubmitLockRef.current)) {
+        return;
+      }
+
+      setClientSubmitPending(true);
+      const formData = new FormData(event.currentTarget);
+      void onClientSubmit(formData).then((result) => {
+        if (!result.ok) {
+          releaseClientSubmitLock(clientSubmitLockRef.current);
+          setClientSubmitPending(false);
+          setFormValidation(result.error);
+        }
+      });
     }
   }
 
@@ -800,38 +834,40 @@ export function ProviderOrderForm({
             </section>
           )}
 
-          <section className="mt-6">
-            <label htmlFor="specialInstructions" className="block text-sm font-medium">
-              Special instructions <span className="font-normal text-staff-instruction">(optional)</span>
-            </label>
-            <textarea
-              id="specialInstructions"
-              name="specialInstructions"
-              rows={3}
-              maxLength={500}
-              value={specialInstructions}
-              disabled={menuLoading}
-              onChange={(event) => {
-                setSpecialInstructions(event.target.value);
-                clearValidation();
-              }}
-              aria-invalid={invalidField === "specialInstructions" || undefined}
-              aria-describedby={joinDescribedBy(
-                specialInstructionsHelperId,
-                invalidField === "specialInstructions" ? specialInstructionsErrorId : undefined,
-              )}
-              placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
-              className={`${textareaClassName} mt-2 disabled:cursor-not-allowed disabled:opacity-60`}
-            />
-            <p id={specialInstructionsHelperId} className="mt-1 text-xs text-staff-instruction">
-              Preparation notes for this order only. Up to 500 characters.
-            </p>
-            {invalidField === "specialInstructions" && validationError ? (
-              <p id={specialInstructionsErrorId} className="mt-1 text-sm text-red-800">
-                {validationError}
+          {includeSpecialInstructions ? (
+            <section className="mt-6">
+              <label htmlFor="specialInstructions" className="block text-sm font-medium">
+                Special instructions <span className="font-normal text-staff-instruction">(optional)</span>
+              </label>
+              <textarea
+                id="specialInstructions"
+                name="specialInstructions"
+                rows={3}
+                maxLength={500}
+                value={specialInstructions}
+                disabled={menuLoading}
+                onChange={(event) => {
+                  setSpecialInstructions(event.target.value);
+                  clearValidation();
+                }}
+                aria-invalid={invalidField === "specialInstructions" || undefined}
+                aria-describedby={joinDescribedBy(
+                  specialInstructionsHelperId,
+                  invalidField === "specialInstructions" ? specialInstructionsErrorId : undefined,
+                )}
+                placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
+                className={`${textareaClassName} mt-2 disabled:cursor-not-allowed disabled:opacity-60`}
+              />
+              <p id={specialInstructionsHelperId} className="mt-1 text-xs text-staff-instruction">
+                Preparation notes for this order only. Up to 500 characters.
               </p>
-            ) : null}
-          </section>
+              {invalidField === "specialInstructions" && validationError ? (
+                <p id={specialInstructionsErrorId} className="mt-1 text-sm text-red-800">
+                  {validationError}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           {validationSummary}
 
@@ -841,6 +877,7 @@ export function ProviderOrderForm({
               variant="primary"
               staffPrimaryCta={!isLateOrderLayout}
               disabled={menuLoading || submitDisabled}
+              forcePending={clientSubmitPending}
             >
               {submitLabel}
             </FormSubmitButton>
@@ -943,37 +980,39 @@ export function ProviderOrderForm({
         </section>
       )}
 
-      <section className="mb-8">
-        <label htmlFor="specialInstructions" className="block text-sm font-medium">
-          Special instructions <span className="font-normal text-staff-instruction">(optional)</span>
-        </label>
-        <textarea
-          id="specialInstructions"
-          name="specialInstructions"
-          rows={3}
-          maxLength={500}
-          value={specialInstructions}
-          onChange={(event) => {
-            setSpecialInstructions(event.target.value);
-            clearValidation();
-          }}
-          aria-invalid={invalidField === "specialInstructions" || undefined}
-          aria-describedby={joinDescribedBy(
-            specialInstructionsHelperId,
-            invalidField === "specialInstructions" ? specialInstructionsErrorId : undefined,
-          )}
-          placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
-          className={`${textareaClassName} mt-2`}
-        />
-        <p id={specialInstructionsHelperId} className="mt-1 text-xs text-staff-instruction">
-          Preparation notes for this order only. Up to 500 characters.
-        </p>
-        {invalidField === "specialInstructions" && validationError ? (
-          <p id={specialInstructionsErrorId} className="mt-1 text-sm text-red-800">
-            {validationError}
+      {includeSpecialInstructions ? (
+        <section className="mb-8">
+          <label htmlFor="specialInstructions" className="block text-sm font-medium">
+            Special instructions <span className="font-normal text-staff-instruction">(optional)</span>
+          </label>
+          <textarea
+            id="specialInstructions"
+            name="specialInstructions"
+            rows={3}
+            maxLength={500}
+            value={specialInstructions}
+            onChange={(event) => {
+              setSpecialInstructions(event.target.value);
+              clearValidation();
+            }}
+            aria-invalid={invalidField === "specialInstructions" || undefined}
+            aria-describedby={joinDescribedBy(
+              specialInstructionsHelperId,
+              invalidField === "specialInstructions" ? specialInstructionsErrorId : undefined,
+            )}
+            placeholder="Example: Extra gravy on rice, leg and thigh only, no garlic"
+            className={`${textareaClassName} mt-2`}
+          />
+          <p id={specialInstructionsHelperId} className="mt-1 text-xs text-staff-instruction">
+            Preparation notes for this order only. Up to 500 characters.
           </p>
-        ) : null}
-      </section>
+          {invalidField === "specialInstructions" && validationError ? (
+            <p id={specialInstructionsErrorId} className="mt-1 text-sm text-red-800">
+              {validationError}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
       </div>
 
       <div
@@ -998,6 +1037,8 @@ export function ProviderOrderForm({
             variant="primary"
             staffPrimaryCta={!isLateOrderLayout}
             className="w-full shadow-md lg:shadow-none"
+            disabled={menuLoading || submitDisabled}
+            forcePending={clientSubmitPending}
           >
             {submitLabel}
           </FormSubmitButton>

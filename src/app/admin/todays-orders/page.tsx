@@ -1,4 +1,5 @@
 import { requireViewAllOrders } from "@/lib/auth";
+import { canMutateHrOperationalData } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import { buildOperationalDeliveryReport } from "@/lib/operational-orders";
@@ -20,7 +21,8 @@ import { TealIconWell } from "@/components/my-spend/teal-icon-well";
 import { Card } from "@/components/ui/card";
 
 export default async function TodaysOrdersPage() {
-  await requireViewAllOrders();
+  const profile = await requireViewAllOrders();
+  const canMutateHr = canMutateHrOperationalData(profile.role);
   const supabase = await createClient();
   const orderDate = getJamaicaTodayDate();
 
@@ -82,6 +84,7 @@ export default async function TodaysOrdersPage() {
               key={provider.providerId}
               provider={provider}
               primaryEmailStatus={primaryStatusByProvider.get(provider.providerId) ?? null}
+              canMutateHr={canMutateHr}
             />
           ))}
         </div>

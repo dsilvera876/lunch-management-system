@@ -37,6 +37,7 @@ export default defineConfig({
         /firefox-smoke\.spec\.ts/,
         /staff-late-order-drawer\.spec\.ts/,
         /staff-late-order-submission-edit\.spec\.ts/,
+        /hr-todays-orders-modals\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -54,6 +55,16 @@ export default defineConfig({
         storageState: staffAuthFile,
       },
       dependencies: ["setup", "chromium-a11y"],
+    },
+    {
+      name: "chromium-hr-todays-orders-a11y",
+      testMatch: /hr-todays-orders-modals\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+      dependencies: ["setup", "chromium-a11y", "chromium-late-order-a11y"],
     },
     {
       name: "firefox-smoke",

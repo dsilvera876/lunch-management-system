@@ -43,6 +43,7 @@ function makeOrder(
     actualDeliveryDate: null,
     lunchDayId: "ld1",
     createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
     specialInstructions: null,
     mealQuantity: 1,
     employeeName: "Staff One",

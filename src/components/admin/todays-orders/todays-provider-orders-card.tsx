@@ -15,17 +15,29 @@ import { TodaysEmployeeOrdersTable } from "@/components/admin/todays-orders/toda
 import { IconDownload, IconUtensils } from "@/components/icons/line-icons";
 import { TealIconWell } from "@/components/my-spend/teal-icon-well";
 import { linkButtonClass } from "@/components/ui/button";
+import { providerPrimaryDispatchLocksHrOrderMutation } from "@/lib/hr-todays-order-mutation";
 
 type Props = {
   provider: ProviderOperationalGroup;
   primaryEmailStatus: ProviderPrimaryDispatchStatusRow | null;
+  canMutateHr: boolean;
 };
 
-export function TodaysProviderOrdersCard({ provider, primaryEmailStatus }: Props) {
+export function TodaysProviderOrdersCard({
+  provider,
+  primaryEmailStatus,
+  canMutateHr,
+}: Props) {
   const employeeOrders = flattenProviderOrders(provider);
   const employeeCount = countProviderEmployeeOrders(provider);
   const showLocation = providerHasMultipleLocations(provider);
   const printDeliveryDate = resolveProviderPrintDeliveryDate(provider);
+  const primaryDispatchLocksOrders = primaryEmailStatus
+    ? providerPrimaryDispatchLocksHrOrderMutation({
+        hasSuccessfulPrimarySend: primaryEmailStatus.hasSuccessfulPrimarySend,
+        latestStatus: primaryEmailStatus.latestStatus,
+      })
+    : false;
 
   return (
     <article className="overflow-hidden rounded-xl border border-border border-t-4 border-t-primary/50 bg-surface shadow-sm">
@@ -62,7 +74,14 @@ export function TodaysProviderOrdersCard({ provider, primaryEmailStatus }: Props
           <h3 className="mb-2 text-sm font-semibold text-slate-900">
             Employee Orders ({employeeCount})
           </h3>
-          <TodaysEmployeeOrdersTable orders={employeeOrders} showLocation={showLocation} />
+          <TodaysEmployeeOrdersTable
+            orders={employeeOrders}
+            showLocation={showLocation}
+            canMutateHr={canMutateHr}
+            primaryDispatchLocksByProvider={{
+              [provider.providerId]: primaryDispatchLocksOrders,
+            }}
+          />
         </div>
       </div>
     </article>

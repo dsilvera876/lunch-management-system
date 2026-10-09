@@ -76,6 +76,13 @@ export function buildStaffOrderTemplateVariables(
     orderUrl,
   );
 
+  const hrOrderChangeNotice =
+    context.eventKey === "staff.changed_by_hr"
+      ? context.orderStatus === "cancelled"
+        ? "Your lunch order was cancelled by HR."
+        : "Your lunch order was modified by HR."
+      : "";
+
   return {
     first_name: firstName,
     order_date: formatHumanDate(context.orderDate),
@@ -84,6 +91,7 @@ export function buildStaffOrderTemplateVariables(
     order_total: formatCurrency(context.orderTotal),
     order_url: orderUrl,
     reorder_message: reorderMessage,
+    hr_order_change_notice: hrOrderChangeNotice,
   };
 }
 

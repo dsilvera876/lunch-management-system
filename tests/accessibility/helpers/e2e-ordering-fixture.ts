@@ -1002,3 +1002,133 @@ export function applyLateOrderSubmissionEditFixture(): void {
     `);
   }
 }
+
+/** Deterministic normal order on Jamaica today for HR Today's Orders modal a11y (local DB only). */
+export const E2E_HR_TODAYS_ORDERS_MODAL_ORDER_ID =
+  "e0100001-0001-4001-8001-000000000001";
+
+const E2E_HR_TODAYS_ORDERS_MODAL_ORDER_GROUP_ID =
+  "e0100002-0002-4002-8002-000000000002";
+
+/** Recurring Alberries menu item ids from development seed. */
+const E2E_ALBERRIES_MAIN_PROVIDER_MENU_ITEM_ID = "31000002-0002-4002-8002-000000000002";
+const E2E_ALBERRIES_SIDE_PROVIDER_MENU_ITEM_ID = "31000012-0012-4012-8012-000000000012";
+
+export function restoreHrTodaysOrdersModalFixture(): void {
+  runLocalDbQuery(`
+    delete from public.orders
+    where id = '${E2E_HR_TODAYS_ORDERS_MODAL_ORDER_ID}'::uuid
+    returning id
+  `);
+}
+
+/** Inserts a submitted, pending normal staff order for Jamaica today (requires weekday + dev seed). */
+export function applyHrTodaysOrdersModalFixture(): void {
+  restoreHrTodaysOrdersModalFixture();
+
+  runLocalDbQuery(`
+    delete from public.orders o
+    using public.lunch_days ld
+    where o.lunch_day_id = ld.id
+      and ld.order_date = private.jamaica_today_date()
+      and ld.provider_id = '${STAFF_SEED.providerAlberries}'::uuid
+      and o.profile_id = '${E2E_STAFF1_PROFILE_ID}'::uuid
+    returning o.id
+  `);
+
+  runLocalDbExec(`
+    do $fixture$
+    declare
+      v_today date := private.jamaica_today_date();
+      v_lunch_day_id uuid;
+      v_main_menu_id uuid;
+      v_side_menu_id uuid;
+      v_location public.office_locations%rowtype;
+    begin
+      if extract(isodow from v_today) >= 6 then
+        raise exception 'HR Today''s Orders modal fixture requires a Jamaica weekday';
+      end if;
+
+      v_lunch_day_id := private.ensure_provider_lunch_day(
+        '${STAFF_SEED.providerAlberries}'::uuid,
+        v_today
+      );
+
+      select mi.id
+      into v_main_menu_id
+      from public.menu_items mi
+      where mi.lunch_day_id = v_lunch_day_id
+        and mi.provider_menu_item_id = '${E2E_ALBERRIES_MAIN_PROVIDER_MENU_ITEM_ID}'::uuid;
+
+      select mi.id
+      into v_side_menu_id
+      from public.menu_items mi
+      where mi.lunch_day_id = v_lunch_day_id
+        and mi.provider_menu_item_id = '${E2E_ALBERRIES_SIDE_PROVIDER_MENU_ITEM_ID}'::uuid;
+
+      if v_main_menu_id is null or v_side_menu_id is null then
+        raise exception 'Alberries snapshot menu missing for Jamaica today';
+      end if;
+
+      select *
+      into v_location
+      from public.office_locations
+      where id = '${E2E_STAFF1_OFFICE_LOCATION_ID}'::uuid;
+
+      perform private.activate_bypass_order_deadline();
+
+      insert into public.orders (
+        id,
+        profile_id,
+        lunch_day_id,
+        status,
+        delivery_state,
+        financial_disposition,
+        is_late_order,
+        special_instructions,
+        meal_quantity,
+        office_location_id,
+        office_location_name,
+        office_location_address,
+        order_group_id,
+        created_at,
+        updated_at
+      )
+      values (
+        '${E2E_HR_TODAYS_ORDERS_MODAL_ORDER_ID}'::uuid,
+        '${E2E_STAFF1_PROFILE_ID}'::uuid,
+        v_lunch_day_id,
+        'submitted',
+        'pending',
+        'chargeable',
+        false,
+        'E2E HR Today''s Orders modal fixture',
+        1,
+        v_location.id,
+        v_location.name,
+        v_location.address,
+        '${E2E_HR_TODAYS_ORDERS_MODAL_ORDER_GROUP_ID}'::uuid,
+        now(),
+        now()
+      );
+
+      insert into public.order_items (order_id, menu_item_id, lunch_day_id, quantity, unit_price)
+      values
+        (
+          '${E2E_HR_TODAYS_ORDERS_MODAL_ORDER_ID}'::uuid,
+          v_main_menu_id,
+          v_lunch_day_id,
+          1,
+          (select price from public.menu_items where id = v_main_menu_id)
+        ),
+        (
+          '${E2E_HR_TODAYS_ORDERS_MODAL_ORDER_ID}'::uuid,
+          v_side_menu_id,
+          v_lunch_day_id,
+          1,
+          (select price from public.menu_items where id = v_side_menu_id)
+        );
+    end;
+    $fixture$
+  `);
+}

@@ -31,6 +31,35 @@ const STAFF_ORDER_CANCELLED_DEFAULT_HTML = `<p>Hi {{first_name}},</p>
 <p>Other lunch orders for this day were not affected.</p>
 <p>{{reorder_message}}</p>`;
 
+/** Matches `notification_event_catalog.allowed_variables` for staff.changed_by_hr (post HR mutation migration). */
+const STAFF_CHANGED_BY_HR_ALLOWED_VARIABLES = [
+  "first_name",
+  "order_date",
+  "provider_name",
+  "order_summary",
+  "order_total",
+  "order_url",
+  "hr_order_change_notice",
+] as const;
+
+const STAFF_CHANGED_BY_HR_DEFAULT_SUBJECT = "Lunch order update for {{order_date}}";
+
+const STAFF_CHANGED_BY_HR_DEFAULT_HTML = `<p>Hi {{first_name}},</p><p>{{hr_order_change_notice}}</p><p><strong>Provider:</strong><br>{{provider_name}}</p><p><strong>Order:</strong><br>{{order_summary}}</p><p><strong>Total:</strong> {{order_total}}</p><p><a href="{{order_url}}">{{order_url}}</a></p>`;
+
+const STAFF_CHANGED_BY_HR_DEFAULT_TEXT = `Hi {{first_name}},
+
+{{hr_order_change_notice}}
+
+Provider:
+{{provider_name}}
+
+Order:
+{{order_summary}}
+
+Total: {{order_total}}
+
+{{order_url}}`;
+
 const STAFF_ORDER_CANCELLED_DEFAULT_TEXT = `Hi {{first_name}},
 
 Your lunch order with {{provider_name}} for {{order_date}} has been cancelled.
@@ -65,6 +94,107 @@ describe("staff order notification content", () => {
       buildStaffOrderCancelReorderMessage(true, "https://example.com/lunch"),
       /place another order/,
     );
+  });
+
+  it("renders staff.changed_by_hr modified vs cancelled notices", () => {
+    const modified = buildStaffOrderRenderedEmail(
+      {
+        eventKey: "staff.changed_by_hr",
+        orderId: "00000000-0000-0000-0000-000000000099",
+        orderDate: "2026-09-14",
+        providerName: "Island Eats",
+        orderSummary: "Jerk Chicken × 1",
+        orderTotal: 12,
+        orderStatus: "submitted",
+        orderingStillOpen: false,
+        recipientName: "Alex Staff",
+        recipientEmail: "alex@test.local",
+      },
+      "https://lunch.example.com",
+      {
+        subjectTemplate: "{{hr_order_change_notice}}",
+        bodyHtmlTemplate: "<p>{{hr_order_change_notice}}</p>",
+        bodyTextTemplate: "{{hr_order_change_notice}}",
+      },
+    );
+
+    assert.match(modified.textBody, /modified by HR/i);
+
+    const cancelled = buildStaffOrderRenderedEmail(
+      {
+        eventKey: "staff.changed_by_hr",
+        orderId: "00000000-0000-0000-0000-000000000099",
+        orderDate: "2026-09-14",
+        providerName: "Island Eats",
+        orderSummary: "Jerk Chicken × 1",
+        orderTotal: 12,
+        orderStatus: "cancelled",
+        orderingStillOpen: false,
+        recipientName: "Alex Staff",
+        recipientEmail: "alex@test.local",
+      },
+      "https://lunch.example.com",
+      {
+        subjectTemplate: "{{hr_order_change_notice}}",
+        bodyHtmlTemplate: "<p>{{hr_order_change_notice}}</p>",
+        bodyTextTemplate: "{{hr_order_change_notice}}",
+      },
+    );
+
+    assert.match(cancelled.textBody, /cancelled by HR/i);
+    assert.doesNotMatch(modified.textBody, /HR post-deadline|Switch to BBQ|internal reason/i);
+    assert.doesNotMatch(cancelled.textBody, /HR post-deadline|Switch to BBQ|internal reason/i);
+  });
+
+  it("staff.changed_by_hr default templates use only catalog-allowed variables", () => {
+    assert.deepEqual(
+      validateNotificationTemplateVariables(
+        [...STAFF_CHANGED_BY_HR_ALLOWED_VARIABLES],
+        STAFF_CHANGED_BY_HR_DEFAULT_SUBJECT,
+        STAFF_CHANGED_BY_HR_DEFAULT_HTML,
+        STAFF_CHANGED_BY_HR_DEFAULT_TEXT,
+      ),
+      [],
+    );
+  });
+
+  it("populates hr_order_change_notice for modified and cancelled without HR reason text", () => {
+    const base = {
+      eventKey: "staff.changed_by_hr" as const,
+      orderId: "00000000-0000-0000-0000-000000000099",
+      orderDate: "2026-09-14",
+      providerName: "Island Eats",
+      orderSummary: "Jerk Chicken × 1",
+      orderTotal: 12,
+      orderingStillOpen: false,
+      recipientName: "Alex Staff",
+      recipientEmail: "alex@test.local",
+    };
+
+    const modified = buildStaffOrderRenderedEmail(
+      { ...base, orderStatus: "submitted" },
+      "https://lunch.example.com",
+      {
+        subjectTemplate: STAFF_CHANGED_BY_HR_DEFAULT_SUBJECT,
+        bodyHtmlTemplate: STAFF_CHANGED_BY_HR_DEFAULT_HTML,
+        bodyTextTemplate: STAFF_CHANGED_BY_HR_DEFAULT_TEXT,
+      },
+    );
+
+    const cancelled = buildStaffOrderRenderedEmail(
+      { ...base, orderStatus: "cancelled" },
+      "https://lunch.example.com",
+      {
+        subjectTemplate: STAFF_CHANGED_BY_HR_DEFAULT_SUBJECT,
+        bodyHtmlTemplate: STAFF_CHANGED_BY_HR_DEFAULT_HTML,
+        bodyTextTemplate: STAFF_CHANGED_BY_HR_DEFAULT_TEXT,
+      },
+    );
+
+    assert.match(modified.textBody, /modified by HR/i);
+    assert.match(cancelled.textBody, /cancelled by HR/i);
+    assert.doesNotMatch(modified.textBody, /{{hr_order_change_notice}}/);
+    assert.doesNotMatch(cancelled.textBody, /{{hr_order_change_notice}}/);
   });
 
   it("renders submitted template without unsupported variables", () => {

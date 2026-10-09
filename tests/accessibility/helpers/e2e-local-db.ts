@@ -151,6 +151,10 @@ export function runLocalDbQuery(sql: string): LocalDbRow[] {
 /** Run SQL that does not need a result (multi-statement or void). */
 export function runLocalDbExec(sql: string): void {
   const output = runLocalDbCommand(sql);
+  const trimmed = output.trim();
+  if (/^DO$/i.test(trimmed)) {
+    return;
+  }
   try {
     parseSupabaseDbQueryOutput(output);
   } catch (error) {

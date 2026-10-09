@@ -24,6 +24,7 @@ export type OperationalOrderRow = {
   actual_delivery_date: string | null;
   lunch_day_id: string;
   created_at: string;
+  updated_at: string;
   special_instructions: string | null;
   meal_quantity: number | null;
   is_late_order: boolean;
@@ -91,6 +92,7 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
     actualDeliveryDate: row.actual_delivery_date,
     lunchDayId: row.lunch_day_id,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     specialInstructions: row.special_instructions,
     mealQuantity: row.meal_quantity,
     employeeName: profile?.full_name?.trim() || "Unnamed employee",
@@ -155,6 +157,7 @@ export const OPERATIONAL_ORDERS_SELECT = `
   actual_delivery_date,
   lunch_day_id,
   created_at,
+  updated_at,
   special_instructions,
   meal_quantity,
   is_late_order,
