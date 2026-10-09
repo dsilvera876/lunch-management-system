@@ -5,10 +5,31 @@ import { describe, it } from "node:test";
 import {
   APP_SHELL_INERTIBLE_ID,
   computeAnchorFixedStyle,
+  createDocumentScrollLock,
   createModalInertController,
   shouldRecoverFocusIntoModal,
   STAFF_MODAL_LAYER_ID,
 } from "./modal-inert";
+
+describe("document scroll lock", () => {
+  it("locks and restores html overflow with reference counting", () => {
+    const root = { style: { overflow: "auto" } } as HTMLElement;
+    const lock = createDocumentScrollLock(() => ({
+      documentElement: root,
+    }) as Document);
+
+    lock.acquire();
+    assert.equal(root.style.overflow, "hidden");
+    lock.acquire();
+    assert.equal(root.style.overflow, "hidden");
+
+    lock.release();
+    assert.equal(root.style.overflow, "hidden");
+
+    lock.release();
+    assert.equal(root.style.overflow, "auto");
+  });
+});
 
 describe("modal inert controller", () => {
   it("locks and unlocks app shell roots with reference counting", () => {
@@ -81,6 +102,35 @@ describe("modal focus recovery", () => {
       }),
       false,
     );
+  });
+
+  it("does not recover focus for transient document body focus", () => {
+    const modalRoot = {
+      contains() {
+        return false;
+      },
+    } as unknown as Node;
+    const body = { id: "body" } as unknown as Node;
+
+    const previousDocument = globalThis.document;
+    globalThis.document = {
+      body,
+      documentElement: body,
+    } as Document;
+
+    try {
+      assert.equal(
+        shouldRecoverFocusIntoModal({
+          modalOpen: true,
+          modalRoot,
+          activeElement: body,
+          triggerElement: null,
+        }),
+        false,
+      );
+    } finally {
+      globalThis.document = previousDocument;
+    }
   });
 });
 

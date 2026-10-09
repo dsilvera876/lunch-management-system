@@ -113,6 +113,12 @@ type Props = {
   onClientSubmit?: (
     formData: FormData,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Runs before client submit; return false to block submit (e.g. external required fields). */
+  clientSubmitGuard?: () => boolean;
+  /** When false, client submit errors are handled externally (e.g. inline reason field). */
+  showClientSubmitError?: (error: string) => boolean;
+  /** Rendered directly above the submit control (e.g. HR change reason). */
+  submitFooter?: ReactNode;
 };
 
 function StandaloneItemCard({
@@ -185,6 +191,9 @@ export function ProviderOrderForm({
   menuSelectionEpoch = 0,
   includeSpecialInstructions = true,
   onClientSubmit,
+  clientSubmitGuard,
+  showClientSubmitError = () => true,
+  submitFooter = null,
 }: Props) {
   const isLateOrderLayout = layoutVariant === "late-order";
   const compactMenuLayout = isLateOrderLayout;
@@ -377,6 +386,22 @@ export function ProviderOrderForm({
 
     if (onClientSubmit) {
       event.preventDefault();
+      if (clientSubmitGuard && !clientSubmitGuard()) {
+        return;
+      }
+      if (!event.currentTarget.checkValidity()) {
+        const invalidControl = event.currentTarget.querySelector(
+          "input:invalid, select:invalid, textarea:invalid",
+        );
+        if (
+          invalidControl instanceof HTMLInputElement
+          || invalidControl instanceof HTMLSelectElement
+          || invalidControl instanceof HTMLTextAreaElement
+        ) {
+          invalidControl.reportValidity();
+        }
+        return;
+      }
       if (!tryBeginClientSubmit(clientSubmitLockRef.current)) {
         return;
       }
@@ -387,7 +412,11 @@ export function ProviderOrderForm({
         if (!result.ok) {
           releaseClientSubmitLock(clientSubmitLockRef.current);
           setClientSubmitPending(false);
-          setFormValidation(result.error);
+          if (showClientSubmitError(result.error)) {
+            setFormValidation(result.error);
+          } else {
+            clearValidation();
+          }
         }
       });
     }
@@ -872,6 +901,7 @@ export function ProviderOrderForm({
           {validationSummary}
 
           <div className="mt-4">
+            {submitFooter ? <div className="mb-4">{submitFooter}</div> : null}
             <FormSubmitButton
               pendingText={pendingLabel}
               variant="primary"
@@ -1032,6 +1062,7 @@ export function ProviderOrderForm({
         <div className={validationError ? "mb-4" : ""}>{validationSummary}</div>
 
         <div className={`${STAFF_EDIT_SUBMIT_BAR_CLASS} relative z-10 lg:static`}>
+          {submitFooter ? <div className="mb-4">{submitFooter}</div> : null}
           <FormSubmitButton
             pendingText={pendingLabel}
             variant="primary"

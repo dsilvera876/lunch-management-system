@@ -16,7 +16,7 @@ import {
 import { ProviderOrderForm } from "@/components/provider-order-form";
 import { Button } from "@/components/ui/button";
 import { FocusTrapPopover } from "@/components/ui/focus-trap-popover";
-import { formControlLabelClassName, textareaClassName } from "@/components/ui/form-field";
+import { HrTodaysOrderEditReasonField } from "@/components/admin/todays-orders/hr-todays-order-edit-reason-field";
 import { IconX } from "@/components/icons/line-icons";
 import type { MenuItemType } from "@/lib/menu-items";
 import {
@@ -33,6 +33,12 @@ import {
 import { buildSnapshotOrderPayload } from "@/lib/order-payload";
 import type { OperationalOrder } from "@/lib/operational-orders";
 import { formatTodaysOrderDisplayDate } from "@/lib/todays-orders-presentation";
+import {
+  HR_EDIT_REASON_REQUIRED_MESSAGE,
+  HR_TODAYS_ORDER_EDIT_DIALOG_CLASS,
+  HR_TODAYS_ORDER_EDIT_PANEL_CLASS,
+  HR_TODAYS_ORDER_EDIT_SCROLL_CLASS,
+} from "@/lib/hr-todays-order-edit-modal-presentation";
 import { focusFormErrorSummary } from "@/lib/staff-form-accessibility";
 
 type Props = {
@@ -66,10 +72,13 @@ export function HrTodaysOrderEditModal({
   const reasonId = useId();
   const reasonHelperId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const reasonFieldRef = useRef<HTMLTextAreaElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const reasonErrorId = useId();
   const [context, setContext] = useState<HrStaffOrderEditContext | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, startLoad] = useTransition();
   const [, startSave] = useTransition();
@@ -78,6 +87,7 @@ export function HrTodaysOrderEditModal({
     const cleared = hrEditModalDraftOnSessionEnd();
     setContext(cleared.context);
     setReason(cleared.reason);
+    setReasonError(null);
     setFormError(cleared.formError);
     setLoadError(cleared.loadError);
   }
@@ -98,6 +108,7 @@ export function HrTodaysOrderEditModal({
     /* eslint-disable react-hooks/set-state-in-effect -- clear prior session before refetch */
     setContext(loadingDraft.context);
     setReason(loadingDraft.reason);
+    setReasonError(null);
     setFormError(loadingDraft.formError);
     setLoadError(loadingDraft.loadError);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -137,6 +148,53 @@ export function HrTodaysOrderEditModal({
     }
   }, [formError, loadError]);
 
+  const reasonField = (
+    <HrTodaysOrderEditReasonField
+      reasonId={reasonId}
+      reasonHelperId={reasonHelperId}
+      reasonErrorId={reasonErrorId}
+      reason={reason}
+      reasonError={reasonError}
+      onReasonChange={(value) => {
+        setReason(value);
+        reasonFieldRef.current?.setCustomValidity("");
+        if (reasonError) {
+          setReasonError(null);
+        }
+      }}
+      fieldRef={reasonFieldRef}
+    />
+  );
+
+  function getReasonFieldElement(): HTMLTextAreaElement | null {
+    if (typeof document === "undefined") {
+      return null;
+    }
+    const byId = document.getElementById(reasonId);
+    if (byId instanceof HTMLTextAreaElement) {
+      return byId;
+    }
+    return reasonFieldRef.current;
+  }
+
+  function reportReasonRequired(): boolean {
+    const normalized = normalizeHrOrderMutationReason(reason);
+    if (normalized) {
+      getReasonFieldElement()?.setCustomValidity("");
+      setReasonError(null);
+      return true;
+    }
+
+    setFormError(null);
+    setReasonError(HR_EDIT_REASON_REQUIRED_MESSAGE);
+    const field = getReasonFieldElement();
+    if (field) {
+      field.setCustomValidity(HR_EDIT_REASON_REQUIRED_MESSAGE);
+      field.reportValidity();
+    }
+    return false;
+  }
+
   const defaults = context
     ? deriveHrEditFormDefaults(context.items, context.mealQuantity)
     : null;
@@ -157,16 +215,16 @@ export function HrTodaysOrderEditModal({
       modal
       anchorPosition={false}
       initialFocusRef={headingRef}
-      className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto p-4 sm:items-center"
+      className={HR_TODAYS_ORDER_EDIT_DIALOG_CLASS}
     >
       <button
         type="button"
-        className="fixed inset-0 bg-slate-900/40"
+        className="absolute inset-0 bg-slate-900/40"
         aria-label="Close edit order dialog"
         onClick={dismissModal}
       />
-      <div className="relative z-10 my-8 w-full max-w-4xl rounded-xl border border-border bg-surface p-5 shadow-xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
+      <div className={HR_TODAYS_ORDER_EDIT_PANEL_CLASS}>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div>
             <h2
               id={titleId}
@@ -192,104 +250,92 @@ export function HrTodaysOrderEditModal({
           </Button>
         </div>
 
-        {loadError ? (
-          <div
-            ref={errorSummaryRef}
-            tabIndex={-1}
-            role="alert"
-            className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
-          >
-            {loadError}
-          </div>
-        ) : null}
+        <div className={HR_TODAYS_ORDER_EDIT_SCROLL_CLASS}>
+          {loadError ? (
+            <div
+              ref={errorSummaryRef}
+              tabIndex={-1}
+              role="alert"
+              className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
+            >
+              {loadError}
+            </div>
+          ) : null}
 
-        {formError ? (
-          <div
-            ref={errorSummaryRef}
-            tabIndex={-1}
-            role="alert"
-            className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
-          >
-            {formError}
-          </div>
-        ) : null}
+          {formError ? (
+            <div
+              ref={errorSummaryRef}
+              tabIndex={-1}
+              role="alert"
+              className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
+            >
+              {formError}
+            </div>
+          ) : null}
 
-        <div className="mb-4">
-          <label htmlFor={reasonId} className={formControlLabelClassName}>
-            Reason <span className="text-red-700">(required)</span>
-          </label>
-          <textarea
-            id={reasonId}
-            rows={2}
-            maxLength={1000}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className={`${textareaClassName} mt-1.5`}
-            aria-describedby={reasonHelperId}
-          />
-          <p id={reasonHelperId} className="mt-1 text-xs text-muted">
-            Internal HR record only. Not included in the employee email.
-          </p>
-        </div>
-
-        {context && defaults ? (
-          <ProviderOrderForm
-            key={hrEditFormMountKey(order.id, context.updatedAt)}
-            providerId={order.providerId}
-            providerName={order.providerName}
-            orderDate={context.orderDate}
-            deliveryDate={context.deliveryDate}
-            menuItems={mapMenuItems(context)}
-            formAction={async () => undefined}
-            quantityFieldPrefix="quantity"
-            mainFieldName="mainMenuItemId"
-            defaultSelectedMainId={defaults.mainMenuItemId}
-            defaultSelectedSideIds={defaults.sideMenuItemIds}
-            defaultMealQuantity={defaults.mealQuantity}
-            defaultStandaloneQuantities={defaults.standaloneQuantities}
-            includeSpecialInstructions={false}
-            showSubsidyNote={false}
-            submitLabel="Save changes"
-            pendingLabel="Saving…"
-            menuLoading={loading}
-            submitDisabled={loading}
-            onClientSubmit={(formData) => {
-              return new Promise((resolve) => {
-                const normalizedReason = normalizeHrOrderMutationReason(reason);
-                if (!normalizedReason) {
-                  resolve({ ok: false, error: "Enter a reason for this HR change." });
-                  return;
-                }
-
-                startSave(async () => {
-                  const payload = buildSnapshotOrderPayload(formData);
-                  const result = await hrModifyStaffOrderAction({
-                    orderId: order.id,
-                    items: snapshotPayloadToRpcJson(payload),
-                    reason: normalizedReason,
-                    expectedUpdatedAt: context.updatedAt,
-                  });
-
-                  if (!result.ok) {
-                    setFormError(result.error);
-                    resolve({ ok: false, error: result.error });
+          {context && defaults ? (
+            <ProviderOrderForm
+              key={hrEditFormMountKey(order.id, context.updatedAt)}
+              providerId={order.providerId}
+              providerName={order.providerName}
+              orderDate={context.orderDate}
+              deliveryDate={context.deliveryDate}
+              menuItems={mapMenuItems(context)}
+              formAction={async () => undefined}
+              quantityFieldPrefix="quantity"
+              mainFieldName="mainMenuItemId"
+              defaultSelectedMainId={defaults.mainMenuItemId}
+              defaultSelectedSideIds={defaults.sideMenuItemIds}
+              defaultMealQuantity={defaults.mealQuantity}
+              defaultStandaloneQuantities={defaults.standaloneQuantities}
+              includeSpecialInstructions={false}
+              showSubsidyNote={false}
+              stableSplitLayout
+              submitLabel="Save changes"
+              pendingLabel="Saving…"
+              menuLoading={loading}
+              submitDisabled={loading}
+              submitFooter={reasonField}
+              clientSubmitGuard={reportReasonRequired}
+              showClientSubmitError={(error) => error !== HR_EDIT_REASON_REQUIRED_MESSAGE}
+              onClientSubmit={(formData) => {
+                return new Promise((resolve) => {
+                  const normalizedReason = normalizeHrOrderMutationReason(reason);
+                  if (!normalizedReason) {
+                    resolve({ ok: false, error: HR_EDIT_REASON_REQUIRED_MESSAGE });
                     return;
                   }
 
-                  dismissModal();
-                  onSuccess("Order updated. The employee will be notified by email.");
-                  resolve({ ok: true });
-                });
-              });
-            }}
-          />
-        ) : null}
+                  startSave(async () => {
+                    const payload = buildSnapshotOrderPayload(formData);
+                    const result = await hrModifyStaffOrderAction({
+                      orderId: order.id,
+                      items: snapshotPayloadToRpcJson(payload),
+                      reason: normalizedReason,
+                      expectedUpdatedAt: context.updatedAt,
+                    });
 
-        {!context && !loadError ? (
-          <p className="text-sm text-muted" role="status">
-            Loading menu…
-          </p>
-        ) : null}
+                    if (!result.ok) {
+                      setFormError(result.error);
+                      resolve({ ok: false, error: result.error });
+                      return;
+                    }
+
+                    dismissModal();
+                    onSuccess("Order updated. The employee will be notified by email.");
+                    resolve({ ok: true });
+                  });
+                });
+              }}
+            />
+          ) : null}
+
+          {!context && !loadError ? (
+            <p className="text-sm text-muted" role="status">
+              Loading menu…
+            </p>
+          ) : null}
+        </div>
       </div>
     </FocusTrapPopover>
   );

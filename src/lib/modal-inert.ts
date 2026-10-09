@@ -57,8 +57,53 @@ export function createModalInertController(getDocument: () => InertDocument = ()
   return { acquire, release, isLocked, lockedCount, depth: () => depth };
 }
 
+/** Reference-counted overflow lock on the document element while modals are open. */
+export function createDocumentScrollLock(getDocument: () => Document = () => document) {
+  let depth = 0;
+  let previousOverflow = "";
+
+  function acquire(): void {
+    depth += 1;
+    if (depth > 1) {
+      return;
+    }
+
+    const root = getDocument().documentElement;
+    previousOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+  }
+
+  function release(): void {
+    if (depth === 0) {
+      return;
+    }
+
+    depth -= 1;
+    if (depth > 0) {
+      return;
+    }
+
+    getDocument().documentElement.style.overflow = previousOverflow;
+    previousOverflow = "";
+  }
+
+  return { acquire, release, depth: () => depth };
+}
+
+export const staffModalScrollLock = createDocumentScrollLock();
+
 /** Shared controller for staff modal popovers (single page, no nesting expected). */
 export const staffModalInert = createModalInertController();
+
+function isTransientFocusRecoveryTarget(activeElement: Node): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return (
+    activeElement === document.body || activeElement === document.documentElement
+  );
+}
 
 export function shouldRecoverFocusIntoModal(options: {
   modalOpen: boolean;
@@ -74,7 +119,11 @@ export function shouldRecoverFocusIntoModal(options: {
   const { activeElement, modalRoot, triggerElement, allowTriggerFocus = false } = options;
 
   if (!activeElement) {
-    return true;
+    return false;
+  }
+
+  if (isTransientFocusRecoveryTarget(activeElement)) {
+    return false;
   }
 
   if (modalRoot.contains(activeElement)) {

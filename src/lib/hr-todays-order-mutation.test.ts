@@ -138,6 +138,8 @@ describe("hr todays order mutation helpers", () => {
     assert.match(editModal, /triggerRef/);
     assert.match(editModal, /hrEditModalDraftOnLoadStart/);
     assert.match(editModal, /hrEditFormMountKey/);
+    assert.match(editModal, /submitFooter=\{reasonField\}/);
+    assert.match(editModal, /HR_TODAYS_ORDER_EDIT_SCROLL_CLASS/);
     assert.match(cancelModal, /FocusTrapPopover/);
     assert.match(cancelModal, /triggerRef/);
     assert.match(cancelModal, /hrCancelModalDraftOnSessionEnd/);

@@ -15,6 +15,7 @@ import {
   shouldRecoverFocusIntoModal,
   STAFF_MODAL_LAYER_ID,
   staffModalInert,
+  staffModalScrollLock,
 } from "@/lib/modal-inert";
 
 type Props = {
@@ -76,7 +77,13 @@ function attachModalPopoverListeners(options: {
     focusTarget.focus();
   }
 
-  focusInitialTarget();
+  const activeOnAttach = document.activeElement;
+  if (
+    !activeOnAttach
+    || !trappedPanel.contains(activeOnAttach)
+  ) {
+    focusInitialTarget();
+  }
   updateAnchorPosition();
 
   function handlePointerDown(event: MouseEvent) {
@@ -105,6 +112,10 @@ function attachModalPopoverListeners(options: {
     }
 
     const target = event.target as Node | null;
+    if (target && trappedPanel.contains(target)) {
+      return;
+    }
+
     if (
       !shouldRecoverFocusIntoModal({
         modalOpen: true,
@@ -192,8 +203,10 @@ export function FocusTrapPopover({
     }
 
     staffModalInert.acquire();
+    staffModalScrollLock.acquire();
 
     return () => {
+      staffModalScrollLock.release();
       staffModalInert.release();
     };
   }, [open, modal]);

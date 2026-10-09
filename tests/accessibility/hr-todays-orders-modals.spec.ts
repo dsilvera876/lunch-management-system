@@ -55,8 +55,19 @@ test.describe("HR Today's Orders — edit and cancel modals", () => {
     await expect(page.getByRole("heading", { name: "Edit employee order" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Edit employee order" })).toBeFocused();
 
+    const reason = dialog.getByLabel("Reason for change");
+    await expect(reason).toBeVisible({ timeout: 30_000 });
+    await expect(reason).toBeEditable();
+
     await dialog.getByRole("button", { name: "Save changes" }).click();
-    await expect(dialog.getByRole("alert")).toContainText(/reason/i);
+    await expect(reason).toBeFocused();
+    await expect(reason).toHaveAttribute("aria-invalid", "true");
+    await expect(
+      dialog.getByRole("alert").filter({ hasText: /Enter a reason for this HR change/i }),
+    ).toBeVisible();
+
+    await reason.fill("Staging smoke test reason");
+    await expect(reason).not.toHaveAttribute("aria-invalid", "true");
 
     const axeResults = await new AxeBuilder({ page })
       .withTags([...STAFF_AXE_WCAG_TAGS])
@@ -70,6 +81,30 @@ test.describe("HR Today's Orders — edit and cancel modals", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(edit).toBeFocused();
+  });
+
+  test("edit modal — short viewport keeps reason and Save reachable without page scroll", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 520 });
+    const edit = await firstEditableEditButton(page);
+    const dialog = await openStaffModalFromTrigger(page, edit);
+
+    const reason = dialog.getByLabel("Reason for change");
+    const save = dialog.getByRole("button", { name: "Save changes" });
+    await expect(reason).toBeVisible({ timeout: 30_000 });
+    await expect(save).toBeVisible();
+
+    const pageScrollBefore = await page.evaluate(() => window.scrollY);
+    const scrollRegion = dialog.locator(".overscroll-contain").first();
+    await expect(scrollRegion).toBeVisible();
+    await scrollRegion.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await page.mouse.wheel(0, 800);
+    await page.waitForTimeout(100);
+    const pageScrollAfter = await page.evaluate(() => window.scrollY);
+    expect(pageScrollAfter).toBe(pageScrollBefore);
   });
 
   test("cancel modal — keyboard, focus, Escape, required reason, axe", async ({ page }) => {
