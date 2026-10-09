@@ -102,6 +102,14 @@ export function seedE2eOperationalAttentionFixture(): void {
   `);
 }
 
+/** Local Supabase only — clears inbox rows for one profile (E2E isolation). */
+export function clearOperationalAttentionItemsForProfile(profileId: string): void {
+  runLocalDbExec(`
+    delete from private.operational_attention_items
+    where profile_id = '${profileId}'::uuid;
+  `);
+}
+
 export function cleanupE2eOperationalAttentionFixture(): void {
   runLocalDbExec(`
     do $$

@@ -54,7 +54,7 @@ describe("operational attention presentation", () => {
   });
 
   it("formats bell aria labels for unread counts", () => {
-    assert.equal(operationalAttentionBellAriaLabel(0), "Operational notifications");
+    assert.equal(operationalAttentionBellAriaLabel(0), "Notifications");
     assert.match(operationalAttentionBellAriaLabel(2), /2 unread notifications/);
   });
 });

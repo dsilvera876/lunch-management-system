@@ -8,6 +8,8 @@ import {
 import { loadLocalEnvFiles } from "./helpers/e2e-ordering-fixture";
 import {
   cleanupE2eOperationalAttentionFixture,
+  clearOperationalAttentionItemsForProfile,
+  E2E_SEED_PROFILES,
   seedE2eOperationalAttentionFixture,
 } from "./helpers/operational-attention-fixture";
 
@@ -38,7 +40,7 @@ test.describe("Operational attention bell", () => {
     await login(page, email, password);
 
     await expect(
-      page.getByRole("button", { name: /Operational notifications/i }),
+      page.getByRole("button", { name: /Notifications/i }),
     ).toHaveCount(0);
   });
 
@@ -52,7 +54,7 @@ test.describe("Operational attention bell", () => {
       await login(page, "accounts@lunch.test", password!);
 
       await expect(
-        page.getByRole("button", { name: /Operational notifications/i }),
+        page.getByRole("button", { name: /Notifications/i }),
       ).toHaveCount(0);
     });
 
@@ -61,12 +63,12 @@ test.describe("Operational attention bell", () => {
       await login(page, email, password);
 
       const bell = page.getByRole("button", {
-        name: /Operational notifications, 2 unread notifications/i,
+        name: /Notifications, 2 unread notifications/i,
       });
       await expect(bell).toBeVisible();
       await bell.click();
 
-      const dialog = page.getByRole("dialog", { name: /Operational notifications/i });
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
       await expect(dialog).toBeVisible();
       await expect(dialog.getByText("E2E operational notification one.")).toBeVisible();
       await expect(dialog.getByText("E2E operational notification two.")).toBeVisible();
@@ -76,10 +78,10 @@ test.describe("Operational attention bell", () => {
       const { email, password } = requireOwnerCredentials();
       await login(page, email, password);
 
-      const bell = page.getByRole("button", { name: /Operational notifications/i });
+      const bell = page.getByRole("button", { name: /Notifications/i });
       await bell.click();
 
-      const dialog = page.getByRole("dialog", { name: /Operational notifications/i });
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
       await expect(dialog.getByText("E2E admin operational notification.")).toBeVisible();
       await expect(dialog.getByText("E2E operational notification one.")).toHaveCount(0);
     });
@@ -88,22 +90,22 @@ test.describe("Operational attention bell", () => {
       const { email, password } = requireHrCredentials();
       await login(page, email, password);
 
-      const bell = page.getByRole("button", { name: /Operational notifications/i });
+      const bell = page.getByRole("button", { name: /Notifications/i });
       await bell.click();
 
-      const dialog = page.getByRole("dialog", { name: /Operational notifications/i });
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
       await dialog.getByRole("button", { name: "Mark as read" }).first().click();
 
       await expect(
         page.getByRole("button", {
-          name: /Operational notifications, 1 unread notification/i,
+          name: /Notifications, 1 unread notification/i,
         }),
       ).toBeVisible();
 
       await dialog.getByRole("button", { name: "Mark all as read" }).click();
 
       await expect(
-        page.getByRole("button", { name: "Operational notifications" }),
+        page.getByRole("button", { name: "Notifications" }),
       ).toBeVisible();
       await expect(dialog.getByRole("button", { name: "Mark as read" })).toHaveCount(0);
     });
@@ -112,8 +114,8 @@ test.describe("Operational attention bell", () => {
       const { email, password } = requireHrCredentials();
       await login(page, email, password);
 
-      await page.getByRole("button", { name: /Operational notifications/i }).click();
-      const dialog = page.getByRole("dialog", { name: /Operational notifications/i });
+      await page.getByRole("button", { name: /Notifications/i }).click();
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
       await dialog.getByRole("link", { name: "Review approvals" }).first().click();
 
       await expect(page).toHaveURL(/\/admin\/users\?view=approvals/);
@@ -126,10 +128,10 @@ test.describe("Operational attention bell", () => {
 
       await page.setViewportSize({ width: 320, height: 640 });
 
-      const bell = page.getByRole("button", { name: /Operational notifications/i });
+      const bell = page.getByRole("button", { name: /Notifications/i });
       await bell.click();
 
-      const dialog = page.getByRole("dialog", { name: /Operational notifications/i });
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
       await expect(dialog).toBeVisible();
 
       await page.keyboard.press("Escape");
@@ -137,14 +139,32 @@ test.describe("Operational attention bell", () => {
       await expect(bell).toBeFocused();
     });
 
+    test("reopening bell shows cached items without loading flash", async ({ page }) => {
+      const { email, password } = requireHrCredentials();
+      await login(page, email, password);
+
+      const bell = page.getByRole("button", { name: /Notifications/i });
+      await bell.click();
+
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
+      await expect(dialog.getByText("E2E operational notification one.")).toBeVisible();
+
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+
+      await bell.click();
+      await expect(dialog.getByText("Loading notifications")).toHaveCount(0);
+      await expect(dialog.getByText("E2E operational notification one.")).toBeVisible();
+    });
+
     test("outside click closes popover", async ({ page }) => {
       const { email, password } = requireHrCredentials();
       await login(page, email, password);
 
-      const bell = page.getByRole("button", { name: /Operational notifications/i });
+      const bell = page.getByRole("button", { name: /Notifications/i });
       await bell.click();
 
-      const dialog = page.getByRole("dialog", { name: /Operational notifications/i });
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
       await expect(dialog).toBeVisible();
 
       await page.locator("#main-content").click({ position: { x: 8, y: 8 } });
@@ -159,7 +179,7 @@ test.describe("Operational attention bell", () => {
       await page.waitForLoadState("networkidle");
 
       const openBellDialog = page.getByRole("dialog", {
-        name: /Operational notifications/i,
+        name: /Notifications/i,
       });
       if (await openBellDialog.isVisible()) {
         await page.keyboard.press("Escape");
@@ -187,11 +207,11 @@ test.describe("Operational attention bell", () => {
         timeout: 20_000,
       });
 
-      const bell = page.getByRole("button", { name: /Operational notifications/i });
+      const bell = page.getByRole("button", { name: /Notifications/i });
       await bell.click();
 
       const notificationsDialog = page.getByRole("dialog", {
-        name: /Operational notifications/i,
+        name: /Notifications/i,
       });
       await expect(notificationsDialog.getByText("E2E operational notification one.")).toHaveCount(
         0,
@@ -206,12 +226,12 @@ test.describe("Operational attention bell", () => {
       const { email, password } = requireHrCredentials();
       await login(page, email, password);
 
-      const bell = page.getByRole("button", { name: /Operational notifications/i });
+      const bell = page.getByRole("button", { name: /Notifications/i });
       await context.setOffline(true);
       await bell.click();
 
       const notificationsDialog = page.getByRole("dialog", {
-        name: /Operational notifications/i,
+        name: /Notifications/i,
       });
       await expect(notificationsDialog.getByRole("alert")).toContainText(
         /Could not load notifications/i,
@@ -236,10 +256,40 @@ test.describe("Operational attention bell", () => {
           document.documentElement.style.fontSize = fontSize;
         }, scale);
 
-        const bell = page.getByRole("button", { name: /Operational notifications/i });
+        const bell = page.getByRole("button", { name: /Notifications/i });
         await expect(bell).toBeVisible();
         await expect(page.getByRole("link", { name: /Dev HR|User/i }).first()).toBeVisible();
       }
+    });
+  });
+
+  test.describe("empty inbox caching", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.beforeAll(() => {
+      clearOperationalAttentionItemsForProfile(E2E_SEED_PROFILES.hr);
+    });
+
+    test.afterAll(() => {
+      seedE2eOperationalAttentionFixture();
+    });
+
+    test("reopening bell after empty inbox does not show loading flash", async ({ page }) => {
+      const { email, password } = requireHrCredentials();
+      await login(page, email, password);
+
+      const bell = page.getByRole("button", { name: "Notifications" });
+      await bell.click();
+
+      const dialog = page.getByRole("dialog", { name: /Notifications/i });
+      await expect(dialog.getByText("No notifications")).toBeVisible();
+
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+
+      await bell.click();
+      await expect(dialog.getByText("Loading notifications")).toHaveCount(0);
+      await expect(dialog.getByText("No notifications")).toBeVisible();
     });
   });
 

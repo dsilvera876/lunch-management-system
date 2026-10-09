@@ -39,6 +39,22 @@ export function HeaderNotifications({
   );
 }
 
+function mergeInboxPreservingLocalReadState(
+  localItems: OperationalAttentionItem[],
+  serverItems: OperationalAttentionItem[],
+): OperationalAttentionItem[] {
+  const localById = new Map(localItems.map((item) => [item.id, item]));
+
+  return serverItems.map((serverItem) => {
+    const localItem = localById.get(serverItem.id);
+    if (localItem && !localItem.isUnread && serverItem.isUnread) {
+      return localItem;
+    }
+
+    return serverItem;
+  });
+}
+
 function OperationalAttentionBell({
   initialUnreadCount,
   mutedTextClass,
@@ -55,6 +71,7 @@ function OperationalAttentionBell({
   const [actionError, setActionError] = useState<string | null>(null);
   const [markAllPending, setMarkAllPending] = useState(false);
   const [markingItemId, setMarkingItemId] = useState<string | null>(null);
+  const [inboxLoadedOnce, setInboxLoadedOnce] = useState(false);
   const panelId = useId();
   const titleId = useId();
   const liveId = useId();
@@ -64,6 +81,7 @@ function OperationalAttentionBell({
   const loadGenerationRef = useRef(0);
   const refreshGenerationRef = useRef(0);
   const openRef = useRef(open);
+  const inboxLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     openRef.current = open;
@@ -92,42 +110,67 @@ function OperationalAttentionBell({
     }
   }, []);
 
-  const loadInbox = useCallback(async (options?: { keepActionError?: boolean }) => {
-    const generation = ++loadGenerationRef.current;
-    setLoading(true);
-    setLoadError(null);
-    if (!options?.keepActionError) {
-      setActionError(null);
-    }
+  const loadInbox = useCallback(
+    async (options?: { keepActionError?: boolean; background?: boolean }) => {
+      const generation = ++loadGenerationRef.current;
+      const background = options?.background ?? inboxLoadedOnceRef.current;
 
-    try {
-      const result = await loadOperationalAttentionInbox();
-
-      if (generation !== loadGenerationRef.current) {
-        return;
+      if (!background) {
+        setLoading(true);
+        setLoadError(null);
       }
 
-      if (!result.ok) {
-        setLoadError(result.error);
-        return;
+      if (!options?.keepActionError) {
+        setActionError(null);
       }
 
-      setItems(result.items);
-      setUnreadCount(result.unreadCount);
-    } catch (caught) {
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
+      try {
+        const result = await loadOperationalAttentionInbox();
 
-      setLoadError(
-        caught instanceof Error ? caught.message : "Unable to reach the server.",
-      );
-    } finally {
-      if (generation === loadGenerationRef.current) {
-        setLoading(false);
+        if (generation !== loadGenerationRef.current) {
+          return;
+        }
+
+        if (!result.ok) {
+          if (background) {
+            return;
+          }
+
+          setLoadError(result.error);
+          return;
+        }
+
+        inboxLoadedOnceRef.current = true;
+        setInboxLoadedOnce(true);
+
+        if (background) {
+          setItems((current) => mergeInboxPreservingLocalReadState(current, result.items));
+          setLoadError(null);
+          void refreshUnreadOnly();
+        } else {
+          setItems(result.items);
+          setUnreadCount(result.unreadCount);
+        }
+      } catch (caught) {
+        if (generation !== loadGenerationRef.current) {
+          return;
+        }
+
+        if (background) {
+          return;
+        }
+
+        setLoadError(
+          caught instanceof Error ? caught.message : "Unable to reach the server.",
+        );
+      } finally {
+        if (!background && generation === loadGenerationRef.current) {
+          setLoading(false);
+        }
       }
-    }
-  }, []);
+    },
+    [refreshUnreadOnly],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh badge after client navigations
@@ -184,7 +227,7 @@ function OperationalAttentionBell({
     }
 
     setOpen(true);
-    void loadInbox();
+    void loadInbox({ background: inboxLoadedOnceRef.current });
   }
 
   async function handleMarkItemRead(itemId: string) {
@@ -192,6 +235,7 @@ function OperationalAttentionBell({
       return;
     }
 
+    loadGenerationRef.current += 1;
     setActionError(null);
     setMarkingItemId(itemId);
 
@@ -236,6 +280,7 @@ function OperationalAttentionBell({
       return;
     }
 
+    loadGenerationRef.current += 1;
     setActionError(null);
     setMarkAllPending(true);
 
@@ -276,14 +321,15 @@ function OperationalAttentionBell({
   }
 
   const hasUnread = unreadCount > 0;
-  const showMarkAll = unreadCount > 0 && !loading && !loadError;
+  const showInitialLoad = loading && !inboxLoadedOnce;
+  const showMarkAll = unreadCount > 0 && !loadError && !showInitialLoad;
 
   return (
     <div className="relative" ref={rootRef}>
       <span id={liveId} className="sr-only" aria-live="polite" aria-atomic="true">
         {hasUnread
-          ? `${unreadCount} unread operational ${unreadCount === 1 ? "notification" : "notifications"}`
-          : "No unread operational notifications"}
+          ? `${unreadCount} unread ${unreadCount === 1 ? "notification" : "notifications"}`
+          : "No unread notifications"}
       </span>
 
       <button
@@ -333,7 +379,7 @@ function OperationalAttentionBell({
         >
           <div className="mb-2 flex items-start justify-between gap-2 px-1">
             <h2 id={titleId} className="text-sm font-semibold text-foreground">
-              Operational notifications
+              Notifications
             </h2>
             {showMarkAll ? (
               <button
@@ -347,7 +393,7 @@ function OperationalAttentionBell({
             ) : null}
           </div>
 
-          {loading ? (
+          {showInitialLoad ? (
             <p className={`px-2 py-3 text-sm ${mutedTextClass}`} role="status">
               Loading notifications…
             </p>
@@ -379,7 +425,7 @@ function OperationalAttentionBell({
 
               {items.length === 0 ? (
                 <p className={`px-2 py-3 text-sm ${mutedTextClass}`}>
-                  No active operational notifications.
+                  No notifications
                 </p>
               ) : (
                 <ul className="space-y-2">

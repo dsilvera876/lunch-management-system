@@ -50,6 +50,9 @@ describe("operational attention header wiring", () => {
     assert.match(header, /Could not mark notification as read/);
     assert.match(header, /Could not mark all notifications as read/);
     assert.match(header, /Try again/);
+    assert.match(header, /inboxLoadedOnce/);
+    assert.match(header, /background/);
+    assert.match(header, /No notifications/);
     assert.doesNotMatch(header, /hr-signup-approval/);
   });
 

@@ -107,11 +107,11 @@ export function mapOperationalAttentionRows(
 
 export function operationalAttentionBellAriaLabel(unreadCount: number): string {
   if (unreadCount <= 0) {
-    return "Operational notifications";
+    return "Notifications";
   }
 
   const noun = unreadCount === 1 ? "unread notification" : "unread notifications";
-  return `Operational notifications, ${unreadCount} ${noun}`;
+  return `Notifications, ${unreadCount} ${noun}`;
 }
 
 export function shouldShowOperationalAttentionBell(role: UserRole | string): boolean {

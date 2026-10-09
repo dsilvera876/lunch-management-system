@@ -61,7 +61,7 @@ describe("HR pending approvals UX", () => {
 
     assert.doesNotMatch(layout, /hrPendingSignupCount/);
     assert.match(layout, /operationalAttentionUnreadCount/);
-    assert.match(header, /Operational notifications/);
+    assert.match(header, /Notifications/);
     assert.match(
       readFileSync(new URL("./hr-pending-signup-approvals.ts", import.meta.url), "utf8"),
       /Review requests/,

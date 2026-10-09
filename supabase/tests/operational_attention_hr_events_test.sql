@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(37);
 
 \ir support/isolate_existing_owner.inc
 
@@ -409,6 +409,19 @@ select is(
   ),
   2,
   'Late order keeps one operational row per test HR recipient'
+);
+
+select is(
+  (
+    select o.body
+    from private.operational_attention_items o
+    where o.event_key = 'hr.late_order_submitted'
+      and o.staff_late_order_request_id = current_setting('test.oa2_late_request_id')::uuid
+      and o.profile_id = 'd1111111-1111-4111-8111-111111111111'
+    limit 1
+  ),
+  'OA2 SLOR Staff submitted a late order.',
+  'Late order in-app preview excludes provider, date, and order details'
 );
 
 -- Decline resolution
