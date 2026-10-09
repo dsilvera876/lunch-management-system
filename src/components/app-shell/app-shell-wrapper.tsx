@@ -17,12 +17,12 @@ const AUTH_PATHS = ["/login", "/signup", FORGOT_PASSWORD_PATH];
 
 export function AppShellWrapper({
   profile,
-  hrPendingSignupCount = 0,
+  operationalAttentionUnreadCount = 0,
   supportSession = null,
   children,
 }: {
   profile: Profile | null;
-  hrPendingSignupCount?: number;
+  operationalAttentionUnreadCount?: number;
   supportSession?: ActiveSupportSession | null;
   children: React.ReactNode;
 }) {
@@ -74,7 +74,7 @@ export function AppShellWrapper({
   return (
     <AppShell
       profile={profile}
-      hrPendingSignupCount={hrPendingSignupCount}
+      operationalAttentionUnreadCount={operationalAttentionUnreadCount}
       supportSession={supportSession}
     >
       {children}

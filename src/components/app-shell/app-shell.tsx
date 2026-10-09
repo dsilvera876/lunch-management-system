@@ -13,7 +13,6 @@ import type { UserRole } from "@/lib/roles";
 import { NavIcon } from "@/components/icons/line-icons";
 import { SidebarBrand } from "@/components/app-shell/sidebar-brand";
 import { TopHeader } from "@/components/app-shell/top-header";
-import { buildAppNotifications } from "@/lib/app-notification-sources";
 import type { ActiveSupportSession } from "@/lib/support-mode";
 import { SupportModeProvider } from "@/components/app-shell/support-mode-context";
 import { SupportModeBanner } from "@/components/app-shell/support-mode-banner";
@@ -120,16 +119,15 @@ function NavLinks({
 
 export function AppShell({
   profile,
-  hrPendingSignupCount = 0,
+  operationalAttentionUnreadCount = 0,
   supportSession = null,
   children,
 }: {
   profile: Profile;
-  hrPendingSignupCount?: number;
+  operationalAttentionUnreadCount?: number;
   supportSession?: ActiveSupportSession | null;
   children: React.ReactNode;
 }) {
-  const headerNotifications = buildAppNotifications(hrPendingSignupCount);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const usersContext = searchParams.get("context");
@@ -225,7 +223,10 @@ export function AppShell({
 
       <div className="lg:pl-64">
         <SupportModeBanner />
-        <TopHeader profile={profile} notifications={headerNotifications} />
+        <TopHeader
+          profile={profile}
+          operationalAttentionUnreadCount={operationalAttentionUnreadCount}
+        />
         <main
           id="main-content"
           tabIndex={-1}

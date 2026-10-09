@@ -3,10 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
-  buildAppNotifications,
-  hrSignupApprovalNotificationItems,
-} from "./app-notification-sources";
-import {
   buildHrPendingSignupApprovalAlert,
   HR_SIGNUP_APPROVALS_PATH,
 } from "./hr-pending-signup-approvals";
@@ -18,15 +14,6 @@ describe("HR pending approvals UX", () => {
     assert.ok(alert);
     assert.equal(alert?.href, HR_SIGNUP_APPROVALS_PATH);
     assert.match(alert?.message ?? "", /1 user is waiting for approval/);
-  });
-
-  it("maps pending signup approvals into header notification items", () => {
-    assert.deepEqual(hrSignupApprovalNotificationItems(0), []);
-    const items = buildAppNotifications(2);
-    assert.equal(items.length, 1);
-    assert.equal(items[0]?.title, "Pending user approval");
-    assert.equal(items[0]?.actionLabel, "Review requests");
-    assert.equal(items[0]?.href, HR_SIGNUP_APPROVALS_PATH);
   });
 
   it("uses teal primary and red badge on users page when pending count is positive", () => {
@@ -65,21 +52,16 @@ describe("HR pending approvals UX", () => {
     assert.match(home, /getHrPendingSignupApprovalCount/);
   });
 
-  it("wires HR-only header notifications with approvals link", () => {
+  it("does not wire pending signup count into the header bell", () => {
     const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
-    const wrapper = readFileSync(
-      new URL("../components/app-shell/app-shell-wrapper.tsx", import.meta.url),
-      "utf8",
-    );
     const header = readFileSync(
       new URL("../components/app-shell/header-notifications.tsx", import.meta.url),
       "utf8",
     );
 
-    assert.match(layout, /hrPendingSignupCount/);
-    assert.match(layout, /profile\?\.role === "hr"/);
-    assert.match(wrapper, /isInvitePasswordPage/);
-    assert.match(header, /bg-red-600/);
+    assert.doesNotMatch(layout, /hrPendingSignupCount/);
+    assert.match(layout, /operationalAttentionUnreadCount/);
+    assert.match(header, /Operational notifications/);
     assert.match(
       readFileSync(new URL("./hr-pending-signup-approvals.ts", import.meta.url), "utf8"),
       /Review requests/,

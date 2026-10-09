@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import "./globals.css";
 import { AppShellWrapper } from "@/components/app-shell/app-shell-wrapper";
 import { getCurrentProfile } from "@/lib/auth";
-import { getHrPendingSignupApprovalCount } from "@/lib/hr-pending-signup-approvals";
+import { canAccessOperationalAttentionInbox } from "@/lib/operational-attention";
+import { getOperationalAttentionUnreadCount } from "@/lib/operational-attention-server";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/roles";
 import { fetchActiveSupportSession } from "@/lib/support-mode-server";
@@ -33,11 +34,11 @@ export default async function RootLayout({
 }>) {
   const profile = await getCurrentProfile();
   const supportSession = profile ? await fetchActiveSupportSession() : null;
-  let hrPendingSignupCount = 0;
+  let operationalAttentionUnreadCount = 0;
 
-  if (profile?.role === "hr") {
+  if (profile && canAccessOperationalAttentionInbox(profile.role)) {
     const supabase = await createClient();
-    hrPendingSignupCount = await getHrPendingSignupApprovalCount(
+    operationalAttentionUnreadCount = await getOperationalAttentionUnreadCount(
       supabase,
       profile.role as UserRole,
     );
@@ -51,7 +52,7 @@ export default async function RootLayout({
         <Suspense fallback={children}>
           <AppShellWrapper
             profile={profile}
-            hrPendingSignupCount={hrPendingSignupCount}
+            operationalAttentionUnreadCount={operationalAttentionUnreadCount}
             supportSession={supportSession}
           >
             {children}

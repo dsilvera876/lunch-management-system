@@ -35,6 +35,7 @@ export default defineConfig({
       name: "chromium-a11y",
       testIgnore: [
         /firefox-smoke\.spec\.ts/,
+        /operational-attention-bell\.spec\.ts/,
         /staff-late-order-drawer\.spec\.ts/,
         /staff-late-order-submission-edit\.spec\.ts/,
         /hr-todays-orders-modals\.spec\.ts/,
@@ -74,6 +75,24 @@ export default defineConfig({
         storageState: staffAuthFile,
       },
       dependencies: ["setup"],
+    },
+    {
+      name: "chromium-operational-bell",
+      testMatch: /operational-attention-bell\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "firefox-operational-bell",
+      testMatch: /operational-attention-bell\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Firefox"],
+      },
     },
   ],
 });

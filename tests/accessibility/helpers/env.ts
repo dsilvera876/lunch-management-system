@@ -17,6 +17,19 @@ export function hasStaffCredentials(): boolean {
 }
 
 /** Local development seed uses the same password for HR and staff accounts. */
+export function requireOwnerCredentials(): { email: string; password: string } {
+  const email = process.env.E2E_OWNER_EMAIL?.trim() || "owner@lunch.test";
+  const password = process.env.E2E_OWNER_PASSWORD ?? process.env.E2E_STAFF_PASSWORD;
+
+  if (!password) {
+    throw new Error(
+      "Owner E2E credentials missing. Set E2E_STAFF_PASSWORD (or E2E_OWNER_PASSWORD).",
+    );
+  }
+
+  return { email, password };
+}
+
 export function requireHrCredentials(): { email: string; password: string } {
   const email = process.env.E2E_HR_EMAIL?.trim() || "hr@lunch.test";
   const password = process.env.E2E_HR_PASSWORD ?? process.env.E2E_STAFF_PASSWORD;

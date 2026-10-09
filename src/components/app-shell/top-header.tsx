@@ -8,14 +8,12 @@ import { HeaderNotifications } from "@/components/app-shell/header-notifications
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ACCOUNT_NAV } from "@/lib/navigation";
 import { formatJamaicaHeaderDate, getJamaicaTodayDate } from "@/lib/datetime";
-import type { AppNotificationItem } from "@/lib/app-notification-sources";
-
 type Props = {
   profile: {
     full_name: string | null;
     role: string;
   };
-  notifications?: AppNotificationItem[];
+  operationalAttentionUnreadCount?: number;
 };
 
 function getInitials(name: string | null): string {
@@ -30,7 +28,10 @@ function getInitials(name: string | null): string {
     .join("");
 }
 
-export function TopHeader({ profile, notifications = [] }: Props) {
+export function TopHeader({
+  profile,
+  operationalAttentionUnreadCount = 0,
+}: Props) {
   const pathname = usePathname();
   const breadcrumbs = getBreadcrumbs(pathname, { role: profile.role });
   const jamaicaToday = getJamaicaTodayDate();
@@ -55,7 +56,8 @@ export function TopHeader({ profile, notifications = [] }: Props) {
             {headerDateLabel}
           </time>
           <HeaderNotifications
-            items={notifications}
+            role={profile.role}
+            initialUnreadCount={operationalAttentionUnreadCount}
             mutedTextClass={isStaff ? "text-staff-instruction" : "text-muted"}
           />
 
