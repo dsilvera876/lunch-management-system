@@ -2,7 +2,10 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
-import { RatingStars } from "@/components/ui/rating-stars";
+import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
+import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
+import type { RecentRateableMenuItem } from "@/lib/menu-item-ratings-collect";
+import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button, linkButtonClass } from "@/components/ui/button";
 import { DashboardOrderSummary } from "@/components/dashboard/dashboard-order-summary";
@@ -33,11 +36,10 @@ type Props = {
   lastPeriodLabel: string | null;
   lastPeriodSpend: number | null;
   deliveryOrders: DeliveryOrderSummary[];
-  recentOrders: Array<{
-    id: string;
-    providerName: string;
-    deliveryDate: string;
-  }>;
+  recentRateableMenuItems: RecentRateableMenuItem[];
+  menuItemRatingSummaries: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
+  ratingsLoadErrorMessage?: string | null;
   lateOrderRequestAvailable: boolean;
   lateOrderStatusAvailable: boolean;
   lateOrderActionWhileOrderingOpen: boolean;
@@ -59,7 +61,10 @@ export function StaffDashboard({
   lastPeriodLabel,
   lastPeriodSpend,
   deliveryOrders,
-  recentOrders,
+  recentRateableMenuItems,
+  menuItemRatingSummaries,
+  ratingsLoadFailed = false,
+  ratingsLoadErrorMessage,
   lateOrderRequestAvailable,
   lateOrderStatusAvailable,
   lateOrderActionWhileOrderingOpen,
@@ -272,31 +277,41 @@ export function StaffDashboard({
               View all →
             </Link>
           </div>
-          {recentOrders.length === 0 ? (
+          {ratingsLoadFailed ? (
+            <div className="mt-3">
+              <MenuItemRatingsLoadNotice
+                compact
+                message={ratingsLoadErrorMessage ?? undefined}
+              />
+            </div>
+          ) : null}
+          {recentRateableMenuItems.length === 0 ? (
             <p className="mt-3 text-sm text-staff-instruction">
-              Recent orders will appear here after you place lunch orders.
+              Delivered menu items you can rate will appear here after ratings are enabled for a
+              provider and your order is verified as delivered.
             </p>
           ) : (
-            <ul className="mt-3 space-y-2">
-              {recentOrders.map((order) => (
+            <ul className="mt-3 space-y-3">
+              {recentRateableMenuItems.map((item) => (
                 <li
-                  key={order.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2"
+                  key={item.providerMenuItemId}
+                  className="rounded-lg border border-border bg-background px-3 py-3"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{order.providerName}</p>
-                    <p className="text-xs text-staff-instruction">
-                      {formatHumanDate(order.deliveryDate)}
-                    </p>
-                  </div>
-                  <RatingStars value={0} readOnly label={`Rate ${order.providerName}`} />
+                  <p className="text-sm font-medium text-foreground">{item.itemName}</p>
+                  <p className="text-xs text-staff-instruction">
+                    Delivered {formatHumanDate(item.deliveryDate)}
+                  </p>
+                  <MenuItemRatingBlock
+                    providerMenuItemId={item.providerMenuItemId}
+                    itemName={item.itemName}
+                    initialSummary={menuItemRatingSummaries[item.providerMenuItemId]}
+                    ratingsEnabled
+                    summariesLoadFailed={ratingsLoadFailed}
+                  />
                 </li>
               ))}
             </ul>
           )}
-          <p className="mt-2 text-[11px] text-staff-instruction">
-            Ratings are display-only until a rating workflow is configured.
-          </p>
         </Card>
       </div>
     </div>

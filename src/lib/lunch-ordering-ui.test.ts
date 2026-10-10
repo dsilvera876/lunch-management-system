@@ -86,6 +86,7 @@ describe("Today's Order UI contracts", () => {
         name: "Alberries Caterors",
         description: null,
         iconKey: "bowl" as const,
+        ratingsEnabled: false,
         menuItems: [{ id: "main-1", name: "Main", price: 850, itemType: "main" as const, unitLabel: "Each", displayCategory: null, description: null }],
       },
     ];

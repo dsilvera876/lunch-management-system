@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(40);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -192,6 +192,96 @@ select is(
   2,
   'summary exposes caller own stars only'
 );
+
+-- ============================================================
+-- Batch summaries (Phase 2)
+-- ============================================================
+
+reset role;
+select set_config('request.jwt.claims', '', false);
+
+select throws_ok(
+  $$ select public.get_staff_menu_item_rating_summaries(array['a1111111-1111-4111-8111-111111111111']::uuid[]) $$,
+  'P0001',
+  'Authentication required',
+  'batch summaries require authentication'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+
+select is(
+  jsonb_array_length(
+    public.get_staff_menu_item_rating_summaries(array[]::uuid[]) -> 'summaries'
+  ),
+  0,
+  'batch summaries return empty array for empty input'
+);
+
+select is(
+  jsonb_array_length(
+    public.get_staff_menu_item_rating_summaries(
+      array[
+        'a1111111-1111-4111-8111-111111111111',
+        'a2222222-2222-4222-8222-222222222222'
+      ]::uuid[]
+    ) -> 'summaries'
+  ),
+  2,
+  'batch returns one row per enabled-provider catalog item'
+);
+
+select is(
+  (
+    public.get_staff_menu_item_rating_summaries(
+      array['a1111111-1111-4111-8111-111111111111']::uuid[]
+    ) -> 'summaries' -> 0 ->> 'average_stars'
+  )::numeric,
+  3.00::numeric,
+  'batch includes community average stars'
+);
+
+select is(
+  (
+    public.get_staff_menu_item_rating_summaries(
+      array['a1111111-1111-4111-8111-111111111111']::uuid[]
+    ) -> 'summaries' -> 0 ->> 'my_stars'
+  )::integer,
+  4,
+  'batch includes caller my_stars only'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
+
+select is(
+  (
+    public.get_staff_menu_item_rating_summaries(
+      array['a1111111-1111-4111-8111-111111111111']::uuid[]
+    ) -> 'summaries' -> 0 ->> 'my_stars'
+  )::integer,
+  2,
+  'batch does not expose another staff member stars to caller'
+);
+
+reset role;
+update public.lunch_providers set ratings_enabled = false where id = '88888888-8888-4888-8888-888888888888';
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+
+select is(
+  jsonb_array_length(
+    public.get_staff_menu_item_rating_summaries(
+      array['a1111111-1111-4111-8111-111111111111']::uuid[]
+    ) -> 'summaries'
+  ),
+  0,
+  'batch omits items when provider ratings are disabled'
+);
+
+reset role;
+update public.lunch_providers set ratings_enabled = true where id = '88888888-8888-4888-8888-888888888888';
 
 -- ============================================================
 -- Update requires another qualifying delivery

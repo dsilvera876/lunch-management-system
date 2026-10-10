@@ -25,6 +25,9 @@ import {
   loadStaffLateOrderRequestContext,
 } from "@/app/home/staff-late-order-request-actions";
 import { resolveLateOrderEligibilityOfficeLocationId } from "@/lib/staff-late-order-location-save";
+import { loadMenuItemRatingSummaries } from "@/app/menu-item-ratings/actions";
+import { menuItemRatingsFromLoadResult } from "@/lib/menu-item-ratings-collect";
+import { loadRecentRateableMenuItemsForHome } from "@/lib/menu-item-ratings-recent-load";
 
 export default async function HomePage() {
   const profile = await requireProfile();
@@ -39,22 +42,10 @@ export default async function HomePage() {
     pendingSignupApprovalCount,
   );
 
-  const [ctx, financialResult, recentOrdersResult, profileRow] = await Promise.all([
+  const [ctx, financialResult, recentRateableLoad, profileRow] = await Promise.all([
     getStaffOrderingContext(profile.id),
     getStaffFinancialDashboardResult(supabase),
-    supabase
-      .from("orders")
-      .select(`
-        id,
-        lunch_days!inner (
-          lunch_date,
-          lunch_providers ( name )
-        )
-      `)
-      .eq("profile_id", profile.id)
-      .neq("status", "cancelled")
-      .order("created_at", { ascending: false })
-      .limit(5),
+    loadRecentRateableMenuItemsForHome(profile.id, 5),
     supabase
       .from("profiles")
       .select(`
@@ -125,21 +116,15 @@ export default async function HomePage() {
         : "/lunch?lateOrder=1"
       : null;
 
-  const recentOrders =
-    recentOrdersResult.data?.map((order) => {
-      const lunchDay = Array.isArray(order.lunch_days) ? order.lunch_days[0] : order.lunch_days;
-      const provider = lunchDay?.lunch_providers
-        ? Array.isArray(lunchDay.lunch_providers)
-          ? lunchDay.lunch_providers[0]
-          : lunchDay.lunch_providers
-        : null;
-
-      return {
-        id: order.id as string,
-        providerName: provider?.name ?? "Lunch order",
-        deliveryDate: lunchDay?.lunch_date ?? today,
+  const recentRateableMenuItems = recentRateableLoad.ok ? recentRateableLoad.items : [];
+  const recentCatalogIds = recentRateableMenuItems.map((item) => item.providerMenuItemId);
+  const ratingsLoad = recentRateableLoad.ok
+    ? menuItemRatingsFromLoadResult(await loadMenuItemRatingSummaries(recentCatalogIds))
+    : {
+        summariesById: {},
+        loadFailed: true,
+        loadErrorMessage: recentRateableLoad.message,
       };
-    }) ?? [];
 
   return (
     <div className="space-y-6">
@@ -162,7 +147,10 @@ export default async function HomePage() {
       lastPeriodLabel={lastPeriod?.label ?? null}
       lastPeriodSpend={lastPeriod?.amount ?? null}
       deliveryOrders={ctx.deliveryOrders}
-      recentOrders={recentOrders}
+      recentRateableMenuItems={recentRateableMenuItems}
+      menuItemRatingSummaries={ratingsLoad.summariesById}
+      ratingsLoadFailed={ratingsLoad.loadFailed}
+      ratingsLoadErrorMessage={ratingsLoad.loadErrorMessage}
       lateOrderRequestAvailable={lateOrderRequestAvailable}
       lateOrderStatusAvailable={lateOrderStatusAvailable}
       lateOrderActionWhileOrderingOpen={lateOrderActionWhileOrderingOpen}

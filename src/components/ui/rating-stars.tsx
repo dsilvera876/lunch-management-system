@@ -1,5 +1,7 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
+
 type Props = {
   value?: number;
   max?: number;
@@ -35,11 +37,31 @@ export function RatingStars({
   label = "Rating",
   onChange,
 }: Props) {
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (readOnly || !onChange) {
+      return;
+    }
+
+    let next = value > 0 ? value : 1;
+
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault();
+      next = Math.min(max, (value > 0 ? value : 0) + 1);
+      onChange(next);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault();
+      next = Math.max(1, (value > 0 ? value : 2) - 1);
+      onChange(next);
+    }
+  }
+
   return (
     <div
-      className="inline-flex items-center gap-0.5"
+      className="inline-flex items-center gap-1"
       role={readOnly ? "img" : "radiogroup"}
       aria-label={readOnly ? `${label}: ${value} of ${max} stars` : label}
+      tabIndex={readOnly ? undefined : 0}
+      onKeyDown={readOnly ? undefined : handleKeyDown}
     >
       {Array.from({ length: max }, (_, index) => {
         const starValue = index + 1;
@@ -57,9 +79,11 @@ export function RatingStars({
           <button
             key={starValue}
             type="button"
-            className="inline-flex rounded p-0.5 transition-opacity hover:opacity-80"
+            className="inline-flex min-h-6 min-w-6 items-center justify-center rounded p-0.5 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             onClick={() => onChange?.(starValue)}
             aria-label={`${starValue} star${starValue === 1 ? "" : "s"}`}
+            aria-checked={value === starValue}
+            role="radio"
           >
             <StarGlyph filled={filled} />
           </button>

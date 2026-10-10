@@ -17,12 +17,14 @@ export type ProviderOrderLine = {
   unitLabel: string;
   unitPrice: number;
   lineTotal: number;
+  providerMenuItemId: string | null;
 };
 
 export type StaffProviderOrder = {
   id: string;
   providerId: string;
   providerName: string;
+  ratingsEnabled: boolean;
   indexInGroup: number;
   groupOrderCount: number;
   status: string;
@@ -73,12 +75,16 @@ export type StaffMyOrdersRawRow = {
     lunch_date: string;
     order_date: string;
     order_deadline: string;
-    lunch_providers: { id: string; name: string } | { id: string; name: string }[];
+    lunch_providers:
+      | { id: string; name: string; ratings_enabled: boolean | null }
+      | { id: string; name: string; ratings_enabled: boolean | null }[];
   } | {
     lunch_date: string;
     order_date: string;
     order_deadline: string;
-    lunch_providers: { id: string; name: string } | { id: string; name: string }[];
+    lunch_providers:
+      | { id: string; name: string; ratings_enabled: boolean | null }
+      | { id: string; name: string; ratings_enabled: boolean | null }[];
   }[];
   order_items: Array<{
     quantity: number;
@@ -87,10 +93,12 @@ export type StaffMyOrdersRawRow = {
       name: string;
       item_type: string;
       unit_label: string;
+      provider_menu_item_id: string | null;
     } | {
       name: string;
       item_type: string;
       unit_label: string;
+      provider_menu_item_id: string | null;
     }[];
   }>;
 };
@@ -136,6 +144,7 @@ export function mapRawOrderToProviderOrder(
       unitLabel: menuItem?.unit_label ?? "Each",
       unitPrice,
       lineTotal: unitPrice * item.quantity,
+      providerMenuItemId: menuItem?.provider_menu_item_id ?? null,
     };
   });
 
@@ -145,6 +154,7 @@ export function mapRawOrderToProviderOrder(
     id: order.id,
     providerId: provider?.id ?? "",
     providerName: provider?.name ?? "Lunch provider",
+    ratingsEnabled: provider?.ratings_enabled === true,
     indexInGroup,
     groupOrderCount,
     status: order.status,

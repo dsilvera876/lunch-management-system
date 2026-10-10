@@ -9,6 +9,11 @@ import {
   loadStaffLateOrderNewRequestAvailable,
 } from "@/app/home/staff-late-order-request-actions";
 import { loadStaffGroupedCheckouts } from "@/lib/staff-my-orders-load";
+import { loadMenuItemRatingSummaries } from "@/app/menu-item-ratings/actions";
+import {
+  collectCatalogIdsFromDeliveredCheckouts,
+  menuItemRatingsFromLoadResult,
+} from "@/lib/menu-item-ratings-collect";
 import {
   getMostRecentPastDeliveryDate,
   normalizePastOrderDateParam,
@@ -41,6 +46,11 @@ export default async function MyOrdersPage({ searchParams }: Props) {
 
   const selectedPastDate = tab === "past" ? dateFromQuery : null;
 
+  const ratingCatalogIds = collectCatalogIdsFromDeliveredCheckouts(checkouts);
+  const ratingsLoad = menuItemRatingsFromLoadResult(
+    await loadMenuItemRatingSummaries(ratingCatalogIds),
+  );
+
   return (
     <>
       <PageHeader
@@ -61,6 +71,9 @@ export default async function MyOrdersPage({ searchParams }: Props) {
         selectedPastDate={selectedPastDate}
         pastDeliveryDates={pastDates}
         showLateOrderSubmissionLink={lateOrderOpportunityAvailable}
+        ratingSummaries={ratingsLoad.summariesById}
+        ratingsLoadFailed={ratingsLoad.loadFailed}
+        ratingsLoadErrorMessage={ratingsLoad.loadErrorMessage}
       />
     </>
   );

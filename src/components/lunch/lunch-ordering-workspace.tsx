@@ -31,6 +31,7 @@ import { resolvePlaceOrderBlockedMessage, validateLunchCart } from "@/lib/lunch-
 import { focusFormErrorSummary } from "@/lib/staff-form-accessibility";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
+import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 
 type CheckoutSuccess = {
   orderCount: number;
@@ -50,6 +51,9 @@ type Props = {
   saveAsDefault: boolean;
   onRequestLocationPicker: () => void;
   onCheckoutSuccess: (payload: CheckoutSuccess) => void;
+  menuItemRatingSummaries?: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
+  ratingsLoadErrorMessage?: string | null;
 };
 
 export function LunchOrderingWorkspace({
@@ -64,6 +68,9 @@ export function LunchOrderingWorkspace({
   saveAsDefault,
   onRequestLocationPicker,
   onCheckoutSuccess,
+  menuItemRatingSummaries,
+  ratingsLoadFailed,
+  ratingsLoadErrorMessage,
 }: Props) {
   const router = useRouter();
   const defaultId =
@@ -258,6 +265,10 @@ export function LunchOrderingWorkspace({
           }
           canFinishOrder={canAddDraftToCart(draft)}
           onFinishOrder={handleFinishOrder}
+          ratingsEnabled={selectedProvider.ratingsEnabled}
+          ratingSummaries={menuItemRatingSummaries}
+          ratingsLoadFailed={ratingsLoadFailed}
+          ratingsLoadErrorMessage={ratingsLoadErrorMessage}
         />
 
         <LunchCartPanel

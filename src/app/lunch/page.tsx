@@ -38,6 +38,11 @@ import { resolveLateOrderEligibilityOfficeLocationId } from "@/lib/staff-late-or
 import { getJamaicaTodayDate } from "@/lib/datetime";
 
 import { buildStaffLateOrderDrawerContext } from "@/lib/staff-late-order-today";
+import { loadMenuItemRatingSummaries } from "@/app/menu-item-ratings/actions";
+import {
+  collectCatalogIdsFromProviderMenus,
+  menuItemRatingsFromLoadResult,
+} from "@/lib/menu-item-ratings-collect";
 
 
 
@@ -135,7 +140,9 @@ export default async function LunchPage({ searchParams }: Props) {
 
       : [];
 
-
+  const ratingsLoad = menuItemRatingsFromLoadResult(
+    await loadMenuItemRatingSummaries(collectCatalogIdsFromProviderMenus(providerMenus)),
+  );
 
   const { data: officeLocations } = await supabase
 
@@ -286,6 +293,12 @@ export default async function LunchPage({ searchParams }: Props) {
           closedMessage={closedReason?.description}
 
           deferInitialLocationPicker={params.lateOrder === "1"}
+
+          menuItemRatingSummaries={ratingsLoad.summariesById}
+
+          ratingsLoadFailed={ratingsLoad.loadFailed}
+
+          ratingsLoadErrorMessage={ratingsLoad.loadErrorMessage}
 
         />
 

@@ -10,6 +10,7 @@ const providers = [
     name: "Alberries Caterors",
     description: null,
     iconKey: "bowl" as const,
+    ratingsEnabled: false,
     menuItems: [
       {
         id: "main-1",
@@ -36,6 +37,7 @@ const providers = [
     name: "Davis Catering",
     description: null,
     iconKey: "utensils" as const,
+    ratingsEnabled: false,
     menuItems: [
       {
         id: "main-2",

@@ -29,7 +29,8 @@ export async function loadStaffGroupedCheckouts(profileId: string): Promise<Grou
           order_deadline,
           lunch_providers (
             id,
-            name
+            name,
+            ratings_enabled
           )
         ),
         order_items (
@@ -38,7 +39,8 @@ export async function loadStaffGroupedCheckouts(profileId: string): Promise<Grou
           menu_items (
             name,
             item_type,
-            unit_label
+            unit_label,
+            provider_menu_item_id
           )
         )
       `)

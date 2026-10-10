@@ -1023,6 +1023,55 @@ export function restoreHrTodaysOrdersModalFixture(): void {
 }
 
 /** Inserts a submitted, pending normal staff order for Jamaica today (requires weekday + dev seed). */
+/** Past delivered staff1 order + BBQ Chicken catalog item (development seed). */
+export const E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID =
+  "60000003-0003-4003-8003-000000000003";
+
+export const E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID =
+  "31000001-0001-4001-8001-000000000001";
+
+export function restoreMenuItemRatingsStaffE2eFixture(): void {
+  runLocalDbExec(`
+    do $fixture$
+    begin
+      update public.lunch_providers
+      set ratings_enabled = false
+      where id = '${STAFF_SEED.providerAlberries}'::uuid;
+
+      delete from private.menu_item_ratings mir
+      using public.provider_menu_items pmi
+      where mir.provider_menu_item_id = pmi.id
+        and pmi.provider_id = '${STAFF_SEED.providerAlberries}'::uuid
+        and mir.profile_id = '${E2E_STAFF1_PROFILE_ID}'::uuid;
+
+      delete from public.order_delivery_events
+      where order_id = '${E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID}'::uuid
+        and event_type = 'marked_delivered';
+    end;
+    $fixture$
+  `);
+}
+
+/** Enables Alberries ratings + verified delivery for seeded past order (local E2E only). */
+export function applyMenuItemRatingsStaffE2eFixture(): void {
+  restoreMenuItemRatingsStaffE2eFixture();
+
+  runLocalDbExec(`
+    do $fixture$
+    begin
+      update public.lunch_providers
+      set ratings_enabled = true
+      where id = '${STAFF_SEED.providerAlberries}'::uuid;
+
+      perform private.append_order_delivery_event(
+        '${E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID}'::uuid,
+        'marked_delivered'
+      );
+    end;
+    $fixture$
+  `);
+}
+
 export function applyHrTodaysOrdersModalFixture(): void {
   restoreHrTodaysOrdersModalFixture();
 

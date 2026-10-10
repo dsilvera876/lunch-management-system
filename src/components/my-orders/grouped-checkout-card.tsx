@@ -7,6 +7,7 @@ import type { GroupedCheckout } from "@/lib/staff-my-orders";
 import { CheckoutHeader } from "@/components/my-orders/checkout-header";
 import { ProviderOrderSection } from "@/components/my-orders/provider-order-section";
 import { CheckoutFinancialSummary } from "@/components/my-orders/checkout-financial-summary";
+import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 
 type Props = {
   checkout: GroupedCheckout;
@@ -14,6 +15,8 @@ type Props = {
   collapsible?: boolean;
   showFinancialSummary?: boolean;
   showViewLinks?: boolean;
+  ratingSummaries?: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
 };
 
 export function GroupedCheckoutCard({
@@ -22,6 +25,8 @@ export function GroupedCheckoutCard({
   collapsible = false,
   showFinancialSummary = true,
   showViewLinks = true,
+  ratingSummaries,
+  ratingsLoadFailed,
 }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -41,6 +46,8 @@ export function GroupedCheckoutCard({
               key={order.id}
               order={order}
               showViewLink={showViewLinks}
+              ratingSummaries={ratingSummaries}
+              ratingsLoadFailed={ratingsLoadFailed}
             />
           ))}
 

@@ -2,8 +2,20 @@ import { test, expect } from "@playwright/test";
 import { STAFF_SEED } from "./helpers/seed-fixtures";
 import { expectLocationPicker, expectProviderOrderingReady } from "./helpers/staff-page";
 import { expectNoAxeViolations } from "./helpers/axe";
+import {
+  applyMenuItemRatingsStaffE2eFixture,
+  restoreMenuItemRatingsStaffE2eFixture,
+} from "./helpers/e2e-ordering-fixture";
 
 test.describe("Firefox Staff accessibility smoke", () => {
+  test.beforeAll(() => {
+    applyMenuItemRatingsStaffE2eFixture();
+  });
+
+  test.afterAll(() => {
+    restoreMenuItemRatingsStaffE2eFixture();
+  });
+
   test("lunch — provider tab keyboard", async ({ page }) => {
     await page.goto(`/lunch?provider=${STAFF_SEED.providerAlberries}`);
     await expectProviderOrderingReady(page);
@@ -31,5 +43,14 @@ test.describe("Firefox Staff accessibility smoke", () => {
     await page.goto("/home");
     await expect(page.getByRole("heading", { name: /Welcome back/i })).toBeVisible();
     await expectNoAxeViolations(page, "/home firefox smoke", { mainContentOnly: true });
+  });
+
+  test("menu item ratings — lunch stars keyboard", async ({ page }) => {
+    await page.goto(`/lunch?provider=${STAFF_SEED.providerAlberries}`);
+    await expectProviderOrderingReady(page);
+    await expect(page.getByRole("radiogroup", { name: /Your rating for/i }).first()).toBeVisible();
+    await expectNoAxeViolations(page, "/lunch menu item ratings firefox", {
+      mainContentOnly: true,
+    });
   });
 });

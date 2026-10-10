@@ -30,6 +30,7 @@ const providers = [
     name: "Alberries Caterors",
     iconKey: "bowl" as const,
     description: null,
+    ratingsEnabled: false,
     menuItems: [
       {
         id: "main-1",
@@ -56,6 +57,7 @@ const providers = [
     name: "Peel Good Fruits",
     iconKey: "fruit" as const,
     description: null,
+    ratingsEnabled: false,
     menuItems: [
       {
         id: "apple",

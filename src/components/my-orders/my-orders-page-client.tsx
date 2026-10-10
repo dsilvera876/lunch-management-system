@@ -19,6 +19,8 @@ import { GroupedCheckoutCard } from "@/components/my-orders/grouped-checkout-car
 import { PastOrderDatePicker } from "@/components/my-orders/past-order-date-picker";
 import { MyOrdersEmptyState } from "@/components/my-orders/my-orders-empty-state";
 import { MY_ORDERS_TABPANEL_ID } from "@/lib/accessible-tabs";
+import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
+import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
 
 type Props = {
   checkouts: GroupedCheckout[];
@@ -27,6 +29,9 @@ type Props = {
   selectedPastDate: string | null;
   pastDeliveryDates: string[];
   showLateOrderSubmissionLink: boolean;
+  ratingSummaries?: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
+  ratingsLoadErrorMessage?: string | null;
 };
 
 function buildMyOrdersHref(tab: MyOrdersTab, date: string | null): string {
@@ -48,6 +53,9 @@ export function MyOrdersPageClient({
   selectedPastDate,
   pastDeliveryDates,
   showLateOrderSubmissionLink,
+  ratingSummaries,
+  ratingsLoadFailed = false,
+  ratingsLoadErrorMessage,
 }: Props) {
   const router = useRouter();
 
@@ -103,6 +111,9 @@ export function MyOrdersPageClient({
         aria-labelledby={`my-orders-tab-${activeTab}`}
         className="space-y-4"
       >
+        {ratingsLoadFailed ? (
+          <MenuItemRatingsLoadNotice message={ratingsLoadErrorMessage ?? undefined} />
+        ) : null}
         {activeTab === "upcoming" ? (
           upcoming.length === 0 ? (
             <MyOrdersEmptyState
@@ -121,6 +132,8 @@ export function MyOrdersPageClient({
                 checkout={checkout}
                 collapsible={upcoming.length > 1}
                 defaultExpanded={index === 0}
+                ratingSummaries={ratingSummaries}
+                ratingsLoadFailed={ratingsLoadFailed}
               />
             ))
           )
@@ -145,6 +158,8 @@ export function MyOrdersPageClient({
                   checkout={checkout}
                   collapsible={false}
                   defaultExpanded
+                  ratingSummaries={ratingSummaries}
+                  ratingsLoadFailed={ratingsLoadFailed}
                 />
               ))
             )}

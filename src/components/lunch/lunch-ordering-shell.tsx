@@ -14,6 +14,7 @@ import {
 import { buildCheckoutSuccessToastBody } from "@/lib/lunch-order-submit-ui";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
+import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 
 type Props = {
   providers: ProviderMenuBundle[];
@@ -32,6 +33,9 @@ type Props = {
   closedMessage?: string | null;
   /** When true, do not auto-open the normal-order location popover on mount. */
   deferInitialLocationPicker?: boolean;
+  menuItemRatingSummaries?: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
+  ratingsLoadErrorMessage?: string | null;
 };
 
 export function LunchOrderingShell(props: Props) {
@@ -58,6 +62,9 @@ function LunchOrderingShellInner({
   orderDeadline,
   closedMessage,
   deferInitialLocationPicker = false,
+  menuItemRatingSummaries,
+  ratingsLoadFailed,
+  ratingsLoadErrorMessage,
 }: Props) {
   const { showToast } = useToast();
   const router = useRouter();
@@ -174,6 +181,9 @@ function LunchOrderingShellInner({
         saveAsDefault={persistDefaultOnCheckout}
         onRequestLocationPicker={() => setLocationPickerOpen(true)}
         onCheckoutSuccess={handleCheckoutSuccess}
+        menuItemRatingSummaries={menuItemRatingSummaries}
+        ratingsLoadFailed={ratingsLoadFailed}
+        ratingsLoadErrorMessage={ratingsLoadErrorMessage}
       />
     </>
   );

@@ -19,6 +19,7 @@ export type ProviderMenuBundle = {
   name: string;
   description: string | null;
   iconKey: ProviderIconKey;
+  ratingsEnabled: boolean;
   menuItems: ProviderMenuItem[];
 };
 
@@ -127,6 +128,7 @@ export async function loadProviderMenusForOrderDate(
       name,
       description,
       icon_key,
+      ratings_enabled,
       provider_menu_items (
         id,
         name,
@@ -199,6 +201,7 @@ export async function loadProviderMenusForOrderDate(
         name: provider.name,
         description: provider.description,
         iconKey: parseProviderIconKey(provider.icon_key),
+        ratingsEnabled: provider.ratings_enabled === true,
         menuItems,
       };
     })

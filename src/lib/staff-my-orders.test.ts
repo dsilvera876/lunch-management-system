@@ -44,7 +44,11 @@ function buildRawOrder(overrides: {
       lunch_date: overrides.deliveryDate,
       order_date: overrides.orderDate,
       order_deadline: "2026-09-18T23:00:00Z",
-      lunch_providers: { id: overrides.providerId, name: overrides.providerName },
+      lunch_providers: {
+        id: overrides.providerId,
+        name: overrides.providerName,
+        ratings_enabled: false,
+      },
     },
     order_items: [
       {
@@ -54,6 +58,7 @@ function buildRawOrder(overrides: {
           name: "Fried Chicken",
           item_type: "main",
           unit_label: "Each",
+          provider_menu_item_id: null,
         },
       },
       {
@@ -63,6 +68,7 @@ function buildRawOrder(overrides: {
           name: "Rice & Peas",
           item_type: "side",
           unit_label: "Each",
+          provider_menu_item_id: null,
         },
       },
     ],

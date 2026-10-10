@@ -25,6 +25,9 @@ import {
   groupStandaloneItemsByCategory,
   type MenuItemType,
 } from "@/lib/menu-items";
+import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
+import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
+import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
 
 export type MenuItemView = {
   id: string;
@@ -52,7 +55,40 @@ type Props = {
   onStandaloneQuantityChange: (itemId: string, quantity: number) => void;
   canFinishOrder: boolean;
   onFinishOrder: () => void;
+  ratingsEnabled?: boolean;
+  ratingSummaries?: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
+  ratingsLoadErrorMessage?: string | null;
 };
+
+function MenuItemRatings({
+  itemId,
+  itemName,
+  ratingsEnabled,
+  ratingSummaries,
+  ratingsLoadFailed,
+}: {
+  itemId: string;
+  itemName: string;
+  ratingsEnabled: boolean;
+  ratingSummaries?: MenuItemRatingSummariesById;
+  ratingsLoadFailed?: boolean;
+}) {
+  if (!ratingsEnabled) {
+    return null;
+  }
+
+  return (
+    <MenuItemRatingBlock
+      providerMenuItemId={itemId}
+      itemName={itemName}
+      initialSummary={ratingSummaries?.[itemId]}
+      ratingsEnabled={ratingsEnabled}
+      summariesLoadFailed={ratingsLoadFailed}
+      compact
+    />
+  );
+}
 
 export function ProviderMenuPanel({
   providerId,
@@ -70,6 +106,10 @@ export function ProviderMenuPanel({
   onStandaloneQuantityChange,
   canFinishOrder,
   onFinishOrder,
+  ratingsEnabled = false,
+  ratingSummaries,
+  ratingsLoadFailed = false,
+  ratingsLoadErrorMessage,
 }: Props) {
   const grouped = groupMenuItemsByType(menuItems);
   const standaloneGrouped = groupStandaloneItemsByCategory(grouped.standalone);
@@ -87,6 +127,14 @@ export function ProviderMenuPanel({
       className="min-w-0"
     >
       <Card padding="md">
+        {ratingsEnabled && ratingsLoadFailed ? (
+          <div className="mb-4">
+            <MenuItemRatingsLoadNotice
+              compact
+              message={ratingsLoadErrorMessage ?? undefined}
+            />
+          </div>
+        ) : null}
         <div className="border-b border-border pb-4">
           <h2 className="text-xl font-semibold text-slate-900">{providerName}</h2>
           {providerDescription ? (
@@ -114,15 +162,23 @@ export function ProviderMenuPanel({
             </legend>
             <div className="mt-1">
               {grouped.main.map((item) => (
-                <MenuItemRow
-                  key={item.id}
-                  name={item.name}
-                  unitLabel={item.unitLabel}
-                  price={item.price}
-                  selected={draft.mainId === item.id}
-                  disabled={disabled}
-                  onAdd={() => onSelectMain(item.id)}
-                />
+                <div key={item.id}>
+                  <MenuItemRow
+                    name={item.name}
+                    unitLabel={item.unitLabel}
+                    price={item.price}
+                    selected={draft.mainId === item.id}
+                    disabled={disabled}
+                    onAdd={() => onSelectMain(item.id)}
+                  />
+                  <MenuItemRatings
+                    itemId={item.id}
+                    itemName={item.name}
+                    ratingsEnabled={ratingsEnabled}
+                    ratingSummaries={ratingSummaries}
+                    ratingsLoadFailed={ratingsLoadFailed}
+                  />
+                </div>
               ))}
             </div>
           </fieldset>
@@ -149,17 +205,25 @@ export function ProviderMenuPanel({
             </legend>
             <div className="mt-1">
               {grouped.side.map((item) => (
-                <MenuItemRow
-                  key={item.id}
-                  name={item.name}
-                  unitLabel={item.unitLabel}
-                  price={item.price}
-                  selected={draft.sideIds.includes(item.id)}
-                  disabled={disabled}
-                  blockedUntilMainSelected={needsMainBeforeSide}
-                  blockedDescribedBy={needsMainBeforeSide ? selectMainFirstId : undefined}
-                  onAdd={() => onAddSide(item.id)}
-                />
+                <div key={item.id}>
+                  <MenuItemRow
+                    name={item.name}
+                    unitLabel={item.unitLabel}
+                    price={item.price}
+                    selected={draft.sideIds.includes(item.id)}
+                    disabled={disabled}
+                    blockedUntilMainSelected={needsMainBeforeSide}
+                    blockedDescribedBy={needsMainBeforeSide ? selectMainFirstId : undefined}
+                    onAdd={() => onAddSide(item.id)}
+                  />
+                  <MenuItemRatings
+                    itemId={item.id}
+                    itemName={item.name}
+                    ratingsEnabled={ratingsEnabled}
+                    ratingSummaries={ratingSummaries}
+                    ratingsLoadFailed={ratingsLoadFailed}
+                  />
+                </div>
               ))}
             </div>
             {mealComplete ? (
@@ -195,6 +259,13 @@ export function ProviderMenuPanel({
                       selected={selected}
                       disabled={disabled}
                       onAdd={() => onAddStandalone(item.id)}
+                    />
+                    <MenuItemRatings
+                      itemId={item.id}
+                      itemName={item.name}
+                      ratingsEnabled={ratingsEnabled}
+                      ratingSummaries={ratingSummaries}
+                      ratingsLoadFailed={ratingsLoadFailed}
                     />
                     {selected ? (
                       <div className="mb-3 ml-0 max-w-xs pl-0">
