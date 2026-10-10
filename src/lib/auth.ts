@@ -188,6 +188,28 @@ export async function requireManageProviders(): Promise<Profile> {
   return requireMutateHrOperationalData();
 }
 
+/** Permanent HR only; blocked in Admin/Owner Support Mode (menu item ratings administration). */
+export async function requirePermanentHrMenuItemRatingsAdmin(): Promise<Profile> {
+  const profile = await requireProfile();
+  const supportScope = await activeSupportScopeForProfile();
+
+  if (profile.role !== "hr" || supportScope !== null) {
+    redirectUnauthorized();
+  }
+
+  return profile;
+}
+
+export async function canAccessPermanentHrMenuItemRatingsAdmin(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "hr") {
+    return false;
+  }
+
+  const supportScope = await activeSupportScopeForProfile();
+  return supportScope === null;
+}
+
 export async function requireManageOfficeLocations(): Promise<Profile> {
   return requireMutateHrOperationalData();
 }

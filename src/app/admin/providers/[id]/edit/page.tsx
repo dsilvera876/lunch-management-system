@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireManageProviders } from "@/lib/auth";
+import { canAccessPermanentHrMenuItemRatingsAdmin, requireManageProviders } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { updateProvider } from "../../actions";
 import { ProviderDetailsFields } from "@/components/admin/lunch-providers/provider-details-fields";
@@ -94,6 +95,8 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
     provider.active &&
     (!provider.primary_order_email || provider.primary_order_email.trim().length === 0);
 
+  const showMenuItemRatingsLink = await canAccessPermanentHrMenuItemRatingsAdmin();
+
   return (
     <ProviderEditWorkspace flashSuccess={flashSuccess}>
       <div className="mx-auto w-full max-w-6xl">
@@ -109,6 +112,23 @@ export default async function ProviderEditPage({ params, searchParams }: Props) 
         </header>
 
         <div className="grid gap-8">
+          {showMenuItemRatingsLink ? (
+            <section>
+              <SectionHeader
+                title="Menu item ratings"
+                description="Review community ratings, moderate staff submissions, and manage provider assessment periods."
+                actions={
+                  <Link
+                    href={`/admin/providers/${provider.id}/ratings`}
+                    className={linkButtonClass("secondary")}
+                  >
+                    Manage ratings
+                  </Link>
+                }
+              />
+            </section>
+          ) : null}
+
           {missingOrderEmail && (
             <Alert variant="warning">
               This provider is active but has no provider order email. Add one below before daily

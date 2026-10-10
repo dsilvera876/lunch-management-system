@@ -39,6 +39,7 @@ export default defineConfig({
         /staff-late-order-drawer\.spec\.ts/,
         /staff-late-order-submission-edit\.spec\.ts/,
         /hr-todays-orders-modals\.spec\.ts/,
+        /hr-menu-item-ratings\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -66,6 +67,26 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
       },
       dependencies: ["setup", "chromium-a11y", "chromium-late-order-a11y"],
+    },
+    {
+      name: "chromium-hr-ratings-a11y",
+      testMatch: /hr-menu-item-ratings\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: [],
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "firefox-hr-ratings-a11y",
+      testMatch: /hr-menu-item-ratings\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ["chromium-hr-ratings-a11y"],
+      use: {
+        ...devices["Desktop Firefox"],
+      },
     },
     {
       name: "firefox-smoke",

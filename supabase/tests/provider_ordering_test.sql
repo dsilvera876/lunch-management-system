@@ -211,6 +211,20 @@ select public.submit_provider_order(
   null
 );
 
+select set_config(
+  'test.po_meal_one_order_id',
+  (
+    select o.id::text
+    from public.orders o
+    where o.profile_id = 'd2222222-2222-4222-8222-222222222222'
+      and o.meal_quantity = 1
+      and o.status = 'submitted'
+    order by o.created_at
+    limit 1
+  ),
+  false
+);
+
 select public.submit_provider_order(
   'e2222222-2222-4222-8222-222222222222',
   '2099-01-05'::date,
@@ -345,12 +359,9 @@ select results_eq(
     from public.order_items oi
     join public.orders o on o.id = oi.order_id
     join public.menu_items mi on mi.id = oi.menu_item_id
-    where o.profile_id = 'd2222222-2222-4222-8222-222222222222'
+    where o.id = current_setting('test.po_meal_one_order_id')::uuid
       and mi.provider_menu_item_id = 'f2222222-2222-4222-8222-222222222222'
-      and o.meal_quantity = 1
       and o.status = 'submitted'
-    order by o.created_at
-    limit 1
   $$,
   array[1],
   'Editing one order does not alter another order'

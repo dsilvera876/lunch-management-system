@@ -35,6 +35,8 @@ export function MenuItemRatingBlock({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    // Sync server-refreshed summaries after save/reload without remounting the block.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional prop-to-state sync
     setSummary(initialSummary);
     if (!summariesLoadFailed) {
       setErrorMessage(null);

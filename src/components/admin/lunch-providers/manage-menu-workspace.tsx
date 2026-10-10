@@ -41,6 +41,7 @@ type Props = {
   };
   menuItems: ManageMenuItemRecord[];
   usedProviderMenuItemIds: string[];
+  menuItemRatingsHref?: string;
   flashSuccess?: "menuCreated" | "menuUpdated" | "menuToggled";
 };
 
@@ -85,6 +86,7 @@ function ManageMenuWorkspaceContent({
   provider,
   menuItems: initialMenuItems,
   usedProviderMenuItemIds,
+  menuItemRatingsHref,
   flashSuccess,
 }: Props) {
   const { readOnly } = useSupportMode();
@@ -336,12 +338,19 @@ function ManageMenuWorkspaceContent({
           {readOnly ? (
             <SupportModeMutationHint className="sm:text-right" />
           ) : (
-            <Link
-              href={`/admin/providers/${provider.id}/edit`}
-              className={linkButtonClass("secondary")}
-            >
-              Edit provider
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {menuItemRatingsHref ? (
+                <Link href={menuItemRatingsHref} className={linkButtonClass("secondary")}>
+                  Menu item ratings
+                </Link>
+              ) : null}
+              <Link
+                href={`/admin/providers/${provider.id}/edit`}
+                className={linkButtonClass("secondary")}
+              >
+                Edit provider
+              </Link>
+            </div>
           )}
       </div>
 

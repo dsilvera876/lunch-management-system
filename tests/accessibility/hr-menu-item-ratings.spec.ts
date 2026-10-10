@@ -1,0 +1,227 @@
+import { test, expect } from "@playwright/test";
+import { expectNoAxeViolations } from "./helpers/axe";
+import {
+  applyMenuItemRatingsStaffE2eFixture,
+  restoreMenuItemRatingsStaffE2eFixture,
+  loadLocalEnvFiles,
+} from "./helpers/e2e-ordering-fixture";
+import { requireHrCredentials, requireOwnerCredentials, requireStaffCredentials } from "./helpers/env";
+import { STAFF_SHORT_VIEWPORT_HEIGHT } from "./helpers/layout";
+import { STAFF_SEED } from "./helpers/seed-fixtures";
+
+const ratingsPath = `/admin/providers/${STAFF_SEED.providerAlberries}/ratings`;
+
+test.describe("HR ratings — Support Mode denial", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("Owner in HR Support Mode cannot open ratings administration", async ({ page }) => {
+    test.setTimeout(120_000);
+    loadLocalEnvFiles();
+    const { email, password } = requireOwnerCredentials();
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL(/\/(admin\/|home|account)/, { timeout: 30_000 });
+
+    await page.goto("/admin/support", { waitUntil: "networkidle" });
+
+    const exitSupport = page
+      .locator("#main-content")
+      .getByRole("button", { name: "Exit Support Mode" });
+    if (await exitSupport.isVisible()) {
+      await exitSupport.click();
+      await expect(exitSupport).toBeHidden({ timeout: 20_000 });
+      await page.waitForLoadState("networkidle");
+    }
+
+    await expect(async () => {
+      const exitButtons = page.getByRole("button", { name: "Exit Support Mode" });
+      if (await exitButtons.first().isVisible()) {
+        await exitButtons.first().click();
+        await page.waitForLoadState("networkidle");
+      }
+
+      const hrSupport = page.locator("#main-content").getByRole("button", { name: /^HR Support\b/i });
+      await expect(hrSupport).toBeVisible();
+      await hrSupport.click();
+      const reasonField = page.getByLabel("Reason for support access");
+      await expect(reasonField).toBeVisible();
+      await reasonField.fill("E2E HR ratings denial");
+      await page.getByRole("dialog").getByRole("button", { name: "Start Support Mode" }).click();
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByText("Support Mode: HR")).toBeVisible({ timeout: 30_000 });
+    }).toPass({ timeout: 90_000 });
+
+    await page.goto(ratingsPath);
+    await expect(page).toHaveURL(/\/account/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 1, name: /Alberries/i })).toHaveCount(0);
+
+    await page.goto("/admin/support", { waitUntil: "networkidle" });
+    const exitAfterTest = page.getByRole("button", { name: "Exit Support Mode" });
+    if (await exitAfterTest.first().isVisible()) {
+      await exitAfterTest.first().click();
+      await page.waitForLoadState("networkidle");
+    }
+  });
+});
+
+async function loginHr(page: import("@playwright/test").Page) {
+  const { email, password } = requireHrCredentials();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(/\/(admin\/|home)/, { timeout: 30_000 });
+}
+
+async function openRatingsPage(page: import("@playwright/test").Page) {
+  await page.goto(ratingsPath, { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { level: 1, name: /Alberries/i })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.locator("#staff-modal-layer")).toBeAttached();
+}
+
+test.describe("HR menu item ratings administration", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test.beforeAll(() => {
+    loadLocalEnvFiles();
+    applyMenuItemRatingsStaffE2eFixture();
+  });
+
+  test.afterAll(() => {
+    restoreMenuItemRatingsStaffE2eFixture();
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await loginHr(page);
+  });
+
+  test("ratings page meets accessibility expectations", async ({ page }) => {
+    await openRatingsPage(page);
+    await expect(page.getByRole("heading", { level: 2, name: "Provider summary" })).toBeVisible();
+    await expectNoAxeViolations(page, "/admin/providers ratings", { mainContentOnly: true });
+  });
+
+  test("narrow viewport reflow without horizontal scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: STAFF_SHORT_VIEWPORT_HEIGHT });
+    await openRatingsPage(page);
+    const mainMetrics = await page.locator("#main-content").evaluate((node) => ({
+      scrollWidth: node.scrollWidth,
+      clientWidth: node.clientWidth,
+    }));
+    expect(mainMetrics.scrollWidth).toBeLessThanOrEqual(mainMetrics.clientWidth + 1);
+    await expectNoAxeViolations(page, "/admin/providers ratings narrow", { mainContentOnly: true });
+  });
+
+  test("disable and re-enable ratings with mandatory reason", async ({ page }) => {
+    await openRatingsPage(page);
+
+    const enable = page.locator("#main-content").getByRole("button", { name: "Enable ratings" });
+    if (await enable.isVisible()) {
+      await enable.click();
+      const enableDialog = page.getByRole("dialog");
+      await expect(enableDialog.getByRole("heading", { name: "Enable menu item ratings" })).toBeVisible({
+        timeout: 20_000,
+      });
+      await enableDialog.getByRole("button", { name: "Enable ratings" }).last().click();
+      await expect(page.locator("#main-content").getByRole("button", { name: "Disable ratings" })).toBeVisible({
+        timeout: 15_000,
+      });
+    }
+
+    const disable = page.locator("#main-content").getByRole("button", { name: "Disable ratings" });
+    await expect(disable).toBeVisible();
+    await disable.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Disable menu item ratings" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await dialog.getByLabel(/Reason/i).fill("E2E temporary disable for validation");
+    await dialog.getByRole("button", { name: "Disable ratings" }).last().click();
+    await expect(page.locator("#main-content").getByRole("button", { name: "Enable ratings" })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator("#main-content").getByRole("button", { name: "Enable ratings" })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.locator("#main-content").getByRole("button", { name: "Enable ratings" }).click();
+    const enableDialog = page.getByRole("dialog");
+    await expect(enableDialog.getByRole("heading", { name: "Enable menu item ratings" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await enableDialog.getByRole("heading", { name: "Enable menu item ratings" }).focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden({ timeout: 20_000 });
+
+    await page.locator("#main-content").getByRole("button", { name: "Enable ratings" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Enable ratings" }).last().click();
+    await expect(page.locator("#main-content").getByRole("button", { name: "Disable ratings" })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("reset dialogs require reasons and support keyboard focus", async ({ page }) => {
+    await openRatingsPage(page);
+
+    await page
+      .locator("#main-content")
+      .getByRole("button", { name: "Reset all ratings" })
+      .click();
+    const resetAllDialog = page.getByRole("dialog");
+    await expect(resetAllDialog.getByRole("heading", { name: "Reset all provider ratings" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(resetAllDialog.getByRole("heading", { name: "Reset all provider ratings" })).toBeFocused();
+
+    await resetAllDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(resetAllDialog).toBeHidden();
+
+    const resetItem = page.getByRole("button", { name: "Reset item" }).first();
+    await resetItem.click();
+    await expect(page.getByRole("heading", { name: /Reset ratings for/i })).toBeVisible();
+    await page.getByLabel(/Reason/i).fill("E2E item reset validation");
+    await page.getByRole("button", { name: "Reset menu item" }).last().click();
+    await expect(page.getByText("Changes saved.", { exact: true })).toBeVisible({ timeout: 20_000 });
+  });
+
+  test("staff rating can be removed with mandatory reason when present", async ({ page, browser }) => {
+    const { email, password } = requireStaffCredentials();
+    const staffContext = await browser.newContext();
+    const staffPage = await staffContext.newPage();
+    await staffPage.goto("/login");
+    await staffPage.getByLabel("Email").fill(email);
+    await staffPage.getByLabel("Password").fill(password);
+    await staffPage.getByRole("button", { name: "Sign in" }).click();
+    await staffPage.waitForURL(/\/(home|lunch|my-orders)/, { timeout: 30_000 });
+    await staffPage.goto(`/lunch?provider=${STAFF_SEED.providerAlberries}`);
+    const stars = staffPage.getByRole("radio", { name: "4 stars" }).first();
+    if (await stars.isVisible({ timeout: 15_000 }).catch(() => false)) {
+      await stars.click();
+      await expect(staffPage.getByRole("status").filter({ hasText: /Saved 4/i })).toBeVisible({
+        timeout: 15_000,
+      });
+    }
+    await staffContext.close();
+
+    await openRatingsPage(page);
+    await page.getByRole("button", { name: "View ratings" }).first().click();
+    const remove = page.getByRole("button", { name: "Remove" }).first();
+    if (await remove.isVisible({ timeout: 10_000 }).catch(() => false)) {
+      await remove.click();
+      await expect(page.getByRole("heading", { name: "Remove staff rating" })).toBeVisible();
+      await page.getByRole("button", { name: "Remove rating" }).last().click();
+      await expect(page.getByRole("alert")).toContainText(/reason/i);
+      await page.getByLabel(/Reason/i).fill("E2E removal validation");
+      await page.getByRole("button", { name: "Remove rating" }).last().click();
+      await expect(page.getByText("Changes saved.")).toBeVisible({ timeout: 15_000 });
+    }
+  });
+});

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireHrOperationalRead } from "@/lib/auth";
+import { canAccessPermanentHrMenuItemRatingsAdmin, requireHrOperationalRead } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ManageMenuWorkspace } from "@/components/admin/lunch-providers/manage-menu-workspace";
 import type { MenuItemType } from "@/lib/menu-items";
@@ -93,6 +93,8 @@ export default async function ProviderManageMenuPage({
     ];
   }
 
+  const showMenuItemRatingsLink = await canAccessPermanentHrMenuItemRatingsAdmin();
+
   const flashSuccess = query.menuCreated
     ? ("menuCreated" as const)
     : query.menuUpdated
@@ -127,6 +129,9 @@ export default async function ProviderManageMenuPage({
       <ManageMenuWorkspace
         flashSuccess={flashSuccess}
         usedProviderMenuItemIds={usedProviderMenuItemIds}
+        menuItemRatingsHref={
+          showMenuItemRatingsLink ? `/admin/providers/${provider.id}/ratings` : undefined
+        }
         provider={{
           id: provider.id,
           name: provider.name,
