@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { IconCartPlus, IconCheck } from "@/components/icons/line-icons";
 import { shouldBlockAriaDisabledActivation } from "@/lib/aria-disabled-activation";
 import { formatCurrency } from "@/lib/format";
@@ -15,6 +15,8 @@ type Props = {
   /** When true, Add stays focusable with aria-disabled until a main is chosen. */
   blockedUntilMainSelected?: boolean;
   blockedDescribedBy?: string;
+  /** Shown beside the item name (e.g. Most Popular badge). */
+  nameAccessory?: ReactNode;
   onAdd: () => void;
 };
 
@@ -40,6 +42,7 @@ export function MenuItemRow({
   disabled = false,
   blockedUntilMainSelected = false,
   blockedDescribedBy,
+  nameAccessory = null,
   onAdd,
 }: Props) {
   const label = formatMenuItemLabel(name, unitLabel);
@@ -63,7 +66,10 @@ export function MenuItemRow({
   return (
     <div className={MENU_ITEM_ROW_ROOT_CLASS}>
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-        <p className="break-words font-medium text-slate-900">{label}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="break-words font-medium text-slate-900">{label}</p>
+          {nameAccessory}
+        </div>
       </div>
       <div className={MENU_ITEM_ROW_ACTIONS_CLASS}>
         <p className="shrink-0 text-left text-sm font-semibold tabular-nums text-slate-900 sm:w-[5.5rem] sm:text-right">

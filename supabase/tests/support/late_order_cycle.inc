@@ -12,6 +12,8 @@
 
 set time zone 'America/Jamaica';
 
+\ir pgtap_anchor_jamaica_today.inc
+
 select set_config(
   'test.late_order_cycle_prev_cutoff',
   (select order_cutoff_time::text from public.app_settings where id = 1),
@@ -25,7 +27,7 @@ where id = 1;
 
 do $$
 declare
-  v_today date := private.jamaica_today_date();
+  v_today date := current_setting('test.jamaica_today')::date;
   v_current_order_date date;
   v_order_date date;
   v_delivery_date date;
@@ -173,8 +175,6 @@ begin
   order by candidate.order_date desc
   limit 1;
 
-  perform set_config('app.pgtap_test_session', 'true', true);
-  perform set_config('test.jamaica_today', v_today::text, true);
   perform set_config('test.current_order_date', v_current_order_date::text, false);
   perform set_config('test.late_order_date', v_order_date::text, false);
   perform set_config('test.late_delivery_date', v_delivery_date::text, false);

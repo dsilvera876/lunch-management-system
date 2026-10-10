@@ -192,6 +192,10 @@ export function isPlaywrightOrderingFixtureActive(): boolean {
 export function ensureLocalStaffOrderingFixtureForPlaywright(): void {
   loadLocalEnvFiles();
 
+  if (process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1") {
+    return;
+  }
+
   const supabaseApiUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
 
@@ -1067,6 +1071,102 @@ export function applyMenuItemRatingsStaffE2eFixture(): void {
         '${E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID}'::uuid,
         'marked_delivered'
       );
+    end;
+    $fixture$
+  `);
+}
+
+const E2E_STAFF2_PROFILE_ID = "10000005-0005-4005-8005-000000000005";
+const E2E_STAFF3_PROFILE_ID = "10000006-0006-4006-8006-000000000006";
+const E2E_MP_RATER_PROFILE_IDS = [
+  E2E_STAFF1_PROFILE_ID,
+  E2E_STAFF2_PROFILE_ID,
+  E2E_STAFF3_PROFILE_ID,
+  "10000002-0002-4002-8002-000000000002",
+  "10000003-0003-4003-8003-000000000003",
+] as const;
+
+/** Five distinct high ratings on BBQ Chicken for Most Popular badge E2E (local DB only). */
+export function applyMostPopularMenuItemE2eFixture(): void {
+  applyMenuItemRatingsStaffE2eFixture();
+  restoreMostPopularMenuItemE2eFixture();
+
+  const raterValues = E2E_MP_RATER_PROFILE_IDS.map(
+    (profileId) => `('${profileId}'::uuid, 5::smallint)`,
+  ).join(",\n          ");
+
+  runLocalDbExec(`
+    do $fixture$
+    declare
+      v_rec record;
+      v_order_id uuid := '${E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID}'::uuid;
+      v_order_item_id uuid;
+      v_gen integer;
+      v_provider_gen integer;
+    begin
+      select oi.id
+      into v_order_item_id
+      from public.order_items oi
+      join public.menu_items mi on mi.id = oi.menu_item_id
+      where oi.order_id = v_order_id
+        and mi.provider_menu_item_id = '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid
+      limit 1;
+
+      select pmi.current_rating_generation, lp.current_provider_rating_generation
+      into v_gen, v_provider_gen
+      from public.provider_menu_items pmi
+      join public.lunch_providers lp on lp.id = pmi.provider_id
+      where pmi.id = '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid;
+
+      for v_rec in
+        select profile_id, stars
+        from (values
+          ${raterValues}
+        ) as t(profile_id, stars)
+      loop
+        insert into private.menu_item_ratings (
+          profile_id,
+          provider_menu_item_id,
+          provider_id,
+          menu_item_generation,
+          provider_rating_generation,
+          stars,
+          source_order_id,
+          source_order_item_id,
+          last_qualifying_delivery_at
+        )
+        values (
+          v_rec.profile_id,
+          '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid,
+          '${STAFF_SEED.providerAlberries}'::uuid,
+          v_gen,
+          v_provider_gen,
+          v_rec.stars,
+          v_order_id,
+          v_order_item_id,
+          now()
+        )
+        on conflict do nothing;
+      end loop;
+    end;
+    $fixture$
+  `);
+}
+
+export function restoreMostPopularMenuItemE2eFixture(): void {
+  runLocalDbExec(`
+    do $fixture$
+    begin
+      delete from private.menu_item_ratings mir
+      where mir.provider_menu_item_id = '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid
+        and mir.profile_id = any(array[
+          '${E2E_STAFF1_PROFILE_ID}'::uuid,
+          '${E2E_STAFF2_PROFILE_ID}'::uuid,
+          '${E2E_STAFF3_PROFILE_ID}'::uuid,
+          '10000002-0002-4002-8002-000000000002'::uuid,
+          '10000003-0003-4003-8003-000000000003'::uuid
+        ]);
+
     end;
     $fixture$
   `);

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
+import { MenuItemMostPopularBadge } from "@/components/menu-item-ratings/menu-item-most-popular-badge";
 import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 import type { RecentRateableMenuItem } from "@/lib/menu-item-ratings-collect";
 import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
@@ -297,7 +298,13 @@ export function StaffDashboard({
                   key={item.providerMenuItemId}
                   className="rounded-lg border border-border bg-background px-3 py-3"
                 >
-                  <p className="text-sm font-medium text-foreground">{item.itemName}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-foreground">{item.itemName}</p>
+                    {!ratingsLoadFailed &&
+                    menuItemRatingSummaries[item.providerMenuItemId]?.isMostPopular ? (
+                      <MenuItemMostPopularBadge />
+                    ) : null}
+                  </div>
                   <p className="text-xs text-staff-instruction">
                     Delivered {formatHumanDate(item.deliveryDate)}
                   </p>

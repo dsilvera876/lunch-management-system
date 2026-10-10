@@ -12,6 +12,7 @@ import {
 import { linkButtonClass } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
+import { MenuItemMostPopularBadge } from "@/components/menu-item-ratings/menu-item-most-popular-badge";
 import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 import { isProviderOrderEligibleForMenuItemRatingsUi } from "@/lib/menu-item-ratings-eligibility-ui";
 
@@ -24,6 +25,26 @@ type Props = {
 
 function formatIncludedPrice(price: number): string {
   return price > 0 ? formatCurrency(price) : "Included";
+}
+
+function mostPopularBadgeForLine(
+  line: StaffProviderOrder["lines"][number],
+  order: StaffProviderOrder,
+  ratingSummaries?: MenuItemRatingSummariesById,
+  ratingsLoadFailed?: boolean,
+) {
+  if (
+    line.itemType !== "main" ||
+    !order.ratingsEnabled ||
+    ratingsLoadFailed ||
+    !line.providerMenuItemId
+  ) {
+    return null;
+  }
+  if (ratingSummaries?.[line.providerMenuItemId]?.isMostPopular) {
+    return <MenuItemMostPopularBadge />;
+  }
+  return null;
 }
 
 function OrderLineRatings({
@@ -96,9 +117,12 @@ export function ProviderOrderSection({
             <ul className="mt-2 space-y-2">
               <li className="space-y-2">
                 <div className="flex justify-between gap-4">
-                  <span className="font-medium text-foreground">
-                    {formatMenuItemLabel(mealMain.name, mealMain.unitLabel)} ×{" "}
-                    {order.mealQuantity ?? 1}
+                  <span className="flex min-w-0 flex-wrap items-center gap-2 font-medium text-foreground">
+                    <span>
+                      {formatMenuItemLabel(mealMain.name, mealMain.unitLabel)} ×{" "}
+                      {order.mealQuantity ?? 1}
+                    </span>
+                    {mostPopularBadgeForLine(mealMain, order, ratingSummaries, ratingsLoadFailed)}
                   </span>
                   <span className="shrink-0 tabular-nums text-muted">
                     {formatIncludedPrice(mealMain.unitPrice * (order.mealQuantity ?? 1))}
@@ -114,8 +138,9 @@ export function ProviderOrderSection({
               {mealSides.map((side) => (
                 <li key={`${side.name}-${side.providerMenuItemId ?? side.unitLabel}`} className="space-y-2">
                   <div className="flex justify-between gap-4">
-                    <span className="text-foreground">
-                      {formatMenuItemLabel(side.name, side.unitLabel)}
+                    <span className="flex min-w-0 flex-wrap items-center gap-2 text-foreground">
+                      <span>{formatMenuItemLabel(side.name, side.unitLabel)}</span>
+                      {mostPopularBadgeForLine(side, order, ratingSummaries, ratingsLoadFailed)}
                     </span>
                     <span className="shrink-0 tabular-nums text-muted">
                       {formatIncludedPrice(side.unitPrice)}
@@ -138,11 +163,14 @@ export function ProviderOrderSection({
             {standalone.map((item) => (
               <li key={`${item.name}-${item.unitLabel}`} className="space-y-2">
                 <div className="flex justify-between gap-4">
-                  <span className="min-w-0 text-foreground">
-                    {formatOrderLineLabel(item.name, item.unitLabel, item.quantity)}
-                    {item.unitPrice > 0 ? (
-                      <span className="text-muted">{` · ${formatPrice(item.unitPrice)} each`}</span>
-                    ) : null}
+                  <span className="flex min-w-0 flex-wrap items-center gap-2 text-foreground">
+                    <span>
+                      {formatOrderLineLabel(item.name, item.unitLabel, item.quantity)}
+                      {item.unitPrice > 0 ? (
+                        <span className="text-muted">{` · ${formatPrice(item.unitPrice)} each`}</span>
+                      ) : null}
+                    </span>
+                    {mostPopularBadgeForLine(item, order, ratingSummaries, ratingsLoadFailed)}
                   </span>
                   <span className="shrink-0 tabular-nums font-medium text-foreground">
                     {formatCurrency(item.lineTotal)}

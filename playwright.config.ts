@@ -3,9 +3,15 @@ import path from "node:path";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const staffAuthFile = path.join(__dirname, "tests/accessibility/.auth/staff.json");
+const mostPopularPlaywrightOnly = process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1";
 
 export default defineConfig({
-  globalSetup: path.join(__dirname, "tests/accessibility/global-setup.ts"),
+  globalSetup: path.join(
+    __dirname,
+    mostPopularPlaywrightOnly
+      ? "tests/accessibility/global-setup-most-popular.ts"
+      : "tests/accessibility/global-setup.ts",
+  ),
   globalTeardown: path.join(__dirname, "tests/accessibility/global-teardown.ts"),
   testDir: path.join(__dirname, "tests/accessibility"),
   testIgnore: ["**/helpers/**", "**/*.test.ts"],
@@ -40,6 +46,7 @@ export default defineConfig({
         /staff-late-order-submission-edit\.spec\.ts/,
         /hr-todays-orders-modals\.spec\.ts/,
         /hr-menu-item-ratings\.spec\.ts/,
+        /menu-item-most-popular\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -86,6 +93,28 @@ export default defineConfig({
       dependencies: ["chromium-hr-ratings-a11y"],
       use: {
         ...devices["Desktop Firefox"],
+      },
+    },
+    {
+      name: "chromium-most-popular-a11y",
+      testMatch: /menu-item-most-popular\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup"],
+    },
+    {
+      name: "firefox-most-popular-a11y",
+      testMatch: /menu-item-most-popular\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ["chromium-most-popular-a11y"],
+      use: {
+        ...devices["Desktop Firefox"],
+        storageState: staffAuthFile,
       },
     },
     {

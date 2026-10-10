@@ -90,6 +90,12 @@ cross join generate_series(1, 5) as weekday;
 
 \ir support/open_ordering.inc
 \ir support/isolate_lunch_periods.inc
+\ir support/pgtap_test_session.inc
+select set_config(
+  'test.jamaica_today',
+  (timezone('America/Jamaica', now()))::date::text,
+  true
+);
 select set_config('test.late_order_preserve_open_company_ordering', 'true', true);
 \ir support/late_order_cycle.inc
 
@@ -130,6 +136,11 @@ select set_config(
   json_build_object('sub', 'a2222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text,
   true
 );
+
+-- Deterministic open ordering for current-day snapshot submit (wall clock may be past restored cutoff).
+update public.app_settings
+set order_cutoff_time = '23:59:00'
+where id = 1;
 
 select ok(
   extract(isodow from current_setting('test.jamaica_today')::date) >= 6

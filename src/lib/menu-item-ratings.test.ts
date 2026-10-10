@@ -28,6 +28,7 @@ describe("menu item ratings parsing", () => {
           rating_count: 2,
           my_stars: 5,
           can_submit_or_update: false,
+          is_most_popular: true,
         },
       ],
     });
@@ -38,6 +39,22 @@ describe("menu item ratings parsing", () => {
     assert.equal(parsed[0]?.ratingCount, 2);
     assert.equal(parsed[0]?.myStars, 5);
     assert.equal(parsed[0]?.canSubmitOrUpdate, false);
+    assert.equal(parsed[0]?.isMostPopular, true);
+  });
+
+  it("defaults most popular to false when omitted", () => {
+    const parsed = parseMenuItemRatingSummaries({
+      summaries: [
+        {
+          provider_menu_item_id: "a",
+          average_stars: 3,
+          rating_count: 1,
+          my_stars: null,
+          can_submit_or_update: true,
+        },
+      ],
+    });
+    assert.equal(parsed[0]?.isMostPopular, false);
   });
 
   it("formats community labels and indexes summaries", () => {
@@ -47,6 +64,7 @@ describe("menu item ratings parsing", () => {
       ratingCount: 4,
       myStars: null,
       canSubmitOrUpdate: true,
+      isMostPopular: false,
     };
 
     assert.equal(formatCommunityRatingLabel(summary), "4.3 average · 4 ratings");
@@ -68,6 +86,7 @@ describe("menu item ratings parsing", () => {
           ratingCount: 1,
           myStars: 3,
           canSubmitOrUpdate: false,
+          isMostPopular: false,
         },
         null,
       ),
@@ -82,6 +101,7 @@ describe("menu item ratings parsing", () => {
           ratingCount: 0,
           myStars: null,
           canSubmitOrUpdate: true,
+          isMostPopular: false,
         },
         null,
       ),

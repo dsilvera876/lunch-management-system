@@ -11,6 +11,7 @@ export type MenuItemRatingSummary = {
   ratingCount: number;
   myStars: number | null;
   canSubmitOrUpdate: boolean;
+  isMostPopular: boolean;
 };
 
 type RawSummary = {
@@ -19,6 +20,7 @@ type RawSummary = {
   rating_count: number | string;
   my_stars: number | null;
   can_submit_or_update: boolean;
+  is_most_popular?: boolean;
 };
 
 export function parseMenuItemRatingSummaries(payload: unknown): MenuItemRatingSummary[] {
@@ -48,6 +50,7 @@ export function parseMenuItemRatingSummaries(payload: unknown): MenuItemRatingSu
       ratingCount: Number(raw.rating_count),
       myStars: raw.my_stars == null ? null : Number(raw.my_stars),
       canSubmitOrUpdate: raw.can_submit_or_update === true,
+      isMostPopular: raw.is_most_popular === true,
     });
   }
 

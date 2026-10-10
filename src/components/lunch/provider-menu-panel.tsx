@@ -28,6 +28,7 @@ import {
 import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
 import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
+import { MenuItemMostPopularBadge } from "@/components/menu-item-ratings/menu-item-most-popular-badge";
 
 export type MenuItemView = {
   id: string;
@@ -60,6 +61,22 @@ type Props = {
   ratingsLoadFailed?: boolean;
   ratingsLoadErrorMessage?: string | null;
 };
+
+function menuItemMostPopularAccessory(
+  itemId: string,
+  itemType: MenuItemType,
+  ratingsEnabled: boolean,
+  ratingSummaries?: MenuItemRatingSummariesById,
+  ratingsLoadFailed?: boolean,
+) {
+  if (itemType !== "main" || !ratingsEnabled || ratingsLoadFailed) {
+    return null;
+  }
+  if (ratingSummaries?.[itemId]?.isMostPopular) {
+    return <MenuItemMostPopularBadge />;
+  }
+  return null;
+}
 
 function MenuItemRatings({
   itemId,
@@ -169,6 +186,13 @@ export function ProviderMenuPanel({
                     price={item.price}
                     selected={draft.mainId === item.id}
                     disabled={disabled}
+                    nameAccessory={menuItemMostPopularAccessory(
+                      item.id,
+                      "main",
+                      ratingsEnabled,
+                      ratingSummaries,
+                      ratingsLoadFailed,
+                    )}
                     onAdd={() => onSelectMain(item.id)}
                   />
                   <MenuItemRatings
@@ -214,6 +238,13 @@ export function ProviderMenuPanel({
                     disabled={disabled}
                     blockedUntilMainSelected={needsMainBeforeSide}
                     blockedDescribedBy={needsMainBeforeSide ? selectMainFirstId : undefined}
+                    nameAccessory={menuItemMostPopularAccessory(
+                      item.id,
+                      "side",
+                      ratingsEnabled,
+                      ratingSummaries,
+                      ratingsLoadFailed,
+                    )}
                     onAdd={() => onAddSide(item.id)}
                   />
                   <MenuItemRatings
@@ -258,6 +289,13 @@ export function ProviderMenuPanel({
                       price={item.price}
                       selected={selected}
                       disabled={disabled}
+                      nameAccessory={menuItemMostPopularAccessory(
+                        item.id,
+                        "standalone",
+                        ratingsEnabled,
+                        ratingSummaries,
+                        ratingsLoadFailed,
+                      )}
                       onAdd={() => onAddStandalone(item.id)}
                     />
                     <MenuItemRatings

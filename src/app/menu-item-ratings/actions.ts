@@ -96,6 +96,7 @@ export async function saveMyMenuItemRating(
         ratingCount: 0,
         myStars: stars,
         canSubmitOrUpdate: false,
+        isMostPopular: false,
       },
       refreshWarning: "Saved your rating, but the display could not refresh. Try again.",
     };
@@ -112,6 +113,7 @@ export async function saveMyMenuItemRating(
         ratingCount: 0,
         myStars: stars,
         canSubmitOrUpdate: false,
+        isMostPopular: false,
       },
       refreshWarning: "Saved your rating, but the display could not refresh. Try again.",
     };
