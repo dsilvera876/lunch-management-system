@@ -222,7 +222,7 @@ select is(
   (
     select count(*)::bigint
     from jsonb_array_elements(
-      public.get_hr_provider_menu_item_ratings_audit('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 50) -> 'entries'
+      public.get_hr_provider_menu_item_ratings_audit('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 1, 50) -> 'entries'
     ) entry
     where entry ->> 'action' = 'reset_menu_item'
   ),
@@ -234,7 +234,7 @@ select is(
   (
     select count(*)::bigint
     from jsonb_array_elements(
-      public.get_hr_provider_menu_item_ratings_audit('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 50) -> 'entries'
+      public.get_hr_provider_menu_item_ratings_audit('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 1, 50) -> 'entries'
     ) entry
     where entry ->> 'action' = 'remove_rating'
   ),
@@ -246,7 +246,7 @@ select is(
   (
     select count(*)::bigint
     from jsonb_array_elements(
-      public.get_hr_provider_menu_item_ratings_audit('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 50) -> 'entries'
+      public.get_hr_provider_menu_item_ratings_audit('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 1, 50) -> 'entries'
     ) entry
     where entry ->> 'action' = 'reset_provider'
   ),

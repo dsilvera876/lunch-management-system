@@ -21,6 +21,7 @@ type Props = {
   description: string;
   confirmLabel: string;
   reasonRequired?: boolean;
+  showReasonField?: boolean;
   reasonLabel?: string;
   destructive?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,6 +36,7 @@ export function HrMenuItemRatingsReasonDialog({
   description,
   confirmLabel,
   reasonRequired = true,
+  showReasonField = true,
   reasonLabel = "Reason",
   destructive = false,
   onOpenChange,
@@ -168,29 +170,33 @@ export function HrMenuItemRatingsReasonDialog({
         ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor={reasonId} className={formControlLabelClassName}>
-              {reasonLabel}{" "}
-              {reasonRequired ? <span className="text-red-700">(required)</span> : null}
-            </label>
-            <textarea
-              id={reasonId}
-              name="reason"
-              rows={3}
-              maxLength={500}
-              required={reasonRequired}
-              aria-describedby={reasonHelperId}
-              className={textareaClassName}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              disabled={submitting}
-            />
-            <p id={reasonHelperId} className="mt-1 text-xs text-muted">
-              Up to 500 characters. Recorded in the moderation audit log.
-            </p>
-          </div>
+          {showReasonField ? (
+            <div>
+              <label htmlFor={reasonId} className={formControlLabelClassName}>
+                {reasonLabel}{" "}
+                {reasonRequired ? <span className="text-red-700">(required)</span> : null}
+              </label>
+              <textarea
+                id={reasonId}
+                name="reason"
+                rows={3}
+                maxLength={500}
+                required={reasonRequired}
+                aria-describedby={reasonHelperId}
+                className={textareaClassName}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                disabled={submitting}
+              />
+              <p id={reasonHelperId} className="mt-1 text-xs text-muted">
+                Up to 500 characters. Recorded in the moderation audit log.
+              </p>
+            </div>
+          ) : null}
 
-          <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+          <div
+            className={`flex flex-wrap justify-end gap-2 ${showReasonField ? "border-t border-border pt-4" : ""}`}
+          >
             <Button type="button" variant="secondary" onClick={dismissModal} disabled={submitting}>
               Cancel
             </Button>

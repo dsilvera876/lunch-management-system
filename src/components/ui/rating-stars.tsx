@@ -93,8 +93,8 @@ export function RatingStars({
     if (!interactive) {
       return;
     }
-    const next = event.relatedTarget as Node | null;
-    if (next && event.currentTarget.contains(next)) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget.contains(next)) {
       return;
     }
     setHoverValue(null);
@@ -185,9 +185,7 @@ export function RatingStars({
             type="button"
             data-star-value={starValue}
             disabled={disabled}
-            className={`inline-flex items-center justify-center rounded-md transition-[opacity,transform,box-shadow] hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${touchTargetClass} ${
-              highlighted ? "ring-2 ring-primary/35 ring-offset-1" : ""
-            }`}
+            className={`inline-flex items-center justify-center rounded-md outline-none transition-[opacity,transform] hover:scale-105 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${touchTargetClass}`}
             onPointerEnter={() => {
               if (!interactive) {
                 return;
@@ -212,6 +210,81 @@ export function RatingStars({
           >
             <StarGlyph filled={filled} highlighted={highlighted || (isPreviewing && filled)} size={size} />
           </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const STAR_PATH =
+  "m12 3 2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L4.8 8.2l5-.7z";
+
+type AverageProps = {
+  value: number;
+  max?: number;
+  size?: RatingStarsSize;
+  label?: string;
+};
+
+/** Read-only fractional average (e.g. 3.7 of 5) for HR summaries. */
+export function RatingStarsAverage({
+  value,
+  max = 5,
+  size = "sm",
+  label,
+}: AverageProps) {
+  const clipPrefix = useId().replace(/:/g, "");
+  const px = STAR_PX[size];
+  const clamped = Math.max(0, Math.min(max, value));
+  const ariaLabel =
+    label ??
+    (clamped > 0
+      ? `${clamped.toFixed(1)} out of ${max} stars average`
+      : `No rating (${max}-star scale)`);
+
+  return (
+    <div
+      className="inline-flex items-center gap-0.5"
+      role="img"
+      aria-label={ariaLabel}
+    >
+      {Array.from({ length: max }, (_, index) => {
+        const starIndex = index + 1;
+        const fillAmount = Math.max(0, Math.min(1, clamped - index));
+        const clipId = `${clipPrefix}-star-${starIndex}`;
+
+        return (
+          <svg
+            key={starIndex}
+            width={px}
+            height={px}
+            viewBox="0 0 24 24"
+            aria-hidden
+            className="text-teal-700/25"
+          >
+            <path
+              d={STAR_PATH}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            {fillAmount > 0 ? (
+              <>
+                <defs>
+                  <clipPath id={clipId}>
+                    <rect x="0" y="0" width={24 * fillAmount} height="24" />
+                  </clipPath>
+                </defs>
+                <path
+                  d={STAR_PATH}
+                  fill="currentColor"
+                  className="text-primary"
+                  clipPath={`url(#${clipId})`}
+                />
+              </>
+            ) : null}
+          </svg>
         );
       })}
     </div>

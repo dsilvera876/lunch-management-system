@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(34);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -194,10 +194,10 @@ select set_config(
 
 select lives_ok(
   format(
-    $$ select public.hr_remove_menu_item_rating(%L::uuid, 'Inappropriate feedback') $$,
+    $$ select public.hr_remove_menu_item_rating(%L::uuid, '') $$,
     current_setting('test.mir_hr_rating_a')
   ),
-  'HR removes staff rating with reason'
+  'HR removes staff rating without mandatory reason'
 );
 
 select ok(
@@ -206,6 +206,7 @@ select ok(
     from jsonb_array_elements(
       public.get_hr_provider_menu_item_ratings_audit(
         '99999999-9999-4999-8999-999999999999',
+        1,
         20
       ) -> 'entries'
     ) entry
@@ -218,16 +219,6 @@ select is(
   (public.get_hr_provider_menu_item_ratings_dashboard('99999999-9999-4999-8999-999999999999') ->> 'provider_rating_count')::bigint,
   1::bigint,
   'removed rating excluded from provider aggregate'
-);
-
-select throws_ok(
-  format(
-    $$ select public.hr_remove_menu_item_rating(%L::uuid, '') $$,
-    current_setting('test.mir_hr_rating_a')
-  ),
-  'P0001',
-  'A reason is required',
-  'remove rating requires non-empty reason'
 );
 
 set local role authenticated;
@@ -379,6 +370,7 @@ select ok(
     from jsonb_array_elements(
       public.get_hr_provider_menu_item_ratings_audit(
         '99999999-9999-4999-8999-999999999999',
+        1,
         20
       ) -> 'entries'
     ) entry
@@ -400,6 +392,121 @@ select lives_ok(
     'f0000000-0000-4000-8000-000000000001'
   ) $$,
   'staff ordering still works alongside HR ratings admin'
+);
+
+-- Paginated catalog detail (100+ ratings, newest first)
+reset role;
+
+do $$
+declare
+  v_i integer;
+  v_profile_id uuid;
+  v_order_id uuid;
+  v_order_item_id uuid;
+begin
+  select o.id, oi.id
+  into v_order_id, v_order_item_id
+  from public.orders o
+  join public.order_items oi on oi.order_id = o.id
+  where o.special_instructions = 'MIR HR order after admin'
+  limit 1;
+
+  delete from private.menu_item_ratings
+  where provider_menu_item_id = 'b1111111-1111-4111-8111-111111111111';
+
+  for v_i in 1..105 loop
+    v_profile_id := ('aaaa0000-0000-4000-8000-' || lpad(to_hex(v_i), 12, '0'))::uuid;
+    insert into auth.users (id, email, raw_user_meta_data)
+    values (
+      v_profile_id,
+      'mir-hr-page-' || v_i::text || '@test.local',
+      jsonb_build_object('full_name', 'MIR Page Staff ' || v_i::text)
+    )
+    on conflict (id) do nothing;
+
+    insert into private.menu_item_ratings (
+      profile_id,
+      provider_menu_item_id,
+      provider_id,
+      menu_item_generation,
+      provider_rating_generation,
+      stars,
+      source_order_id,
+      source_order_item_id,
+      last_qualifying_delivery_at,
+      created_at
+    )
+    select
+      v_profile_id,
+      'b1111111-1111-4111-8111-111111111111',
+      '99999999-9999-4999-8999-999999999999',
+      pmi.current_rating_generation,
+      lp.current_provider_rating_generation,
+      (1 + (v_i % 5))::smallint,
+      v_order_id,
+      v_order_item_id,
+      now() - (v_i || ' minutes')::interval,
+      now() - (v_i || ' minutes')::interval
+    from public.provider_menu_items pmi
+    join public.lunch_providers lp on lp.id = pmi.provider_id
+    where pmi.id = 'b1111111-1111-4111-8111-111111111111';
+  end loop;
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
+
+select is(
+  (public.get_hr_catalog_menu_item_ratings_detail(
+    'b1111111-1111-4111-8111-111111111111',
+    1,
+    20
+  ) ->> 'total_count')::bigint,
+  105::bigint,
+  'catalog detail reports total rating count'
+);
+
+select is(
+  jsonb_array_length(
+    public.get_hr_catalog_menu_item_ratings_detail(
+      'b1111111-1111-4111-8111-111111111111',
+      1,
+      20
+    ) -> 'ratings'
+  ),
+  20,
+  'catalog detail page 1 returns 20 ratings'
+);
+
+select is(
+  jsonb_array_length(
+    public.get_hr_catalog_menu_item_ratings_detail(
+      'b1111111-1111-4111-8111-111111111111',
+      6,
+      20
+    ) -> 'ratings'
+  ),
+  5,
+  'catalog detail last page returns remaining ratings'
+);
+
+select is(
+  (
+    public.get_hr_catalog_menu_item_ratings_detail(
+      'b1111111-1111-4111-8111-111111111111',
+      1,
+      20
+    ) -> 'ratings' -> 0 ->> 'created_at'
+  ) >= (
+    public.get_hr_catalog_menu_item_ratings_detail(
+      'b1111111-1111-4111-8111-111111111111',
+      1,
+      20
+    ) -> 'ratings' -> 1 ->> 'created_at'
+  ),
+  true,
+  'catalog detail orders ratings newest first'
 );
 
 select * from finish();

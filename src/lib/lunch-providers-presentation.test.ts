@@ -353,7 +353,6 @@ describe("lunch providers UI wiring", () => {
     assert.match(overview, /buildProviderMenuMetrics/);
     assert.match(overview, /IconCalendar/);
     assert.match(overview, /IconClock/);
-    assert.match(overview, /Edit details and late-order settings/);
     assert.match(overview, /IconPencil/);
     assert.match(overview, /IconUtensils/);
     assert.match(overview, /ProviderIconWell/);

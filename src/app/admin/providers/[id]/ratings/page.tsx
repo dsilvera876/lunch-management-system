@@ -2,11 +2,7 @@ import { notFound } from "next/navigation";
 import { requirePermanentHrMenuItemRatingsAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { HrProviderMenuItemRatingsWorkspace } from "@/components/admin/lunch-providers/hr-provider-menu-item-ratings-workspace";
-import {
-  formatHrMenuItemRatingsAuditTimestamp,
-  parseHrMenuItemRatingsAudit,
-  parseHrMenuItemRatingsDashboard,
-} from "@/lib/hr-menu-item-ratings";
+import { parseHrMenuItemRatingsDashboard } from "@/lib/hr-menu-item-ratings";
 import { Alert } from "@/components/ui/alert";
 
 type Props = {
@@ -47,24 +43,9 @@ export default async function ProviderMenuItemRatingsPage({ params }: Props) {
     );
   }
 
-  const { data: auditPayload, error: auditError } = await supabase.rpc(
-    "get_hr_provider_menu_item_ratings_audit",
-    { p_provider_id: id, p_limit: 50 },
-  );
-
-  if (auditError) {
-    throw new Error("Unable to load ratings audit log.");
-  }
-
-  const auditEntries = parseHrMenuItemRatingsAudit(auditPayload).map((entry) => ({
-    ...entry,
-    createdAtLabel: formatHrMenuItemRatingsAuditTimestamp(entry.createdAt),
-  }));
-
   return (
     <HrProviderMenuItemRatingsWorkspace
       dashboard={dashboard}
-      auditEntries={auditEntries}
       providerIconKey={provider.icon_key}
     />
   );

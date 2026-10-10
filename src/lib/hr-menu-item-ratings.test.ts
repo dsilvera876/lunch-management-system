@@ -43,6 +43,9 @@ describe("HR menu item ratings parsing", () => {
       current_rating_generation: 1,
       average_stars: 3,
       active_rating_count: 1,
+      total_count: 42,
+      page: 2,
+      page_size: 20,
       ratings: [
         {
           id: "r1",
@@ -63,8 +66,14 @@ describe("HR menu item ratings parsing", () => {
 
     assert.ok(detail);
     assert.equal(detail.ratings[0]?.canRemove, true);
+    assert.equal(detail.totalCount, 42);
+    assert.equal(detail.page, 2);
+    assert.equal(detail.pageSize, 20);
 
     const audit = parseHrMenuItemRatingsAudit({
+      total_count: 1,
+      page: 1,
+      page_size: 20,
       entries: [
         {
           id: "a1",
@@ -80,7 +89,8 @@ describe("HR menu item ratings parsing", () => {
       ],
     });
 
-    assert.equal(audit.length, 1);
+    assert.equal(audit.entries.length, 1);
+    assert.equal(audit.totalCount, 1);
     assert.equal(formatHrRatingsActionLabel("reset_provider"), "Reset provider ratings");
   });
 });

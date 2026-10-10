@@ -19,6 +19,8 @@ type Props = {
   summariesLoadFailed?: boolean;
   compact?: boolean;
   starSize?: RatingStarsSize;
+  /** Dashboard recent meals: stars + screen-reader status only. */
+  presentation?: "default" | "dashboardRecent";
 };
 
 export function MenuItemRatingBlock({
@@ -29,7 +31,9 @@ export function MenuItemRatingBlock({
   summariesLoadFailed = false,
   compact = false,
   starSize = "lg",
+  presentation = "default",
 }: Props) {
+  const isDashboardRecent = presentation === "dashboardRecent";
   const statusId = useId();
   const saveGenerationRef = useRef(0);
   const queuedStarsRef = useRef<number | null>(null);
@@ -66,7 +70,11 @@ export function MenuItemRatingBlock({
   const displayValue = optimisticStars ?? confirmedStars;
   const canRate = !summariesLoadFailed && summary?.canSubmitOrUpdate === true;
 
-  const statusMessage = errorMessage ?? menuItemRatingStatusMessage(summary, savedMessage);
+  const statusMessage =
+    errorMessage ??
+    menuItemRatingStatusMessage(summary, savedMessage, {
+      savedRatingPrefix: isDashboardRecent ? "Rated" : "Your rating",
+    });
 
   function drainSaveQueue() {
     if (drainActiveRef.current) {
@@ -128,9 +136,14 @@ export function MenuItemRatingBlock({
     drainSaveQueue();
   }
 
+  const instructionalFallback =
+    !isDashboardRecent && summary?.myStars == null && !summary?.canSubmitOrUpdate
+      ? "Rate this item after your order is verified as delivered."
+      : null;
+
   return (
     <div className={compact ? "mt-1 space-y-1" : "mt-2 space-y-2"}>
-      {communityLabel ? (
+      {!isDashboardRecent && communityLabel ? (
         <p className="text-xs text-staff-instruction">{communityLabel}</p>
       ) : null}
 
@@ -141,18 +154,29 @@ export function MenuItemRatingBlock({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-xs font-medium text-slate-700">Your rating</span>
+            {!isDashboardRecent ? (
+              <span className="text-xs font-medium text-slate-700">Your rating</span>
+            ) : null}
             <RatingStars
               value={displayValue}
               size={starSize}
               readOnly={!canRate}
               disabled={!summary?.canSubmitOrUpdate}
               saving={isPending}
-              label={`Your rating for ${itemName}`}
+              label={
+                isDashboardRecent ? `Rate ${itemName}` : `Your rating for ${itemName}`
+              }
               onCommit={canRate ? handleCommit : undefined}
             />
             {isPending ? (
-              <span className="text-xs text-staff-instruction" aria-live="polite">
+              <span
+                className={
+                  isDashboardRecent
+                    ? "sr-only"
+                    : "text-xs text-staff-instruction"
+                }
+                aria-live="polite"
+              >
                 Saving…
               </span>
             ) : null}
@@ -160,13 +184,17 @@ export function MenuItemRatingBlock({
 
           <p
             id={statusId}
-            className={`text-xs ${errorMessage ? "text-destructive" : "text-staff-instruction"}`}
+            className={`text-xs ${
+              errorMessage
+                ? "text-destructive"
+                : isDashboardRecent
+                  ? "sr-only"
+                  : "text-staff-instruction"
+            }`}
             role={errorMessage ? "alert" : "status"}
             aria-live="polite"
           >
-            {statusMessage ?? (summary?.myStars == null && !summary?.canSubmitOrUpdate
-              ? "Rate this item after your order is verified as delivered."
-              : null)}
+            {errorMessage ?? statusMessage ?? instructionalFallback}
           </p>
         </>
       )}

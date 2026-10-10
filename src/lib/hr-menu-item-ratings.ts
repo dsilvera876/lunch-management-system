@@ -25,6 +25,9 @@ export type HrCatalogMenuItemRatingsDetail = {
   averageStars: number;
   activeRatingCount: number;
   ratings: HrMenuItemRatingRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 export type HrMenuItemRatingRow = {
@@ -154,17 +157,33 @@ export function parseHrCatalogMenuItemRatingsDetail(
     averageStars: Number(raw.average_stars),
     activeRatingCount: Number(raw.active_rating_count),
     ratings,
+    totalCount: Number(raw.total_count ?? ratings.length),
+    page: Number(raw.page ?? 1),
+    pageSize: Number(raw.page_size ?? ratings.length),
   };
 }
 
-export function parseHrMenuItemRatingsAudit(payload: unknown): HrMenuItemRatingsAuditEntry[] {
+export type HrMenuItemRatingsAuditPage = {
+  entries: HrMenuItemRatingsAuditEntry[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
+export function parseHrMenuItemRatingsAudit(payload: unknown): HrMenuItemRatingsAuditPage {
   if (!payload || typeof payload !== "object") {
-    return [];
+    return { entries: [], totalCount: 0, page: 1, pageSize: 20 };
   }
 
-  const entries = (payload as { entries?: unknown }).entries;
+  const raw = payload as Record<string, unknown>;
+  const entries = raw.entries;
   if (!Array.isArray(entries)) {
-    return [];
+    return {
+      entries: [],
+      totalCount: Number(raw.total_count ?? 0),
+      page: Number(raw.page ?? 1),
+      pageSize: Number(raw.page_size ?? 20),
+    };
   }
 
   const result: HrMenuItemRatingsAuditEntry[] = [];
@@ -196,7 +215,12 @@ export function parseHrMenuItemRatingsAudit(payload: unknown): HrMenuItemRatings
     });
   }
 
-  return result;
+  return {
+    entries: result,
+    totalCount: Number(raw.total_count ?? result.length),
+    page: Number(raw.page ?? 1),
+    pageSize: Number(raw.page_size ?? 20),
+  };
 }
 
 export function formatHrRatingsActionLabel(action: string): string {

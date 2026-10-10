@@ -272,7 +272,7 @@ export function StaffDashboard({
               <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-staff-teal">
                 <IconStarOutline size={18} />
               </span>
-              <h2 className="text-base font-semibold text-slate-900">Rate Recent Orders</h2>
+              <h2 className="text-base font-semibold text-slate-900">How Were Your Recent Meals?</h2>
             </div>
             <Link href="/my-orders" className="inline-flex min-h-10 items-center text-sm font-medium text-staff-teal hover:underline">
               View all →
@@ -316,6 +316,7 @@ export function StaffDashboard({
                     summariesLoadFailed={ratingsLoadFailed}
                     compact
                     starSize="lg"
+                    presentation="dashboardRecent"
                   />
                 </li>
               ))}

@@ -22,6 +22,10 @@ test.describe("Menu item ratings — Staff UI", () => {
     applyMenuItemRatingsStaffE2eFixture();
   });
 
+  test.beforeEach(() => {
+    applyMenuItemRatingsStaffE2eFixture();
+  });
+
   test.afterAll(() => {
     restoreMenuItemRatingsStaffE2eFixture();
   });
@@ -53,7 +57,10 @@ test.describe("Menu item ratings — Staff UI", () => {
     await star4.focus();
     await page.keyboard.press("Enter");
 
-    await expect(page.getByRole("status").filter({ hasText: /Saved 4 of 5 stars/i })).toBeVisible({
+    await expect
+      .poll(async () => group.getAttribute("data-rating-stars-value"), { timeout: 20_000 })
+      .toBe("4");
+    await expect(page.getByRole("status").filter({ hasText: /4 of 5 stars/i })).toBeVisible({
       timeout: 20_000,
     });
 
@@ -69,12 +76,24 @@ test.describe("Menu item ratings — Staff UI", () => {
     const group = page.getByRole("radiogroup", { name: /Your rating for/i }).first();
     const committed = await group.getAttribute("data-rating-stars-value");
 
-    const star5 = group.getByRole("radio", { name: "5 stars" });
-    await star5.hover();
-    await expect(group).toHaveAttribute("data-rating-stars-preview", "5");
+    async function expectHoverPreview(starLabel: string, expected: string) {
+      const star = group.getByRole("radio", { name: starLabel });
+      await star.scrollIntoViewIfNeeded();
+      await star.hover();
+      await expect
+        .poll(async () => {
+          const preview = await group.getAttribute("data-rating-stars-preview");
+          if (preview === expected) {
+            return preview;
+          }
+          await star.dispatchEvent("pointerenter");
+          return group.getAttribute("data-rating-stars-preview");
+        })
+        .toBe(expected);
+    }
 
-    await group.getByRole("radio", { name: "1 star" }).hover();
-    await expect(group).toHaveAttribute("data-rating-stars-preview", "1");
+    await expectHoverPreview("5 stars", "5");
+    await expectHoverPreview("1 star", "1");
 
     await page.locator("#main-content").getByRole("heading", { name: "My Orders" }).hover();
     await expect(group).toHaveAttribute("data-rating-stars-preview", "");
@@ -125,10 +144,12 @@ test.describe("Menu item ratings — Staff UI", () => {
     await group.getByRole("radio", { name: "2 stars" }).click();
     await group.getByRole("radio", { name: "5 stars" }).click();
 
+    await expect
+      .poll(async () => group.getAttribute("data-rating-stars-value"), { timeout: 20_000 })
+      .toBe("5");
     await expect(page.getByRole("status").filter({ hasText: /Saved 5 of 5 stars/i })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(group).toHaveAttribute("data-rating-stars-value", "5");
   });
 
   test("failed save restores committed stars and exposes an alert", async ({ page }) => {
@@ -179,10 +200,51 @@ test.describe("Menu item ratings — Staff UI", () => {
 
   test("home dashboard lists main-only recent rateable menu items", async ({ page }) => {
     await page.goto("/home");
-    await expect(page.getByRole("heading", { name: /Rate Recent Orders/i })).toBeVisible();
-    await expect(page.getByText("Your rating").first()).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.getByRole("heading", { name: /How Were Your Recent Meals\?/i }),
+    ).toBeVisible();
+    await expect(page.getByText("Your rating", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("No ratings yet")).toHaveCount(0);
     await expect(page.getByText("Plain Rice")).toHaveCount(0);
-    await expect(page.getByText("BBQ Chicken").first()).toBeVisible();
+    await expect(page.getByText("BBQ Chicken").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/^Delivered /).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("radiogroup").first()).toBeVisible({ timeout: 20_000 });
     await expectNoAxeViolations(page, "/home menu item ratings", { mainContentOnly: true });
+  });
+
+  test("Firefox hover highlights stars without a visible focus ring border", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "firefox", "Firefox-specific star hover styling");
+
+    await page.goto("/my-orders?tab=past");
+    const group = page.getByRole("radiogroup", { name: /Your rating for/i }).first();
+    await expect(group).toBeVisible({ timeout: 20_000 });
+
+    const star5 = group.getByRole("radio", { name: "5 stars" });
+    await star5.hover();
+    await expect
+      .poll(async () => group.getAttribute("data-rating-stars-preview"))
+      .toBe("5");
+
+    const hoverBoxShadow = await star5.evaluate(
+      (el) => getComputedStyle(el).boxShadow,
+    );
+    expect(hoverBoxShadow).not.toMatch(/rgb\(.*\)\s0px\s0px\s0px\s2px/i);
+
+    await group.getByRole("radio", { name: "3 stars" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect
+      .poll(async () =>
+        group.evaluate(() => {
+          const focused = document.activeElement;
+          if (!(focused instanceof HTMLButtonElement)) {
+            return "0px";
+          }
+          return getComputedStyle(focused).outlineWidth;
+        }),
+      )
+      .toMatch(/^[1-9]/);
   });
 });

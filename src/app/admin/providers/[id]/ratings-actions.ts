@@ -7,7 +7,6 @@ import {
   parseHrMenuItemRatingsAudit,
   parseHrMenuItemRatingsDashboard,
   type HrCatalogMenuItemRatingsDetail,
-  type HrMenuItemRatingsAuditEntry,
   type HrMenuItemRatingsDashboard,
 } from "@/lib/hr-menu-item-ratings";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +54,8 @@ export async function loadHrProviderMenuItemRatingsDashboard(
 
 export async function loadHrCatalogMenuItemRatingsDetail(
   providerMenuItemId: string,
+  page = 1,
+  pageSize = 20,
 ): Promise<
   { ok: true; detail: HrCatalogMenuItemRatingsDetail } | { ok: false; message: string }
 > {
@@ -63,6 +64,8 @@ export async function loadHrCatalogMenuItemRatingsDetail(
 
   const { data, error } = await supabase.rpc("get_hr_catalog_menu_item_ratings_detail", {
     p_provider_menu_item_id: providerMenuItemId,
+    p_page: page,
+    p_page_size: pageSize,
   });
 
   if (error) {
@@ -79,21 +82,25 @@ export async function loadHrCatalogMenuItemRatingsDetail(
 
 export async function loadHrProviderMenuItemRatingsAudit(
   providerId: string,
-  limit = 50,
-): Promise<{ ok: true; entries: HrMenuItemRatingsAuditEntry[] } | { ok: false; message: string }> {
+  page = 1,
+  pageSize = 20,
+): Promise<
+  { ok: true; audit: ReturnType<typeof parseHrMenuItemRatingsAudit> } | { ok: false; message: string }
+> {
   await requirePermanentHrMenuItemRatingsAdmin();
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("get_hr_provider_menu_item_ratings_audit", {
     p_provider_id: providerId,
-    p_limit: limit,
+    p_page: page,
+    p_page_size: pageSize,
   });
 
   if (error) {
     return { ok: false, message: mapHrRatingsRpcError(error.message) };
   }
 
-  return { ok: true, entries: parseHrMenuItemRatingsAudit(data) };
+  return { ok: true, audit: parseHrMenuItemRatingsAudit(data) };
 }
 
 type MutationResult = { ok: true } | { ok: false; message: string };

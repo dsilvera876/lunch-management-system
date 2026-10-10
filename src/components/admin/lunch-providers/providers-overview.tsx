@@ -251,9 +251,6 @@ function ProvidersOverviewContent({ providers, flashCreated, flashDeleted }: Pro
                           <IconStarOutline size={14} aria-hidden className="shrink-0" />
                           Manage ratings
                         </Link>
-                        <p className="mt-0.5 text-center text-xs leading-none text-muted lg:text-left lg:whitespace-nowrap">
-                          Edit details and late-order settings
-                        </p>
                       </>
                     )}
                   </div>

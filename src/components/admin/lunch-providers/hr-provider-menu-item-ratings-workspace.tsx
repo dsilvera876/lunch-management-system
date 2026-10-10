@@ -13,21 +13,20 @@ import { HrMenuItemRatingsReasonDialog } from "@/components/admin/lunch-provider
 import { Alert } from "@/components/ui/alert";
 import { linkButtonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { RatingStars } from "@/components/ui/rating-stars";
+import { HrMenuItemRatingsAuditLog } from "@/components/admin/lunch-providers/hr-menu-item-ratings-audit-log";
+import { HrRatingsListPagination } from "@/components/admin/lunch-providers/hr-ratings-list-pagination";
+import { RatingStars, RatingStarsAverage } from "@/components/ui/rating-stars";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { ProviderIconWell } from "@/lib/provider-icons";
 import {
-  formatHrRatingsActionLabel,
   type HrCatalogMenuItemRatingsDetail,
-  type HrMenuItemRatingsAuditEntry,
   type HrMenuItemRatingsDashboard,
 } from "@/lib/hr-menu-item-ratings";
 
 type Props = {
   dashboard: HrMenuItemRatingsDashboard;
-  auditEntries: HrMenuItemRatingsAuditEntry[];
   providerIconKey?: string | null;
 };
 
@@ -47,7 +46,6 @@ function formatAverage(value: number, count: number): string {
 
 function HrProviderMenuItemRatingsContent({
   dashboard,
-  auditEntries,
   providerIconKey = null,
 }: Props) {
   const router = useRouter();
@@ -57,18 +55,20 @@ function HrProviderMenuItemRatingsContent({
   const [itemDetail, setItemDetail] = useState<HrCatalogMenuItemRatingsDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailPage, setDetailPage] = useState(1);
+  const [auditReloadToken, setAuditReloadToken] = useState(0);
   const [, startTransition] = useTransition();
 
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const dialogTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const loadDetail = useCallback((providerMenuItemId: string) => {
+  const loadDetail = useCallback((providerMenuItemId: string, page = 1) => {
     const requestId = detailRequestRef.current + 1;
     detailRequestRef.current = requestId;
     setDetailLoading(true);
     setDetailError(null);
     startTransition(async () => {
-      const result = await loadHrCatalogMenuItemRatingsDetail(providerMenuItemId);
+      const result = await loadHrCatalogMenuItemRatingsDetail(providerMenuItemId, page);
       if (requestId !== detailRequestRef.current) {
         return;
       }
@@ -93,7 +93,8 @@ function HrProviderMenuItemRatingsContent({
     }
     setExpandedItemId(providerMenuItemId);
     setItemDetail(null);
-    loadDetail(providerMenuItemId);
+    setDetailPage(1);
+    loadDetail(providerMenuItemId, 1);
   }
 
   function openDialog(kind: DialogKind) {
@@ -134,6 +135,7 @@ function HrProviderMenuItemRatingsContent({
     description: string;
     confirmLabel: string;
     reasonRequired: boolean;
+    showReasonField: boolean;
     destructive: boolean;
   } | null {
     if (!dialog) {
@@ -148,6 +150,7 @@ function HrProviderMenuItemRatingsContent({
             "Staff will no longer see rating controls or community averages for this provider until ratings are re-enabled.",
           confirmLabel: "Disable ratings",
           reasonRequired: true,
+          showReasonField: true,
           destructive: true,
         };
       case "enable":
@@ -157,6 +160,7 @@ function HrProviderMenuItemRatingsContent({
             "Staff can rate delivered items again. Current-generation averages are preserved; nothing is reset.",
           confirmLabel: "Enable ratings",
           reasonRequired: false,
+          showReasonField: false,
           destructive: false,
         };
       case "reset-provider":
@@ -165,7 +169,8 @@ function HrProviderMenuItemRatingsContent({
           description:
             "Starts a new provider assessment period and bumps rating generations for every catalog item. Historical ratings and audit records are kept.",
           confirmLabel: "Reset provider ratings",
-          reasonRequired: true,
+          reasonRequired: false,
+          showReasonField: false,
           destructive: true,
         };
       case "reset-item":
@@ -174,7 +179,8 @@ function HrProviderMenuItemRatingsContent({
           description:
             "Starts a new rating generation for this menu item. Staff need a new verified delivery before they can rate again.",
           confirmLabel: "Reset menu item",
-          reasonRequired: true,
+          reasonRequired: false,
+          showReasonField: false,
           destructive: true,
         };
       case "remove-rating":
@@ -182,7 +188,8 @@ function HrProviderMenuItemRatingsContent({
           title: "Remove staff rating",
           description: `${dialog.employeeName} will not be able to rate ${dialog.itemName} again during this generation.`,
           confirmLabel: "Remove rating",
-          reasonRequired: true,
+          reasonRequired: false,
+          showReasonField: false,
           destructive: true,
         };
       default:
@@ -247,22 +254,28 @@ function HrProviderMenuItemRatingsContent({
               </div>
             }
           />
-          <Card className="p-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Provider average</p>
+          <Card className="p-6 text-center">
+            <p className="text-sm font-medium text-foreground">Provider average</p>
+            {dashboard.providerRatingCount > 0 ? (
+              <div className="mt-3 flex flex-col items-center gap-3">
+                <p className="text-4xl font-semibold tabular-nums tracking-tight text-foreground sm:text-5xl">
+                  {dashboard.providerAverageStars.toFixed(1)}
+                </p>
+                <RatingStarsAverage
+                  value={dashboard.providerAverageStars}
+                  size="lg"
+                  label={`Provider average ${dashboard.providerAverageStars.toFixed(1)} of 5 stars`}
+                />
                 <p className="text-sm text-muted">
-                  {formatAverage(dashboard.providerAverageStars, dashboard.providerRatingCount)}
+                  {dashboard.providerRatingCount} rating
+                  {dashboard.providerRatingCount === 1 ? "" : "s"}
                 </p>
               </div>
-              {dashboard.providerRatingCount > 0 ? (
-                <RatingStars
-                  value={Math.round(dashboard.providerAverageStars)}
-                  readOnly
-                  label={`Provider average ${dashboard.providerAverageStars.toFixed(2)} stars`}
-                />
-              ) : null}
-            </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted">
+                No ratings yet for this assessment period.
+              </p>
+            )}
             {!dashboard.ratingsEnabled ? (
               <Alert variant="warning" className="mt-4">
                 Ratings are disabled for staff. Re-enable to restore rating controls without resetting
@@ -293,7 +306,7 @@ function HrProviderMenuItemRatingsContent({
                       Average
                     </th>
                     <th scope="col" className="px-4 py-3">
-                      Count
+                      Active count
                     </th>
                     <th scope="col" className="px-4 py-3 text-right">
                       Actions
@@ -309,8 +322,18 @@ function HrProviderMenuItemRatingsContent({
                         <td className="px-4 py-3">
                           <StatusBadge status={item.active ? "active" : "inactive"} />
                         </td>
-                        <td className="px-4 py-3 tabular-nums">
-                          {item.ratingCount > 0 ? item.averageStars.toFixed(2) : "—"}
+                        <td className="px-4 py-3">
+                          {item.ratingCount > 0 ? (
+                            <RatingStarsAverage
+                              value={item.averageStars}
+                              size="sm"
+                              label={`${item.name}: ${item.averageStars.toFixed(1)} of 5 stars average`}
+                            />
+                          ) : (
+                            <span className="text-muted" aria-label="No ratings">
+                              —
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 tabular-nums">{item.ratingCount}</td>
                         <td className="px-4 py-3">
@@ -358,6 +381,7 @@ function HrProviderMenuItemRatingsContent({
                                   {itemDetail.ratings.length === 0 ? (
                                     <p className="text-sm text-muted">No ratings in this generation.</p>
                                   ) : (
+                                    <>
                                     <ul className="space-y-3">
                                       {itemDetail.ratings.map((rating) => (
                                         <li
@@ -405,6 +429,18 @@ function HrProviderMenuItemRatingsContent({
                                         </li>
                                       ))}
                                     </ul>
+                                    <HrRatingsListPagination
+                                      page={itemDetail.page}
+                                      pageSize={itemDetail.pageSize}
+                                      totalCount={itemDetail.totalCount}
+                                      activeCount={itemDetail.activeRatingCount}
+                                      loading={detailLoading}
+                                      onPageChange={(nextPage) => {
+                                        setDetailPage(nextPage);
+                                        loadDetail(item.providerMenuItemId, nextPage);
+                                      }}
+                                    />
+                                    </>
                                   )}
                                 </>
                               ) : null}
@@ -420,32 +456,10 @@ function HrProviderMenuItemRatingsContent({
           </Card>
         </section>
 
-        <section>
-          <SectionHeader
-            title="Moderation audit"
-            description="Recent HR actions on ratings for this provider."
-            descriptionClassName="text-slate-700"
-          />
-          <Card className="p-4">
-            {auditEntries.length === 0 ? (
-              <p className="text-sm text-muted">No moderation actions recorded yet.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {auditEntries.map((entry) => (
-                  <li key={entry.id} className="py-3 first:pt-0 last:pb-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatHrRatingsActionLabel(entry.action)}
-                    </p>
-                    <p className="text-sm text-muted">{entry.reason}</p>
-                    <p className="mt-1 text-xs text-muted">
-                      {entry.actorName} · {entry.createdAtLabel ?? entry.createdAt}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </section>
+        <HrMenuItemRatingsAuditLog
+          providerId={dashboard.providerId}
+          reloadToken={auditReloadToken}
+        />
       </div>
 
       <button
@@ -465,6 +479,7 @@ function HrProviderMenuItemRatingsContent({
         description={copy?.description ?? ""}
         confirmLabel={copy?.confirmLabel ?? "Confirm"}
         reasonRequired={copy?.reasonRequired ?? true}
+        showReasonField={copy?.showReasonField ?? true}
         destructive={copy?.destructive ?? false}
         onOpenChange={(open) => {
           if (!open) {
@@ -474,12 +489,13 @@ function HrProviderMenuItemRatingsContent({
         onConfirm={handleDialogConfirm}
         onSuccess={(message) => {
           showToast({ title: message });
+          setAuditReloadToken((token) => token + 1);
           window.requestAnimationFrame(() => {
             router.refresh();
             if (expandedItemId) {
               setItemDetail(null);
               setDetailError(null);
-              loadDetail(expandedItemId);
+              loadDetail(expandedItemId, detailPage);
             } else {
               setItemDetail(null);
             }

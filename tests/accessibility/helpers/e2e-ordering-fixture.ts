@@ -1171,6 +1171,96 @@ export function applyMostPopularMenuItemE2eFixture(): void {
   `);
 }
 
+const E2E_HR_PAGINATION_EMAIL_PREFIX = "e2e-hr-page-";
+
+/** Seeds many distinct ratings on BBQ Chicken for HR pagination E2E (local DB only). */
+export function applyHrRatingsPaginationE2eFixture(ratingCount = 105): void {
+  applyMenuItemRatingsStaffE2eFixture();
+  restoreHrRatingsPaginationE2eFixture();
+
+  runLocalDbExec(`
+    do $fixture$
+    declare
+      v_i integer;
+      v_profile_id uuid;
+      v_order_id uuid := '${E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID}'::uuid;
+      v_order_item_id uuid;
+      v_gen integer;
+      v_provider_gen integer;
+    begin
+      select oi.id
+      into v_order_item_id
+      from public.order_items oi
+      join public.menu_items mi on mi.id = oi.menu_item_id
+      where oi.order_id = v_order_id
+        and mi.provider_menu_item_id = '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid
+      limit 1;
+
+      select pmi.current_rating_generation, lp.current_provider_rating_generation
+      into v_gen, v_provider_gen
+      from public.provider_menu_items pmi
+      join public.lunch_providers lp on lp.id = pmi.provider_id
+      where pmi.id = '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid;
+
+      delete from private.menu_item_ratings
+      where provider_menu_item_id = '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid;
+
+      for v_i in 1..${ratingCount} loop
+        v_profile_id := ('bbbb0000-0000-4000-8000-' || lpad(to_hex(v_i), 12, '0'))::uuid;
+        insert into auth.users (id, email, raw_user_meta_data)
+        values (
+          v_profile_id,
+          '${E2E_HR_PAGINATION_EMAIL_PREFIX}' || v_i::text || '@test.local',
+          jsonb_build_object('full_name', 'E2E Page Staff ' || v_i::text)
+        )
+        on conflict (id) do nothing;
+
+        insert into private.menu_item_ratings (
+          profile_id,
+          provider_menu_item_id,
+          provider_id,
+          menu_item_generation,
+          provider_rating_generation,
+          stars,
+          source_order_id,
+          source_order_item_id,
+          last_qualifying_delivery_at,
+          created_at
+        )
+        values (
+          v_profile_id,
+          '${E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID}'::uuid,
+          '${STAFF_SEED.providerAlberries}'::uuid,
+          v_gen,
+          v_provider_gen,
+          (1 + (v_i % 5))::smallint,
+          v_order_id,
+          v_order_item_id,
+          now() - (v_i || ' minutes')::interval,
+          now() - (v_i || ' minutes')::interval
+        );
+      end loop;
+    end;
+    $fixture$
+  `);
+}
+
+export function restoreHrRatingsPaginationE2eFixture(): void {
+  runLocalDbExec(`
+    do $fixture$
+    begin
+      delete from private.menu_item_ratings mir
+      where mir.profile_id in (
+        select id from auth.users where email like '${E2E_HR_PAGINATION_EMAIL_PREFIX}%@test.local'
+      );
+
+      delete from auth.users
+      where email like '${E2E_HR_PAGINATION_EMAIL_PREFIX}%@test.local';
+    end;
+    $fixture$
+  `);
+}
+
 export function restoreMostPopularMenuItemE2eFixture(): void {
   runLocalDbExec(`
     do $fixture$
