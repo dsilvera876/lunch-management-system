@@ -138,7 +138,7 @@ test.describe("HR menu item ratings administration", () => {
     await expectNoAxeViolations(page, "/admin/providers ratings narrow", { mainContentOnly: true });
   });
 
-  test("disable and re-enable ratings with mandatory reason", async ({ page }) => {
+  test("disable and re-enable ratings without reason field", async ({ page }) => {
     await openRatingsPage(page);
 
     const enable = page.locator("#main-content").getByRole("button", { name: "Enable ratings" });
@@ -161,7 +161,7 @@ test.describe("HR menu item ratings administration", () => {
     await expect(dialog.getByRole("heading", { name: "Disable menu item ratings" })).toBeVisible({
       timeout: 20_000,
     });
-    await dialog.getByLabel(/Reason/i).fill("E2E temporary disable for validation");
+    await expect(dialog.getByLabel(/Reason/i)).toHaveCount(0);
     await dialog.getByRole("button", { name: "Disable ratings" }).last().click();
     await expect(page.locator("#main-content").getByRole("button", { name: "Enable ratings" })).toBeVisible({
       timeout: 20_000,
@@ -197,11 +197,15 @@ test.describe("HR menu item ratings administration", () => {
       .getByRole("button", { name: "Reset all ratings" })
       .click();
     const resetAllDialog = page.getByRole("dialog");
-    await expect(resetAllDialog.getByRole("heading", { name: "Reset all provider ratings" })).toBeVisible({
+    await expect(
+      resetAllDialog.getByRole("heading", { name: "Reset all ratings for this provider?" }),
+    ).toBeVisible({
       timeout: 20_000,
     });
-    await expect(resetAllDialog.getByRole("heading", { name: "Reset all provider ratings" })).toBeFocused();
-    await expect(resetAllDialog.getByLabel(/Reason/i)).toHaveCount(0);
+    await expect(
+      resetAllDialog.getByRole("heading", { name: "Reset all ratings for this provider?" }),
+    ).toBeFocused();
+    await expect(resetAllDialog.getByLabel("Reason for reset (optional)")).toBeVisible();
 
     await resetAllDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(resetAllDialog).toBeHidden();
@@ -215,7 +219,7 @@ test.describe("HR menu item ratings administration", () => {
     await expect(page.getByText("Changes saved.", { exact: true })).toBeVisible({ timeout: 20_000 });
   });
 
-  test("provider summary shows focal average card and paginated activity log", async ({ page }) => {
+  test("provider summary shows focal average card and collapsible activity log", async ({ page }) => {
     await openRatingsPage(page);
     await expect(page.getByText("Provider average")).toBeVisible();
     const providerAverageVisual = page
@@ -223,9 +227,31 @@ test.describe("HR menu item ratings administration", () => {
       .or(page.getByText("No ratings yet for this assessment period."));
     await expect(providerAverageVisual).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Rating activity log" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "View rating activity" })).toBeVisible();
+    await page.getByRole("button", { name: "View rating activity" }).click();
+    await expect(page.getByRole("button", { name: "Hide rating activity" })).toBeVisible();
     const itemAverageStar = page.getByRole("img", { name: /of 5 stars average/i }).first();
     const itemAverageEmpty = page.getByLabel("No ratings").first();
     await expect(itemAverageStar.or(itemAverageEmpty)).toBeVisible();
+  });
+
+  test("closing confirmation dialog preserves scroll position", async ({ page }) => {
+    await openRatingsPage(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const resetButton = page.locator("#main-content").getByRole("button", { name: "Reset all ratings" });
+    await resetButton.scrollIntoViewIfNeeded();
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await resetButton.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 20_000 });
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden({ timeout: 20_000 });
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThanOrEqual(scrollBefore - 2);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeLessThanOrEqual(scrollBefore + 2);
   });
 
   test("individual ratings paginate with 20 per page and refresh after removal", async ({ page }) => {
@@ -268,9 +294,7 @@ test.describe("HR menu item ratings administration", () => {
       });
       await expect(page.getByText(/105 records in this generation \(104 active in averages/)).toBeVisible();
 
-      await expect(
-        page.getByRole("heading", { level: 2, name: "Rating activity log" }),
-      ).toBeVisible();
+      await page.getByRole("button", { name: "View rating activity" }).click();
       await expect(page.getByText("Removed rating").first()).toBeVisible({ timeout: 20_000 });
     } finally {
       restoreHrRatingsPaginationE2eFixture();

@@ -40,13 +40,24 @@ function getModalLayer(): HTMLElement | null {
   return document.getElementById(STAFF_MODAL_LAYER_ID);
 }
 
+function restoreTriggerFocus(trigger: HTMLElement | null | undefined) {
+  if (!trigger) {
+    return;
+  }
+  try {
+    trigger.focus({ preventScroll: true });
+  } catch {
+    trigger.focus();
+  }
+}
+
 function closeModal(
   onOpenChange: (open: boolean) => void,
   triggerRef: RefObject<HTMLElement | null>,
 ) {
   onOpenChange(false);
   window.requestAnimationFrame(() => {
-    triggerRef.current?.focus();
+    restoreTriggerFocus(triggerRef.current);
   });
 }
 

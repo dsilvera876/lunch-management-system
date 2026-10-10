@@ -16,7 +16,7 @@ import { focusFormErrorSummary } from "@/lib/staff-form-accessibility";
 
 type Props = {
   open: boolean;
-  triggerRef: RefObject<HTMLButtonElement | null>;
+  triggerRef: RefObject<HTMLElement | null>;
   title: string;
   description: string;
   confirmLabel: string;
@@ -70,10 +70,40 @@ export function HrMenuItemRatingsReasonDialog({
     });
   }, [open, title]);
 
+  function restoreDialogFocus() {
+    const target = triggerRef.current;
+    if (target?.isConnected) {
+      try {
+        target.focus({ preventScroll: true });
+      } catch {
+        target.focus();
+      }
+      return;
+    }
+    const main = document.getElementById("main-content");
+    if (!main) {
+      return;
+    }
+    const preferredLabels = ["Disable ratings", "Enable ratings", "Reset all ratings"];
+    for (const label of preferredLabels) {
+      const match = Array.from(main.querySelectorAll("button")).find(
+        (button) => button.textContent?.trim() === label,
+      );
+      if (match instanceof HTMLElement && match.isConnected) {
+        try {
+          match.focus({ preventScroll: true });
+        } catch {
+          match.focus();
+        }
+        return;
+      }
+    }
+  }
+
   function dismissModal() {
     onOpenChange(false);
     window.requestAnimationFrame(() => {
-      triggerRef.current?.focus();
+      restoreDialogFocus();
     });
   }
 

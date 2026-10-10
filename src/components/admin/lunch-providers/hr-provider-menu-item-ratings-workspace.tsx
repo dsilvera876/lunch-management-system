@@ -60,7 +60,8 @@ function HrProviderMenuItemRatingsContent({
   const [, startTransition] = useTransition();
 
   const [dialog, setDialog] = useState<DialogKind | null>(null);
-  const dialogTriggerRef = useRef<HTMLButtonElement>(null);
+  const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
+  const [activityLogExpanded, setActivityLogExpanded] = useState(false);
 
   const loadDetail = useCallback((providerMenuItemId: string, page = 1) => {
     const requestId = detailRequestRef.current + 1;
@@ -97,7 +98,8 @@ function HrProviderMenuItemRatingsContent({
     loadDetail(providerMenuItemId, 1);
   }
 
-  function openDialog(kind: DialogKind) {
+  function openDialog(kind: DialogKind, returnFocus: HTMLElement) {
+    dialogReturnFocusRef.current = returnFocus;
     // Defer until after the triggering click finishes so the modal backdrop
     // does not receive the same pointer sequence and instantly dismiss.
     window.requestAnimationFrame(() => {
@@ -149,8 +151,8 @@ function HrProviderMenuItemRatingsContent({
           description:
             "Staff will no longer see rating controls or community averages for this provider until ratings are re-enabled.",
           confirmLabel: "Disable ratings",
-          reasonRequired: true,
-          showReasonField: true,
+          reasonRequired: false,
+          showReasonField: false,
           destructive: true,
         };
       case "enable":
@@ -165,12 +167,12 @@ function HrProviderMenuItemRatingsContent({
         };
       case "reset-provider":
         return {
-          title: "Reset all provider ratings",
+          title: "Reset all ratings for this provider?",
           description:
-            "Starts a new provider assessment period and bumps rating generations for every catalog item. Historical ratings and audit records are kept.",
-          confirmLabel: "Reset provider ratings",
+            "This will clear the current ratings for all menu items from this provider, giving them a fresh start. Previous ratings will be kept in the activity history. Staff can submit new ratings after receiving these meals again.",
+          confirmLabel: "Reset all ratings",
           reasonRequired: false,
-          showReasonField: false,
+          showReasonField: true,
           destructive: true,
         };
       case "reset-item":
@@ -231,7 +233,7 @@ function HrProviderMenuItemRatingsContent({
                   <button
                     type="button"
                     className={linkButtonClass("secondary")}
-                    onClick={() => openDialog({ type: "disable" })}
+                    onClick={(event) => openDialog({ type: "disable" }, event.currentTarget)}
                   >
                     Disable ratings
                   </button>
@@ -239,7 +241,7 @@ function HrProviderMenuItemRatingsContent({
                   <button
                     type="button"
                     className={linkButtonClass("primary")}
-                    onClick={() => openDialog({ type: "enable" })}
+                    onClick={(event) => openDialog({ type: "enable" }, event.currentTarget)}
                   >
                     Enable ratings
                   </button>
@@ -247,7 +249,7 @@ function HrProviderMenuItemRatingsContent({
                 <button
                   type="button"
                   className={linkButtonClass("secondary")}
-                  onClick={() => openDialog({ type: "reset-provider" })}
+                  onClick={(event) => openDialog({ type: "reset-provider" }, event.currentTarget)}
                 >
                   Reset all ratings
                 </button>
@@ -349,12 +351,15 @@ function HrProviderMenuItemRatingsContent({
                             <button
                               type="button"
                               className={linkButtonClass("secondary")}
-                              onClick={() =>
-                                openDialog({
-                                  type: "reset-item",
-                                  providerMenuItemId: item.providerMenuItemId,
-                                  itemName: item.name,
-                                })
+                              onClick={(event) =>
+                                openDialog(
+                                  {
+                                    type: "reset-item",
+                                    providerMenuItemId: item.providerMenuItemId,
+                                    itemName: item.name,
+                                  },
+                                  event.currentTarget,
+                                )
                               }
                             >
                               Reset item
@@ -414,13 +419,16 @@ function HrProviderMenuItemRatingsContent({
                                             <button
                                               type="button"
                                               className={linkButtonClass("danger")}
-                                              onClick={() =>
-                                                openDialog({
-                                                  type: "remove-rating",
-                                                  ratingId: rating.id,
-                                                  employeeName: rating.employeeName,
-                                                  itemName: item.name,
-                                                })
+                                              onClick={(event) =>
+                                                openDialog(
+                                                  {
+                                                    type: "remove-rating",
+                                                    ratingId: rating.id,
+                                                    employeeName: rating.employeeName,
+                                                    itemName: item.name,
+                                                  },
+                                                  event.currentTarget,
+                                                )
                                               }
                                             >
                                               Remove
@@ -458,28 +466,23 @@ function HrProviderMenuItemRatingsContent({
 
         <HrMenuItemRatingsAuditLog
           providerId={dashboard.providerId}
+          expanded={activityLogExpanded}
+          onExpandedChange={setActivityLogExpanded}
           reloadToken={auditReloadToken}
         />
       </div>
 
-      <button
-        ref={dialogTriggerRef}
-        type="button"
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden
-      >
-        Open confirmation
-      </button>
-
       <HrMenuItemRatingsReasonDialog
         open={copy !== null}
-        triggerRef={dialogTriggerRef}
+        triggerRef={dialogReturnFocusRef}
         title={copy?.title ?? ""}
         description={copy?.description ?? ""}
         confirmLabel={copy?.confirmLabel ?? "Confirm"}
         reasonRequired={copy?.reasonRequired ?? true}
         showReasonField={copy?.showReasonField ?? true}
+        reasonLabel={
+          dialog?.type === "reset-provider" ? "Reason for reset (optional)" : "Reason"
+        }
         destructive={copy?.destructive ?? false}
         onOpenChange={(open) => {
           if (!open) {
@@ -490,15 +493,16 @@ function HrProviderMenuItemRatingsContent({
         onSuccess={(message) => {
           showToast({ title: message });
           setAuditReloadToken((token) => token + 1);
+          if (expandedItemId) {
+            setItemDetail(null);
+            setDetailError(null);
+            loadDetail(expandedItemId, detailPage);
+          } else {
+            setItemDetail(null);
+          }
+          // Run after dialog focus restoration so swapped controls are not unmounted early.
           window.requestAnimationFrame(() => {
             router.refresh();
-            if (expandedItemId) {
-              setItemDetail(null);
-              setDetailError(null);
-              loadDetail(expandedItemId, detailPage);
-            } else {
-              setItemDetail(null);
-            }
           });
         }}
       />

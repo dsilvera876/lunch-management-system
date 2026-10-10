@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select plan(36);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -305,7 +305,17 @@ select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-
 
 select lives_ok(
   $$ select public.hr_set_provider_menu_item_ratings_enabled('99999999-9999-4999-8999-999999999999', false, 'Temporary pause') $$,
-  'HR disables provider ratings with reason'
+  'HR disables provider ratings with optional reason'
+);
+
+select lives_ok(
+  $$ select public.hr_set_provider_menu_item_ratings_enabled('99999999-9999-4999-8999-999999999999', true, '') $$,
+  'HR re-enables provider ratings without reason before disable without reason'
+);
+
+select lives_ok(
+  $$ select public.hr_set_provider_menu_item_ratings_enabled('99999999-9999-4999-8999-999999999999', false, '') $$,
+  'HR disables provider ratings without mandatory reason'
 );
 
 select is(
