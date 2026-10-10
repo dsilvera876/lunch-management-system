@@ -174,6 +174,11 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
         return crumbs;
       }
 
+      if (segments[3] === "ratings") {
+        crumbs.push({ label: "Manage ratings" });
+        return crumbs;
+      }
+
       if (segments.length > 2 && segments[2] !== "print") {
         crumbs.push({ label: "Manage menu" });
       }

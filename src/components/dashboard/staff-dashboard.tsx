@@ -314,6 +314,8 @@ export function StaffDashboard({
                     initialSummary={menuItemRatingSummaries[item.providerMenuItemId]}
                     ratingsEnabled
                     summariesLoadFailed={ratingsLoadFailed}
+                    compact
+                    starSize="lg"
                   />
                 </li>
               ))}

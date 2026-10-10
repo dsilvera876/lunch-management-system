@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { saveMyMenuItemRating } from "@/app/menu-item-ratings/actions";
-import { RatingStars } from "@/components/ui/rating-stars";
+import { RatingStars, type RatingStarsSize } from "@/components/ui/rating-stars";
 import {
   formatCommunityRatingLabel,
   type MenuItemRatingSummary,
@@ -18,6 +18,7 @@ type Props = {
   /** When true, summaries failed to load (distinct from “no ratings yet”). */
   summariesLoadFailed?: boolean;
   compact?: boolean;
+  starSize?: RatingStarsSize;
 };
 
 export function MenuItemRatingBlock({
@@ -27,9 +28,14 @@ export function MenuItemRatingBlock({
   ratingsEnabled,
   summariesLoadFailed = false,
   compact = false,
+  starSize = "lg",
 }: Props) {
   const statusId = useId();
+  const saveGenerationRef = useRef(0);
+  const queuedStarsRef = useRef<number | null>(null);
+  const drainActiveRef = useRef(false);
   const [summary, setSummary] = useState(initialSummary);
+  const [optimisticStars, setOptimisticStars] = useState<number | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -40,6 +46,9 @@ export function MenuItemRatingBlock({
     setSummary(initialSummary);
     if (!summariesLoadFailed) {
       setErrorMessage(null);
+    }
+    if (!drainActiveRef.current && queuedStarsRef.current === null) {
+      setOptimisticStars(null);
     }
   }, [initialSummary, summariesLoadFailed]);
 
@@ -53,33 +62,70 @@ export function MenuItemRatingBlock({
       ? formatCommunityRatingLabel(summary)
       : "No ratings yet";
 
-  const statusMessage = errorMessage ?? menuItemRatingStatusMessage(summary, savedMessage);
-  const interactive =
-    !summariesLoadFailed && summary?.canSubmitOrUpdate === true && !isPending;
-  const displayValue = summary?.myStars ?? 0;
+  const confirmedStars = summary?.myStars ?? 0;
+  const displayValue = optimisticStars ?? confirmedStars;
+  const canRate = !summariesLoadFailed && summary?.canSubmitOrUpdate === true;
 
-  function handleRate(stars: number) {
-    if (!interactive) {
+  const statusMessage = errorMessage ?? menuItemRatingStatusMessage(summary, savedMessage);
+
+  function drainSaveQueue() {
+    if (drainActiveRef.current) {
+      return;
+    }
+
+    drainActiveRef.current = true;
+
+    startTransition(async () => {
+      try {
+        while (queuedStarsRef.current !== null) {
+          const stars = queuedStarsRef.current;
+          queuedStarsRef.current = null;
+          const generation = ++saveGenerationRef.current;
+
+          const result = await saveMyMenuItemRating(providerMenuItemId, stars);
+
+          if (generation !== saveGenerationRef.current) {
+            continue;
+          }
+
+          if (!result.ok) {
+            setOptimisticStars(null);
+            setErrorMessage(result.message);
+            return;
+          }
+
+          setErrorMessage(null);
+          setSummary(result.summary);
+          const nextQueued = queuedStarsRef.current;
+          setOptimisticStars(nextQueued);
+
+          if (nextQueued === null) {
+            setSavedMessage(
+              result.refreshWarning
+                ? `${result.refreshWarning} (${stars} of 5 stars saved for ${itemName}.)`
+                : `Saved ${stars} of 5 stars for ${itemName}.`,
+            );
+          }
+        }
+      } finally {
+        drainActiveRef.current = false;
+        if (queuedStarsRef.current !== null) {
+          drainSaveQueue();
+        }
+      }
+    });
+  }
+
+  function handleCommit(stars: number) {
+    if (!canRate) {
       return;
     }
 
     setErrorMessage(null);
     setSavedMessage(null);
-
-    startTransition(async () => {
-      const result = await saveMyMenuItemRating(providerMenuItemId, stars);
-      if (!result.ok) {
-        setErrorMessage(result.message);
-        return;
-      }
-
-      setSummary(result.summary);
-      setSavedMessage(
-        result.refreshWarning
-          ? `${result.refreshWarning} (${stars} of 5 stars saved for ${itemName}.)`
-          : `Saved ${stars} of 5 stars for ${itemName}.`,
-      );
-    });
+    setOptimisticStars(stars);
+    queuedStarsRef.current = stars;
+    drainSaveQueue();
   }
 
   return (
@@ -98,9 +144,12 @@ export function MenuItemRatingBlock({
             <span className="text-xs font-medium text-slate-700">Your rating</span>
             <RatingStars
               value={displayValue}
-              readOnly={!interactive}
+              size={starSize}
+              readOnly={!canRate}
+              disabled={!summary?.canSubmitOrUpdate}
+              saving={isPending}
               label={`Your rating for ${itemName}`}
-              onChange={handleRate}
+              onCommit={canRate ? handleCommit : undefined}
             />
             {isPending ? (
               <span className="text-xs text-staff-instruction" aria-live="polite">
@@ -112,7 +161,7 @@ export function MenuItemRatingBlock({
           <p
             id={statusId}
             className={`text-xs ${errorMessage ? "text-destructive" : "text-staff-instruction"}`}
-            role="status"
+            role={errorMessage ? "alert" : "status"}
             aria-live="polite"
           >
             {statusMessage ?? (summary?.myStars == null && !summary?.canSubmitOrUpdate

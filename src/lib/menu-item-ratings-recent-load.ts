@@ -31,10 +31,18 @@ type RecentOrderRow = {
       | {
           name: string;
           provider_menu_item_id: string | null;
+          provider_menu_items:
+            | { item_type: string | null }
+            | { item_type: string | null }[]
+            | null;
         }
       | {
           name: string;
           provider_menu_item_id: string | null;
+          provider_menu_items:
+            | { item_type: string | null }
+            | { item_type: string | null }[]
+            | null;
         }[];
   }>;
 };
@@ -64,7 +72,10 @@ export async function loadRecentRateableMenuItemsForHome(
       order_items (
         menu_items (
           name,
-          provider_menu_item_id
+          provider_menu_item_id,
+          provider_menu_items (
+            item_type
+          )
         )
       )
     `)
@@ -104,8 +115,13 @@ export async function loadRecentRateableMenuItemsForHome(
 
     for (const item of row.order_items ?? []) {
       const menuItem = getRelated(item.menu_items);
+      const catalogMeta = menuItem ? getRelated(menuItem.provider_menu_items) : null;
       const catalogId = menuItem?.provider_menu_item_id;
-      if (!catalogId || seen.has(catalogId)) {
+      if (
+        !catalogId ||
+        catalogMeta?.item_type !== "main" ||
+        seen.has(catalogId)
+      ) {
         continue;
       }
 

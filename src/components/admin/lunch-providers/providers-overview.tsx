@@ -7,6 +7,7 @@ import {
   IconCalendar,
   IconClock,
   IconPencil,
+  IconStarOutline,
   IconUtensils,
 } from "@/components/icons/line-icons";
 import { AddProviderDrawer } from "@/components/admin/lunch-providers/add-provider-drawer";
@@ -241,6 +242,14 @@ function ProvidersOverviewContent({ providers, flashCreated, flashDeleted }: Pro
                         >
                           <IconPencil size={14} aria-hidden className="shrink-0" />
                           Edit
+                        </Link>
+                        <Link
+                          href={`/admin/providers/${provider.id}/ratings`}
+                          className={`${linkButtonClass("secondary")} ${compactOverviewLinkClass} inline-flex w-full items-center justify-center gap-1.5 lg:w-full`}
+                          title="Manage menu item ratings"
+                        >
+                          <IconStarOutline size={14} aria-hidden className="shrink-0" />
+                          Manage ratings
                         </Link>
                         <p className="mt-0.5 text-center text-xs leading-none text-muted lg:text-left lg:whitespace-nowrap">
                           Edit details and late-order settings

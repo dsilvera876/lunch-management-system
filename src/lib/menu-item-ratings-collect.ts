@@ -102,7 +102,7 @@ export function collectRecentRateableMenuItems(
       }
 
       for (const line of order.lines) {
-        if (!line.providerMenuItemId || seen.has(line.providerMenuItemId)) {
+        if (line.itemType !== "main" || !line.providerMenuItemId || seen.has(line.providerMenuItemId)) {
           continue;
         }
 

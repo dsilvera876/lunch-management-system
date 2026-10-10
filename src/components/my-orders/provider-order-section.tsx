@@ -58,7 +58,11 @@ function OrderLineRatings({
   ratingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
 }) {
-  if (!order.ratingsEnabled || !line.providerMenuItemId) {
+  if (
+    line.itemType !== "main" ||
+    !order.ratingsEnabled ||
+    !line.providerMenuItemId
+  ) {
     return null;
   }
 

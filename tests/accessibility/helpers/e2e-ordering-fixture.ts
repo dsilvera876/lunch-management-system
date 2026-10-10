@@ -192,7 +192,10 @@ export function isPlaywrightOrderingFixtureActive(): boolean {
 export function ensureLocalStaffOrderingFixtureForPlaywright(): void {
   loadLocalEnvFiles();
 
-  if (process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1") {
+  if (
+    process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1" ||
+    process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1"
+  ) {
     return;
   }
 
@@ -1034,7 +1037,20 @@ export const E2E_MENU_ITEM_RATINGS_DELIVERED_ORDER_ID =
 export const E2E_MENU_ITEM_RATINGS_CATALOG_ITEM_ID =
   "31000001-0001-4001-8001-000000000001";
 
+/** Restores staff upsert RPC after local failure-injection tests (loopback DB only). */
+export function ensureMenuItemRatingRpcGrantedForLocalE2e(): void {
+  runLocalDbExec(`
+    do $grant$
+    begin
+      grant execute on function public.upsert_my_menu_item_rating(uuid, integer) to authenticated;
+    end;
+    $grant$;
+  `);
+}
+
 export function restoreMenuItemRatingsStaffE2eFixture(): void {
+  ensureMenuItemRatingRpcGrantedForLocalE2e();
+
   runLocalDbExec(`
     do $fixture$
     begin
@@ -1074,6 +1090,8 @@ export function applyMenuItemRatingsStaffE2eFixture(): void {
     end;
     $fixture$
   `);
+
+  ensureMenuItemRatingRpcGrantedForLocalE2e();
 }
 
 const E2E_STAFF2_PROFILE_ID = "10000005-0005-4005-8005-000000000005";

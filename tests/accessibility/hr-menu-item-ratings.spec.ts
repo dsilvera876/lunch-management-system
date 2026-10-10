@@ -107,6 +107,23 @@ test.describe("HR menu item ratings administration", () => {
     await expectNoAxeViolations(page, "/admin/providers ratings", { mainContentOnly: true });
   });
 
+  test("breadcrumb navigation and provider list manage ratings entry", async ({ page }) => {
+    await openRatingsPage(page);
+    const nav = page.getByRole("navigation", { name: /breadcrumb/i });
+    await expect(nav.getByRole("link", { name: "Home" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Lunch Providers" })).toBeVisible();
+    await expect(nav.getByText("Manage ratings")).toBeVisible();
+
+    await nav.getByRole("link", { name: "Lunch Providers" }).click();
+    await expect(page).toHaveURL(/\/admin\/providers\/?$/);
+    await expect(
+      page.getByRole("link", { name: "Manage ratings" }).first(),
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Manage ratings" }).first().click();
+    await expect(page).toHaveURL(/\/ratings/);
+  });
+
   test("narrow viewport reflow without horizontal scroll", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: STAFF_SHORT_VIEWPORT_HEIGHT });
     await openRatingsPage(page);
@@ -157,8 +174,7 @@ test.describe("HR menu item ratings administration", () => {
     await expect(enableDialog.getByRole("heading", { name: "Enable menu item ratings" })).toBeVisible({
       timeout: 20_000,
     });
-    await enableDialog.getByRole("heading", { name: "Enable menu item ratings" }).focus();
-    await page.keyboard.press("Escape");
+    await enableDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("dialog")).toBeHidden({ timeout: 20_000 });
 
     await page.locator("#main-content").getByRole("button", { name: "Enable ratings" }).click();

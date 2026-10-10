@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
 import {
@@ -211,17 +210,6 @@ function HrProviderMenuItemRatingsContent({
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/admin/providers/${dashboard.providerId}`} className={linkButtonClass("secondary")}>
-            Manage menu
-          </Link>
-          <Link
-            href={`/admin/providers/${dashboard.providerId}/edit`}
-            className={linkButtonClass("secondary")}
-          >
-            Edit provider
-          </Link>
-        </div>
       </header>
 
       <div className="grid gap-8">
@@ -251,7 +239,7 @@ function HrProviderMenuItemRatingsContent({
                 )}
                 <button
                   type="button"
-                  className={linkButtonClass("danger")}
+                  className={linkButtonClass("secondary")}
                   onClick={() => openDialog({ type: "reset-provider" })}
                 >
                   Reset all ratings
@@ -337,7 +325,7 @@ function HrProviderMenuItemRatingsContent({
                             </button>
                             <button
                               type="button"
-                              className={linkButtonClass("danger")}
+                              className={linkButtonClass("secondary")}
                               onClick={() =>
                                 openDialog({
                                   type: "reset-item",

@@ -43,6 +43,14 @@ Snapshot file: `tests/accessibility/.auth/e2e-ordering-fixture-snapshot.json` (g
 npm run test:a11y
 ```
 
+**Menu item ratings (weekend-safe):** skips the open-ordering calendar fixture (same pattern as Most Popular). Uses `/home` and `/my-orders` only; the lunch-menu case is skipped.
+
+```bash
+$env:PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY="1"
+npx playwright test tests/accessibility/menu-item-ratings.spec.ts --project=chromium-menu-item-ratings-a11y --project=firefox-menu-item-ratings-a11y
+npx playwright test tests/accessibility/hr-menu-item-ratings.spec.ts --project=chromium-hr-ratings-a11y --project=firefox-hr-ratings-a11y
+```
+
 Fixture unit/integration tests (no browser):
 
 ```bash

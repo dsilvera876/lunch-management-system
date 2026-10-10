@@ -1,23 +1,50 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent, type PointerEvent } from "react";
+
+export type RatingStarsSize = "sm" | "lg";
 
 type Props = {
   value?: number;
   max?: number;
+  size?: RatingStarsSize;
   readOnly?: boolean;
+  disabled?: boolean;
+  saving?: boolean;
   label?: string;
-  onChange?: (value: number) => void;
+  /** Called when the user commits a rating (click, Enter, or Space on a star). */
+  onCommit?: (value: number) => void;
 };
 
-function StarGlyph({ filled }: { filled: boolean }) {
+const STAR_PX: Record<RatingStarsSize, number> = {
+  sm: 16,
+  lg: 30,
+};
+
+function StarGlyph({
+  filled,
+  highlighted,
+  size,
+}: {
+  filled: boolean;
+  highlighted: boolean;
+  size: RatingStarsSize;
+}) {
+  const px = STAR_PX[size];
+
   return (
     <svg
-      width="16"
-      height="16"
+      width={px}
+      height={px}
       viewBox="0 0 24 24"
       aria-hidden
-      className={filled ? "text-primary" : "text-teal-700/25"}
+      className={`transition-colors ${
+        filled
+          ? highlighted
+            ? "text-primary drop-shadow-[0_0_0.5px_currentColor]"
+            : "text-primary"
+          : "text-teal-700/25"
+      }`}
     >
       <path
         d="m12 3 2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L4.8 8.2l5-.7z"
@@ -33,59 +60,157 @@ function StarGlyph({ filled }: { filled: boolean }) {
 export function RatingStars({
   value = 0,
   max = 5,
+  size = "sm",
   readOnly = true,
+  disabled = false,
+  saving = false,
   label = "Rating",
-  onChange,
+  onCommit,
 }: Props) {
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (readOnly || !onChange) {
+  const groupId = useId();
+  const [hoverValue, setHoverValue] = useState<number | null>(null);
+  const [focusValue, setFocusValue] = useState<number | null>(null);
+
+  const interactive = !readOnly && Boolean(onCommit) && !disabled;
+  const previewValue = hoverValue ?? focusValue;
+  const displayValue = previewValue ?? value;
+  const isPreviewing = previewValue != null && previewValue !== value;
+  const groupAriaValueText =
+    isPreviewing && value > 0
+      ? `Previewing ${previewValue} of ${max} stars. Saved rating ${value} of ${max} stars.`
+      : isPreviewing && value === 0
+        ? `Previewing ${previewValue} of ${max} stars.`
+        : value > 0
+          ? `${value} of ${max} stars`
+          : undefined;
+
+  function clearPreview() {
+    setHoverValue(null);
+    setFocusValue(null);
+  }
+
+  function handlePointerLeave(event: PointerEvent<HTMLDivElement>) {
+    if (!interactive) {
+      return;
+    }
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) {
+      return;
+    }
+    setHoverValue(null);
+  }
+
+  function handleCommit(starValue: number) {
+    if (!interactive) {
+      return;
+    }
+    clearPreview();
+    onCommit?.(starValue);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, starValue: number) {
+    if (!interactive || saving) {
       return;
     }
 
-    let next = value > 0 ? value : 1;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleCommit(starValue);
+      return;
+    }
 
     if (event.key === "ArrowRight" || event.key === "ArrowUp") {
       event.preventDefault();
-      next = Math.min(max, (value > 0 ? value : 0) + 1);
-      onChange(next);
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      const next = Math.min(max, starValue + 1);
+      setFocusValue(next);
+      event.currentTarget.parentElement
+        ?.querySelector<HTMLButtonElement>(`[data-star-value="${next}"]`)
+        ?.focus();
+      return;
+    }
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
       event.preventDefault();
-      next = Math.max(1, (value > 0 ? value : 2) - 1);
-      onChange(next);
+      const next = Math.max(1, starValue - 1);
+      setFocusValue(next);
+      event.currentTarget.parentElement
+        ?.querySelector<HTMLButtonElement>(`[data-star-value="${next}"]`)
+        ?.focus();
     }
   }
 
+  const touchTargetClass =
+    size === "lg"
+      ? "min-h-11 min-w-11 p-1.5"
+      : "min-h-8 min-w-8 p-0.5";
+
   return (
     <div
-      className="inline-flex items-center gap-1"
+      className={`inline-flex items-center gap-0.5 ${saving ? "opacity-80" : ""}`}
       role={readOnly ? "img" : "radiogroup"}
       aria-label={readOnly ? `${label}: ${value} of ${max} stars` : label}
-      tabIndex={readOnly ? undefined : 0}
-      onKeyDown={readOnly ? undefined : handleKeyDown}
+      aria-disabled={disabled || saving || undefined}
+      aria-busy={saving || undefined}
+      data-rating-stars-value={value}
+      data-rating-stars-preview={previewValue ?? ""}
+      onPointerLeave={interactive ? handlePointerLeave : undefined}
     >
+      {groupAriaValueText && !readOnly ? (
+        <span className="sr-only" aria-live="polite">
+          {groupAriaValueText}
+        </span>
+      ) : null}
       {Array.from({ length: max }, (_, index) => {
         const starValue = index + 1;
-        const filled = starValue <= value;
+        const filled = starValue <= displayValue;
+        const highlighted =
+          isPreviewing &&
+          starValue <= displayValue &&
+          starValue > Math.min(value, previewValue ?? value);
 
         if (readOnly) {
           return (
             <span key={starValue} className="inline-flex">
-              <StarGlyph filled={filled} />
+              <StarGlyph filled={filled} highlighted={false} size={size} />
             </span>
           );
         }
 
+        const checked = value === starValue;
+
         return (
           <button
             key={starValue}
+            id={`${groupId}-star-${starValue}`}
             type="button"
-            className="inline-flex min-h-6 min-w-6 items-center justify-center rounded p-0.5 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            onClick={() => onChange?.(starValue)}
+            data-star-value={starValue}
+            disabled={disabled}
+            className={`inline-flex items-center justify-center rounded-md transition-[opacity,transform,box-shadow] hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${touchTargetClass} ${
+              highlighted ? "ring-2 ring-primary/35 ring-offset-1" : ""
+            }`}
+            onPointerEnter={() => {
+              if (!interactive) {
+                return;
+              }
+              setHoverValue(starValue);
+            }}
+            onFocus={() => {
+              if (!interactive) {
+                return;
+              }
+              setFocusValue(starValue);
+            }}
+            onBlur={() => {
+              setFocusValue((current) => (current === starValue ? null : current));
+            }}
+            onClick={() => handleCommit(starValue)}
+            onKeyDown={(event) => handleKeyDown(event, starValue)}
             aria-label={`${starValue} star${starValue === 1 ? "" : "s"}`}
-            aria-checked={value === starValue}
+            aria-checked={checked}
             role="radio"
+            tabIndex={value > 0 ? (starValue === value ? 0 : -1) : starValue === 1 ? 0 : -1}
           >
-            <StarGlyph filled={filled} />
+            <StarGlyph filled={filled} highlighted={highlighted || (isPreviewing && filled)} size={size} />
           </button>
         );
       })}

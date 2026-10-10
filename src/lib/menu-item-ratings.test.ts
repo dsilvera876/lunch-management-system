@@ -247,5 +247,33 @@ describe("menu item ratings collection", () => {
         deliveryDate: "2026-01-10",
       },
     ]);
+
+    const withSide = {
+      ...checkout,
+      providerOrders: [
+        {
+          ...checkout.providerOrders[0]!,
+          lines: [
+            ...checkout.providerOrders[0]!.lines,
+            {
+              name: "Side salad",
+              quantity: 1,
+              itemType: "side" as const,
+              unitLabel: "Each",
+              unitPrice: 3,
+              lineTotal: 3,
+              providerMenuItemId: "item-side",
+            },
+          ],
+        },
+      ],
+    };
+    assert.deepEqual(collectRecentRateableMenuItems([withSide], 5), [
+      {
+        providerMenuItemId: "item-1",
+        itemName: "Main",
+        deliveryDate: "2026-01-10",
+      },
+    ]);
   });
 });

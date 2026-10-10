@@ -1,6 +1,6 @@
 begin;
 
-select plan(40);
+select plan(42);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -284,16 +284,39 @@ reset role;
 update public.lunch_providers set ratings_enabled = true where id = '88888888-8888-4888-8888-888888888888';
 
 -- ============================================================
--- Update requires another qualifying delivery
+-- Existing valid ratings can be edited without another delivery
 -- ============================================================
 
 select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
-select throws_ok(
+select lives_ok(
   $$ select public.upsert_my_menu_item_rating('a1111111-1111-4111-8111-111111111111', 5) $$,
-  'P0001',
-  'Another qualifying delivery is required to update your rating',
-  'cannot change stars without a newer qualifying delivery'
+  'can change stars without a newer qualifying delivery'
+);
+
+select is(
+  (
+    select stars::integer
+    from private.menu_item_ratings
+    where profile_id = '11111111-1111-4111-8111-111111111111'
+      and provider_menu_item_id = 'a1111111-1111-4111-8111-111111111111'
+  ),
+  5,
+  'star edit persists without another delivery'
+);
+
+select is(
+  (
+    select (summary ->> 'can_submit_or_update')::boolean
+    from jsonb_array_elements(
+      public.get_staff_menu_item_rating_summaries(
+        array['a1111111-1111-4111-8111-111111111111']::uuid[]
+      ) -> 'summaries'
+    ) as summary
+    limit 1
+  ),
+  true,
+  'batch summary still allows further edits after star change'
 );
 
 reset role;
