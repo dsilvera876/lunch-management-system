@@ -2,8 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireManageRoles, requireOwner } from "@/lib/auth";
+import {
+  isRoleMutationBlockedBySupportMode,
+  requireManageRoles,
+  requireOwner,
+} from "@/lib/auth";
 import { isAssignableRole } from "@/lib/roles";
+import {
+  classifyManageableUserUpdateError,
+  classifyOwnershipTransferError,
+  isSupportModeMutationErrorMessage,
+  manageableUserRequestedRole,
+  manageableUserRoleChanges,
+  type ManageableUserUpdateError,
+  type OwnershipTransferError,
+} from "@/lib/role-mutation-errors";
 import { createClient } from "@/lib/supabase/server";
 import type { ManageableUserRecord } from "@/lib/user-management-presentation";
 import {
@@ -18,7 +31,7 @@ import {
 
 export type UpdateManageableUserInlineResult =
   | { success: true; user: ManageableUserRecord }
-  | { success: false; error: "invalid" | "assign" | "profile" };
+  | { success: false; error: ManageableUserUpdateError };
 
 export type TransferOwnershipInlineResult =
   | {
@@ -27,7 +40,7 @@ export type TransferOwnershipInlineResult =
       newOwnerId: string;
       viewerBecameAdmin: boolean;
     }
-  | { success: false; error: "invalid" | "transfer" | "unauthorized" };
+  | { success: false; error: OwnershipTransferError };
 
 async function loadManageableUser(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -74,60 +87,40 @@ export async function updateManageableUserInline(input: {
     return { success: false, error: "invalid" };
   }
 
-  if (existing.role === "owner") {
-    const { error: profileError } = await supabase.rpc(
-      "update_manageable_user_profile",
-      {
-        p_profile_id: profileId,
-        p_full_name: fullName,
-      },
-    );
+  const requestedRole = manageableUserRequestedRole(existing.role, role);
 
-    if (profileError) {
-      return { success: false, error: "profile" };
-    }
-
-    revalidatePath("/admin/users");
-    const user = await loadManageableUser(supabase, profileId);
-    return user
-      ? { success: true, user }
-      : { success: false, error: "profile" };
-  }
-
-  if (!isAssignableRole(role)) {
+  if (requestedRole !== null && !isAssignableRole(requestedRole)) {
     return { success: false, error: "invalid" };
   }
 
-  const { error: profileError } = await supabase.rpc(
-    "update_manageable_user_profile",
-    {
-      p_profile_id: profileId,
-      p_full_name: fullName,
-    },
-  );
+  const roleChanged = manageableUserRoleChanges(existing.role, role);
 
-  if (profileError) {
-    return { success: false, error: "profile" };
+  if (roleChanged && (await isRoleMutationBlockedBySupportMode())) {
+    return { success: false, error: "support_mode" };
   }
 
-  if (existing.role !== role) {
-    const { error: roleError } = await supabase.rpc("assign_user_role", {
-      p_profile_id: profileId,
-      p_role: role,
-    });
+  const { error: updateError } = await supabase.rpc("update_manageable_user", {
+    p_profile_id: profileId,
+    p_full_name: fullName,
+    p_role: roleChanged ? requestedRole : null,
+  });
 
-    if (roleError) {
-      return { success: false, error: "assign" };
-    }
+  if (updateError) {
+    return {
+      success: false,
+      error: classifyManageableUserUpdateError(updateError.message, roleChanged),
+    };
   }
 
   revalidatePath("/admin/users");
-  revalidatePath("/", "layout");
+  if (roleChanged) {
+    revalidatePath("/", "layout");
+  }
 
   const user = await loadManageableUser(supabase, profileId);
 
   if (!user) {
-    return { success: false, error: "assign" };
+    return { success: false, error: roleChanged ? "assign" : "profile" };
   }
 
   if (profileId === actor.id && user.role !== existing.role) {
@@ -150,6 +143,10 @@ export async function transferOwnershipInline(
     return { success: false, error: "invalid" };
   }
 
+  if (await isRoleMutationBlockedBySupportMode()) {
+    return { success: false, error: "support_mode" };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("transfer_ownership", {
@@ -157,11 +154,7 @@ export async function transferOwnershipInline(
   });
 
   if (error) {
-    if (error.message.includes("Only the current Owner")) {
-      return { success: false, error: "unauthorized" };
-    }
-
-    return { success: false, error: "transfer" };
+    return { success: false, error: classifyOwnershipTransferError(error.message) };
   }
 
   revalidatePath("/admin/users");
@@ -185,6 +178,10 @@ export async function assignUserRole(formData: FormData) {
     redirect("/admin/users?error=invalid");
   }
 
+  if (await isRoleMutationBlockedBySupportMode()) {
+    redirect("/admin/users?error=support-mode");
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("assign_user_role", {
@@ -193,7 +190,11 @@ export async function assignUserRole(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/users?error=assign");
+    redirect(
+      isSupportModeMutationErrorMessage(error.message)
+        ? "/admin/users?error=support-mode"
+        : "/admin/users?error=assign",
+    );
   }
 
   revalidatePath("/admin/users");
@@ -295,7 +296,11 @@ export async function transferOwnership(formData: FormData) {
   const result = await transferOwnershipInline(newOwnerId);
 
   if (!result.success) {
-    redirect("/admin/users?error=transfer");
+    redirect(
+      result.error === "support_mode"
+        ? "/admin/users?error=support-mode"
+        : "/admin/users?error=transfer",
+    );
   }
 
   redirect("/admin/users?transferred=1");

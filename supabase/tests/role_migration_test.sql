@@ -31,9 +31,10 @@ alter table public.profiles
   add constraint profiles_role_check
   check (role in ('user', 'staff', 'hr', 'accounts', 'admin', 'owner'));
 
--- Role-guard trigger is installed later in the migration; disable it to mirror
--- section 1 data migration, which runs before the trigger exists.
+-- Role-guard and role-audit triggers are installed later; disable them to mirror
+-- section 1 data migration, which runs before either trigger exists.
 alter table public.profiles disable trigger guard_profile_role_change;
+alter table public.profiles disable trigger audit_profile_role_change;
 
 update public.profiles
 set role = 'user'
@@ -50,6 +51,7 @@ set role = 'staff'
 where role = 'user';
 
 alter table public.profiles enable trigger guard_profile_role_change;
+alter table public.profiles enable trigger audit_profile_role_change;
 
 select results_eq(
   $$ select role from public.profiles where id = 'c1111111-1111-4111-8111-111111111111' $$,

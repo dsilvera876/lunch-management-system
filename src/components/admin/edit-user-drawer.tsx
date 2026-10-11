@@ -9,6 +9,10 @@ import {
   USER_MANAGEMENT_TOAST,
   type ManageableUserRecord,
 } from "@/lib/user-management-presentation";
+import {
+  ROLE_MUTATION_SUPPORT_MODE_MESSAGES,
+  type ManageableUserUpdateError,
+} from "@/lib/role-mutation-errors";
 import { ASSIGNABLE_ROLES, getRoleLabel } from "@/lib/roles";
 import type { AssignableRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
@@ -26,8 +30,10 @@ type Props = {
   onUserDeleted: (profileId: string) => void;
 };
 
-function updateErrorMessage(error: "invalid" | "assign" | "profile"): string {
+function updateErrorMessage(error: ManageableUserUpdateError): string {
   switch (error) {
+    case "support_mode":
+      return ROLE_MUTATION_SUPPORT_MODE_MESSAGES.roleChange;
     case "assign":
       return "Unable to assign that role. The user may be protected or the role may be invalid.";
     case "profile":

@@ -224,6 +224,16 @@ export async function requireManageRoles(): Promise<Profile> {
   return profile;
 }
 
+/**
+ * Role assignment and ownership transfer are never available in Support Mode.
+ * Call after requireManageRoles()/requireOwner(); those guards still allow
+ * read-only governance access during Support Mode. The database enforces the
+ * same restriction authoritatively.
+ */
+export async function isRoleMutationBlockedBySupportMode(): Promise<boolean> {
+  return (await activeSupportScopeForProfile()) !== null;
+}
+
 export async function requireManageStaffAccounts(): Promise<Profile> {
   const profile = await requireProfile();
 

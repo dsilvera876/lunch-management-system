@@ -13,6 +13,10 @@ import {
   buildOwnershipTransferConfirmMessage,
   isTransferOwnershipButtonDisabled,
 } from "@/lib/user-management-ownership-flow";
+import {
+  ROLE_MUTATION_SUPPORT_MODE_MESSAGES,
+  type OwnershipTransferError,
+} from "@/lib/role-mutation-errors";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -50,10 +54,10 @@ type Props = {
   onViewerRoleChanged: () => void;
 };
 
-function transferErrorMessage(
-  error: "invalid" | "transfer" | "unauthorized",
-): string {
+function transferErrorMessage(error: OwnershipTransferError): string {
   switch (error) {
+    case "support_mode":
+      return ROLE_MUTATION_SUPPORT_MODE_MESSAGES.ownershipTransfer;
     case "unauthorized":
       return "Only the current Owner may transfer ownership.";
     case "invalid":
