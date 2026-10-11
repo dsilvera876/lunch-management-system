@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(37);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -45,7 +45,9 @@ values (
 insert into public.provider_menu_items (id, provider_id, name, price, item_type, unit_label, active)
 values
   ('b1111111-1111-4111-8111-111111111111', '99999999-9999-4999-8999-999999999999', 'HR Chicken', 12.00, 'main', 'Each', true),
-  ('b2222222-2222-4222-8222-222222222222', '99999999-9999-4999-8999-999999999999', 'HR Rice', 3.00, 'side', 'Each', true);
+  ('b2222222-2222-4222-8222-222222222222', '99999999-9999-4999-8999-999999999999', 'HR Rice', 3.00, 'side', 'Each', true),
+  ('b3333333-3333-4333-8333-333333333333', '99999999-9999-4999-8999-999999999999', 'HR Juice', 2.50, 'standalone', 'Each', true),
+  ('b4444444-4444-4444-8444-444444444444', '99999999-9999-4999-8999-999999999999', 'HR Retired Main', 11.00, 'main', 'Each', false);
 
 insert into public.provider_menu_item_weekdays (provider_menu_item_id, weekday)
 select pmi.id, gs.wd
@@ -169,11 +171,23 @@ select is(
   'provider rating count includes active menu item ratings'
 );
 
-select ok(
+select is(
   jsonb_array_length(
     public.get_hr_provider_menu_item_ratings_dashboard('99999999-9999-4999-8999-999999999999') -> 'menu_items'
-  ) >= 2,
-  'dashboard lists catalog items including inactive'
+  ),
+  2,
+  'dashboard lists main catalog items only including inactive mains'
+);
+
+select ok(
+  not exists (
+    select 1
+    from jsonb_array_elements(
+      public.get_hr_provider_menu_item_ratings_dashboard('99999999-9999-4999-8999-999999999999') -> 'menu_items'
+    ) as item
+    where item ->> 'name' in ('HR Rice', 'HR Juice')
+  ),
+  'dashboard excludes side and standalone catalog items'
 );
 
 -- HR remove rating
