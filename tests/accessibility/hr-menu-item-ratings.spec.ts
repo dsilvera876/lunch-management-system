@@ -219,17 +219,25 @@ test.describe("HR menu item ratings administration", () => {
     await expect(page.getByText("Changes saved.", { exact: true })).toBeVisible({ timeout: 20_000 });
   });
 
-  test("provider summary shows focal average card and collapsible activity log", async ({ page }) => {
+  test("provider summary shows focal average card and activity log modal", async ({ page }) => {
     await openRatingsPage(page);
     await expect(page.getByText("Provider average")).toBeVisible();
     const providerAverageVisual = page
       .getByRole("img", { name: /Provider average/i })
       .or(page.getByText("No ratings yet for this assessment period."));
     await expect(providerAverageVisual).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Rating activity log" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "View rating activity" })).toBeVisible();
-    await page.getByRole("button", { name: "View rating activity" }).click();
-    await expect(page.getByRole("button", { name: "Hide rating activity" })).toBeVisible();
+    const viewActivity = page.locator("#main-content").getByRole("button", {
+      name: "View rating activity",
+    });
+    await expect(viewActivity).toBeVisible();
+    await viewActivity.click();
+    const activityDialog = page.getByRole("dialog");
+    await expect(activityDialog.getByRole("heading", { name: "Rating activity log" })).toBeVisible();
+    await expect(
+      activityDialog.getByText("HR moderation history for this provider (newest first)."),
+    ).toBeVisible();
+    await activityDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(activityDialog).toBeHidden();
     const itemAverageStar = page.getByRole("img", { name: /of 5 stars average/i }).first();
     const itemAverageEmpty = page.getByLabel("No ratings").first();
     await expect(itemAverageStar.or(itemAverageEmpty)).toBeVisible();
@@ -294,8 +302,12 @@ test.describe("HR menu item ratings administration", () => {
       });
       await expect(page.getByText(/105 records in this generation \(104 active in averages/)).toBeVisible();
 
-      await page.getByRole("button", { name: "View rating activity" }).click();
-      await expect(page.getByText("Removed rating").first()).toBeVisible({ timeout: 20_000 });
+      await page.locator("#main-content").getByRole("button", { name: "View rating activity" }).click();
+      const activityDialog = page.getByRole("dialog");
+      await expect(activityDialog.getByRole("heading", { name: "Rating activity log" })).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(activityDialog.getByText("Removed rating").first()).toBeVisible({ timeout: 20_000 });
     } finally {
       restoreHrRatingsPaginationE2eFixture();
     }

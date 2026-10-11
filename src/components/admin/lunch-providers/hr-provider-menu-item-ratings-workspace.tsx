@@ -13,7 +13,7 @@ import { HrMenuItemRatingsReasonDialog } from "@/components/admin/lunch-provider
 import { Alert } from "@/components/ui/alert";
 import { linkButtonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { HrMenuItemRatingsAuditLog } from "@/components/admin/lunch-providers/hr-menu-item-ratings-audit-log";
+import { HrMenuItemRatingsAuditLogModal } from "@/components/admin/lunch-providers/hr-menu-item-ratings-audit-log-modal";
 import { HrRatingsListPagination } from "@/components/admin/lunch-providers/hr-ratings-list-pagination";
 import { RatingStars, RatingStarsAverage } from "@/components/ui/rating-stars";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -61,7 +61,8 @@ function HrProviderMenuItemRatingsContent({
 
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
-  const [activityLogExpanded, setActivityLogExpanded] = useState(false);
+  const activityLogTriggerRef = useRef<HTMLElement | null>(null);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
 
   const loadDetail = useCallback((providerMenuItemId: string, page = 1) => {
     const requestId = detailRequestRef.current + 1;
@@ -104,6 +105,13 @@ function HrProviderMenuItemRatingsContent({
     // does not receive the same pointer sequence and instantly dismiss.
     window.requestAnimationFrame(() => {
       setDialog(kind);
+    });
+  }
+
+  function openActivityLog(returnFocus: HTMLElement) {
+    activityLogTriggerRef.current = returnFocus;
+    window.requestAnimationFrame(() => {
+      setActivityLogOpen(true);
     });
   }
 
@@ -228,7 +236,15 @@ function HrProviderMenuItemRatingsContent({
             description="Equal-weight average across valid current-generation menu item ratings."
             descriptionClassName="text-slate-700"
             actions={
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+                <button
+                  type="button"
+                  data-hr-ratings-activity-trigger="true"
+                  className={linkButtonClass("secondary")}
+                  onClick={(event) => openActivityLog(event.currentTarget)}
+                >
+                  View rating activity
+                </button>
                 {dashboard.ratingsEnabled ? (
                   <button
                     type="button"
@@ -464,13 +480,15 @@ function HrProviderMenuItemRatingsContent({
           </Card>
         </section>
 
-        <HrMenuItemRatingsAuditLog
-          providerId={dashboard.providerId}
-          expanded={activityLogExpanded}
-          onExpandedChange={setActivityLogExpanded}
-          reloadToken={auditReloadToken}
-        />
       </div>
+
+      <HrMenuItemRatingsAuditLogModal
+        open={activityLogOpen}
+        onOpenChange={setActivityLogOpen}
+        triggerRef={activityLogTriggerRef}
+        providerId={dashboard.providerId}
+        reloadToken={auditReloadToken}
+      />
 
       <HrMenuItemRatingsReasonDialog
         open={copy !== null}
