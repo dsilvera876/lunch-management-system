@@ -19,6 +19,9 @@ import type { UserRole } from "@/lib/roles";
 import { isOwner } from "@/lib/roles";
 import { STAFF_DIRECTORY_PAGE_SIZE } from "@/lib/staff-directory-presentation";
 import { SIGNUP_REQUEST_PAGE_SIZE } from "@/lib/signup-request-presentation";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminUsers");
 
 function mapStaffDirectoryRow(raw: Record<string, unknown>): StaffDirectoryRow {
   return {

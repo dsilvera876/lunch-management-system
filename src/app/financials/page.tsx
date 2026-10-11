@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { MySpendPageView } from "@/components/my-spend/my-spend-page-view";
 import { MySpendSubsidyNote } from "@/components/my-spend/my-spend-subsidy-note";
 import { PageHeader } from "@/components/ui/page-header";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("mySpend");
 
 export default async function FinancialsPage() {
   await requireProfile();

@@ -20,6 +20,9 @@ import { FinancialEmployeeTotals } from "@/components/admin/financial-reports/fi
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminFinancialReports");
 
 type Props = {
   searchParams: Promise<{

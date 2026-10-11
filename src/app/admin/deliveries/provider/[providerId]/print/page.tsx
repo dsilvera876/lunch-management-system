@@ -13,6 +13,9 @@ import {
   buildDeliveryPrintDocument,
 } from "@/lib/deliveries";
 import { DeliveryPrintSheet } from "@/components/admin/delivery-print-sheet";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminProviderDeliveryPrint");
 
 type Props = {
   params: Promise<{ providerId: string }>;

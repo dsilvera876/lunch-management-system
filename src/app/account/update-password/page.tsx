@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { updatePassword } from "./actions";
 import { AuthLayout } from "@/components/auth-layout";
@@ -9,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { requireProfile } from "@/lib/auth";
 import { FORGOT_PASSWORD_PATH, getPasswordResetInvalidLinkPath } from "@/lib/auth-recovery";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
+import { pageMetadata } from "@/lib/page-titles";
 
 type Props = {
   searchParams: Promise<{
@@ -17,6 +19,17 @@ type Props = {
     error?: string;
   }>;
 };
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await searchParams;
+  if (params.invite === "1") {
+    return pageMetadata("inviteSetPassword");
+  }
+  if (params.recovery === "1") {
+    return pageMetadata("recoveryNewPassword");
+  }
+  return pageMetadata("updatePassword");
+}
 
 export default async function UpdatePasswordPage({ searchParams }: Props) {
   const params = await searchParams;

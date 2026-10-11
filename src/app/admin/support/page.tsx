@@ -2,6 +2,9 @@ import { requireAdminOrOwner } from "@/lib/auth";
 import { fetchActiveSupportSession } from "@/lib/support-mode-server";
 import { SupportModeWorkspace } from "@/components/admin/support-mode-workspace";
 import { PageHeader } from "@/components/ui/page-header";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminSupport");
 
 export default async function AdminSupportPage() {
   await requireAdminOrOwner();

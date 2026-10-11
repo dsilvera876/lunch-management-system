@@ -18,6 +18,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { linkButtonClass } from "@/components/ui/button";
 import { ProviderIconWell } from "@/lib/provider-icons";
 import type { ProviderEditFlashSuccess } from "@/lib/provider-form";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminProviderEdit");
 
 type Props = {
   params: Promise<{ id: string }>;

@@ -10,6 +10,9 @@ import {
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import { DeliveriesWorkspace } from "@/components/admin/deliveries-workspace";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminDeliveries");
 
 type Props = {
   searchParams: Promise<{

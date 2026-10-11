@@ -3,6 +3,9 @@ import { AuthenticationDomainsSettings } from "@/components/admin/authentication
 import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireAdminOrOwner } from "@/lib/auth";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminAuthentication");
 
 export default async function AuthenticationSettingsPage() {
   await requireAdminOrOwner();

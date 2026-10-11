@@ -9,6 +9,9 @@ import {
   PASSWORD_RESET_INVALID_LINK_MESSAGE,
   PASSWORD_RESET_SUCCESS_MESSAGE,
 } from "@/lib/auth-recovery";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("forgotPassword");
 
 type Props = {
   searchParams: Promise<{

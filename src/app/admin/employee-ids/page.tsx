@@ -8,6 +8,9 @@ import {
   STAFF_DIRECTORY_PAGE_SIZE,
   type EmployeeIdDirectoryRow,
 } from "@/lib/staff-directory-presentation";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmployeeIds");
 
 function mapEmployeeIdRow(raw: Record<string, unknown>): EmployeeIdDirectoryRow {
   return {

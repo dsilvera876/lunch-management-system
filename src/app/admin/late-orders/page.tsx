@@ -30,6 +30,9 @@ import { OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY } from "@/lib/operational-order
 import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
 import { LateOrdersPageHeader } from "@/components/admin/late-orders/late-orders-page-header";
 import { formatProviderLateOrderCutoffLabel } from "@/lib/late-orders-presentation";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminLateOrders");
 
 type LateOrderEmployeeProfile = {
   id: string;

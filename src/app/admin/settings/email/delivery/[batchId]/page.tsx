@@ -4,6 +4,9 @@ import { NotificationDeliveryDetailView } from "@/components/admin/notification-
 import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { loadNotificationDeliveryBatchDetail } from "@/lib/notification-delivery-server";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmailDeliveryBatch");
 
 type Props = {
   params: Promise<{ batchId: string }>;

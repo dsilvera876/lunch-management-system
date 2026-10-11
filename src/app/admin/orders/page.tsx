@@ -17,6 +17,9 @@ import {
 import type { EmployeePickerOption } from "@/lib/employee-picker";
 import { OrderHistoryPageHeader } from "@/components/admin/order-history-page-header";
 import { OrderHistoryWorkspace } from "@/components/admin/order-history-workspace";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminOrderHistory");
 
 type Props = {
   searchParams: Promise<{

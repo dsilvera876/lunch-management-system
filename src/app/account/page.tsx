@@ -13,6 +13,9 @@ import { formatOfficeLocationLabel } from "@/lib/office-locations";
 import { StaffEmailPreferencesCard } from "@/components/account/staff-email-preferences-card";
 import { fetchMyNotificationPreferences } from "@/lib/notification-server";
 import { updateDefaultOfficeLocation } from "./actions";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("account");
 
 type Props = {
   searchParams: Promise<{

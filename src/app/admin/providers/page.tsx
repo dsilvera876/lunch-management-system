@@ -2,6 +2,9 @@ import { requireHrOperationalRead } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ProvidersOverview } from "@/components/admin/lunch-providers/providers-overview";
 import { Alert } from "@/components/ui/alert";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminProviders");
 
 type Props = {
   searchParams: Promise<{

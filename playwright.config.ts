@@ -8,8 +8,14 @@ const menuItemRatingsPlaywrightOnly = process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_O
 const emailPreviewPlaywrightOnly = process.env.PLAYWRIGHT_EMAIL_PREVIEW_ONLY === "1";
 /** Checkout a11y against a local server that simulates a Jamaica weekday (see README). */
 const simulatedWeekdayPlaywright = process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === "1";
+/** Login, page-title and late-order drawer a11y; needs no open self-service ordering. */
+const phase2aPlaywrightOnly = process.env.PLAYWRIGHT_PHASE_2A_ONLY === "1";
 const skipOrderingGlobalSetup =
-  mostPopularPlaywrightOnly || menuItemRatingsPlaywrightOnly || emailPreviewPlaywrightOnly;
+  mostPopularPlaywrightOnly ||
+  menuItemRatingsPlaywrightOnly ||
+  emailPreviewPlaywrightOnly ||
+  phase2aPlaywrightOnly;
+const phase2aSpecs = /(login-a11y|page-titles|staff-late-order-drawer-focus)\.spec\.ts/;
 
 export default defineConfig({
   globalSetup: path.join(
@@ -58,6 +64,7 @@ export default defineConfig({
         /menu-item-most-popular\.spec\.ts/,
         /email-preview-sandbox\.spec\.ts/,
         /staff-checkout-a11y\.spec\.ts/,
+        phase2aSpecs,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -86,6 +93,28 @@ export default defineConfig({
         storageState: staffAuthFile,
       },
       dependencies: ["setup", "chromium-checkout-a11y"],
+    },
+    {
+      name: "chromium-phase-2a-a11y",
+      testMatch: phase2aSpecs,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup"],
+    },
+    {
+      name: "firefox-phase-2a-a11y",
+      testMatch: phase2aSpecs,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Firefox"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup", "chromium-phase-2a-a11y"],
     },
     {
       name: "chromium-late-order-a11y",

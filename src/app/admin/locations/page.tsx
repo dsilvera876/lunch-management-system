@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { OfficeLocationsWorkspace } from "@/components/admin/office-locations-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 import type { OfficeLocationRecord } from "@/lib/office-locations-presentation";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminLocations");
 
 export default async function OfficeLocationsPage() {
   await requireHrOperationalRead();

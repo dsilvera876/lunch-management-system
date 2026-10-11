@@ -3,6 +3,9 @@ import { EmailDeliverySettingsForm } from "@/components/admin/email-delivery-set
 import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireAdminOrOwner } from "@/lib/auth";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminSystemEmail");
 
 export default async function EmailDeliverySettingsPage() {
   await requireAdminOrOwner();

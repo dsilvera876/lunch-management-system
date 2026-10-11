@@ -43,6 +43,9 @@ import {
   collectCatalogIdsFromProviderMenus,
   menuItemRatingsFromLoadResult,
 } from "@/lib/menu-item-ratings-collect";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("lunch");
 
 
 
@@ -379,7 +382,8 @@ export default async function LunchPage({ searchParams }: Props) {
     </>
   );
 
-  if (showLateOrderSubmissionDrawer) {
+  // Stay mounted once a submission exists so refreshing after submit keeps the open drawer.
+  if (showLateOrderSubmissionDrawer || showLateOrderHeaderAction) {
     return (
       <StaffLateOrderDrawerRoot {...lateOrderDrawerProps}>
         {pageBody}

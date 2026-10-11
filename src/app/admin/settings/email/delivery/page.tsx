@@ -4,6 +4,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { notificationDeliveryDateRangePresetDays } from "@/lib/notification-delivery";
 import { loadNotificationDeliveryDashboard } from "@/lib/notification-delivery-server";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmailDelivery");
 
 type Props = {
   searchParams: Promise<{ from?: string; to?: string }>;

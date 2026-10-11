@@ -1,5 +1,8 @@
 import { AuthLayout } from "@/components/auth-layout";
 import { SignupWorkspace } from "@/components/auth/signup-workspace";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("signup");
 
 type Props = {
   searchParams: Promise<{

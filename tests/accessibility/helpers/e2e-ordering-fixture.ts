@@ -16,6 +16,7 @@ export const E2E_LATE_ORDER_PROVIDER_DEADLINE_TIME = "12:00:00";
 export const E2E_CALENDAR_ENTRY_IDS = {
   globalOverrideOpen: "00000001-e2e0-4001-8001-000000000001",
   staff1LocationOverrideOpen: "00000002-e2e0-4002-8002-000000000002",
+  lateOrderDrawerOverrideOpen: "00000003-e2e0-4003-8003-000000000003",
 } as const;
 
 /** Development seed: staff1 default office location. */
@@ -49,6 +50,8 @@ export type LateOrderDrawerRestorePayload = {
   version: 1;
   orderCutoffTime: string;
   provider: LunchProviderLateOrderSnapshot;
+  /** Weekend-only: open override for Jamaica today so the late-order window exists (deleted on restore). */
+  insertedCalendarEntryIds?: string[];
 };
 
 export const FIXTURE_SNAPSHOT_PATH = SNAPSHOT_FILE;
@@ -195,7 +198,8 @@ export function ensureLocalStaffOrderingFixtureForPlaywright(): void {
   if (
     process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1" ||
     process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1" ||
-    process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === "1"
+    process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === "1" ||
+    process.env.PLAYWRIGHT_PHASE_2A_ONLY === "1"
   ) {
     return;
   }
@@ -545,7 +549,39 @@ function captureLateOrderDrawerRestorePayload(): LateOrderDrawerRestorePayload {
   };
 }
 
-function applyLateOrderDrawerDbChanges() {
+/**
+ * On a Jamaica weekend no delivery cycle is in its late-order window, so open today with a local
+ * calendar override (the same configuration HR can make). Weekday runs are unchanged.
+ */
+function applyLateOrderDrawerWeekendOverride(payload: LateOrderDrawerRestorePayload) {
+  const today = normalizeDate(runLocalDbQuery("select public.jamaica_today_date() as d")[0]?.d);
+  const businessDay = runLocalDbQuery(
+    `select public.is_business_day('${today}'::date, null) as open`,
+  )[0];
+  if (businessDay?.open === true || businessDay?.open === "t") {
+    return;
+  }
+
+  if (fetchCalendarOverride(today, "global", null)) {
+    throw new Error(
+      `[a11y fixture] Refusing late-order weekend setup: a global calendar override already exists for ${today}.`,
+    );
+  }
+
+  const entryId = E2E_CALENDAR_ENTRY_IDS.lateOrderDrawerOverrideOpen;
+  payload.insertedCalendarEntryIds = [...(payload.insertedCalendarEntryIds ?? []), entryId];
+  writeLateOrderDrawerRestorePayload(payload);
+  insertOverrideOpen({
+    id: entryId,
+    orderDate: today,
+    scope: "global",
+    officeLocationId: null,
+    name: "E2E late-order drawer weekend override",
+  });
+}
+
+function applyLateOrderDrawerDbChanges(payload: LateOrderDrawerRestorePayload) {
+  applyLateOrderDrawerWeekendOverride(payload);
   const providerId = STAFF_SEED.providerAlberries;
   runLocalDbQuery(`
     update public.lunch_providers
@@ -598,6 +634,11 @@ function applyLateOrderDrawerDbChanges() {
 }
 
 function restoreLateOrderDrawerFromPayload(payload: LateOrderDrawerRestorePayload) {
+  for (const entryId of payload.insertedCalendarEntryIds ?? []) {
+    runLocalDbQuery(`
+      delete from private.business_calendar_entries where id = '${entryId}'::uuid returning id
+    `);
+  }
   const provider = payload.provider;
   runLocalDbQuery(`
     update public.lunch_providers
@@ -777,8 +818,32 @@ export function restoreLocalStaffOrderingFixture(snapshot: E2eOrderingFixtureSna
   }
 }
 
+/** Summary prefix for late orders submitted by the drawer focus spec; removed on restore. */
+export const E2E_LATE_ORDER_DRAWER_SUMMARY_PREFIX = "E2E PRL-008 ";
+
+/**
+ * The drawer specs submit real requests through the app and clean up in the local database, so both
+ * the app under test and Supabase must be loopback; otherwise a remote request could not be removed.
+ */
+function assertLocalLateOrderDrawerTargets() {
+  loadLocalEnvFiles();
+  const supabaseApiUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+  if (!supabaseApiUrl || !isLocalSupabaseApiUrl(supabaseApiUrl)) {
+    throw new Error(
+      "[a11y fixture] Refusing late-order fixture — NEXT_PUBLIC_SUPABASE_URL must be loopback (localhost, 127.0.0.1, or ::1).",
+    );
+  }
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL;
+  if (baseUrl && !isLocalSupabaseApiUrl(baseUrl)) {
+    throw new Error(
+      "[a11y fixture] Refusing late-order fixture — PLAYWRIGHT_BASE_URL must be loopback (localhost, 127.0.0.1, or ::1).",
+    );
+  }
+}
+
 /** Applies late-order drawer setup after open-ordering tests (local E2E only). */
 export function applyLateOrderDrawerToActiveSnapshot(): void {
+  assertLocalLateOrderDrawerTargets();
   if (readLateOrderDrawerRestorePayload()) {
     return;
   }
@@ -786,12 +851,63 @@ export function applyLateOrderDrawerToActiveSnapshot(): void {
   const restorePayload = captureLateOrderDrawerRestorePayload();
   writeLateOrderDrawerRestorePayload(restorePayload);
   try {
-    applyLateOrderDrawerDbChanges();
+    applyLateOrderDrawerDbChanges(restorePayload);
   } catch (error) {
     restoreLateOrderDrawerFromPayload(restorePayload);
     clearLateOrderDrawerRestorePayload();
     throw error;
   }
+}
+
+/**
+ * Deletes staff1 late-order requests whose summary starts with `summaryPrefix`, plus the HR
+ * attention items and notification rows the submission created (local DB only).
+ */
+export function deleteE2eStaffLateOrderRequests(summaryPrefix: string): number {
+  if (!summaryPrefix.startsWith("E2E ")) {
+    throw new Error('[a11y fixture] Late-order cleanup prefix must start with "E2E ".');
+  }
+  assertLocalLateOrderDrawerTargets();
+  const like = sqlString(`${summaryPrefix.replace(/[%_\\]/g, "\\$&")}%`);
+  const rows = runLocalDbQuery(`
+    with targets as (
+      select id from private.staff_late_order_requests
+      where requester_profile_id = '${E2E_STAFF1_PROFILE_ID}'::uuid
+        and requested_summary like ${like}
+    ),
+    logs as (
+      delete from private.notification_delivery_log
+      where staff_late_order_request_id in (select id from targets)
+      returning batch_id
+    ),
+    batches as (
+      delete from private.notification_delivery_batch b
+      where b.id in (select batch_id from logs where batch_id is not null)
+        and not exists (
+          select 1 from private.notification_delivery_log l
+          where l.batch_id = b.id
+            and (
+              l.staff_late_order_request_id is null
+              or l.staff_late_order_request_id not in (select id from targets)
+            )
+        )
+      returning b.id
+    ),
+    attention as (
+      delete from private.operational_attention_items
+      where staff_late_order_request_id in (select id from targets)
+      returning id
+    ),
+    removed as (
+      delete from private.staff_late_order_requests
+      where id in (select id from targets)
+      returning id
+    )
+    select (select count(*) from removed) as removed,
+      (select count(*) from batches) as batches,
+      (select count(*) from attention) as attention
+  `);
+  return Number(rows[0]?.removed ?? 0);
 }
 
 /** Restores exact provider/cutoff values captured before the late-order drawer fixture. */
@@ -801,8 +917,12 @@ export function restoreLateOrderDrawerFromActiveSnapshot(): void {
     return;
   }
 
-  restoreLateOrderDrawerFromPayload(payload);
-  clearLateOrderDrawerRestorePayload();
+  try {
+    deleteE2eStaffLateOrderRequests(E2E_LATE_ORDER_DRAWER_SUMMARY_PREFIX);
+  } finally {
+    restoreLateOrderDrawerFromPayload(payload);
+    clearLateOrderDrawerRestorePayload();
+  }
 }
 
 export function teardownLocalStaffOrderingFixture() {

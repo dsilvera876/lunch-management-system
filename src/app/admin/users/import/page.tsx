@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { HrBulkImportWorkspace } from "@/components/admin/hr-bulk-import-workspace";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminUserImport");
 
 type Props = {
   searchParams: Promise<{

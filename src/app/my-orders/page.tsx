@@ -20,6 +20,9 @@ import {
   parseMyOrdersTab,
   selectPastDeliveryDates,
 } from "@/lib/staff-my-orders";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("myOrders");
 
 type Props = {
   searchParams: Promise<{

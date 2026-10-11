@@ -6,6 +6,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import type { BusinessCalendarEntryRow } from "@/lib/business-calendar-presentation";
 import type { OfficeLocationRecord } from "@/lib/office-locations-presentation";
 import { getJamaicaTodayDate } from "@/lib/datetime";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminBusinessCalendar");
 
 type Props = {
   searchParams: Promise<{ year?: string }>;

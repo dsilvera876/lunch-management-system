@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -23,6 +22,7 @@ import { formatHumanDate } from "@/lib/format";
 import { focusFormErrorSummary, joinDescribedBy } from "@/lib/staff-form-accessibility";
 import { useStaffLateOrderDrawerOptional } from "@/components/lunch/staff-late-order-drawer";
 import { buildLateOrderSubmitFeedback } from "@/lib/staff-late-order-submission-feedback";
+import { LATE_ORDER_SUBMITTING_MESSAGE } from "@/lib/staff-late-order-drawer-accessibility";
 import {
   findBlockingLateOrderSubmission,
   MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF,
@@ -69,8 +69,9 @@ export function StaffLateOrderRequestPanel({
   const [error, setError] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<FieldKey | "general" | null>(null);
   const [, startTransition] = useTransition();
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const createFormRef = useRef<HTMLFormElement>(null);
-  const cycleSelectRef = useRef<HTMLSelectElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const errorSummaryId = useId();
   const cycleFieldId = useId();
@@ -144,14 +145,6 @@ export function StaffLateOrderRequestPanel({
     }
   }, [error]);
 
-  useEffect(() => {
-    if (showEntry) {
-      window.requestAnimationFrame(() => {
-        cycleSelectRef.current?.focus();
-      });
-    }
-  }, [showEntry]);
-
   if (locationRequired && !officeLocationId) {
     return (
       <p className="text-sm text-staff-instruction">
@@ -161,11 +154,7 @@ export function StaffLateOrderRequestPanel({
   }
 
   if (eligibilityLoading && !showEntry) {
-    return (
-      <p className="text-sm text-staff-instruction" role="status" aria-live="polite">
-        Checking late-order availability…
-      </p>
-    );
+    return <p className="text-sm text-staff-instruction">Checking late-order availability…</p>;
   }
 
   if (!showEntry && !blockingSubmission) {
@@ -241,6 +230,9 @@ export function StaffLateOrderRequestPanel({
 
   function handleCreate(event: React.FormEvent) {
     event.preventDefault();
+    if (submittingRef.current) {
+      return;
+    }
     clearFieldValidation();
 
     if (!validateLateOrderFields({ requireCycle: true }) || !selectedCycle) {
@@ -253,18 +245,26 @@ export function StaffLateOrderRequestPanel({
     }
 
     lateOrderDrawer?.clearSubmissionFeedback();
+    submittingRef.current = true;
+    setSubmitting(true);
 
     startTransition(async () => {
-      const result = await createStaffLateOrderRequestAction({
-        providerId: selectedCycle.provider_id,
-        scheduledDeliveryDate: selectedCycle.scheduled_delivery_date,
-        requestedSummary: summary,
-        quantity: Number.parseInt(quantity, 10),
-        specialInstructions: instructions,
-        officeLocationId,
-        saveAsDefault,
-        savedDefaultOfficeLocationId,
-      });
+      let result: Awaited<ReturnType<typeof createStaffLateOrderRequestAction>>;
+      try {
+        result = await createStaffLateOrderRequestAction({
+          providerId: selectedCycle.provider_id,
+          scheduledDeliveryDate: selectedCycle.scheduled_delivery_date,
+          requestedSummary: summary,
+          quantity: Number.parseInt(quantity, 10),
+          specialInstructions: instructions,
+          officeLocationId,
+          saveAsDefault,
+          savedDefaultOfficeLocationId,
+        });
+      } finally {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
 
       if (!result.ok) {
         setFormError(result.error);
@@ -285,7 +285,13 @@ export function StaffLateOrderRequestPanel({
 
   const errorSummary =
     error ? (
-      <FormActionStatus ref={errorSummaryRef} id={errorSummaryId} variant="error" className="mt-3">
+      <FormActionStatus
+        ref={errorSummaryRef}
+        id={errorSummaryId}
+        variant="error"
+        liveRegion={false}
+        className="mt-3"
+      >
         {error}
       </FormActionStatus>
     ) : null;
@@ -426,7 +432,6 @@ export function StaffLateOrderRequestPanel({
             </label>
             <select
               id={cycleFieldId}
-              ref={cycleSelectRef}
               className={selectClassName}
               value={effectiveSelectedCycleKey}
               onChange={(e) => {
@@ -445,9 +450,30 @@ export function StaffLateOrderRequestPanel({
           </div>
           {sharedRequestFields}
           <p className="text-sm text-staff-instruction">{LATE_ORDER_ONE_PER_PROVIDER_HELPER}</p>
-          <Button type="submit" variant="primary" staffPrimaryCta>
-            Submit late order
-          </Button>
+          <p className="sr-only" role="status" aria-atomic="true">
+            {submitting ? LATE_ORDER_SUBMITTING_MESSAGE : ""}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="submit"
+              variant="primary"
+              staffPrimaryCta
+              aria-disabled={submitting ? true : undefined}
+              aria-busy={submitting ? true : undefined}
+              className={submitting ? "cursor-not-allowed opacity-60" : ""}
+            >
+              {submitting ? "Submitting…" : "Submit late order"}
+            </Button>
+            {lateOrderDrawer ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => lateOrderDrawer.handleDrawerOpenChange(false)}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </div>
         </form>
       ) : null}
     </>

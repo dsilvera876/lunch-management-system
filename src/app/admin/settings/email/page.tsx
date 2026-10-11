@@ -3,6 +3,9 @@ import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { fetchAdminNotificationEvents } from "@/lib/notification-server";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmailSettings");
 
 export default async function EmailSettingsPage() {
   await requireAdminOrOwner();

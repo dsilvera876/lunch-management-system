@@ -4,6 +4,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmailTemplateEdit");
 
 type Props = {
   params: Promise<{ eventKey: string }>;

@@ -5,6 +5,9 @@ import { linkButtonClass } from "@/components/ui/button";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { EMAIL_SETTINGS_PATH, notificationTemplateEditPath } from "@/lib/notification-presentation";
 import { createClient } from "@/lib/supabase/server";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmailTemplates");
 
 export default async function EmailTemplatesPage() {
   await requireAdminOrOwner();

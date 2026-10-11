@@ -1,18 +1,19 @@
 import Link from "next/link";
-import { login } from "./actions";
 import { AuthLayout } from "@/components/auth-layout";
-import { FormField, inputClassName } from "@/components/ui/form-field";
-import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import {
   ACCOUNT_SETUP_INVALID_LINK_MESSAGE,
-  FORGOT_PASSWORD_PATH,
   PASSWORD_UPDATED_MESSAGE,
 } from "@/lib/auth-recovery";
+import { isLoginErrorCode } from "@/lib/login-form";
 import {
   LOGIN_INACTIVE_MESSAGE,
   LOGIN_INCOMPLETE_SETUP_MESSAGE,
 } from "@/lib/post-login-gate";
+import { pageMetadata } from "@/lib/page-titles";
+import { LoginForm } from "./login-form";
+
+export const metadata = pageMetadata("login");
 
 type Props = {
   searchParams: Promise<{
@@ -53,12 +54,6 @@ export default async function LoginPage({ searchParams }: Props) {
         </Alert>
       )}
 
-      {params.error === "unconfirmed" && (
-        <Alert variant="error" className="mt-4">
-          Confirm your email before signing in.
-        </Alert>
-      )}
-
       {params.error === "inactive" && (
         <Alert variant="error" className="mt-4">
           {LOGIN_INACTIVE_MESSAGE}
@@ -71,58 +66,14 @@ export default async function LoginPage({ searchParams }: Props) {
         </Alert>
       )}
 
-      {params.error === "credentials" && (
-        <Alert variant="error" className="mt-4">
-          Unable to sign in. Check your email and password.
-        </Alert>
-      )}
+      <LoginForm urlError={isLoginErrorCode(params.error) ? params.error : undefined} />
 
-      {params.error === "invalid" && (
-        <Alert variant="error" className="mt-4">
-          Enter a valid email and password.
-        </Alert>
-      )}
-
-      <form action={login} className="mt-6 space-y-4">
-        <FormField label="Email" htmlFor="email">
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className={inputClassName}
-          />
-        </FormField>
-
-        <FormField label="Password" htmlFor="password">
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            className={inputClassName}
-          />
-        </FormField>
-
-        <div className="text-right">
-          <Link
-            href={FORGOT_PASSWORD_PATH}
-            className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
-
-        <Button type="submit" variant="primary" className="w-full">
-          Sign in
-        </Button>
-      </form>
-
-      <p className="mt-4 text-center text-sm text-muted">
+      <p className="mt-4 text-center text-sm text-staff-instruction">
         No account?{" "}
-        <Link href="/signup" className="font-medium text-primary underline-offset-2 hover:underline">
+        <Link
+          href="/signup"
+          className="font-medium text-staff-teal underline-offset-2 hover:underline"
+        >
           Sign up
         </Link>
       </p>

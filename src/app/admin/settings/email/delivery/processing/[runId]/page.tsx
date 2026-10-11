@@ -3,6 +3,9 @@ import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { loadNotificationProcessingRunDetail } from "@/lib/notification-delivery-server";
 import { notFound } from "next/navigation";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminEmailProcessingRun");
 
 type Props = {
   params: Promise<{ runId: string }>;

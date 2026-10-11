@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { HrProviderMenuItemRatingsWorkspace } from "@/components/admin/lunch-providers/hr-provider-menu-item-ratings-workspace";
 import { parseHrMenuItemRatingsDashboard } from "@/lib/hr-menu-item-ratings";
 import { Alert } from "@/components/ui/alert";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminProviderRatings");
 
 type Props = {
   params: Promise<{ id: string }>;

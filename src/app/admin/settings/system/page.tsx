@@ -4,6 +4,9 @@ import { requireAdminOrOwner } from "@/lib/auth";
 import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { SettingsOperationsCard } from "@/components/admin/settings-operations-card";
 import { PageHeader } from "@/components/ui/page-header";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminSystemSettings");
 
 function SettingsSectionLabel({ children }: { children: ReactNode }) {
   return (

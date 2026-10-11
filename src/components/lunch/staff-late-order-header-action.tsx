@@ -36,7 +36,11 @@ export function StaffLateOrderHeaderAction({
 
   if (kind === "status") {
     return (
-      <Link href={MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF} className={linkButtonClass("secondary")}>
+      <Link
+        href={MY_ORDERS_LATE_ORDER_SUBMISSIONS_HREF}
+        className={linkButtonClass("secondary")}
+        data-late-order-header-action
+      >
         {label}
       </Link>
     );

@@ -9,6 +9,7 @@ import { getOperationalAttentionUnreadCount } from "@/lib/operational-attention-
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/roles";
 import { fetchActiveSupportSession } from "@/lib/support-mode-server";
+import { ROOT_TITLE_METADATA } from "@/lib/page-titles";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,7 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lunch Management System",
+  title: ROOT_TITLE_METADATA,
   description: "Manage lunch menus and employee orders.",
 };
 

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -51,6 +52,23 @@ import {
   StaffLateOrderRequestPanel,
   type StaffLateOrderRequestPanelProps,
 } from "@/components/lunch/staff-late-order-request-panel";
+import { withAnnouncementNonce } from "@/lib/lunch-checkout-accessibility";
+import {
+  formatLateOrderAvailabilityAnnouncement,
+  LATE_ORDER_AVAILABILITY_CHECKING_MESSAGE,
+} from "@/lib/staff-late-order-drawer-accessibility";
+
+/**
+ * Returns focus to the opening control. After a submission the page may replace that
+ * trigger with the "Late order status" link, so fall back to it, then to main content.
+ */
+function restoreFocusAfterLateOrderDrawerClose(trigger: HTMLElement | null) {
+  const target =
+    (trigger?.isConnected ? trigger : null) ??
+    document.querySelector<HTMLElement>("[data-late-order-header-action]") ??
+    document.getElementById("main-content");
+  target?.focus({ preventScroll: true });
+}
 
 type DrawerContextValue = {
   jamaicaToday: string;
@@ -72,6 +90,7 @@ type DrawerContextValue = {
   locationDisplayName: string | null;
   cyclesLoading: boolean;
   locationError: string | null;
+  availabilityAnnouncement: string;
   newLateOrderOpportunity: boolean;
   lateOrderSummary: StaffLateOrderNewRequestSummary | null;
   submissionFeedback: LateOrderSubmissionFeedback;
@@ -147,6 +166,7 @@ export function StaffLateOrderDrawerRoot({
   const [eligibleCycles, setEligibleCycles] = useState(initialEligibleCycles);
   const [cyclesLoading, setCyclesLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [availabilityAnnouncement, setAvailabilityAnnouncement] = useState("");
   const [saveAsDefault, setSaveAsDefault] = useState(() =>
     resolveLateOrderSaveAsDefaultCheckboxState(
       defaultOfficeLocationId,
@@ -182,6 +202,10 @@ export function StaffLateOrderDrawerRoot({
       setDrawerOpen(open);
       if (!open) {
         clearSubmissionFeedback();
+        setAvailabilityAnnouncement("");
+        window.requestAnimationFrame(() => {
+          restoreFocusAfterLateOrderDrawerClose(triggerRef.current);
+        });
       }
     },
     [clearSubmissionFeedback],
@@ -213,6 +237,9 @@ export function StaffLateOrderDrawerRoot({
     locationFetchGenerationRef.current = generation;
     setCyclesLoading(true);
     setLocationError(null);
+    setAvailabilityAnnouncement(
+      withAnnouncementNonce(LATE_ORDER_AVAILABILITY_CHECKING_MESSAGE, generation),
+    );
     setEligibleCycles([]);
     syncDeliveryDatesForCycles([]);
     return generation;
@@ -239,12 +266,19 @@ export function StaffLateOrderDrawerRoot({
       setCyclesLoading(false);
 
       if (!result.ok) {
+        setAvailabilityAnnouncement("");
         setLocationError(result.error);
         setEligibleCycles([]);
         syncDeliveryDatesForCycles([]);
         return;
       }
 
+      setAvailabilityAnnouncement(
+        withAnnouncementNonce(
+          formatLateOrderAvailabilityAnnouncement(result.eligibleCycles.length),
+          generation,
+        ),
+      );
       setEligibleCycles(result.eligibleCycles);
       syncDeliveryDatesForCycles(result.eligibleCycles);
     },
@@ -298,9 +332,7 @@ export function StaffLateOrderDrawerRoot({
     null,
   );
 
-  if (!staffLateOrderDrawerVisible(fullContext, { newLateOrderOpportunity })) {
-    return null;
-  }
+  const drawerAvailable = staffLateOrderDrawerVisible(fullContext, { newLateOrderOpportunity });
 
   return (
     <StaffLateOrderDrawerContext.Provider
@@ -324,6 +356,7 @@ export function StaffLateOrderDrawerRoot({
         locationDisplayName,
         cyclesLoading,
         locationError,
+        availabilityAnnouncement,
         newLateOrderOpportunity,
         lateOrderSummary,
         submissionFeedback,
@@ -332,10 +365,12 @@ export function StaffLateOrderDrawerRoot({
       }}
     >
       {children}
-      <StaffLateOrderDrawerSurface
-        orderingOpen={orderingOpen}
-        onSelectOfficeLocation={handleSelectOfficeLocation}
-      />
+      {drawerAvailable ? (
+        <StaffLateOrderDrawerSurface
+          orderingOpen={orderingOpen}
+          onSelectOfficeLocation={handleSelectOfficeLocation}
+        />
+      ) : null}
     </StaffLateOrderDrawerContext.Provider>
   );
 }
@@ -401,13 +436,22 @@ function StaffLateOrderDrawerSurface({
     setSaveAsDefault,
     cyclesLoading,
     locationError,
+    availabilityAnnouncement,
     submissionFeedback,
     clearSubmissionFeedback,
   } = useStaffLateOrderDrawer();
   const titleId = useId();
   const deliveryFieldId = useId();
   const locationFieldId = useId();
+  const locationErrorId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (submissionFeedback.successMessage) {
+      feedbackRef.current?.focus();
+    }
+  }, [submissionFeedback]);
 
   const scopedContext = useMemo(
     () => filterStaffLateOrderForDeliveryDate(fullContext, selectedDeliveryDate),
@@ -436,10 +480,10 @@ function StaffLateOrderDrawerSurface({
       initialFocusRef={headingRef}
       className="fixed inset-0 z-[60] flex justify-end"
     >
-      <button
-        type="button"
+      <div
+        aria-hidden="true"
+        data-late-order-drawer-backdrop
         className="absolute inset-0 bg-slate-900/40 motion-reduce:transition-none"
-        aria-label="Close late order drawer"
         onClick={() => handleDrawerOpenChange(false)}
       />
       <div
@@ -472,6 +516,8 @@ function StaffLateOrderDrawerSurface({
                   className={`${selectClassName} mt-1 w-full`}
                   value={selectedOfficeLocationId}
                   onChange={(event) => onSelectOfficeLocation(event.target.value)}
+                  aria-invalid={locationError ? true : undefined}
+                  aria-describedby={locationError ? locationErrorId : undefined}
                 >
                   {!selectedOfficeLocationId ? (
                     <option value="" disabled>
@@ -495,7 +541,7 @@ function StaffLateOrderDrawerSurface({
                   <span>Save as my default delivery location</span>
                 </label>
                 {locationError ? (
-                  <p className="mt-2 text-sm text-red-700" role="alert">
+                  <p id={locationErrorId} className="mt-2 text-sm text-red-700" role="alert">
                     {locationError}
                   </p>
                 ) : null}
@@ -531,13 +577,25 @@ function StaffLateOrderDrawerSurface({
             <IconX size={18} />
           </Button>
         </header>
+        <p className="sr-only" role="status" aria-atomic="true" data-late-order-availability-status>
+          {availabilityAnnouncement}
+        </p>
         {submissionFeedback.successMessage || submissionFeedback.warningMessage ? (
-          <div className="space-y-2 border-b border-border px-5 py-3">
+          <div
+            ref={feedbackRef}
+            tabIndex={-1}
+            data-late-order-submission-feedback
+            className="space-y-2 border-b border-border px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+          >
             {submissionFeedback.successMessage ? (
-              <FormActionStatus variant="success">{submissionFeedback.successMessage}</FormActionStatus>
+              <FormActionStatus variant="success" liveRegion={false}>
+                {submissionFeedback.successMessage}
+              </FormActionStatus>
             ) : null}
             {submissionFeedback.warningMessage ? (
-              <FormActionStatus variant="warning">{submissionFeedback.warningMessage}</FormActionStatus>
+              <FormActionStatus variant="warning" liveRegion={false}>
+                {submissionFeedback.warningMessage}
+              </FormActionStatus>
             ) : null}
           </div>
         ) : null}

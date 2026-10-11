@@ -19,6 +19,9 @@ import {
   ORDER_CANCELLED_CONFIRMATION_DETAIL,
   ORDER_CANCELLED_CONFIRMATION_TITLE,
 } from "@/lib/staff-order-cancel-ux";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("lunchOrderDetail");
 
 type Props = {
   params: Promise<{

@@ -6,6 +6,9 @@ import { HrSettingsWorkspace } from "@/components/admin/hr-settings-workspace";
 import { OrderCutoffSettingsCard } from "@/components/admin/order-cutoff-settings-card";
 import { SettingsOperationsCard } from "@/components/admin/settings-operations-card";
 import { PageHeader } from "@/components/ui/page-header";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminSettings");
 
 type Props = {
   searchParams: Promise<{

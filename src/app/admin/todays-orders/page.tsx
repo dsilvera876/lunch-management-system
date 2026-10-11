@@ -19,6 +19,9 @@ import { mapProviderPrimaryDispatchStatusRow } from "@/lib/provider-primary-orde
 import { IconClipboard } from "@/components/icons/line-icons";
 import { TealIconWell } from "@/components/my-spend/teal-icon-well";
 import { Card } from "@/components/ui/card";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminTodaysOrders");
 
 export default async function TodaysOrdersPage() {
   const profile = await requireViewAllOrders();

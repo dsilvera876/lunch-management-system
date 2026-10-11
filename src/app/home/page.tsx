@@ -28,6 +28,9 @@ import { resolveLateOrderEligibilityOfficeLocationId } from "@/lib/staff-late-or
 import { loadMenuItemRatingSummaries } from "@/app/menu-item-ratings/actions";
 import { menuItemRatingsFromLoadResult } from "@/lib/menu-item-ratings-collect";
 import { loadRecentRateableMenuItemsForHome } from "@/lib/menu-item-ratings-recent-load";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("home");
 
 export default async function HomePage() {
   const profile = await requireProfile();

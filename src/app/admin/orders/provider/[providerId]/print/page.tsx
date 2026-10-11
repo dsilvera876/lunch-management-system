@@ -17,6 +17,9 @@ import {
 import { OperationalOrderCard } from "@/components/admin/operational-orders";
 import { PrintDeliverySheetButton } from "@/components/admin/print-delivery-sheet-button";
 import { fetchDefaultOperationalDeliveryDate } from "@/lib/business-calendar-server";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminProviderOrderPrint");
 
 type Props = {
   params: Promise<{ providerId: string }>;

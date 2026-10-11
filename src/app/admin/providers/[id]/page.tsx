@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { ManageMenuWorkspace } from "@/components/admin/lunch-providers/manage-menu-workspace";
 import type { MenuItemType } from "@/lib/menu-items";
 import { Alert } from "@/components/ui/alert";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminProviderMenu");
 
 type Props = {
   params: Promise<{ id: string }>;

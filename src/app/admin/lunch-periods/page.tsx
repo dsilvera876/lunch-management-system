@@ -18,6 +18,9 @@ import { LunchPeriodInfoCallout } from "@/components/admin/lunch-periods/lunch-p
 import { CurrentLunchPeriodSummary } from "@/components/admin/lunch-periods/current-lunch-period-summary";
 import { AppendLunchPeriodCard } from "@/components/admin/lunch-periods/append-lunch-period-card";
 import { LunchPeriodsTable } from "@/components/admin/lunch-periods/lunch-periods-table";
+import { pageMetadata } from "@/lib/page-titles";
+
+export const metadata = pageMetadata("adminLunchPeriods");
 
 type Props = {
   searchParams: Promise<{

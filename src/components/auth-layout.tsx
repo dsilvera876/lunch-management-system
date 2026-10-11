@@ -13,7 +13,7 @@ export function AuthLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <div
+      <main
         className={
           isOnboarding
             ? "mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-20 sm:pt-24"
@@ -23,13 +23,13 @@ export function AuthLayout({
         <div className={`text-center ${isOnboarding ? "mb-6" : "mb-8"}`}>
           <p className="text-lg font-semibold text-foreground">Lunch Management</p>
           {!isOnboarding ? (
-            <p className="mt-1 text-sm text-muted">Sign in to manage lunch orders</p>
+            <p className="mt-1 text-sm text-staff-instruction">Sign in to manage lunch orders</p>
           ) : null}
         </div>
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

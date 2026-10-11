@@ -28,9 +28,9 @@ record any failures found there as Accessibility findings below.
 | PRL-005 | Accessibility | High | Staff `/lunch`: Place Order when the cart is not ready | In progress |
 | PRL-006 | Accessibility | High | Staff `/lunch`: checkout success confirmation | In progress |
 | PRL-007 | Accessibility | High | Staff `/lunch`: delivery location picker | In progress |
-| PRL-008 | Accessibility | High | Staff `/lunch`: late-order request drawer | Open |
-| PRL-009 | Accessibility | High | All routes: page titles and route-change announcements | Open |
-| PRL-010 | Accessibility | Medium | `/login`: sign-in form | Open |
+| PRL-008 | Accessibility | High | Staff `/lunch`: late-order request drawer | In progress |
+| PRL-009 | Accessibility | High | All routes: page titles and route-change announcements | In progress |
+| PRL-010 | Accessibility | Medium | `/login`: sign-in form | In progress |
 | PRL-011 | Accessibility | Medium | Staff forms and rating stars | Open |
 | PRL-012 | Accessibility | Medium | Staff `/lunch` cart and app header control names | Open |
 | PRL-013 | Workflow | Medium | Staff `/lunch`: late-order submit and Clear All | Open |
@@ -118,8 +118,22 @@ because ordering was closed on the review date.
 - **Description:** An effect in `staff-late-order-request-panel.tsx` focuses the delivery-date select
   whenever the entry form appears, which likely skips the drawer heading on open and pulls focus away from
   the location select when availability reloads. Needs browser confirmation (WCAG 2.4.3, 3.2.2).
-- **Status:** Open
+- **Status:** In progress
 - **Source:** Phase 2A review.
+- **Remediation (uncommitted, awaiting review):** Confirmed in the browser, along with a second bug: after
+  a successful submission the drawer unmounted and focus fell to the page body. The focus effect is
+  removed, so opening focuses the drawer heading and changing location or delivery date keeps focus on
+  that control. A single status region announces "Checking late-order availability…" and then the number
+  of options. The drawer stays open after submitting, and focus moves to the success message. Escape,
+  Cancel (new), the close button and the backdrop close it and return focus to the opening button, or to
+  the "Late order status" link if the button was replaced. The backdrop is no longer a focusable button.
+  Validation errors are focused rather than also announced, and the location error is linked to its
+  select. Submitting shows "Submitting…" with `aria-busy`, keeps focus, and ignores repeat activation.
+  Eligibility and submission rules are unchanged. Covered by
+  `tests/accessibility/staff-late-order-drawer-focus.spec.ts` (Chromium and Firefox, axe) and unit tests.
+- **Manual checks remaining:** NVDA with Firefox and Chrome: heading read on open, availability
+  announcements after a location change, success and error messages read once when focused, the pending
+  state. Repeat on a real weekday, without the local weekend calendar override, and on touch.
 
 ### PRL-009: Every route has the same page title
 
@@ -128,8 +142,17 @@ because ordering was closed on the review date.
 - **Description:** Only the root layout defines a title, so Next.js does not announce client-side route
   changes and browser tabs and history are indistinguishable. Each route needs its own title. Verified in
   the browser (WCAG 2.4.2).
-- **Status:** Open
+- **Status:** In progress
 - **Source:** Phase 2A review.
+- **Remediation (uncommitted, awaiting review):** The root layout sets the template
+  `%s | Lunch Management System`. Every rendering route exports a static title from
+  `src/lib/page-titles.ts`, covering public, Staff, HR, Accounts, Owner and Admin routes. The four
+  redirect-only routes have none. `/account/update-password` picks its title from the invite or recovery
+  flow. Titles never include names, emails or record data. Authorization and routing are unchanged.
+  Covered by `tests/accessibility/page-titles.spec.ts` (per role, including client-side navigation, in
+  Chromium and Firefox) and `src/lib/page-titles.test.ts`.
+- **Manual checks remaining:** NVDA: confirm the new title is announced on client-side navigation in
+  Firefox and Chrome. Check print routes and detail pages opened from HR tables.
 
 ### PRL-010: Sign-in contrast and error handling
 
@@ -139,8 +162,23 @@ because ordering was closed on the review date.
   failed sign-in the email is cleared, focus is not moved to the error, and the fields have no
   `aria-invalid` or `aria-describedby`. The button has no pending state and the page has no `main`
   landmark. Verified in the browser (WCAG 1.4.3, 3.3.1, 4.1.2).
-- **Status:** Open
+- **Status:** In progress
 - **Source:** Phase 2A review.
+- **Remediation (uncommitted, awaiting review):** The auth layout is now a `main` landmark. The subtitle
+  and links use the accessible Staff tokens, and Sign in uses the darker primary button. The sign-in
+  action returns form state instead of redirecting with `?error=`. After a failure the URL stays
+  `/login`, the email is kept in client state (never in the URL), and the password is cleared. The
+  error receives focus, and both fields get `aria-invalid` and `aria-describedby` pointing at it.
+  Submitting shows "Signing in…", keeps the button focusable and ignores repeat activation. The
+  Supabase sign-in, the post-login profile gate and the redirects are unchanged, as is the error copy.
+  Covered by `tests/accessibility/login-a11y.spec.ts` (Chromium and Firefox, axe) and
+  `src/lib/login-form.test.ts`.
+- **Manual checks remaining:** NVDA: the error read once when focused and the fields read as invalid
+  with the message. Password-manager autofill after a failed attempt. Windows high-contrast mode.
+  Signup, forgot-password and set-password share the layout; give them a quick visual check.
+- **Follow-up (not in this change):** Signup and forgot-password content still use the older teal
+  (`text-primary` links at 3.74:1, `bg-primary` submit buttons at 3.74:1, and 3.42:1 on the red error
+  panel). Their landmark and layout pass the other axe rules.
 
 ### PRL-011: Form field borders and empty rating stars lack contrast
 
