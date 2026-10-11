@@ -133,7 +133,17 @@ export function formatBusinessCalendarLateRequestDeclineNotice(
       ? "1 pending late-order request"
       : `${pendingLateRequestCount} pending late-order requests`;
 
-  return `${requests} will be automatically declined. Each employee will be emailed that lunch ordering is unavailable because the business day was closed.`;
+  return `${requests} will be automatically declined. Each employee will be emailed whether the business day was closed or the business calendar change made the original delivery schedule unavailable.`;
+}
+
+export function formatBusinessCalendarArchiveConfirmation(
+  pendingLateRequestCount: number,
+): string {
+  const notice = formatBusinessCalendarLateRequestDeclineNotice(pendingLateRequestCount);
+
+  return notice
+    ? `Archive this calendar entry?\n\n${notice}`
+    : "Archive this calendar entry?";
 }
 
 export function formatBusinessCalendarImpactHeadline(

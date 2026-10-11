@@ -113,7 +113,26 @@ export async function previewBusinessCalendarEntryImpact(input: {
     throw new Error(error.message);
   }
 
-  const row = data as Record<string, unknown>;
+  return parseBusinessCalendarEntryImpact(data);
+}
+
+export async function previewBusinessCalendarArchiveImpact(
+  entryId: string,
+): Promise<BusinessCalendarEntryImpact> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("preview_business_calendar_archive_impact", {
+    p_id: entryId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return parseBusinessCalendarEntryImpact(data);
+}
+
+function parseBusinessCalendarEntryImpact(data: unknown): BusinessCalendarEntryImpact {
+  const row = (data ?? {}) as Record<string, unknown>;
 
   return {
     requires_confirmation: Boolean(row.requires_confirmation),

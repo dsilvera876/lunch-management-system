@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireMutateHrOperationalData, requireHrOperationalRead } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
+  previewBusinessCalendarArchiveImpact,
   previewBusinessCalendarEntryImpact,
   type BusinessCalendarEntryImpact,
 } from "@/lib/business-calendar-server";
@@ -77,12 +78,24 @@ export async function saveBusinessCalendarEntry(formData: FormData) {
   revalidatePath("/admin/settings/business-calendar");
 }
 
-export async function archiveBusinessCalendarEntry(entryId: string) {
+export async function previewBusinessCalendarArchiveImpactAction(
+  entryId: string,
+): Promise<BusinessCalendarEntryImpact> {
+  await requireHrOperationalRead();
+
+  return previewBusinessCalendarArchiveImpact(entryId);
+}
+
+export async function archiveBusinessCalendarEntry(
+  entryId: string,
+  acknowledgeImpact = false,
+) {
   await requireMutateHrOperationalData();
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("archive_business_calendar_entry", {
     p_id: entryId,
+    p_acknowledge_impact: acknowledgeImpact,
   });
 
   if (error) {

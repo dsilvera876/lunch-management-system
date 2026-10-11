@@ -7,6 +7,7 @@ import {
   businessCalendarScopeLabel,
   businessCalendarTableActionClassName,
   formatBusinessCalendarImpactHeadline,
+  formatBusinessCalendarArchiveConfirmation,
   formatBusinessCalendarLateRequestDeclineNotice,
   hasBusinessCalendarImpactWarning,
 } from "./business-calendar-presentation";
@@ -75,12 +76,41 @@ describe("business calendar presentation", () => {
     assert.equal(formatBusinessCalendarLateRequestDeclineNotice(0), null);
     assert.equal(
       formatBusinessCalendarLateRequestDeclineNotice(1),
-      "1 pending late-order request will be automatically declined. Each employee will be emailed that lunch ordering is unavailable because the business day was closed.",
+      "1 pending late-order request will be automatically declined. Each employee will be emailed whether the business day was closed or the business calendar change made the original delivery schedule unavailable.",
     );
     assert.match(
       formatBusinessCalendarLateRequestDeclineNotice(4) ?? "",
       /^4 pending late-order requests will be automatically declined\./,
     );
+  });
+
+  it("adds the late-order decline notice to the archive confirmation only when requests are affected", () => {
+    assert.equal(formatBusinessCalendarArchiveConfirmation(0), "Archive this calendar entry?");
+    assert.match(
+      formatBusinessCalendarArchiveConfirmation(2),
+      /^Archive this calendar entry\?\n\n2 pending late-order requests will be automatically declined\./,
+    );
+  });
+
+  it("previews archive impact and passes explicit acknowledgment to the archive RPC", () => {
+    const workspace = readFileSync(
+      new URL("../components/admin/business-calendar-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const actions = readFileSync(
+      new URL("../app/admin/settings/business-calendar/actions.ts", import.meta.url),
+      "utf8",
+    );
+    const server = readFileSync(new URL("./business-calendar-server.ts", import.meta.url), "utf8");
+
+    assert.match(workspace, /previewBusinessCalendarArchiveImpactAction\(entryId\)/);
+    assert.match(
+      workspace,
+      /formatBusinessCalendarArchiveConfirmation\(impact\.pending_late_request_count\)/,
+    );
+    assert.match(workspace, /archiveBusinessCalendarEntry\(entryId, impact\.requires_confirmation\)/);
+    assert.match(actions, /p_acknowledge_impact: acknowledgeImpact/);
+    assert.match(server, /rpc\("preview_business_calendar_archive_impact"/);
   });
 
   it("wires the pending late-order count from the preview into the warning", () => {

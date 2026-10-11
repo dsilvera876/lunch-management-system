@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { archiveBusinessCalendarEntry } from "@/app/admin/settings/business-calendar/actions";
+import {
+  archiveBusinessCalendarEntry,
+  previewBusinessCalendarArchiveImpactAction,
+} from "@/app/admin/settings/business-calendar/actions";
 import { BusinessCalendarEntryDrawer } from "@/components/admin/business-calendar-entry-drawer";
 import { useSupportMode } from "@/components/app-shell/support-mode-context";
 import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
@@ -12,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   businessCalendarEntryTypeLabel,
+  formatBusinessCalendarArchiveConfirmation,
   businessCalendarScopeLabel,
   businessCalendarSourceLabel,
   businessCalendarTableActionClassName,
@@ -94,12 +98,18 @@ export function BusinessCalendarWorkspace({
       return;
     }
 
-    if (!window.confirm("Archive this calendar entry?")) {
-      return;
-    }
-
     startTransition(async () => {
-      await archiveBusinessCalendarEntry(entryId);
+      const impact = await previewBusinessCalendarArchiveImpactAction(entryId);
+
+      if (
+        !window.confirm(
+          formatBusinessCalendarArchiveConfirmation(impact.pending_late_request_count),
+        )
+      ) {
+        return;
+      }
+
+      await archiveBusinessCalendarEntry(entryId, impact.requires_confirmation);
     });
   }
 
