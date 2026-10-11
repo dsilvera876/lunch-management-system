@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import {
   CHECKOUT_LOCATION_REQUIRED_MESSAGE,
   LOCATION_PICKER_SELECTION_REQUIRED_MESSAGE,
+  formatCartEntryRemoveLabel,
   formatCartEntryRemovedAnnouncement,
+  formatCartLineRemoveLabel,
   formatCartLineRemovedAnnouncement,
   resolveCheckoutBlock,
   resolveLocationPickerConfirmation,
@@ -111,6 +113,14 @@ describe("cart announcements", () => {
     assert.equal(
       formatCartEntryRemovedAnnouncement("Alberries", 2),
       "Alberries order 2 removed from your lunch cart.",
+    );
+    assert.equal(
+      formatCartLineRemoveLabel("Curry Chicken", "Alberries"),
+      "Remove Curry Chicken from Alberries order",
+    );
+    assert.equal(
+      formatCartEntryRemoveLabel("Alberries", 2),
+      "Remove Alberries order 2 from lunch cart",
     );
   });
 

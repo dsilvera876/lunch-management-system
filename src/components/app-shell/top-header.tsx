@@ -65,7 +65,11 @@ export function TopHeader({
             href={ACCOUNT_NAV.href}
             className="flex items-center gap-2 rounded-lg border border-border bg-surface py-1.5 pl-1.5 pr-3 text-sm hover:bg-background"
           >
+            <span className="sr-only">
+              Account settings, {profile.full_name ?? "User"}, {getRoleLabel(profile.role)}
+            </span>
             <span
+              aria-hidden="true"
               className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold ${
                 isStaff
                   ? "bg-primary/10 text-staff-teal-strong"
@@ -74,7 +78,7 @@ export function TopHeader({
             >
               {getInitials(profile.full_name)}
             </span>
-            <span className="hidden min-w-0 sm:block">
+            <span aria-hidden="true" className="hidden min-w-0 sm:block">
               <span className="block truncate font-medium text-foreground">
                 {profile.full_name ?? "User"}
               </span>

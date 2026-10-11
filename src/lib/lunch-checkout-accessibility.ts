@@ -88,6 +88,19 @@ export function formatCartEntryRemovedAnnouncement(
   return `${providerName} order ${providerOrderIndex} removed from your lunch cart.`;
 }
 
+/** Accessible name for a cart line Remove control (visible label stays "Remove"). */
+export function formatCartLineRemoveLabel(itemName: string, providerName: string): string {
+  return `Remove ${itemName} from ${providerName} order`;
+}
+
+/** Accessible name for removing a completed provider order from the cart. */
+export function formatCartEntryRemoveLabel(
+  providerName: string,
+  providerOrderIndex: number,
+): string {
+  return `Remove ${providerName} order ${providerOrderIndex} from lunch cart`;
+}
+
 /**
  * Appends an invisible, alternating suffix so a repeated identical message
  * still changes the live region text and is announced again.

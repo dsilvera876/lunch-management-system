@@ -29,6 +29,16 @@
     color: #475569;
   }
 
+  /** Form control borders: ≥3:1 against white (WCAG 1.4.11). */
+  .border-staff-form {
+    border-color: #64748b;
+  }
+
+  /** Unfilled rating star stroke: ≥3:1 against white (WCAG 1.4.11). */
+  .text-staff-star-empty {
+    color: #64748b;
+  }
+
   .bg-staff-cta {
     background-color: #0f766e;
   }

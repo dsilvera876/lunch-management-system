@@ -31,8 +31,8 @@ record any failures found there as Accessibility findings below.
 | PRL-008 | Accessibility | High | Staff `/lunch`: late-order request drawer | In progress |
 | PRL-009 | Accessibility | High | All routes: page titles and route-change announcements | In progress |
 | PRL-010 | Accessibility | Medium | `/login`: sign-in form | In progress |
-| PRL-011 | Accessibility | Medium | Staff forms and rating stars | Open |
-| PRL-012 | Accessibility | Medium | Staff `/lunch` cart and app header control names | Open |
+| PRL-011 | Accessibility | Medium | Staff forms and rating stars | In progress |
+| PRL-012 | Accessibility | Medium | Staff `/lunch` cart and app header control names | In progress |
 | PRL-013 | Workflow | Medium | Staff `/lunch`: late-order submit and Clear All | Open |
 | PRL-014 | UI/UX | Medium | Staff `/lunch`: closed-day state | Open |
 | PRL-015 | Accessibility | Medium | Staff `/lunch`: ratings load failure | Open |
@@ -186,8 +186,15 @@ because ordering was closed on the review date.
 - **Affected workflow:** Staff forms (login, location picker, late-order form) and rating stars.
 - **Description:** Field borders use `#e2e8f0` (1.23:1 on white) and unfilled stars use `text-teal-700/25`
   (about 1.4:1), below the 3:1 non-text minimum (WCAG 1.4.11).
-- **Status:** Open
+- **Status:** In progress
 - **Source:** Phase 2A review.
+- **Remediation (uncommitted, awaiting review):** Staff-only tokens in `staff-accessibility.css`
+  (`border-staff-form`, `text-staff-star-empty` at `#64748b`) apply to shared form classes in
+  `form-field.tsx` and empty rating stars in `rating-stars.tsx`. Global layout borders are unchanged.
+  Covered by `src/lib/staff-accessibility-prl-011-012.test.ts` and axe on `/lunch`
+  (`tests/accessibility/staff-prl-011-012.spec.ts`).
+- **Manual checks remaining:** High-contrast mode and zoom: field borders and empty stars remain visible.
+  Spot-check login, location picker and late-order drawer on a real device.
 
 ### PRL-012: Unclear or duplicate control names
 
@@ -196,8 +203,16 @@ because ordering was closed on the review date.
 - **Description:** Cart Remove buttons are all named "Remove", trash labels repeat across providers, the
   mobile account link is announced as initials ("DS"), and the location button is named "· Change"
   (WCAG 2.4.4, 2.4.6, 4.1.2).
-- **Status:** Open
+- **Status:** In progress
 - **Source:** Phase 2A review.
+- **Remediation (uncommitted, awaiting review):** Cart line Remove buttons use
+  `aria-label` with provider and item names; order trash buttons include the provider name. The
+  delivery-location control is labeled "Change delivery location, currently …" or "Choose delivery
+  location" while keeping the visible "· Change" text. The header account link includes an
+  `sr-only` "Account settings, …" name so narrow viewports are not announced as initials only.
+  Covered by unit tests and `tests/accessibility/staff-prl-011-012.spec.ts` (Chromium and Firefox).
+- **Manual checks remaining:** NVDA/VoiceOver: cart with multiple providers and orders; confirm each
+  Remove and trash control is distinct. Mobile account link at 320px width.
 
 ### PRL-015: Ratings load failure produces one alert per menu item
 

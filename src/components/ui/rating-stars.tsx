@@ -43,7 +43,7 @@ function StarGlyph({
           ? highlighted
             ? "text-primary drop-shadow-[0_0_0.5px_currentColor]"
             : "text-primary"
-          : "text-teal-700/25"
+          : "text-staff-star-empty"
       }`}
     >
       <path
@@ -260,7 +260,7 @@ export function RatingStarsAverage({
             height={px}
             viewBox="0 0 24 24"
             aria-hidden
-            className="text-teal-700/25"
+            className="text-staff-star-empty"
           >
             <path
               d={STAR_PATH}

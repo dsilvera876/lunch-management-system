@@ -69,8 +69,8 @@ describe("staff lunch UI wiring", () => {
     assert.match(cart, /IconX/);
     assert.doesNotMatch(cart, /IconCircleX/);
     assert.doesNotMatch(cart, /IconCartMinus/);
-    assert.doesNotMatch(cart, /aria-label=\{label\}/);
-    assert.match(cart, /CartLineRemoveButton[\s\S]*Remove/);
+    assert.match(cart, /aria-label=\{label\}/);
+    assert.match(cart, /CartLineRemoveButton[\s\S]*aria-hidden="true">Remove/);
   });
 
   it("loads HR-assigned provider icons for lunch tabs", () => {

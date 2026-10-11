@@ -16,6 +16,7 @@ const skipOrderingGlobalSetup =
   emailPreviewPlaywrightOnly ||
   phase2aPlaywrightOnly;
 const phase2aSpecs = /(login-a11y|page-titles|staff-late-order-drawer-focus)\.spec\.ts/;
+const staffPrl011012Spec = /staff-prl-011-012\.spec\.ts/;
 
 export default defineConfig({
   globalSetup: path.join(
@@ -65,12 +66,35 @@ export default defineConfig({
         /email-preview-sandbox\.spec\.ts/,
         /staff-checkout-a11y\.spec\.ts/,
         phase2aSpecs,
+        staffPrl011012Spec,
       ],
       use: {
         ...devices["Desktop Chrome"],
         storageState: staffAuthFile,
       },
       dependencies: ["setup"],
+    },
+    {
+      name: "chromium-staff-prl-a11y",
+      testMatch: staffPrl011012Spec,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup"],
+    },
+    {
+      name: "firefox-staff-prl-a11y",
+      testMatch: staffPrl011012Spec,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Firefox"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup", "chromium-staff-prl-a11y"],
     },
     {
       name: "chromium-checkout-a11y",

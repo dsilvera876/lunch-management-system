@@ -144,10 +144,15 @@ export function OrderingStatusBar({
                       type="button"
                       aria-expanded={locationPickerOpen}
                       aria-haspopup="dialog"
+                      aria-label={
+                        locationName
+                          ? `Change delivery location, currently ${locationName}`
+                          : "Choose delivery location"
+                      }
                       className="inline-flex min-h-10 items-center font-semibold text-staff-teal hover:underline"
                       onClick={openLocationPicker}
                     >
-                      · {locationName ? "Change" : "Choose"}
+                      <span aria-hidden="true">· {locationName ? "Change" : "Choose"}</span>
                     </button>
                   </>
                 ) : null}

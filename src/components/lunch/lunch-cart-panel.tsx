@@ -4,7 +4,9 @@ import { useId, useLayoutEffect, useRef, useState, type MouseEvent } from "react
 import { FormSubmitButton } from "@/components/form-submit-button";
 import {
   CART_CLEARED_ANNOUNCEMENT,
+  formatCartEntryRemoveLabel,
   formatCartEntryRemovedAnnouncement,
+  formatCartLineRemoveLabel,
   formatCartLineRemovedAnnouncement,
   resolveRemovalFocusIndex,
   withAnnouncementNonce,
@@ -91,11 +93,12 @@ function CartLineRemoveButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-label={label}
       title={label}
       className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-slate-400 disabled:hover:bg-transparent disabled:hover:text-slate-400"
     >
       <IconX size={14} className="text-current" aria-hidden />
-      Remove
+      <span aria-hidden="true">Remove</span>
     </button>
   );
 }
@@ -119,6 +122,7 @@ function StatusBadge({ kind }: { kind: "in-progress" | "completed" }) {
 function DraftOrderLines({
   draft,
   menuItems,
+  providerName,
   orderingOpen,
   allowLineRemove,
   onRemoveMain,
@@ -127,6 +131,7 @@ function DraftOrderLines({
 }: {
   draft: ProviderDraft;
   menuItems: MenuItemView[];
+  providerName: string;
   orderingOpen: boolean;
   allowLineRemove: boolean;
   onRemoveMain: (event: MouseEvent<HTMLButtonElement>, itemName: string) => void;
@@ -161,7 +166,7 @@ function DraftOrderLines({
                 <span className="text-sm tabular-nums text-staff-instruction">{formatLinePrice(main.price)}</span>
                 {allowLineRemove ? (
                   <CartLineRemoveButton
-                    label={main.name}
+                    label={formatCartLineRemoveLabel(main.name, providerName)}
                     disabled={!orderingOpen}
                     onClick={(event) => onRemoveMain(event, main.name)}
                   />
@@ -179,7 +184,7 @@ function DraftOrderLines({
                   </span>
                   {allowLineRemove ? (
                     <CartLineRemoveButton
-                      label={side.name}
+                      label={formatCartLineRemoveLabel(side.name, providerName)}
                       disabled={!orderingOpen}
                       onClick={(event) => onRemoveSide(event, side.id, side.name)}
                     />
@@ -213,7 +218,7 @@ function DraftOrderLines({
                         {formatCurrency(lineTotal)}
                       </span>
                       <CartLineRemoveButton
-                        label={item.name}
+                        label={formatCartLineRemoveLabel(item.name, providerName)}
                         disabled={!orderingOpen}
                         onClick={(event) => onRemoveStandalone(event, item.id, item.name)}
                       />
@@ -292,7 +297,7 @@ function ProviderSections(
                   </p>
                 </div>
                 <TrashButton
-                  label={`Remove order ${entry.providerOrderIndex} from lunch cart`}
+                  label={formatCartEntryRemoveLabel(section.providerName, entry.providerOrderIndex)}
                   disabled={!orderingOpen}
                   onClick={(event) =>
                     onRemove(
@@ -310,6 +315,7 @@ function ProviderSections(
               <DraftOrderLines
                 draft={entry.draft}
                 menuItems={menuItems}
+                providerName={section.providerName}
                 orderingOpen={orderingOpen}
                 allowLineRemove={false}
                 onRemoveMain={() => undefined}
@@ -345,6 +351,7 @@ function ProviderSections(
             <DraftOrderLines
               draft={section.inProgress.draft}
               menuItems={menuItems}
+              providerName={section.providerName}
               orderingOpen={orderingOpen}
               allowLineRemove
               onRemoveMain={(event, itemName) =>
