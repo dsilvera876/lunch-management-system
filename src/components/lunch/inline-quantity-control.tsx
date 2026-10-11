@@ -9,6 +9,9 @@ type Props = {
   onChange: (value: number) => void;
 };
 
+const QUANTITY_BUTTON_CLASS =
+  "inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:border-border disabled:bg-slate-100 disabled:text-slate-400 aria-disabled:cursor-not-allowed aria-disabled:border-border aria-disabled:bg-slate-100 aria-disabled:text-slate-400 aria-disabled:hover:bg-slate-100";
+
 export function InlineQuantityControl({
   value,
   min = 1,
@@ -17,7 +20,13 @@ export function InlineQuantityControl({
   label,
   onChange,
 }: Props) {
+  const atMin = value <= min;
+  const atMax = value >= max;
+
   function adjust(delta: number) {
+    if ((delta < 0 && atMin) || (delta > 0 && atMax)) {
+      return;
+    }
     const next = Math.min(max, Math.max(min, value + delta));
     onChange(next);
   }
@@ -28,9 +37,10 @@ export function InlineQuantityControl({
     <div className="flex items-center gap-2" aria-label={label}>
       <button
         type="button"
-        disabled={disabled || value <= min}
+        disabled={disabled}
+        aria-disabled={!disabled && atMin ? true : undefined}
         onClick={() => adjust(-1)}
-        className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:border-border disabled:bg-slate-100 disabled:text-slate-400"
+        className={QUANTITY_BUTTON_CLASS}
         aria-label={`Decrease quantity for ${label}`}
       >
         −
@@ -43,9 +53,10 @@ export function InlineQuantityControl({
       </span>
       <button
         type="button"
-        disabled={disabled || value >= max}
+        disabled={disabled}
+        aria-disabled={!disabled && atMax ? true : undefined}
         onClick={() => adjust(1)}
-        className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-surface text-lg font-medium text-foreground hover:bg-background disabled:border-border disabled:bg-slate-100 disabled:text-slate-400"
+        className={QUANTITY_BUTTON_CLASS}
         aria-label={`Increase quantity for ${label}`}
       >
         +

@@ -24,6 +24,10 @@ type Props = {
   triggerRef: RefObject<HTMLElement | null>;
   /** Used for aria-labelledby on the dialog surface. */
   labelId: string;
+  /** Optional aria-describedby on the dialog surface. */
+  describedById?: string;
+  /** Focus target on dismiss when the dialog was opened by something other than the trigger. */
+  returnFocusRef?: RefObject<HTMLElement | null>;
   modal?: boolean;
   className?: string;
   children: ReactNode;
@@ -54,9 +58,15 @@ function restoreTriggerFocus(trigger: HTMLElement | null | undefined) {
 function closeModal(
   onOpenChange: (open: boolean) => void,
   triggerRef: RefObject<HTMLElement | null>,
+  returnFocusRef?: RefObject<HTMLElement | null>,
 ) {
+  const returnTarget = returnFocusRef?.current;
   onOpenChange(false);
   window.requestAnimationFrame(() => {
+    if (returnTarget && returnTarget.isConnected) {
+      returnTarget.focus();
+      return;
+    }
     restoreTriggerFocus(triggerRef.current);
   });
 }
@@ -66,6 +76,7 @@ function attachModalPopoverListeners(options: {
   modal: boolean;
   initialFocusRef?: RefObject<HTMLElement | null>;
   triggerRef: RefObject<HTMLElement | null>;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   updateAnchorPosition: () => void;
   onRemoveListeners: (remove: () => void) => void;
@@ -75,6 +86,7 @@ function attachModalPopoverListeners(options: {
     modal,
     initialFocusRef,
     triggerRef,
+    returnFocusRef,
     onOpenChange,
     updateAnchorPosition,
     onRemoveListeners,
@@ -102,13 +114,13 @@ function attachModalPopoverListeners(options: {
     if (trappedPanel.contains(target)) {
       return;
     }
-    closeModal(onOpenChange, triggerRef);
+    closeModal(onOpenChange, triggerRef, returnFocusRef);
   }
 
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       event.preventDefault();
-      closeModal(onOpenChange, triggerRef);
+      closeModal(onOpenChange, triggerRef, returnFocusRef);
       return;
     }
 
@@ -158,6 +170,8 @@ export function FocusTrapPopover({
   onOpenChange,
   triggerRef,
   labelId,
+  describedById,
+  returnFocusRef,
   modal = true,
   className = "",
   children,
@@ -244,6 +258,7 @@ export function FocusTrapPopover({
         modal,
         initialFocusRef,
         triggerRef,
+        returnFocusRef,
         onOpenChange,
         updateAnchorPosition,
         onRemoveListeners: (remove) => {
@@ -263,6 +278,7 @@ export function FocusTrapPopover({
     modalLayer,
     onOpenChange,
     triggerRef,
+    returnFocusRef,
     initialFocusRef,
     updateAnchorPosition,
   ]);
@@ -277,6 +293,7 @@ export function FocusTrapPopover({
       role="dialog"
       aria-modal={modal ? "true" : undefined}
       aria-labelledby={labelId}
+      aria-describedby={describedById}
       className={className}
       style={
         anchorPosition

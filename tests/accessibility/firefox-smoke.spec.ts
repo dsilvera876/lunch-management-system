@@ -6,6 +6,11 @@ import {
   applyMenuItemRatingsStaffE2eFixture,
   restoreMenuItemRatingsStaffE2eFixture,
 } from "./helpers/e2e-ordering-fixture";
+import { applySimulatedJamaicaToday } from "./helpers/simulated-weekday";
+
+test.beforeEach(async ({ context }) => {
+  await applySimulatedJamaicaToday(context);
+});
 
 test.describe("Firefox Staff accessibility smoke", () => {
   test.beforeAll(() => {

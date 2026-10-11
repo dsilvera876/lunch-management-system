@@ -72,6 +72,21 @@ describe("FormActionStatus", () => {
     assert.match(subsidy, /FormActionStatus/);
     assert.match(cutoff, /FormActionStatus/);
     assert.match(lunchPage, /Alert variant="error"/);
-    assert.match(lunchShell, /Lunch order placed successfully/);
+    assert.match(lunchShell, /CheckoutSuccessPanel/);
+  });
+
+  it("lets a focus-managed summary opt out of live-region roles", () => {
+    const status = readFileSync(
+      new URL("../components/ui/form-action-status.tsx", import.meta.url),
+      "utf8",
+    );
+    const workspace = readFileSync(
+      new URL("../components/lunch/lunch-ordering-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(status, /liveRegion = true/);
+    assert.match(status, /!liveRegion \? undefined : variant === "error" \? "alert" : "status"/);
+    assert.match(workspace, /variant="error"\s*liveRegion=\{false\}/);
   });
 });

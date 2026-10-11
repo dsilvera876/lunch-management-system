@@ -2,6 +2,11 @@ import { test, expect } from "@playwright/test";
 import { expectNoAxeViolations } from "./helpers/axe";
 import { STAFF_SEED } from "./helpers/seed-fixtures";
 import { expectProviderOrderingReady } from "./helpers/staff-page";
+import { applySimulatedJamaicaToday } from "./helpers/simulated-weekday";
+
+test.beforeEach(async ({ context }) => {
+  await applySimulatedJamaicaToday(context);
+});
 
 const FULL_PAGE_ROUTES = [
   { path: "/home", ready: /Welcome back/i },

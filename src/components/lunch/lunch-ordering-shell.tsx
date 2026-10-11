@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMyDefaultOfficeLocation } from "@/app/account/actions";
+import { CheckoutSuccessPanel } from "@/components/lunch/checkout-success-panel";
 import { OrderingStatusBar } from "@/components/lunch/ordering-status-bar";
 import { LunchOrderingWorkspace } from "@/components/lunch/lunch-ordering-workspace";
-import { ToastProvider, useToast } from "@/components/ui/toast";
 import {
   getOfficeLocationDisplayName,
   resolveInitialOfficeLocationId,
@@ -38,15 +38,7 @@ type Props = {
   ratingsLoadErrorMessage?: string | null;
 };
 
-export function LunchOrderingShell(props: Props) {
-  return (
-    <ToastProvider>
-      <LunchOrderingShellInner {...props} />
-    </ToastProvider>
-  );
-}
-
-function LunchOrderingShellInner({
+export function LunchOrderingShell({
   providers,
   initialProviderId,
   orderDate,
@@ -66,7 +58,6 @@ function LunchOrderingShellInner({
   ratingsLoadFailed,
   ratingsLoadErrorMessage,
 }: Props) {
-  const { showToast } = useToast();
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -89,6 +80,12 @@ function LunchOrderingShellInner({
       initialDefaultLocationId === "",
   );
   const [defaultSaveError, setDefaultSaveError] = useState<string | null>(null);
+  const [locationPickerNotice, setLocationPickerNotice] = useState<string | null>(null);
+  const locationPickerReturnFocusRef = useRef<HTMLElement | null>(null);
+  const [checkoutSuccess, setCheckoutSuccess] = useState<{
+    body: string;
+    focusKey: number;
+  } | null>(null);
 
   const locationName = getOfficeLocationDisplayName(
     officeLocations,
@@ -96,18 +93,36 @@ function LunchOrderingShellInner({
     selectedLocationId ? null : defaultOfficeLocationName,
   );
 
-  function handleSelectLocation(locationId: string) {
+  function handleLocationPickerOpenChange(open: boolean) {
+    if (open) {
+      locationPickerReturnFocusRef.current = null;
+    } else {
+      setLocationPickerNotice(null);
+    }
+    setLocationPickerOpen(open);
+  }
+
+  function handleRequestLocationPicker(notice: string) {
+    const active = document.activeElement;
+    locationPickerReturnFocusRef.current = active instanceof HTMLElement ? active : null;
+    setLocationPickerNotice(notice);
+    setLocationPickerOpen(true);
+  }
+
+  function handleConfirmLocation(locationId: string, saveDefault: boolean) {
     if (!locationId) {
       return;
     }
 
     setSelectedLocationId(locationId);
+    setSaveAsDefault(saveDefault);
     setLocationPickerOpen(false);
+    setLocationPickerNotice(null);
     setDefaultSaveError(null);
 
     if (
       !shouldPersistDefaultOnLocationConfirm(
-        saveAsDefault,
+        saveDefault,
         defaultOfficeLocationId,
         locationId,
       )
@@ -137,19 +152,25 @@ function LunchOrderingShellInner({
   );
 
   function handleCheckoutSuccess(payload: { orderCount: number; providerCount: number }) {
-    showToast({
-      title: "Lunch order placed successfully",
+    setCheckoutSuccess((current) => ({
       body: buildCheckoutSuccessToastBody(
         payload.orderCount,
         payload.providerCount,
         deliveryDate,
       ),
-      action: { label: "View My Orders", href: "/my-orders" },
-    });
+      focusKey: (current?.focusKey ?? 0) + 1,
+    }));
   }
 
   return (
     <>
+      {checkoutSuccess ? (
+        <CheckoutSuccessPanel
+          body={checkoutSuccess.body}
+          focusKey={checkoutSuccess.focusKey}
+        />
+      ) : null}
+
       <OrderingStatusBar
         orderingOpen={orderingOpen}
         deliveryDate={deliveryDate}
@@ -159,13 +180,14 @@ function LunchOrderingShellInner({
         locationName={locationName}
         officeLocations={officeLocations}
         selectedLocationId={selectedLocationId}
-        onSelectLocation={handleSelectLocation}
+        onConfirmLocation={handleConfirmLocation}
         locationPickerOpen={locationPickerOpen}
-        onLocationPickerOpenChange={setLocationPickerOpen}
+        onLocationPickerOpenChange={handleLocationPickerOpenChange}
+        locationPickerNotice={locationPickerNotice}
+        locationPickerReturnFocusRef={locationPickerReturnFocusRef}
         initialDefaultLocationId={initialDefaultLocationId}
         showSaveAsDefault
         saveAsDefault={saveAsDefault}
-        onSaveAsDefaultChange={setSaveAsDefault}
         defaultSaveError={defaultSaveError}
       />
 
@@ -179,7 +201,8 @@ function LunchOrderingShellInner({
         officeLocations={officeLocations}
         selectedOfficeLocationId={selectedLocationId}
         saveAsDefault={persistDefaultOnCheckout}
-        onRequestLocationPicker={() => setLocationPickerOpen(true)}
+        onRequestLocationPicker={handleRequestLocationPicker}
+        onCheckoutStart={() => setCheckoutSuccess(null)}
         onCheckoutSuccess={handleCheckoutSuccess}
         menuItemRatingSummaries={menuItemRatingSummaries}
         ratingsLoadFailed={ratingsLoadFailed}

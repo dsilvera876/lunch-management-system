@@ -27,7 +27,8 @@ import {
 } from "@/lib/lunch-order-draft";
 import { draftHasSelectedItems } from "@/lib/lunch-checkout";
 import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
-import { resolvePlaceOrderBlockedMessage, validateLunchCart } from "@/lib/lunch-checkout";
+import { validateLunchCart } from "@/lib/lunch-checkout";
+import { resolveCheckoutBlock } from "@/lib/lunch-checkout-accessibility";
 import { focusFormErrorSummary } from "@/lib/staff-form-accessibility";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
@@ -37,6 +38,12 @@ type CheckoutSuccess = {
   orderCount: number;
   providerCount: number;
   orderGroupId: string;
+};
+
+type CheckoutError = {
+  message: string;
+  /** False when another flow (the location picker) owns focus. */
+  focusSummary: boolean;
 };
 
 type Props = {
@@ -49,7 +56,8 @@ type Props = {
   officeLocations: OfficeLocationOption[];
   selectedOfficeLocationId: string;
   saveAsDefault: boolean;
-  onRequestLocationPicker: () => void;
+  onRequestLocationPicker: (notice: string) => void;
+  onCheckoutStart: () => void;
   onCheckoutSuccess: (payload: CheckoutSuccess) => void;
   menuItemRatingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
@@ -67,6 +75,7 @@ export function LunchOrderingWorkspace({
   selectedOfficeLocationId,
   saveAsDefault,
   onRequestLocationPicker,
+  onCheckoutStart,
   onCheckoutSuccess,
   menuItemRatingSummaries,
   ratingsLoadFailed,
@@ -81,19 +90,28 @@ export function LunchOrderingWorkspace({
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(defaultId);
   const [drafts, setDrafts] = useState<Record<string, ProviderDraft>>({});
   const [cart, setCart] = useState<LunchCartEntry[]>([]);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<CheckoutError | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusEntryRequest, setFocusEntryRequest] = useState<{
+    entryId: string;
+    nonce: number;
+  } | null>(null);
   const validationErrorRef = useRef<HTMLDivElement>(null);
-  const skipErrorSummaryFocus = useRef(false);
+  const submittingRef = useRef(false);
   const checkoutErrorSummaryId = useId();
 
   useEffect(() => {
-    if (!validationError || skipErrorSummaryFocus.current) {
-      skipErrorSummaryFocus.current = false;
+    if (!checkoutError?.focusSummary) {
       return;
     }
     focusFormErrorSummary(validationErrorRef.current);
-  }, [validationError]);
+  }, [checkoutError]);
+
+  function setValidationError(message: string | null, options?: { focusSummary?: boolean }) {
+    setCheckoutError(
+      message ? { message, focusSummary: options?.focusSummary ?? true } : null,
+    );
+  }
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ?? null;
@@ -153,6 +171,10 @@ export function LunchOrderingWorkspace({
     const entry = createCartEntryFromDraft(selectedProvider, draft);
     setCart((current) => [...current, entry]);
     updateDraftForProvider(selectedProvider.id, emptyProviderDraft());
+    setFocusEntryRequest((current) => ({
+      entryId: entry.id,
+      nonce: (current?.nonce ?? 0) + 1,
+    }));
   }
 
   const checkoutGuidance =
@@ -169,35 +191,43 @@ export function LunchOrderingWorkspace({
     checkout.canSubmit &&
     (officeLocations.length === 0 || selectedOfficeLocationId.length > 0);
 
+  /** Explains why checkout cannot proceed. Returns true when blocked. */
+  function explainCheckoutBlock(): boolean {
+    const block = resolveCheckoutBlock({
+      orderingOpen,
+      locationRequired: officeLocations.length > 0 && !selectedOfficeLocationId,
+      unfinishedDraftMessage:
+        unfinishedDrafts.length > 0 ? formatUnfinishedDraftMessage(unfinishedDrafts) : null,
+      cartReady: checkout.canSubmit,
+      canSubmit,
+      guidanceMessage: checkoutGuidance,
+    });
+
+    if (!block) {
+      return false;
+    }
+
+    if (block.kind === "location") {
+      setValidationError(block.message, { focusSummary: false });
+      onRequestLocationPicker(block.message);
+      return true;
+    }
+
+    setValidationError(block.message);
+    return true;
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!orderingOpen) {
-      setValidationError(resolvePlaceOrderBlockedMessage(false, false, checkoutGuidance));
+    if (submittingRef.current || explainCheckoutBlock()) {
       return;
     }
 
-    if (officeLocations.length > 0 && !selectedOfficeLocationId) {
-      skipErrorSummaryFocus.current = true;
-      setValidationError("Choose a delivery location before placing your order.");
-      onRequestLocationPicker();
-      return;
-    }
-
-    if (unfinishedDrafts.length > 0) {
-      setValidationError(formatUnfinishedDraftMessage(unfinishedDrafts));
-      return;
-    }
-
-    if (!checkout.canSubmit || !canSubmit) {
-      setValidationError(
-        resolvePlaceOrderBlockedMessage(true, canSubmit, checkoutGuidance),
-      );
-      return;
-    }
-
+    submittingRef.current = true;
     setIsSubmitting(true);
     setValidationError(null);
+    onCheckoutStart();
 
     try {
       const result = await submitLunchCheckout({
@@ -226,6 +256,7 @@ export function LunchOrderingWorkspace({
             : getLunchOrderErrorMessage(result.errorCode)),
       );
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -302,17 +333,20 @@ export function LunchOrderingWorkspace({
               removeStandalone(getDraftForProvider(providerId), itemId),
             )
           }
+          focusEntryRequest={focusEntryRequest}
+          onBlockedPlaceOrder={explainCheckoutBlock}
         />
       </div>
 
-      {validationError ? (
+      {checkoutError ? (
         <FormActionStatus
           ref={validationErrorRef}
           id={checkoutErrorSummaryId}
           variant="error"
+          liveRegion={false}
           className="mt-4"
         >
-          {validationError}
+          {checkoutError.message}
         </FormActionStatus>
       ) : null}
     </form>

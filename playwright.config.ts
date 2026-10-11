@@ -6,15 +6,19 @@ const staffAuthFile = path.join(__dirname, "tests/accessibility/.auth/staff.json
 const mostPopularPlaywrightOnly = process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1";
 const menuItemRatingsPlaywrightOnly = process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1";
 const emailPreviewPlaywrightOnly = process.env.PLAYWRIGHT_EMAIL_PREVIEW_ONLY === "1";
+/** Checkout a11y against a local server that simulates a Jamaica weekday (see README). */
+const simulatedWeekdayPlaywright = process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === "1";
 const skipOrderingGlobalSetup =
   mostPopularPlaywrightOnly || menuItemRatingsPlaywrightOnly || emailPreviewPlaywrightOnly;
 
 export default defineConfig({
   globalSetup: path.join(
     __dirname,
-    skipOrderingGlobalSetup
-      ? "tests/accessibility/global-setup-most-popular.ts"
-      : "tests/accessibility/global-setup.ts",
+    simulatedWeekdayPlaywright
+      ? "tests/accessibility/global-setup-simulated-weekday.ts"
+      : skipOrderingGlobalSetup
+        ? "tests/accessibility/global-setup-most-popular.ts"
+        : "tests/accessibility/global-setup.ts",
   ),
   globalTeardown: path.join(__dirname, "tests/accessibility/global-teardown.ts"),
   testDir: path.join(__dirname, "tests/accessibility"),
@@ -53,12 +57,35 @@ export default defineConfig({
         /menu-item-ratings\.spec\.ts/,
         /menu-item-most-popular\.spec\.ts/,
         /email-preview-sandbox\.spec\.ts/,
+        /staff-checkout-a11y\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
         storageState: staffAuthFile,
       },
       dependencies: ["setup"],
+    },
+    {
+      name: "chromium-checkout-a11y",
+      testMatch: /staff-checkout-a11y\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup"],
+    },
+    {
+      name: "firefox-checkout-a11y",
+      testMatch: /staff-checkout-a11y\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Firefox"],
+        storageState: staffAuthFile,
+      },
+      dependencies: ["setup", "chromium-checkout-a11y"],
     },
     {
       name: "chromium-late-order-a11y",

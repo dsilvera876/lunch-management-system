@@ -194,7 +194,8 @@ export function ensureLocalStaffOrderingFixtureForPlaywright(): void {
 
   if (
     process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1" ||
-    process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1"
+    process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1" ||
+    process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === "1"
   ) {
     return;
   }

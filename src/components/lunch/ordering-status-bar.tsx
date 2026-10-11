@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 import { formatHumanDate } from "@/lib/format";
 import { formatJamaicaWallClockTime } from "@/lib/settings";
 import { formatTimeRemainingUntilDeadline } from "@/lib/home-dashboard";
@@ -18,13 +18,14 @@ type Props = {
   locationName: string | null;
   officeLocations?: OfficeLocationOption[];
   selectedLocationId?: string;
-  onSelectLocation?: (locationId: string) => void;
+  onConfirmLocation?: (locationId: string, saveAsDefault: boolean) => void;
   locationPickerOpen?: boolean;
   onLocationPickerOpenChange?: (open: boolean) => void;
+  locationPickerNotice?: string | null;
+  locationPickerReturnFocusRef?: RefObject<HTMLElement | null>;
   initialDefaultLocationId?: string;
   showSaveAsDefault?: boolean;
   saveAsDefault?: boolean;
-  onSaveAsDefaultChange?: (value: boolean) => void;
   defaultSaveError?: string | null;
 };
 
@@ -37,13 +38,14 @@ export function OrderingStatusBar({
   locationName,
   officeLocations = [],
   selectedLocationId = "",
-  onSelectLocation,
+  onConfirmLocation,
   locationPickerOpen = false,
   onLocationPickerOpenChange,
+  locationPickerNotice = null,
+  locationPickerReturnFocusRef,
   initialDefaultLocationId = "",
   showSaveAsDefault = false,
   saveAsDefault = false,
-  onSaveAsDefaultChange,
   defaultSaveError = null,
 }: Props) {
   const changeButtonRef = useRef<HTMLButtonElement>(null);
@@ -56,7 +58,7 @@ export function OrderingStatusBar({
 
   const canPickLocation =
     officeLocations.length > 0 &&
-    onSelectLocation &&
+    onConfirmLocation &&
     onLocationPickerOpenChange;
 
   function openLocationPicker() {
@@ -163,11 +165,12 @@ export function OrderingStatusBar({
                   onOpenChange={onLocationPickerOpenChange}
                   locations={officeLocations}
                   selectedLocationId={selectedLocationId}
-                  onSelectLocation={onSelectLocation}
+                  onConfirmLocation={onConfirmLocation}
+                  notice={locationPickerNotice}
+                  returnFocusRef={locationPickerReturnFocusRef}
                   initialDefaultLocationId={initialDefaultLocationId}
                   showSaveAsDefault={showSaveAsDefault}
                   saveAsDefault={saveAsDefault}
-                  onSaveAsDefaultChange={onSaveAsDefaultChange ?? (() => undefined)}
                   anchorRef={changeButtonRef}
                 />
               ) : null}

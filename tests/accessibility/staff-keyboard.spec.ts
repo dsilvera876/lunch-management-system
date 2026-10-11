@@ -4,6 +4,11 @@ import {
   expectLocationPicker,
   expectProviderOrderingReady,
 } from "./helpers/staff-page";
+import { applySimulatedJamaicaToday } from "./helpers/simulated-weekday";
+
+test.beforeEach(async ({ context }) => {
+  await applySimulatedJamaicaToday(context);
+});
 
 test.describe("Staff keyboard regression", () => {
   test("skip link moves focus to main content", async ({ page }) => {

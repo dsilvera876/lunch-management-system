@@ -4,6 +4,11 @@ import {
   expectNoUnintendedHorizontalPageScroll,
   STAFF_SHORT_VIEWPORT_HEIGHT,
 } from "./helpers/layout";
+import { applySimulatedJamaicaToday } from "./helpers/simulated-weekday";
+
+test.beforeEach(async ({ context }) => {
+  await applySimulatedJamaicaToday(context);
+});
 
 test.describe("Staff reflow and viewport smoke", () => {
   test("desktop — no unintended horizontal page scroll on /lunch", async ({ page }) => {

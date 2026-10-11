@@ -14,6 +14,8 @@ type Props = {
   children: ReactNode;
   className?: string;
   id?: string;
+  /** Set false when the caller moves focus here, so the message is not also announced as a live region. */
+  liveRegion?: boolean;
 };
 
 export function formatFormActionError(actionLabel: string, reason: string): string {
@@ -31,11 +33,11 @@ export function formatFormActionError(actionLabel: string, reason: string): stri
 }
 
 export const FormActionStatus = forwardRef<HTMLDivElement, Props>(function FormActionStatus(
-  { variant = "info", children, className = "", id },
+  { variant = "info", children, className = "", id, liveRegion = true },
   ref,
 ) {
-  const role = variant === "error" ? "alert" : "status";
-  const ariaLive = variant === "error" ? "assertive" : "polite";
+  const role = !liveRegion ? undefined : variant === "error" ? "alert" : "status";
+  const ariaLive = !liveRegion ? undefined : variant === "error" ? "assertive" : "polite";
 
   return (
     <div

@@ -148,7 +148,8 @@ describe("Phase B staff form wiring", () => {
       "utf8",
     );
     assert.match(workspace, /validationErrorRef/);
-    assert.match(workspace, /skipErrorSummaryFocus/);
+    assert.match(workspace, /setValidationError\(block\.message, \{ focusSummary: false \}\)/);
+    assert.match(workspace, /onRequestLocationPicker\(block\.message\)/);
   });
 
   it("FormSubmitButton exposes busy state while pending", () => {

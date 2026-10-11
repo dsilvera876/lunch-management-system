@@ -53,16 +53,37 @@ describe("aria-disabled wiring in staff controls", () => {
       "utf8",
     );
 
+    const checkoutA11y = readFileSync(
+      new URL("./lunch-checkout-accessibility.ts", import.meta.url),
+      "utf8",
+    );
+
     assert.match(workspace, /async function handleSubmit\(event: React\.FormEvent/);
     assert.match(workspace, /event\.preventDefault\(\)/);
-    assert.match(
-      workspace,
-      /if \(!checkout\.canSubmit \|\| !canSubmit\)[\s\S]*return;/,
-    );
+    assert.match(workspace, /cartReady: checkout\.canSubmit,\s*canSubmit,/);
+    assert.match(checkoutA11y, /if \(!input\.cartReady \|\| !input\.canSubmit\)/);
     assert.match(workspace, /submitLunchCheckout\(/);
     const submitIndex = workspace.indexOf("submitLunchCheckout(");
-    const guardIndex = workspace.indexOf("if (!checkout.canSubmit || !canSubmit)");
+    const guardIndex = workspace.indexOf(
+      "if (submittingRef.current || explainCheckoutBlock())",
+    );
     assert.ok(guardIndex > -1 && submitIndex > guardIndex);
+  });
+
+  it("blocked Place Order explains the correction instead of failing silently", () => {
+    const cart = readFileSync(
+      new URL("../components/lunch/lunch-cart-panel.tsx", import.meta.url),
+      "utf8",
+    );
+    const submit = readFileSync(
+      new URL("../components/form-submit-button.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(cart, /onBlockedActivate=\{onBlockedPlaceOrder\}/);
+    assert.match(cart, /focusableWhilePending/);
+    assert.match(submit, /if \(softBlocked\) \{\s*onBlockedActivate\?\.\(\);/);
+    assert.match(submit, /if \(softBlocked && onBlockedActivate\) \{\s*return;/);
   });
 
   it("LunchCartPanel uses accessibilityBlocked instead of native disabled for invalid cart", () => {

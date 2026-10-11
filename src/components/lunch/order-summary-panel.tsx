@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { Card } from "@/components/ui/card";
 import { InlineQuantityControl } from "@/components/lunch/inline-quantity-control";
@@ -59,7 +60,7 @@ export function TrashButton({
 }: {
   label: string;
   disabled?: boolean;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button

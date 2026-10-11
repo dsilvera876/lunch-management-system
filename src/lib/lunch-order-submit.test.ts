@@ -66,15 +66,25 @@ describe("lunch order submit workflow", () => {
     assert.match(body, /September/);
   });
 
-  it("shows one checkout success toast from shell", () => {
+  it("shows a persistent checkout success panel instead of a timed toast", () => {
     const shellSource = readFileSync(
       new URL("../components/lunch/lunch-ordering-shell.tsx", import.meta.url),
       "utf8",
     );
+    const panelSource = readFileSync(
+      new URL("../components/lunch/checkout-success-panel.tsx", import.meta.url),
+      "utf8",
+    );
 
-    assert.match(shellSource, /Lunch order placed successfully/);
     assert.match(shellSource, /buildCheckoutSuccessToastBody/);
-    assert.match(shellSource, /View My Orders/);
+    assert.match(shellSource, /<CheckoutSuccessPanel/);
+    assert.match(shellSource, /onCheckoutStart=\{\(\) => setCheckoutSuccess\(null\)\}/);
+    assert.doesNotMatch(shellSource, /useToast|showToast|ToastProvider/);
+    assert.match(panelSource, /CHECKOUT_SUCCESS_TITLE/);
+    assert.match(panelSource, /href="\/my-orders"/);
+    assert.match(panelSource, /View My Orders/);
+    assert.match(panelSource, /tabIndex=\{-1\}/);
+    assert.doesNotMatch(panelSource, /role="(status|alert)"|aria-live/);
   });
 
   it("Today's Order page no longer lists current delivery orders", () => {

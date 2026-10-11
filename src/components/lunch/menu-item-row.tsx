@@ -63,6 +63,12 @@ export function MenuItemRow({
     }
   }
 
+  function handleAddedKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (shouldBlockAriaDisabledActivation(true, event.key)) {
+      event.preventDefault();
+    }
+  }
+
   return (
     <div className={MENU_ITEM_ROW_ROOT_CLASS}>
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
@@ -78,9 +84,11 @@ export function MenuItemRow({
       {selected ? (
         <button
           type="button"
-          disabled
+          disabled={disabled}
+          aria-disabled={disabled ? undefined : true}
           aria-label={`${label} added to your order`}
-          className={MENU_ITEM_TOGGLE_ADDED_CLASS}
+          className={`${MENU_ITEM_TOGGLE_ADDED_CLASS} cursor-not-allowed`}
+          onKeyDown={handleAddedKeyDown}
         >
           <IconCheck size={16} aria-hidden />
           <span>Added</span>

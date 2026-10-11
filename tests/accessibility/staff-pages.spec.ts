@@ -2,6 +2,11 @@ import { test, expect } from "@playwright/test";
 import { expectNoAxeViolations } from "./helpers/axe";
 import { STAFF_SEED } from "./helpers/seed-fixtures";
 import { expectProviderOrderingReady } from "./helpers/staff-page";
+import { applySimulatedJamaicaToday } from "./helpers/simulated-weekday";
+
+test.beforeEach(async ({ context }) => {
+  await applySimulatedJamaicaToday(context);
+});
 
 test.describe("Staff pages — axe WCAG scans", () => {
   test("home dashboard", async ({ page }) => {

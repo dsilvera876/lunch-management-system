@@ -1,7 +1,14 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { FormSubmitButton } from "@/components/form-submit-button";
+import {
+  CART_CLEARED_ANNOUNCEMENT,
+  formatCartEntryRemovedAnnouncement,
+  formatCartLineRemovedAnnouncement,
+  resolveRemovalFocusIndex,
+  withAnnouncementNonce,
+} from "@/lib/lunch-checkout-accessibility";
 import { STAFF_CART_STICKY_PANEL_CLASS } from "@/lib/staff-layout-reflow";
 import { Card } from "@/components/ui/card";
 import { IconArrowRight, IconX } from "@/components/icons/line-icons";
@@ -44,7 +51,19 @@ type Props = {
   onRemoveInProgressMain: (providerId: string) => void;
   onRemoveInProgressSide: (providerId: string, sideId: string) => void;
   onRemoveInProgressStandalone: (providerId: string, itemId: string) => void;
+  /** Focus the completed entry header after Finish This Order; nonce re-triggers focus. */
+  focusEntryRequest: { entryId: string; nonce: number } | null;
+  onBlockedPlaceOrder: () => void;
 };
+
+type RemoveHandler = (
+  event: MouseEvent<HTMLButtonElement>,
+  remove: () => void,
+  announcement: string,
+) => void;
+
+const CART_ENTRY_HEADING_CLASS =
+  "min-w-0 space-y-1 rounded-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
 function formatInstructionsPreview(value: string): string | null {
   const trimmed = value.trim();
@@ -65,7 +84,7 @@ function CartLineRemoveButton({
 }: {
   label: string;
   disabled: boolean;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
@@ -110,9 +129,13 @@ function DraftOrderLines({
   menuItems: MenuItemView[];
   orderingOpen: boolean;
   allowLineRemove: boolean;
-  onRemoveMain: () => void;
-  onRemoveSide: (sideId: string) => void;
-  onRemoveStandalone: (itemId: string) => void;
+  onRemoveMain: (event: MouseEvent<HTMLButtonElement>, itemName: string) => void;
+  onRemoveSide: (event: MouseEvent<HTMLButtonElement>, sideId: string, itemName: string) => void;
+  onRemoveStandalone: (
+    event: MouseEvent<HTMLButtonElement>,
+    itemId: string,
+    itemName: string,
+  ) => void;
 }) {
   const main = draft.mainId
     ? (menuItems.find((item) => item.id === draft.mainId) ?? null)
@@ -140,7 +163,7 @@ function DraftOrderLines({
                   <CartLineRemoveButton
                     label={main.name}
                     disabled={!orderingOpen}
-                    onClick={onRemoveMain}
+                    onClick={(event) => onRemoveMain(event, main.name)}
                   />
                 ) : null}
               </div>
@@ -158,7 +181,7 @@ function DraftOrderLines({
                     <CartLineRemoveButton
                       label={side.name}
                       disabled={!orderingOpen}
-                      onClick={() => onRemoveSide(side.id)}
+                      onClick={(event) => onRemoveSide(event, side.id, side.name)}
                     />
                   ) : null}
                 </div>
@@ -192,7 +215,7 @@ function DraftOrderLines({
                       <CartLineRemoveButton
                         label={item.name}
                         disabled={!orderingOpen}
-                        onClick={() => onRemoveStandalone(item.id)}
+                        onClick={(event) => onRemoveStandalone(event, item.id, item.name)}
                       />
                     </div>
                   </div>
@@ -221,8 +244,7 @@ function DraftOrderLines({
   );
 }
 
-function renderProviderSections(
-  sections: ProviderCartSection[],
+function ProviderSections(
   props: Pick<
     Props,
     | "providersById"
@@ -231,15 +253,17 @@ function renderProviderSections(
     | "onRemoveInProgressMain"
     | "onRemoveInProgressSide"
     | "onRemoveInProgressStandalone"
-  >,
+  > & { sections: ProviderCartSection[]; onRemove: RemoveHandler },
 ) {
   const {
+    sections,
     providersById,
     orderingOpen,
     onRemoveEntry,
     onRemoveInProgressMain,
     onRemoveInProgressSide,
     onRemoveInProgressStandalone,
+    onRemove,
   } = props;
 
   return sections.map((section) => {
@@ -257,7 +281,11 @@ function renderProviderSections(
               className="rounded-lg border border-border bg-surface/50 p-3"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 space-y-1">
+                <div
+                  className={CART_ENTRY_HEADING_CLASS}
+                  tabIndex={-1}
+                  data-cart-entry-heading={entry.id}
+                >
                   <StatusBadge kind="completed" />
                   <p className="text-sm font-semibold text-slate-900">
                     {section.providerName} — Order {entry.providerOrderIndex}
@@ -266,7 +294,16 @@ function renderProviderSections(
                 <TrashButton
                   label={`Remove order ${entry.providerOrderIndex} from lunch cart`}
                   disabled={!orderingOpen}
-                  onClick={() => onRemoveEntry(entry.id)}
+                  onClick={(event) =>
+                    onRemove(
+                      event,
+                      () => onRemoveEntry(entry.id),
+                      formatCartEntryRemovedAnnouncement(
+                        section.providerName,
+                        entry.providerOrderIndex,
+                      ),
+                    )
+                  }
                 />
               </div>
 
@@ -310,10 +347,26 @@ function renderProviderSections(
               menuItems={menuItems}
               orderingOpen={orderingOpen}
               allowLineRemove
-              onRemoveMain={() => onRemoveInProgressMain(section.providerId)}
-              onRemoveSide={(sideId) => onRemoveInProgressSide(section.providerId, sideId)}
-              onRemoveStandalone={(itemId) =>
-                onRemoveInProgressStandalone(section.providerId, itemId)
+              onRemoveMain={(event, itemName) =>
+                onRemove(
+                  event,
+                  () => onRemoveInProgressMain(section.providerId),
+                  formatCartLineRemovedAnnouncement(itemName, section.providerName),
+                )
+              }
+              onRemoveSide={(event, sideId, itemName) =>
+                onRemove(
+                  event,
+                  () => onRemoveInProgressSide(section.providerId, sideId),
+                  formatCartLineRemovedAnnouncement(itemName, section.providerName),
+                )
+              }
+              onRemoveStandalone={(event, itemId, itemName) =>
+                onRemove(
+                  event,
+                  () => onRemoveInProgressStandalone(section.providerId, itemId),
+                  formatCartLineRemovedAnnouncement(itemName, section.providerName),
+                )
               }
             />
 
@@ -356,7 +409,66 @@ export function LunchCartPanel({
   onRemoveInProgressMain,
   onRemoveInProgressSide,
   onRemoveInProgressStandalone,
+  focusEntryRequest,
+  onBlockedPlaceOrder,
 }: Props) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<{ kind: "removal"; index: number } | { kind: "heading" } | null>(
+    null,
+  );
+  const [announcement, setAnnouncement] = useState({ message: "", nonce: 0 });
+
+  function announce(message: string) {
+    setAnnouncement((current) => ({ message, nonce: current.nonce + 1 }));
+  }
+
+  function getRemoveButtons(): HTMLButtonElement[] {
+    return Array.from(sectionsRef.current?.querySelectorAll("button") ?? []);
+  }
+
+  useLayoutEffect(() => {
+    const request = pendingFocus.current;
+    if (!request) {
+      return;
+    }
+    pendingFocus.current = null;
+
+    if (request.kind === "heading") {
+      headingRef.current?.focus();
+      return;
+    }
+
+    const buttons = getRemoveButtons();
+    const nextIndex = resolveRemovalFocusIndex(buttons.length, request.index);
+    (nextIndex === null ? headingRef.current : buttons[nextIndex])?.focus();
+  });
+
+  useLayoutEffect(() => {
+    if (!focusEntryRequest) {
+      return;
+    }
+    const target = sectionsRef.current?.querySelector<HTMLElement>(
+      `[data-cart-entry-heading="${CSS.escape(focusEntryRequest.entryId)}"]`,
+    );
+    target?.focus();
+  }, [focusEntryRequest]);
+
+  const handleRemove: RemoveHandler = (event, remove, message) => {
+    pendingFocus.current = {
+      kind: "removal",
+      index: getRemoveButtons().indexOf(event.currentTarget),
+    };
+    remove();
+    announce(message);
+  };
+
+  function handleClearAll() {
+    pendingFocus.current = { kind: "heading" };
+    onClearAll();
+    announce(CART_CLEARED_ANNOUNCEMENT);
+  }
+
   const sections = buildProviderCartSections(providers, cart, drafts);
   const orderCount = cart.length;
   const providerCount = countDistinctProviders(cart);
@@ -385,7 +497,13 @@ export function LunchCartPanel({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Lunch Cart</h2>
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="rounded-sm text-xl font-semibold text-slate-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            Lunch Cart
+          </h2>
           <p className="mt-1 text-sm leading-5 text-staff-instruction">
             Add items to build an order, then finish it when you&apos;re ready. You can create
             multiple orders before placing your checkout.
@@ -399,7 +517,7 @@ export function LunchCartPanel({
         </div>
         <button
           type="button"
-          onClick={onClearAll}
+          onClick={handleClearAll}
           disabled={!orderingOpen || cart.length === 0}
           className="inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-staff-teal hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
         >
@@ -412,17 +530,23 @@ export function LunchCartPanel({
           Your lunch cart is empty. Use Add beside menu items to start building an order.
         </p>
       ) : (
-        <div className="mt-3 space-y-4">
-          {renderProviderSections(sections, {
-            providersById,
-            orderingOpen,
-            onRemoveEntry,
-            onRemoveInProgressMain,
-            onRemoveInProgressSide,
-            onRemoveInProgressStandalone,
-          })}
+        <div ref={sectionsRef} className="mt-3 space-y-4">
+          <ProviderSections
+            sections={sections}
+            providersById={providersById}
+            orderingOpen={orderingOpen}
+            onRemoveEntry={onRemoveEntry}
+            onRemoveInProgressMain={onRemoveInProgressMain}
+            onRemoveInProgressSide={onRemoveInProgressSide}
+            onRemoveInProgressStandalone={onRemoveInProgressStandalone}
+            onRemove={handleRemove}
+          />
         </div>
       )}
+
+      <p className="sr-only" role="status" aria-atomic="true" data-cart-announcer>
+        {withAnnouncementNonce(announcement.message, announcement.nonce)}
+      </p>
 
       {placeOrderGuidanceText ? (
         <p
@@ -467,6 +591,8 @@ export function LunchCartPanel({
             submitAccessibilityBlocked ? placeOrderGuidanceId : undefined
           }
           forcePending={isSubmitting}
+          focusableWhilePending
+          onBlockedActivate={onBlockedPlaceOrder}
           className="min-h-12 w-full justify-center gap-2 text-base font-semibold"
         >
           Place Order
