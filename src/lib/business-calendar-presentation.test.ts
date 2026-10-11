@@ -7,6 +7,7 @@ import {
   businessCalendarScopeLabel,
   businessCalendarTableActionClassName,
   formatBusinessCalendarImpactHeadline,
+  formatBusinessCalendarLateRequestDeclineNotice,
   hasBusinessCalendarImpactWarning,
 } from "./business-calendar-presentation";
 
@@ -52,6 +53,51 @@ describe("business calendar presentation", () => {
     assert.equal(hasBusinessCalendarImpactWarning(0, 0), false);
     assert.equal(hasBusinessCalendarImpactWarning(1, 0), true);
     assert.equal(hasBusinessCalendarImpactWarning(0, 2), true);
+  });
+
+  it("counts pending late-order requests in impact warnings", () => {
+    assert.equal(hasBusinessCalendarImpactWarning(0, 0, 1), true);
+    assert.equal(
+      formatBusinessCalendarImpactHeadline(0, 0, 1),
+      "1 pending late-order request will be affected.",
+    );
+    assert.equal(
+      formatBusinessCalendarImpactHeadline(0, 2, 3),
+      "2 submitted orders and 3 pending late-order requests will be affected.",
+    );
+    assert.equal(
+      formatBusinessCalendarImpactHeadline(1, 2, 3),
+      "1 lunch schedule, 2 submitted orders, and 3 pending late-order requests will be affected.",
+    );
+  });
+
+  it("explains automatic late-order declines on closure", () => {
+    assert.equal(formatBusinessCalendarLateRequestDeclineNotice(0), null);
+    assert.equal(
+      formatBusinessCalendarLateRequestDeclineNotice(1),
+      "1 pending late-order request will be automatically declined. Each employee will be emailed that lunch ordering is unavailable because the business day was closed.",
+    );
+    assert.match(
+      formatBusinessCalendarLateRequestDeclineNotice(4) ?? "",
+      /^4 pending late-order requests will be automatically declined\./,
+    );
+  });
+
+  it("wires the pending late-order count from the preview into the warning", () => {
+    const ui = readFileSync(
+      new URL("../components/admin/business-calendar-ui.tsx", import.meta.url),
+      "utf8",
+    );
+    const drawer = readFileSync(
+      new URL("../components/admin/business-calendar-entry-drawer.tsx", import.meta.url),
+      "utf8",
+    );
+    const server = readFileSync(new URL("./business-calendar-server.ts", import.meta.url), "utf8");
+
+    assert.match(ui, /formatBusinessCalendarLateRequestDeclineNotice\(pendingLateRequestCount\)/);
+    assert.match(ui, /business-calendar-late-request-impact/);
+    assert.match(drawer, /pendingLateRequestCount=\{impact\.pending_late_request_count\}/);
+    assert.match(server, /pending_late_request_count: Number\(row\.pending_late_request_count \?\? 0\)/);
   });
 
   it("uses concise impact body without duplicate DB summary in UI", () => {

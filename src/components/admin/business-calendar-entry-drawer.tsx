@@ -81,7 +81,7 @@ export function BusinessCalendarEntryDrawer({
       return;
     }
 
-    const scrollKey = `${impact.lunch_day_count}:${impact.submitted_order_count}:${impact.summary ?? ""}`;
+    const scrollKey = `${impact.lunch_day_count}:${impact.submitted_order_count}:${impact.pending_late_request_count}:${impact.summary ?? ""}`;
 
     if (lastImpactScrollKey.current === scrollKey) {
       return;
@@ -173,6 +173,7 @@ export function BusinessCalendarEntryDrawer({
                 <BusinessCalendarImpactWarning
                   lunchDayCount={impact.lunch_day_count}
                   submittedOrderCount={impact.submitted_order_count}
+                  pendingLateRequestCount={impact.pending_late_request_count}
                 />
               </div>
             ) : null}

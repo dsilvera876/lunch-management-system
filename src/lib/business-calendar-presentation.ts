@@ -116,13 +116,30 @@ export const BUSINESS_CALENDAR_IMPACT_BODY =
 export function hasBusinessCalendarImpactWarning(
   lunchDayCount: number,
   submittedOrderCount: number,
+  pendingLateRequestCount = 0,
 ): boolean {
-  return lunchDayCount > 0 || submittedOrderCount > 0;
+  return lunchDayCount > 0 || submittedOrderCount > 0 || pendingLateRequestCount > 0;
+}
+
+export function formatBusinessCalendarLateRequestDeclineNotice(
+  pendingLateRequestCount: number,
+): string | null {
+  if (pendingLateRequestCount <= 0) {
+    return null;
+  }
+
+  const requests =
+    pendingLateRequestCount === 1
+      ? "1 pending late-order request"
+      : `${pendingLateRequestCount} pending late-order requests`;
+
+  return `${requests} will be automatically declined. Each employee will be emailed that lunch ordering is unavailable because the business day was closed.`;
 }
 
 export function formatBusinessCalendarImpactHeadline(
   lunchDayCount: number,
   submittedOrderCount: number,
+  pendingLateRequestCount = 0,
 ): string | null {
   const parts: string[] = [];
 
@@ -138,9 +155,20 @@ export function formatBusinessCalendarImpactHeadline(
     );
   }
 
+  if (pendingLateRequestCount > 0) {
+    parts.push(
+      `${pendingLateRequestCount} pending late-order request${pendingLateRequestCount === 1 ? "" : "s"}`,
+    );
+  }
+
   if (parts.length === 0) {
     return null;
   }
 
-  return `${parts.join(" and ")} will be affected.`;
+  const joined =
+    parts.length > 2
+      ? `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`
+      : parts.join(" and ");
+
+  return `${joined} will be affected.`;
 }

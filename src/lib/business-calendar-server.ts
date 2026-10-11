@@ -5,6 +5,7 @@ export type BusinessCalendarEntryImpact = {
   requires_confirmation: boolean;
   lunch_day_count: number;
   submitted_order_count: number;
+  pending_late_request_count: number;
   summary: string | null;
 };
 
@@ -118,6 +119,7 @@ export async function previewBusinessCalendarEntryImpact(input: {
     requires_confirmation: Boolean(row.requires_confirmation),
     lunch_day_count: Number(row.lunch_day_count ?? 0),
     submitted_order_count: Number(row.submitted_order_count ?? 0),
+    pending_late_request_count: Number(row.pending_late_request_count ?? 0),
     summary: typeof row.summary === "string" ? row.summary : null,
   };
 }

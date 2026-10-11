@@ -5,6 +5,7 @@ import {
   BUSINESS_CALENDAR_IMPACT_WARNING_ID,
   BUSINESS_CALENDAR_INFO_CALLOUT_ID,
   formatBusinessCalendarImpactHeadline,
+  formatBusinessCalendarLateRequestDeclineNotice,
   hasBusinessCalendarImpactWarning,
 } from "@/lib/business-calendar-presentation";
 
@@ -28,24 +29,36 @@ export function BusinessCalendarInfoCallout({ children }: { children: ReactNode 
 type ImpactWarningProps = {
   lunchDayCount: number;
   submittedOrderCount: number;
+  pendingLateRequestCount?: number;
 };
 
 export function BusinessCalendarImpactWarning({
   lunchDayCount,
   submittedOrderCount,
+  pendingLateRequestCount = 0,
 }: ImpactWarningProps) {
-  if (!hasBusinessCalendarImpactWarning(lunchDayCount, submittedOrderCount)) {
+  if (
+    !hasBusinessCalendarImpactWarning(
+      lunchDayCount,
+      submittedOrderCount,
+      pendingLateRequestCount,
+    )
+  ) {
     return null;
   }
 
   const headline = formatBusinessCalendarImpactHeadline(
     lunchDayCount,
     submittedOrderCount,
+    pendingLateRequestCount,
   );
 
   if (!headline) {
     return null;
   }
+
+  const lateRequestNotice =
+    formatBusinessCalendarLateRequestDeclineNotice(pendingLateRequestCount);
 
   return (
     <div
@@ -62,6 +75,9 @@ export function BusinessCalendarImpactWarning({
       <div className="space-y-1">
         <p className="font-semibold text-amber-950">{headline}</p>
         <p>{BUSINESS_CALENDAR_IMPACT_BODY}</p>
+        {lateRequestNotice ? (
+          <p data-testid="business-calendar-late-request-impact">{lateRequestNotice}</p>
+        ) : null}
       </div>
     </div>
   );
