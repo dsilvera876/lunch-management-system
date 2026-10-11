@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
+} from "@/lib/notification-template";
 
 export type PendingHrLateOrderSubmittedRow = {
   delivery_id: string;
@@ -64,9 +68,9 @@ export function buildHrLateOrderSubmittedRenderedEmail(
   };
 
   return {
-    subject: renderNotificationTemplate(template.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(template.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(template.bodyTextTemplate, variables),
+    subject: renderNotificationSubjectTemplate(template.subjectTemplate, variables),
+    htmlBody: renderNotificationHtmlTemplate(template.bodyHtmlTemplate, variables),
+    textBody: renderNotificationTextTemplate(template.bodyTextTemplate, variables),
   };
 }
 
@@ -113,8 +117,8 @@ export function buildStaffLateOrderRequestStatusRenderedEmail(
   };
 
   return {
-    subject: renderNotificationTemplate(template.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(template.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(template.bodyTextTemplate, variables),
+    subject: renderNotificationSubjectTemplate(template.subjectTemplate, variables),
+    htmlBody: renderNotificationHtmlTemplate(template.bodyHtmlTemplate, variables),
+    textBody: renderNotificationTextTemplate(template.bodyTextTemplate, variables),
   };
 }

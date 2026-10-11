@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+} from "@/lib/notification-template";
 
 describe("deadline reminder notification content", () => {
   it("renders subject and body without Jamaica time wording", () => {
@@ -12,8 +15,8 @@ describe("deadline reminder notification content", () => {
       order_url: "https://app.example.com/lunch",
     };
 
-    const subject = renderNotificationTemplate("Lunch ordering closes soon", variables);
-    const html = renderNotificationTemplate(
+    const subject = renderNotificationSubjectTemplate("Lunch ordering closes soon", variables);
+    const html = renderNotificationHtmlTemplate(
       '<p>Hi {{first_name}},</p><p>Closes at {{ordering_deadline}}.</p><a href="{{order_url}}">Order</a>',
       variables,
     );

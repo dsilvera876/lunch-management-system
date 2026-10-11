@@ -10,9 +10,12 @@ import { Card } from "@/components/ui/card";
 import { Button, linkButtonClass } from "@/components/ui/button";
 import { FormActionStatus } from "@/components/ui/form-action-status";
 import { EMAIL_TEMPLATES_PATH } from "@/lib/notification-presentation";
+import { EmailHtmlPreviewFrame } from "@/components/admin/email-html-preview-frame";
 import {
-  renderNotificationTemplate,
-  TODAY_MENU_SAMPLE_VARIABLES,
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  TODAY_MENU_SAMPLE_HTML_VARIABLES,
+  TODAY_MENU_SAMPLE_TEXT_VARIABLES,
 } from "@/lib/notification-template";
 
 type Props = {
@@ -41,12 +44,12 @@ export function NotificationTemplateEditor({
   const [, startTransition] = useTransition();
 
   const previewSubject = useMemo(
-    () => renderNotificationTemplate(subject, TODAY_MENU_SAMPLE_VARIABLES),
+    () => renderNotificationSubjectTemplate(subject, TODAY_MENU_SAMPLE_TEXT_VARIABLES),
     [subject],
   );
 
   const previewHtml = useMemo(
-    () => renderNotificationTemplate(bodyHtml, TODAY_MENU_SAMPLE_VARIABLES),
+    () => renderNotificationHtmlTemplate(bodyHtml, TODAY_MENU_SAMPLE_HTML_VARIABLES),
     [bodyHtml],
   );
 
@@ -166,9 +169,10 @@ export function NotificationTemplateEditor({
         <Card padding="md" className="shadow-sm">
           <h3 className="text-sm font-semibold">Preview</h3>
           <p className="mt-2 text-sm font-medium">{previewSubject}</p>
-          <div
-            className="prose prose-sm mt-3 max-w-none text-sm"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          <EmailHtmlPreviewFrame
+            title="HTML email preview"
+            html={previewHtml}
+            className="mt-3"
           />
         </Card>
 

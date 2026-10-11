@@ -1,3 +1,4 @@
+import { escapeEmailHtml } from "@/lib/email-html";
 import { appendSearchParams } from "@/lib/redirect-url";
 import { UPDATE_PASSWORD_PATH } from "@/lib/auth-recovery";
 import { getApplicationOrigin } from "@/lib/request-origin";
@@ -154,11 +155,7 @@ export function buildAuthEmailContent(input: AuthEmailTemplateInput): {
     .filter(Boolean)
     .join("\n");
 
-  const safeUrl = input.confirmUrl
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  const safeUrl = escapeEmailHtml(input.confirmUrl);
 
   const html = [
     "<p>Hello,</p>",
@@ -168,7 +165,7 @@ export function buildAuthEmailContent(input: AuthEmailTemplateInput): {
     `<p><a href="${safeUrl}">Open Lunch Management System</a></p>`,
     isRecovery ? `<p>${RECOVERY_EMAIL_EXPIRY_COPY}</p>` : "",
     input.otpCode && input.actionType === "reauthentication"
-      ? `<p>Your verification code: <strong>${input.otpCode}</strong></p>`
+      ? `<p>Your verification code: <strong>${escapeEmailHtml(input.otpCode)}</strong></p>`
       : "",
     "<p>If you did not request this email, you can ignore it.</p>",
   ]

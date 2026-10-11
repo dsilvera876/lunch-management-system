@@ -1,6 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getJamaicaIsoWeekday, type Weekday } from "@/lib/datetime";
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import {
+  buildEmailHtmlList,
+  emailHtml,
+  joinEmailHtml,
+  type TrustedEmailHtml,
+} from "@/lib/email-html";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
+} from "@/lib/notification-template";
 import {
   loadProviderMenusForOrderDate,
   type ProviderMenuBundle,
@@ -33,13 +43,8 @@ function formatOrderingDeadline(deadlineIso: string): string {
   }).format(date);
 }
 
-function listItemsHtml(items: Array<{ name: string }>): string {
-  if (items.length === 0) {
-    return "<p>—</p>";
-  }
-
-  const lines = items.map((item) => `<li>${item.name}</li>`).join("");
-  return `<ul>${lines}</ul>`;
+function listItemsHtml(items: Array<{ name: string }>): TrustedEmailHtml {
+  return buildEmailHtmlList(items.map((item) => item.name));
 }
 
 function listItemsText(items: Array<{ name: string }>): string {
@@ -59,10 +64,12 @@ function itemsByType(
     .map((item) => ({ name: item.name }));
 }
 
-function buildProviderSections(providers: ProviderMenuBundle[]): {
+export function buildTodayMenuProviderSections(
+  providers: Array<Pick<ProviderMenuBundle, "name" | "menuItems">>,
+): {
   providerName: string;
-  mainsHtml: string;
-  sidesHtml: string;
+  mainsHtml: TrustedEmailHtml;
+  sidesHtml: TrustedEmailHtml;
   mainsText: string;
   sidesText: string;
 } {
@@ -86,21 +93,21 @@ function buildProviderSections(providers: ProviderMenuBundle[]): {
   }
 
   const providerName = providers.map((provider) => provider.name).join(", ");
-  const mainsHtml = providers
-    .map((provider) => {
+  const mainsHtml = joinEmailHtml(
+    providers.map((provider) => {
       const mains = itemsByType(provider.menuItems, "main");
-      return `<p><strong>${provider.name}</strong></p>${listItemsHtml(mains)}`;
-    })
-    .join("");
-  const sidesHtml = providers
-    .map((provider) => {
+      return emailHtml`<p><strong>${provider.name}</strong></p>${listItemsHtml(mains)}`;
+    }),
+  );
+  const sidesHtml = joinEmailHtml(
+    providers.map((provider) => {
       const sides = [
         ...itemsByType(provider.menuItems, "side"),
         ...itemsByType(provider.menuItems, "standalone"),
       ];
-      return `<p><strong>${provider.name}</strong></p>${listItemsHtml(sides)}`;
-    })
-    .join("");
+      return emailHtml`<p><strong>${provider.name}</strong></p>${listItemsHtml(sides)}`;
+    }),
+  );
 
   const mainsText = providers
     .map((provider) => {
@@ -155,29 +162,55 @@ export async function buildTodayMenuRenderedEmail(
     return null;
   }
 
-  const sections = buildProviderSections(providers);
+  const sections = buildTodayMenuProviderSections(providers);
   const orderUrl = `${input.appOrigin.replace(/\/$/, "")}/lunch`;
 
-  const variables = {
-    first_name: input.firstName,
-    menu_date: formatMenuDateLabel(input.orderDate),
-    provider_name: sections.providerName,
-    mains: sections.mainsHtml,
-    sides: sections.sidesHtml,
-    ordering_deadline: formatOrderingDeadline(String(orderDeadline)),
-    order_url: orderUrl,
+  return renderTodayMenuEmail(
+    {
+      firstName: input.firstName,
+      menuDate: formatMenuDateLabel(input.orderDate),
+      orderingDeadline: formatOrderingDeadline(String(orderDeadline)),
+      orderUrl,
+      sections,
+    },
+    input,
+  );
+}
+
+export function renderTodayMenuEmail(
+  context: {
+    firstName: string;
+    menuDate: string;
+    orderingDeadline: string;
+    orderUrl: string;
+    sections: ReturnType<typeof buildTodayMenuProviderSections>;
+  },
+  templates: {
+    subjectTemplate: string;
+    bodyHtmlTemplate: string;
+    bodyTextTemplate: string;
+  },
+): TodayMenuRenderedEmail {
+  const textVariables = {
+    first_name: context.firstName,
+    menu_date: context.menuDate,
+    provider_name: context.sections.providerName,
+    mains: context.sections.mainsText,
+    sides: context.sections.sidesText,
+    ordering_deadline: context.orderingDeadline,
+    order_url: context.orderUrl,
   };
 
-  const textVariables = {
-    ...variables,
-    mains: sections.mainsText,
-    sides: sections.sidesText,
+  const htmlVariables = {
+    ...textVariables,
+    mains: context.sections.mainsHtml,
+    sides: context.sections.sidesHtml,
   };
 
   return {
-    subject: renderNotificationTemplate(input.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(input.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(input.bodyTextTemplate, textVariables),
+    subject: renderNotificationSubjectTemplate(templates.subjectTemplate, textVariables),
+    htmlBody: renderNotificationHtmlTemplate(templates.bodyHtmlTemplate, htmlVariables),
+    textBody: renderNotificationTextTemplate(templates.bodyTextTemplate, textVariables),
   };
 }
 

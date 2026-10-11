@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { formatDeadline } from "@/lib/format";
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
+} from "@/lib/notification-template";
 
 const PROVIDER_FOLLOW_UP_HTML =
   "<p>The lunch provider may not have received the order email. Please use the normal provider contact process if immediate confirmation is required.</p>";
@@ -74,8 +78,8 @@ export function buildHrEmailDeliveryFailureRenderedEmail(
     failed_at: formatDeadline(context.failedAt),
   };
 
-  let htmlBody = renderNotificationTemplate(templates.bodyHtmlTemplate, variables);
-  let textBody = renderNotificationTemplate(templates.bodyTextTemplate, variables);
+  let htmlBody = renderNotificationHtmlTemplate(templates.bodyHtmlTemplate, variables);
+  let textBody = renderNotificationTextTemplate(templates.bodyTextTemplate, variables);
 
   if (context.providerFollowUp) {
     htmlBody += PROVIDER_FOLLOW_UP_HTML;
@@ -83,7 +87,7 @@ export function buildHrEmailDeliveryFailureRenderedEmail(
   }
 
   return {
-    subject: renderNotificationTemplate(templates.subjectTemplate, variables),
+    subject: renderNotificationSubjectTemplate(templates.subjectTemplate, variables),
     htmlBody,
     textBody,
   };

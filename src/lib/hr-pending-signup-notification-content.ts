@@ -2,7 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { formatDeadline } from "@/lib/format";
 import { HR_SIGNUP_APPROVALS_PATH } from "@/lib/hr-pending-signup-approvals";
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
+} from "@/lib/notification-template";
 
 export type HrPendingSignupRenderedEmail = {
   subject: string;
@@ -73,8 +77,8 @@ export function buildHrPendingSignupRenderedEmail(
   };
 
   return {
-    subject: renderNotificationTemplate(templates.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(templates.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(templates.bodyTextTemplate, variables),
+    subject: renderNotificationSubjectTemplate(templates.subjectTemplate, variables),
+    htmlBody: renderNotificationHtmlTemplate(templates.bodyHtmlTemplate, variables),
+    textBody: renderNotificationTextTemplate(templates.bodyTextTemplate, variables),
   };
 }

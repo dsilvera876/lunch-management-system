@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { requireAdminOrOwner } from "@/lib/auth";
 import { sendEmail } from "@/lib/mail/mail-service";
 import {
-  renderNotificationTemplate,
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
   TODAY_MENU_SAMPLE_TEXT_VARIABLES,
   STAFF_ORDER_SAMPLE_VARIABLES,
-  TODAY_MENU_SAMPLE_VARIABLES,
+  TODAY_MENU_SAMPLE_HTML_VARIABLES,
   validateNotificationTemplateVariables,
 } from "@/lib/notification-template";
 import {
@@ -140,21 +142,17 @@ export async function sendNotificationTemplateTestEmailAction(input: {
   const isStaffOrderEvent = input.eventKey.startsWith("staff.order_")
     || input.eventKey === "staff.changed_by_hr";
 
-  const sample = input.eventKey === "staff.today_menu"
-    ? TODAY_MENU_SAMPLE_VARIABLES
-    : isStaffOrderEvent
-      ? STAFF_ORDER_SAMPLE_VARIABLES
-      : TODAY_MENU_SAMPLE_VARIABLES;
+  const sampleHtml = isStaffOrderEvent
+    ? STAFF_ORDER_SAMPLE_VARIABLES
+    : TODAY_MENU_SAMPLE_HTML_VARIABLES;
 
-  const sampleText = input.eventKey === "staff.today_menu"
-    ? TODAY_MENU_SAMPLE_TEXT_VARIABLES
-    : isStaffOrderEvent
-      ? STAFF_ORDER_SAMPLE_VARIABLES
-      : TODAY_MENU_SAMPLE_TEXT_VARIABLES;
+  const sampleText = isStaffOrderEvent
+    ? STAFF_ORDER_SAMPLE_VARIABLES
+    : TODAY_MENU_SAMPLE_TEXT_VARIABLES;
 
-  const subject = renderNotificationTemplate(String(row.subject_template), sample);
-  const html = renderNotificationTemplate(String(row.body_html_template), sample);
-  const text = renderNotificationTemplate(
+  const subject = renderNotificationSubjectTemplate(String(row.subject_template), sampleText);
+  const html = renderNotificationHtmlTemplate(String(row.body_html_template), sampleHtml);
+  const text = renderNotificationTextTemplate(
     String(row.body_text_template ?? row.body_html_template),
     sampleText,
   );

@@ -23,7 +23,7 @@ describe("admin email delivery failure notification content", () => {
     const url = buildAdminEmailDeliveryMonitoringUrl(origin);
 
     assert.equal(url, `https://lunch.example.com${NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH}`);
-    assert.match(review.reviewHtml, new RegExp(NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH));
+    assert.match(review.reviewHtml.html, new RegExp(NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH));
     assert.match(review.reviewText, new RegExp(NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH));
 
     const rendered = buildAdminEmailDeliveryFailureRenderedEmail(
@@ -52,10 +52,10 @@ describe("admin email delivery failure notification content", () => {
       scheduledDeliveryDate: "2026-10-02",
     });
 
-    assert.doesNotMatch(review.reviewHtml, /email\/delivery\/history/);
+    assert.doesNotMatch(review.reviewHtml.html, /email\/delivery\/history/);
     assert.doesNotMatch(review.reviewText, /email\/delivery\/history/);
-    assert.match(review.reviewHtml, /Provider supplemental late-order dispatch/);
-    assert.match(review.reviewHtml, /Late Orders/);
+    assert.match(review.reviewHtml.html, /Provider supplemental late-order dispatch/);
+    assert.match(review.reviewHtml.html, /Late Orders/);
 
     const rendered = buildAdminEmailDeliveryFailureRenderedEmail(
       {

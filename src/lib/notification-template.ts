@@ -1,6 +1,19 @@
+import {
+  buildEmailHtmlList,
+  emailHtmlValueOrEmpty,
+  type TrustedEmailHtml,
+} from "@/lib/email-html";
+
 const VARIABLE_PATTERN = /\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi;
 
+/** Plain-text values for subjects and text bodies. Never HTML-escaped. */
 export type NotificationTemplateVariables = Record<string, string>;
+
+/**
+ * Values for HTML bodies. Strings are always HTML-escaped; only
+ * `TrustedEmailHtml` fragments built by `@/lib/email-html` are inserted as markup.
+ */
+export type NotificationHtmlTemplateVariables = Record<string, string | TrustedEmailHtml>;
 
 export function extractNotificationTemplateVariables(template: string): string[] {
   const found = new Set<string>();
@@ -24,30 +37,50 @@ export function validateNotificationTemplateVariables(
   return used.filter((name) => !allowed.has(name));
 }
 
-export function renderNotificationTemplate(
+function replaceTemplateVariables(
+  template: string,
+  resolve: (key: string) => string,
+): string {
+  return template.replace(VARIABLE_PATTERN, (_match, rawName: string) =>
+    resolve(rawName.toLowerCase()),
+  );
+}
+
+export function renderNotificationTextTemplate(
   template: string,
   variables: NotificationTemplateVariables,
 ): string {
-  return template.replace(VARIABLE_PATTERN, (_match, rawName: string) => {
-    const key = rawName.toLowerCase();
-    return variables[key] ?? "";
-  });
+  return replaceTemplateVariables(template, (key) => variables[key] ?? "");
 }
 
-export const TODAY_MENU_SAMPLE_VARIABLES: NotificationTemplateVariables = {
+export function renderNotificationSubjectTemplate(
+  template: string,
+  variables: NotificationTemplateVariables,
+): string {
+  return renderNotificationTextTemplate(template, variables).replace(/[\r\n]+/g, " ");
+}
+
+export function renderNotificationHtmlTemplate(
+  template: string,
+  variables: NotificationHtmlTemplateVariables,
+): string {
+  return replaceTemplateVariables(template, (key) => emailHtmlValueOrEmpty(variables[key]));
+}
+
+export const TODAY_MENU_SAMPLE_TEXT_VARIABLES: NotificationTemplateVariables = {
   first_name: "Alex",
   menu_date: "Mon, Sep 14, 2026",
   provider_name: "Island Eats",
-  mains: "<ul><li>Jerk Chicken</li><li>Curry Fish</li><li>Vegetable Pasta (V)</li></ul>",
-  sides: "<ul><li>Rice and Peas</li><li>Steamed Vegetables</li><li>Garden Salad</li></ul>",
+  mains: "- Jerk Chicken\n- Curry Fish\n- Vegetable Pasta (V)",
+  sides: "- Rice and Peas\n- Steamed Vegetables\n- Garden Salad",
   ordering_deadline: "11:00 AM",
   order_url: "https://example.com/lunch",
 };
 
-export const TODAY_MENU_SAMPLE_TEXT_VARIABLES: NotificationTemplateVariables = {
-  ...TODAY_MENU_SAMPLE_VARIABLES,
-  mains: "- Jerk Chicken\n- Curry Fish\n- Vegetable Pasta (V)",
-  sides: "- Rice and Peas\n- Steamed Vegetables\n- Garden Salad",
+export const TODAY_MENU_SAMPLE_HTML_VARIABLES: NotificationHtmlTemplateVariables = {
+  ...TODAY_MENU_SAMPLE_TEXT_VARIABLES,
+  mains: buildEmailHtmlList(["Jerk Chicken", "Curry Fish", "Vegetable Pasta (V)"]),
+  sides: buildEmailHtmlList(["Rice and Peas", "Steamed Vegetables", "Garden Salad"]),
 };
 
 export const STAFF_ORDER_SAMPLE_VARIABLES: NotificationTemplateVariables = {

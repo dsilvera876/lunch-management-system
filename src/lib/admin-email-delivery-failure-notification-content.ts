@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { formatDeadline, formatHumanDate } from "@/lib/format";
 import { NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH } from "@/lib/notification-delivery";
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import { emailHtml, type TrustedEmailHtml } from "@/lib/email-html";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
+} from "@/lib/notification-template";
 
 export type AdminEmailDeliveryFailureRenderedEmail = {
   subject: string;
@@ -30,21 +35,25 @@ export function buildAdminEmailDeliveryMonitoringUrl(appOrigin: string): string 
   return `${base}${NOTIFICATION_EMAIL_DELIVERY_HISTORY_PATH}`;
 }
 
-export function buildAdminEmailDeliveryQueueFailureReviewContent(appOrigin: string): {
-  reviewHtml: string;
+export type AdminEmailDeliveryFailureReviewContent = {
+  reviewHtml: TrustedEmailHtml;
   reviewText: string;
-} {
+};
+
+export function buildAdminEmailDeliveryQueueFailureReviewContent(
+  appOrigin: string,
+): AdminEmailDeliveryFailureReviewContent {
   const deliveryUrl = buildAdminEmailDeliveryMonitoringUrl(appOrigin);
   return {
-    reviewHtml: `<p><a href="${deliveryUrl}">Review Email Delivery</a></p>`,
+    reviewHtml: emailHtml`<p><a href="${deliveryUrl}">Review Email Delivery</a></p>`,
     reviewText: `Review Email Delivery:\n${deliveryUrl}`,
   };
 }
 
-export function buildAdminProviderPrimaryDispatchFailureReviewContent(context: {
+function providerDispatchDetailParts(context: {
   providerName: string | null;
   scheduledDeliveryDate: string | null;
-}): { reviewHtml: string; reviewText: string } {
+}): string[] {
   const detailParts: string[] = [];
   if (context.providerName) {
     detailParts.push(`Provider: ${context.providerName}`);
@@ -52,10 +61,22 @@ export function buildAdminProviderPrimaryDispatchFailureReviewContent(context: {
   if (context.scheduledDeliveryDate) {
     detailParts.push(`Delivery date: ${formatHumanDate(context.scheduledDeliveryDate)}`);
   }
-  const detailSentence =
-    detailParts.length > 0 ? `<p>${detailParts.join(". ")}.</p>` : "";
+  return detailParts;
+}
 
-  const reviewHtml = `<p><strong>Failure source:</strong> Provider primary lunch-order dispatch. This failure is not listed in Email Delivery monitoring.</p>${detailSentence}<p>Investigate dispatch status on <strong>Admin → Today&apos;s Orders</strong> when you have HR operational access (HR role, or Admin/Owner with HR support scope). Otherwise coordinate with HR for provider follow-up.</p>`;
+function providerDispatchDetailHtml(detailParts: string[]): TrustedEmailHtml {
+  return detailParts.length > 0
+    ? emailHtml`<p>${detailParts.join(". ")}.</p>`
+    : emailHtml``;
+}
+
+export function buildAdminProviderPrimaryDispatchFailureReviewContent(context: {
+  providerName: string | null;
+  scheduledDeliveryDate: string | null;
+}): AdminEmailDeliveryFailureReviewContent {
+  const detailParts = providerDispatchDetailParts(context);
+
+  const reviewHtml = emailHtml`<p><strong>Failure source:</strong> Provider primary lunch-order dispatch. This failure is not listed in Email Delivery monitoring.</p>${providerDispatchDetailHtml(detailParts)}<p>Investigate dispatch status on <strong>Admin → Today&apos;s Orders</strong> when you have HR operational access (HR role, or Admin/Owner with HR support scope). Otherwise coordinate with HR for provider follow-up.</p>`;
 
   const textDetail =
     detailParts.length > 0 ? `${detailParts.join(". ")}.\n\n` : "";
@@ -70,18 +91,10 @@ ${textDetail}Investigate dispatch status on Admin → Today's Orders when you ha
 export function buildAdminProviderSupplementalDispatchFailureReviewContent(context: {
   providerName: string | null;
   scheduledDeliveryDate: string | null;
-}): { reviewHtml: string; reviewText: string } {
-  const detailParts: string[] = [];
-  if (context.providerName) {
-    detailParts.push(`Provider: ${context.providerName}`);
-  }
-  if (context.scheduledDeliveryDate) {
-    detailParts.push(`Delivery date: ${formatHumanDate(context.scheduledDeliveryDate)}`);
-  }
-  const detailSentence =
-    detailParts.length > 0 ? `<p>${detailParts.join(". ")}.</p>` : "";
+}): AdminEmailDeliveryFailureReviewContent {
+  const detailParts = providerDispatchDetailParts(context);
 
-  const reviewHtml = `<p><strong>Failure source:</strong> Provider supplemental late-order dispatch. This failure is not listed in Email Delivery monitoring.</p>${detailSentence}<p>Investigate dispatch status on <strong>Admin → Late Orders</strong> when you have HR operational access (HR role, or Admin/Owner with HR support scope). Otherwise coordinate with HR for provider follow-up.</p>`;
+  const reviewHtml = emailHtml`<p><strong>Failure source:</strong> Provider supplemental late-order dispatch. This failure is not listed in Email Delivery monitoring.</p>${providerDispatchDetailHtml(detailParts)}<p>Investigate dispatch status on <strong>Admin → Late Orders</strong> when you have HR operational access (HR role, or Admin/Owner with HR support scope). Otherwise coordinate with HR for provider follow-up.</p>`;
 
   const textDetail =
     detailParts.length > 0 ? `${detailParts.join(". ")}.\n\n` : "";
@@ -170,18 +183,23 @@ export function buildAdminEmailDeliveryFailureRenderedEmail(
             scheduledDeliveryDate: context.scheduledDeliveryDate,
           });
 
-  const variables = {
+  const textVariables = {
     message_type: context.messageType,
     recipient: context.recipient,
     failed_at: formatDeadline(context.failedAt),
     error_summary: context.errorSummary,
-    review_html: review.reviewHtml,
+    review_html: review.reviewHtml.html,
     review_text: review.reviewText,
   };
 
+  const htmlVariables = {
+    ...textVariables,
+    review_html: review.reviewHtml,
+  };
+
   return {
-    subject: renderNotificationTemplate(templates.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(templates.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(templates.bodyTextTemplate, variables),
+    subject: renderNotificationSubjectTemplate(templates.subjectTemplate, textVariables),
+    htmlBody: renderNotificationHtmlTemplate(templates.bodyHtmlTemplate, htmlVariables),
+    textBody: renderNotificationTextTemplate(templates.bodyTextTemplate, textVariables),
   };
 }

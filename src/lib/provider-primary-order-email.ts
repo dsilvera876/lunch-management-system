@@ -1,4 +1,5 @@
 import { getDeliveryDisplayLinePairs } from "@/lib/deliveries";
+import { escapeEmailHtml } from "@/lib/email-html";
 import {
   assertProviderPrintPayloadSafe,
   buildOperationalDeliveryReport,
@@ -7,14 +8,7 @@ import {
   type ProviderOperationalGroup,
 } from "@/lib/operational-orders";
 
-export function escapeProviderEmailHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+export const escapeProviderEmailHtml = escapeEmailHtml;
 
 export function buildPrimaryProviderEmailSubject(input: {
   providerName: string;

@@ -5,7 +5,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const staffAuthFile = path.join(__dirname, "tests/accessibility/.auth/staff.json");
 const mostPopularPlaywrightOnly = process.env.PLAYWRIGHT_MOST_POPULAR_ONLY === "1";
 const menuItemRatingsPlaywrightOnly = process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1";
-const skipOrderingGlobalSetup = mostPopularPlaywrightOnly || menuItemRatingsPlaywrightOnly;
+const emailPreviewPlaywrightOnly = process.env.PLAYWRIGHT_EMAIL_PREVIEW_ONLY === "1";
+const skipOrderingGlobalSetup =
+  mostPopularPlaywrightOnly || menuItemRatingsPlaywrightOnly || emailPreviewPlaywrightOnly;
 
 export default defineConfig({
   globalSetup: path.join(
@@ -50,6 +52,7 @@ export default defineConfig({
         /hr-menu-item-ratings\.spec\.ts/,
         /menu-item-ratings\.spec\.ts/,
         /menu-item-most-popular\.spec\.ts/,
+        /email-preview-sandbox\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -140,6 +143,25 @@ export default defineConfig({
       use: {
         ...devices["Desktop Firefox"],
         storageState: staffAuthFile,
+      },
+    },
+    {
+      name: "chromium-email-preview-security",
+      testMatch: /email-preview-sandbox\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "firefox-email-preview-security",
+      testMatch: /email-preview-sandbox\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ["chromium-email-preview-security"],
+      use: {
+        ...devices["Desktop Firefox"],
       },
     },
     {

@@ -3,7 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatCurrency, formatHumanDate } from "@/lib/format";
 import { formatOrderLineLabel } from "@/lib/menu-items";
 import {
-  renderNotificationTemplate,
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
   type NotificationTemplateVariables,
 } from "@/lib/notification-template";
 import { firstNameFromFullName } from "@/lib/today-menu-notification-content";
@@ -107,9 +109,9 @@ export function buildStaffOrderRenderedEmail(
   const variables = buildStaffOrderTemplateVariables(context, appOrigin);
 
   return {
-    subject: renderNotificationTemplate(templates.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(templates.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(
+    subject: renderNotificationSubjectTemplate(templates.subjectTemplate, variables),
+    htmlBody: renderNotificationHtmlTemplate(templates.bodyHtmlTemplate, variables),
+    textBody: renderNotificationTextTemplate(
       templates.bodyTextTemplate || templates.bodyHtmlTemplate,
       variables,
     ),

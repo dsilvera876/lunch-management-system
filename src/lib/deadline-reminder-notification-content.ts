@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { formatHumanDate } from "@/lib/format";
-import { renderNotificationTemplate } from "@/lib/notification-template";
+import {
+  renderNotificationHtmlTemplate,
+  renderNotificationSubjectTemplate,
+  renderNotificationTextTemplate,
+} from "@/lib/notification-template";
 import { firstNameFromFullName } from "@/lib/today-menu-notification-content";
 
 export type DeadlineReminderRenderedEmail = {
@@ -48,9 +52,9 @@ export async function buildDeadlineReminderRenderedEmail(
   };
 
   return {
-    subject: renderNotificationTemplate(input.subjectTemplate, variables),
-    htmlBody: renderNotificationTemplate(input.bodyHtmlTemplate, variables),
-    textBody: renderNotificationTemplate(input.bodyTextTemplate, variables),
+    subject: renderNotificationSubjectTemplate(input.subjectTemplate, variables),
+    htmlBody: renderNotificationHtmlTemplate(input.bodyHtmlTemplate, variables),
+    textBody: renderNotificationTextTemplate(input.bodyTextTemplate, variables),
   };
 }
 

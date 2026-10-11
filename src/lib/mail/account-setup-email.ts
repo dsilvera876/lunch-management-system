@@ -1,3 +1,4 @@
+import { escapeEmailHtml } from "@/lib/email-html";
 import { sendEmail } from "@/lib/mail/mail-service";
 
 export type SendAccountSetupEmailInput = {
@@ -23,8 +24,8 @@ export function buildAccountSetupEmailContent(input: SendAccountSetupEmailInput)
     "If you did not request access, you can ignore this email.",
   ].join("\n");
 
-  const safeName = escapeHtml(displayName);
-  const safeUrl = escapeHtml(setupUrl);
+  const safeName = escapeEmailHtml(displayName);
+  const safeUrl = escapeEmailHtml(setupUrl);
   const html = [
     `<p>Hello ${safeName},</p>`,
     "<p>Your signup request was approved. Use the link below to finish setting up your account:</p>",
@@ -38,14 +39,6 @@ export function buildAccountSetupEmailContent(input: SendAccountSetupEmailInput)
 export type SendAccountSetupEmailResult =
   | { success: true }
   | { success: false; error: string };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 export async function sendAccountSetupEmail(
   input: SendAccountSetupEmailInput,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { EmailHtmlPreviewFrame } from "@/components/admin/email-html-preview-frame";
 import {
   NotificationDeliveryBatchStatusBadge,
   NotificationDeliveryRecipientStatusBadge,
@@ -157,9 +158,10 @@ export function NotificationDeliveryDetailView({
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted">HTML body</p>
-                <div
-                  className="prose prose-sm mt-2 max-w-none rounded-lg border border-border bg-surface p-4"
-                  dangerouslySetInnerHTML={{ __html: content.renderedHtmlBody ?? "" }}
+                <EmailHtmlPreviewFrame
+                  title="Rendered HTML email body"
+                  html={content.renderedHtmlBody ?? ""}
+                  className="mt-2"
                 />
               </div>
               <div>
