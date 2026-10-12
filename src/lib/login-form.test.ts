@@ -69,7 +69,7 @@ describe("login action", () => {
 
 describe("login form accessibility", () => {
   const form = readApp("login/login-form.tsx");
-  const layout = readComponent("auth-layout.tsx");
+  const layout = readComponent("auth/login-page-layout.tsx");
 
   it("associates the error with both fields and focuses it after a failed attempt", () => {
     assert.match(form, /aria-describedby=\{describedBy\}[\s\S]*aria-describedby=\{describedBy\}/);
@@ -91,8 +91,8 @@ describe("login form accessibility", () => {
 
   it("uses a main landmark and accessible contrast tokens", () => {
     assert.match(layout, /<main\b/);
-    assert.match(layout, /text-staff-instruction/);
-    assert.doesNotMatch(layout, /text-muted/);
+    assert.match(form, /text-staff-teal/);
+    assert.match(form, /Show typed characters|Hide typed characters/);
     assert.doesNotMatch(form, /text-primary/);
   });
 });

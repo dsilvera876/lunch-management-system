@@ -218,6 +218,43 @@ export function IconStarOutline(props: IconProps) {
   );
 }
 
+export function IconEnvelope(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M4 6h16v12H4z" />
+      <path d="m4 7 8 6 8-6" />
+    </LineIcon>
+  );
+}
+
+export function IconLock(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+      <path d="M6 11h12v10H6z" />
+    </LineIcon>
+  );
+}
+
+export function IconEye(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx={12} cy={12} r={3} />
+    </LineIcon>
+  );
+}
+
+export function IconEyeOff(props: IconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 10.6a3 3 0 0 0 4.24 4.24" />
+      <path d="M6.7 6.7C4.6 8.1 3 10 2 12s3.5 7 10 7c1.8 0 3.4-.4 4.8-1.1M17.3 17.3C19.4 15.9 21 14 22 12s-3.5-7-10-7c-1.8 0-3.4.4-4.8 1.1" />
+    </LineIcon>
+  );
+}
+
 export function IconArrowRight(props: IconProps) {
   return (
     <LineIcon {...props}>
