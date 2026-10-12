@@ -15,7 +15,9 @@ test.describe("Login — accessibility (PRL-010)", () => {
     await page.goto("/login");
     await expect(page).toHaveTitle("Sign in | Lunch Management System");
     await expect(page.getByRole("main")).toHaveCount(1);
-    await expect(page.getByRole("main").getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(
+      page.getByRole("main").getByRole("heading", { name: "Lunch Management System" }),
+    ).toBeVisible();
     await expectNoAxeViolations(page, "/login");
   });
 

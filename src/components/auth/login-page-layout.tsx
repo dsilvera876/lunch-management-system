@@ -16,11 +16,11 @@ export function LoginPageLayout({ children }: { children: ReactNode }) {
         aria-hidden
       />
       <div
-        className="absolute inset-0 bg-slate-900/55 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-slate-900/32"
         aria-hidden
       />
       <div
-        className="absolute inset-0 bg-gradient-to-b from-teal-950/40 via-teal-900/50 to-slate-900/60"
+        className="absolute inset-0 bg-gradient-to-b from-teal-900/28 via-teal-800/32 to-slate-900/35"
         aria-hidden
       />
 

@@ -29,13 +29,12 @@ export default async function LoginPage({ searchParams }: Props) {
   return (
     <LoginPageLayout>
       <div className="text-center">
-        <LoginBrandLogo className="mx-auto text-staff-teal" />
-        <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900">JBDC&apos;s</p>
-        <p className="mt-1 text-lg font-semibold text-staff-teal">Lunch Management System</p>
+        <LoginBrandLogo />
+        <h1 className="mt-4 text-2xl font-bold tracking-tight text-staff-teal-strong">
+          Lunch Management System
+        </h1>
         <p className="mt-3 text-sm italic text-staff-instruction">Where Good Food Awaits</p>
       </div>
-
-      <h1 className="sr-only">Sign in</h1>
 
       {params.message === "check-email" && (
         <Alert variant="success" className="mt-5">
