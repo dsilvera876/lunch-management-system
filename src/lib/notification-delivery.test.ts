@@ -86,8 +86,16 @@ describe("notification delivery monitoring", () => {
     assert.match(worker, /staff-order-notifications/);
     assert.match(
       worker,
-      /options\.task === "mail-queue"[\s\S]*runStaffOrderNotifications/,
+      /options\.task === "mail-queue"[\s\S]*runMailQueueNotificationProcessors/,
     );
+    const mailQueuePipeline = readFileSync(
+      new URL("../worker/mail-queue-notification-processors.ts", import.meta.url),
+      "utf8",
+    );
+    assert.match(mailQueuePipeline, /HR late order submitted notifications/);
+    assert.match(mailQueuePipeline, /Staff late order request status notifications/);
+    assert.match(mailQueuePipeline, /processStaffOrderNotifications/);
+    assert.match(mailQueuePipeline, /processStaffLateOrderRequestStatusNotifications/);
   });
 
   it("uses Admin Settings breadcrumbs for Email Delivery monitoring", () => {

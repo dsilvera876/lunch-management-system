@@ -20,6 +20,7 @@ import { processStaffOrderNotifications } from "@/lib/process-staff-order-notifi
 import { processStaffLunchPeriodFinalizedNotifications } from "@/lib/process-staff-lunch-period-finalized-notifications";
 import { processHrLateOrderSubmittedNotifications } from "@/lib/process-hr-late-order-submitted-notifications";
 import { processStaffLateOrderRequestStatusNotifications } from "@/lib/process-staff-late-order-request-status-notifications";
+import { runMailQueueNotificationProcessors } from "@/worker/mail-queue-notification-processors";
 import { processAuthUserDeletionCleanup } from "@/lib/process-auth-user-deletion-cleanup";
 import { drainUserImportWork } from "@/lib/process-user-import-batch";
 
@@ -411,77 +412,12 @@ async function main(): Promise<void> {
   }
 
   if (options.task === "mail-queue") {
-    try {
-      const deadlineFailures = await runDeadlineReminderNotifications(options.dryRun);
-      if (deadlineFailures > 0) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.error(
-        `Deadline reminder notifications worker aborted: ${error instanceof Error ? error.message : error}`,
-      );
-      process.exitCode = 1;
-    }
-
-    try {
-      const hrSignupFailures = await runHrPendingSignupNotifications(options.dryRun);
-      if (hrSignupFailures > 0) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.error(
-        `HR pending signup notifications worker aborted: ${error instanceof Error ? error.message : error}`,
-      );
-      process.exitCode = 1;
-    }
-
-    try {
-      const adminFailureAlerts = await runAdminEmailDeliveryFailureNotifications(options.dryRun);
-      if (adminFailureAlerts > 0) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.error(
-        `Admin email delivery failure notifications worker aborted: ${error instanceof Error ? error.message : error}`,
-      );
-      process.exitCode = 1;
-    }
-
-    try {
-      const hrFailureAlerts = await runHrEmailDeliveryFailureNotifications(options.dryRun);
-      if (hrFailureAlerts > 0) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.error(
-        `HR email delivery failure notifications worker aborted: ${error instanceof Error ? error.message : error}`,
-      );
-      process.exitCode = 1;
-    }
-
-    try {
-      const staffPeriodFailures = await runStaffLunchPeriodFinalizedNotifications(
-        options.dryRun,
-      );
-      if (staffPeriodFailures > 0) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.error(
-        `Staff lunch period finalized notifications worker aborted: ${error instanceof Error ? error.message : error}`,
-      );
-      process.exitCode = 1;
-    }
-
-    try {
-      const staffFailures = await runStaffOrderNotifications(options.dryRun);
-      if (staffFailures > 0) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.error(
-        `Staff order notifications worker aborted: ${error instanceof Error ? error.message : error}`,
-      );
+    const supabase = createServiceClient();
+    const notificationPipeline = await runMailQueueNotificationProcessors(
+      supabase,
+      options.dryRun,
+    );
+    if (notificationPipeline.totalFailures > 0) {
       process.exitCode = 1;
     }
 

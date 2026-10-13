@@ -591,7 +591,7 @@ sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs)
 sudo -u lunchapp -E env $(grep -v '^#' /etc/lunch-management/worker.env | xargs) npm run worker:dry-run
 ```
 
-Enable the mail queue timer so Auth hook enqueue returns within Supabase’s 5s limit while SMTP sends asynchronously. Each run also **renders and enqueues pending staff order notification intents** (`staff.order_*`, `staff.changed_by_hr`) before draining `private.email_delivery_queue` — no separate timer is required for transactional lunch emails.
+Enable the mail queue timer so Auth hook enqueue returns within Supabase’s 5s limit while SMTP sends asynchronously. Each run **renders and enqueues pending notification intents** (deadline reminders, staff order events such as `staff.order_*` / `staff.changed_by_hr`, **staff late-order request status** such as `staff.late_order_request_fulfilled`, and related HR/admin alerts) before draining `private.email_delivery_queue`. Notification processors run sequentially; a failure in one stage is logged and does not skip later stages (including late-order status mail and SMTP drain). Already-`queued` rows are not duplicated when the worker re-runs.
 
 ```bash
 sudo cp deploy/systemd/lunch-management-mail-queue.{service,timer} /etc/systemd/system/
@@ -599,7 +599,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now lunch-management-mail-queue.timer
 ```
 
-The timer invokes `npm run worker:mail-queue`, which runs `staff-order-notifications` then `mail-queue` in one oneshot service. Today’s Menu **generation** remains on `lunch-management-today-menu-notifications.timer` only (15-minute send window unchanged).
+The timer invokes `npm run worker:mail-queue`, which runs the mail-timer notification pipeline (`runMailQueueNotificationProcessors`, including staff order and **late-order request status** notifications) and then drains the SMTP queue in one oneshot service. Today’s Menu **generation** remains on `lunch-management-today-menu-notifications.timer` only (15-minute send window unchanged).
 
 Mail/staff-order worker env: **`SUPABASE_URL`**, **`SUPABASE_SECRET_KEY`**, **`APP_ORIGIN`** (same as Today’s Menu links). SMTP settings come from Admin email delivery configuration in the database.
 
