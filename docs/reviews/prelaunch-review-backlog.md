@@ -39,6 +39,7 @@ record any failures found there as Accessibility findings below.
 | PRL-016 | UI/UX | Low | All Staff routes: loading, errors and zoom | Open |
 | PRL-017 | Accessibility | Low | Staff `/lunch`, `/home` and mobile navigation | Open |
 | PRL-018 | Workflow | Medium | Staff accessibility regression tests | Open |
+| PRL-019 | UI/UX | Medium | Staff `/lunch`: menu ratings presentation | In progress |
 
 ## Security
 
@@ -309,6 +310,17 @@ because ordering was closed on the review date.
   parallel load; the open-ordering suite only runs on weekdays; and `/login` is never scanned by axe.
 - **Status:** Open
 - **Source:** Phase 2A review.
+
+### PRL-019: Staff `/lunch` menu ratings presentation
+
+- **Severity:** Medium
+- **Affected workflow:** Staff `/lunch` provider menu while ordering.
+- **Description:** Interactive per-item rating controls and helper copy (community labels, “Your rating”,
+  delivery eligibility hints) cluttered the ordering menu. Main items should show compact read-only
+  community-average stars beside the item name; sides and standalone items should show no rating UI;
+  unrated mains show no stars. Staff rate on `/home` and `/my-orders` instead.
+- **Status:** In progress
+- **Source:** Staff menu ratings UX refinement (2026-10-12).
 
 ## Entry template
 

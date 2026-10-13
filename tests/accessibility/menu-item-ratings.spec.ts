@@ -3,34 +3,58 @@ import path from "node:path";
 import { expectNoAxeViolations } from "./helpers/axe";
 import { STAFF_SEED } from "./helpers/seed-fixtures";
 import {
-  applyMenuItemRatingsStaffE2eFixture,
+  applyLocalStaffOrderingFixture,
+  applyMostPopularMenuItemE2eFixture,
+  clearFixtureSnapshotFile,
   ensureMenuItemRatingRpcGrantedForLocalE2e,
   loadLocalEnvFiles,
+  readFixtureSnapshot,
+  restoreLocalStaffOrderingFixture,
   restoreMenuItemRatingsStaffE2eFixture,
+  restoreMostPopularMenuItemE2eFixture,
 } from "./helpers/e2e-ordering-fixture";
 import { runLocalDbExec } from "./helpers/e2e-local-db";
 import { expectProviderOrderingReady } from "./helpers/staff-page";
+import { applySimulatedJamaicaToday } from "./helpers/simulated-weekday";
 
 const weekendSafeRatingsRun = process.env.PLAYWRIGHT_MENU_ITEM_RATINGS_ONLY === "1";
 const staffAuthFile = path.join(__dirname, ".auth/staff.json");
+
+/** Re-open ordering after teardown restores seed cutoff (e.g. past 4 PM Jamaica). */
+function ensureOpenOrderingForLunchMenuTests() {
+  try {
+    applyLocalStaffOrderingFixture();
+  } catch {
+    const snapshot = readFixtureSnapshot();
+    if (snapshot) {
+      restoreLocalStaffOrderingFixture(snapshot);
+      clearFixtureSnapshotFile();
+    }
+    applyLocalStaffOrderingFixture();
+  }
+}
 
 test.describe("Menu item ratings — Staff UI", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(() => {
     loadLocalEnvFiles();
-    applyMenuItemRatingsStaffE2eFixture();
+    applyMostPopularMenuItemE2eFixture();
+    ensureOpenOrderingForLunchMenuTests();
   });
 
-  test.beforeEach(() => {
-    applyMenuItemRatingsStaffE2eFixture();
+  test.beforeEach(async ({ context }) => {
+    applyMostPopularMenuItemE2eFixture();
+    ensureOpenOrderingForLunchMenuTests();
+    await applySimulatedJamaicaToday(context);
   });
 
   test.afterAll(() => {
+    restoreMostPopularMenuItemE2eFixture();
     restoreMenuItemRatingsStaffE2eFixture();
   });
 
-  test("lunch menu shows community rating and your rating controls", async ({ page }) => {
+  test("lunch menu shows read-only community averages on main items only", async ({ page }) => {
     test.skip(
       weekendSafeRatingsRun,
       "Weekend-safe ratings run uses home/my-orders only (no open-ordering fixture).",
@@ -39,8 +63,15 @@ test.describe("Menu item ratings — Staff UI", () => {
     await page.goto(`/lunch?provider=${STAFF_SEED.providerAlberries}`);
     await expectProviderOrderingReady(page);
 
-    await expect(page.getByText("Your rating").first()).toBeVisible();
-    await expect(page.getByRole("radiogroup", { name: /Your rating for/i }).first()).toBeVisible();
+    await expect(page.getByText("Your rating")).toHaveCount(0);
+    await expect(page.getByText("No ratings yet")).toHaveCount(0);
+    await expect(page.getByText(/Rate this item after your order/i)).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: /Your rating for/i })).toHaveCount(0);
+
+    await expect(
+      page.getByRole("img", { name: /average · \d+ rating/i }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("Most Popular").first()).toBeVisible();
 
     await expectNoAxeViolations(page, "/lunch menu item ratings", { mainContentOnly: true });
   });
@@ -49,10 +80,8 @@ test.describe("Menu item ratings — Staff UI", () => {
     await page.goto("/my-orders?tab=past");
     await expect(page.getByRole("heading", { name: "My Orders" })).toBeVisible();
 
-    const yourRating = page.getByText("Your rating").first();
-    await expect(yourRating).toBeVisible({ timeout: 20_000 });
-
     const group = page.getByRole("radiogroup", { name: /Your rating for/i }).first();
+    await expect(group).toBeVisible({ timeout: 30_000 });
     const star4 = group.getByRole("radio", { name: "4 stars" });
     await star4.focus();
     await page.keyboard.press("Enter");
@@ -67,7 +96,12 @@ test.describe("Menu item ratings — Staff UI", () => {
     await expectNoAxeViolations(page, "/my-orders menu item ratings", { mainContentOnly: true });
   });
 
-  test("hover previews rating and pointer leave restores saved value", async ({ page }) => {
+  test("hover previews rating and pointer leave restores saved value", async ({ page, browserName }) => {
+    test.skip(
+      browserName === "firefox",
+      "Firefox pointer hover is covered by the dedicated Firefox styling test.",
+    );
+
     await page.goto("/my-orders?tab=past");
     await expect(page.getByRole("radiogroup", { name: /Your rating for/i }).first()).toBeVisible({
       timeout: 20_000,

@@ -322,8 +322,9 @@ test.describe("HR menu item ratings administration", () => {
     await staffPage.getByLabel("Password").fill(password);
     await staffPage.getByRole("button", { name: "Sign in" }).click();
     await staffPage.waitForURL(/\/(home|lunch|my-orders)/, { timeout: 30_000 });
-    await staffPage.goto(`/lunch?provider=${STAFF_SEED.providerAlberries}`);
-    const stars = staffPage.getByRole("radio", { name: "4 stars" }).first();
+    await staffPage.goto("/my-orders?tab=past");
+    const group = staffPage.getByRole("radiogroup", { name: /Your rating for/i }).first();
+    const stars = group.getByRole("radio", { name: "4 stars" });
     if (await stars.isVisible({ timeout: 15_000 }).catch(() => false)) {
       await stars.click();
       await expect(staffPage.getByRole("status").filter({ hasText: /Saved 4/i })).toBeVisible({

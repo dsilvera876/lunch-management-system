@@ -17,7 +17,7 @@ import {
   LUNCH_PROVIDER_MENU_TABPANEL_ID,
   SELECT_MAIN_BEFORE_SIDE_MESSAGE,
 } from "@/lib/accessible-tabs";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { STAFF_PRIMARY_CTA_CLASS, STAFF_SOLID_FOCUS_CLASS } from "@/lib/staff-visual-contrast";
 import {
   getMenuItemTypeLabel,
@@ -25,7 +25,7 @@ import {
   groupStandaloneItemsByCategory,
   type MenuItemType,
 } from "@/lib/menu-items";
-import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
+import { MenuItemCommunityAverageStars } from "@/components/menu-item-ratings/menu-item-community-average-stars";
 import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
 import { MenuItemMostPopularBadge } from "@/components/menu-item-ratings/menu-item-most-popular-badge";
@@ -62,49 +62,34 @@ type Props = {
   ratingsLoadErrorMessage?: string | null;
 };
 
-function menuItemMostPopularAccessory(
-  itemId: string,
-  itemType: MenuItemType,
+function mainMenuItemNameAccessory(
+  item: MenuItemView,
   ratingsEnabled: boolean,
   ratingSummaries?: MenuItemRatingSummariesById,
   ratingsLoadFailed?: boolean,
-) {
-  if (itemType !== "main" || !ratingsEnabled || ratingsLoadFailed) {
-    return null;
-  }
-  if (ratingSummaries?.[itemId]?.isMostPopular) {
-    return <MenuItemMostPopularBadge />;
-  }
-  return null;
-}
-
-function MenuItemRatings({
-  itemId,
-  itemName,
-  ratingsEnabled,
-  ratingSummaries,
-  ratingsLoadFailed,
-}: {
-  itemId: string;
-  itemName: string;
-  ratingsEnabled: boolean;
-  ratingSummaries?: MenuItemRatingSummariesById;
-  ratingsLoadFailed?: boolean;
-}) {
-  if (!ratingsEnabled) {
+): ReactNode {
+  if (!ratingsEnabled || ratingsLoadFailed) {
     return null;
   }
 
-  return (
-    <MenuItemRatingBlock
-      providerMenuItemId={itemId}
-      itemName={itemName}
-      initialSummary={ratingSummaries?.[itemId]}
-      ratingsEnabled={ratingsEnabled}
-      summariesLoadFailed={ratingsLoadFailed}
-      compact
-    />
-  );
+  const summary = ratingSummaries?.[item.id];
+  const accessories: ReactNode[] = [];
+
+  if (summary && summary.ratingCount > 0) {
+    accessories.push(
+      <MenuItemCommunityAverageStars key="community" itemName={item.name} summary={summary} />,
+    );
+  }
+
+  if (summary?.isMostPopular) {
+    accessories.push(<MenuItemMostPopularBadge key="popular" />);
+  }
+
+  if (accessories.length === 0) {
+    return null;
+  }
+
+  return <span className="inline-flex flex-wrap items-center gap-1.5">{accessories}</span>;
 }
 
 export function ProviderMenuPanel({
@@ -186,21 +171,13 @@ export function ProviderMenuPanel({
                     price={item.price}
                     selected={draft.mainId === item.id}
                     disabled={disabled}
-                    nameAccessory={menuItemMostPopularAccessory(
-                      item.id,
-                      "main",
+                    nameAccessory={mainMenuItemNameAccessory(
+                      item,
                       ratingsEnabled,
                       ratingSummaries,
                       ratingsLoadFailed,
                     )}
                     onAdd={() => onSelectMain(item.id)}
-                  />
-                  <MenuItemRatings
-                    itemId={item.id}
-                    itemName={item.name}
-                    ratingsEnabled={ratingsEnabled}
-                    ratingSummaries={ratingSummaries}
-                    ratingsLoadFailed={ratingsLoadFailed}
                   />
                 </div>
               ))}
@@ -238,21 +215,7 @@ export function ProviderMenuPanel({
                     disabled={disabled}
                     blockedUntilMainSelected={needsMainBeforeSide}
                     blockedDescribedBy={needsMainBeforeSide ? selectMainFirstId : undefined}
-                    nameAccessory={menuItemMostPopularAccessory(
-                      item.id,
-                      "side",
-                      ratingsEnabled,
-                      ratingSummaries,
-                      ratingsLoadFailed,
-                    )}
                     onAdd={() => onAddSide(item.id)}
-                  />
-                  <MenuItemRatings
-                    itemId={item.id}
-                    itemName={item.name}
-                    ratingsEnabled={ratingsEnabled}
-                    ratingSummaries={ratingSummaries}
-                    ratingsLoadFailed={ratingsLoadFailed}
                   />
                 </div>
               ))}
@@ -289,21 +252,7 @@ export function ProviderMenuPanel({
                       price={item.price}
                       selected={selected}
                       disabled={disabled}
-                      nameAccessory={menuItemMostPopularAccessory(
-                        item.id,
-                        "standalone",
-                        ratingsEnabled,
-                        ratingSummaries,
-                        ratingsLoadFailed,
-                      )}
                       onAdd={() => onAddStandalone(item.id)}
-                    />
-                    <MenuItemRatings
-                      itemId={item.id}
-                      itemName={item.name}
-                      ratingsEnabled={ratingsEnabled}
-                      ratingSummaries={ratingSummaries}
-                      ratingsLoadFailed={ratingsLoadFailed}
                     />
                     {selected ? (
                       <div className="mb-3 ml-0 max-w-xs pl-0">
