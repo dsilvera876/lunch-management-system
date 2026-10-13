@@ -10,22 +10,28 @@ const emailPreviewPlaywrightOnly = process.env.PLAYWRIGHT_EMAIL_PREVIEW_ONLY ===
 const simulatedWeekdayPlaywright = process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === "1";
 /** Login, page-title and late-order drawer a11y; needs no open self-service ordering. */
 const phase2aPlaywrightOnly = process.env.PLAYWRIGHT_PHASE_2A_ONLY === "1";
+const deliveriesReconciliationPlaywrightOnly =
+  process.env.PLAYWRIGHT_DELIVERIES_RECONCILIATION_ONLY === "1";
 const skipOrderingGlobalSetup =
   mostPopularPlaywrightOnly ||
   menuItemRatingsPlaywrightOnly ||
   emailPreviewPlaywrightOnly ||
-  phase2aPlaywrightOnly;
+  phase2aPlaywrightOnly ||
+  deliveriesReconciliationPlaywrightOnly;
 const phase2aSpecs = /(login-a11y|page-titles|staff-late-order-drawer-focus)\.spec\.ts/;
 const staffPrl011012Spec = /staff-prl-011-012\.spec\.ts/;
+const adminDeliveriesReconciliationSpec = /admin-deliveries-reconciliation\.spec\.ts/;
 
 export default defineConfig({
   globalSetup: path.join(
     __dirname,
     simulatedWeekdayPlaywright
       ? "tests/accessibility/global-setup-simulated-weekday.ts"
-      : skipOrderingGlobalSetup
-        ? "tests/accessibility/global-setup-most-popular.ts"
-        : "tests/accessibility/global-setup.ts",
+      : deliveriesReconciliationPlaywrightOnly
+        ? "tests/accessibility/global-setup-deliveries-reconciliation.ts"
+        : skipOrderingGlobalSetup
+          ? "tests/accessibility/global-setup-most-popular.ts"
+          : "tests/accessibility/global-setup.ts",
   ),
   globalTeardown: path.join(__dirname, "tests/accessibility/global-teardown.ts"),
   testDir: path.join(__dirname, "tests/accessibility"),
@@ -65,6 +71,7 @@ export default defineConfig({
         /menu-item-most-popular\.spec\.ts/,
         /email-preview-sandbox\.spec\.ts/,
         /staff-checkout-a11y\.spec\.ts/,
+        adminDeliveriesReconciliationSpec,
         phase2aSpecs,
         staffPrl011012Spec,
       ],
@@ -267,6 +274,26 @@ export default defineConfig({
       testMatch: /operational-attention-bell\.spec\.ts/,
       fullyParallel: false,
       workers: 1,
+      use: {
+        ...devices["Desktop Firefox"],
+      },
+    },
+    {
+      name: "chromium-deliveries-reconciliation",
+      testMatch: adminDeliveriesReconciliationSpec,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: [],
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "firefox-deliveries-reconciliation",
+      testMatch: adminDeliveriesReconciliationSpec,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ["chromium-deliveries-reconciliation"],
       use: {
         ...devices["Desktop Firefox"],
       },

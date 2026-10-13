@@ -9,6 +9,19 @@ export { lateOrderMajorCardClassName as deliveriesOfficeCardClassName } from "@/
 export const DELIVERY_TOGGLE_ERROR_MESSAGE =
   "Could not update delivery. Try again.";
 
+export const DELIVERY_TOGGLE_PROCESSING_LABEL = "Confirming delivery update";
+
+export function deliveryToggleCheckboxLabel(
+  employeeName: string,
+  processing: boolean,
+): string {
+  if (processing) {
+    return `${DELIVERY_TOGGLE_PROCESSING_LABEL} for ${employeeName}`;
+  }
+
+  return `Mark ${employeeName} delivered`;
+}
+
 export type DeliveryStatusBadgeVariant =
   | "pending"
   | "delivered"

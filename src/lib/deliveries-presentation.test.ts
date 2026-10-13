@@ -192,6 +192,8 @@ describe("deliveries presentation", () => {
     assert.match(workspace, /countsForReconciliationFilter/);
     assert.match(workspace, /revertOrderDeliveryToPendingMutation/);
     assert.match(workspace, /DELIVERY_TOGGLE_ERROR_MESSAGE/);
+    assert.match(workspace, /prepareDeliveryToggle/);
+    assert.match(workspace, /aria-live="polite"/);
     assert.match(workspace, /type="checkbox"/);
     assert.doesNotMatch(workspace, /Delivery update saved successfully/);
     assert.doesNotMatch(workspace, /Order marked delivered successfully/);

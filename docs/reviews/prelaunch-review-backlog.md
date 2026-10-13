@@ -40,6 +40,7 @@ record any failures found there as Accessibility findings below.
 | PRL-017 | Accessibility | Low | Staff `/lunch`, `/home` and mobile navigation | Open |
 | PRL-018 | Workflow | Medium | Staff accessibility regression tests | Open |
 | PRL-019 | UI/UX | Medium | Staff `/lunch`: menu ratings presentation | In progress |
+| PRL-020 | UI/UX | High | HR `/admin/deliveries`: reconciliation UX redesign | Open |
 
 ## Security
 
@@ -321,6 +322,20 @@ because ordering was closed on the review date.
   unrated mains show no stars. Staff rate on `/home` and `/my-orders` instead.
 - **Status:** In progress
 - **Source:** Staff menu ratings UX refinement (2026-10-12).
+
+### PRL-020: HR `/admin/deliveries` reconciliation UX redesign
+
+- **Severity:** High
+- **Affected workflow:** HR delivery reconciliation on `/admin/deliveries`.
+- **Description:** Checkbox reconciliation is easy to misread: rows can leave the Pending list before HR
+  sees confirmation, and bulk rapid marking needs clearer affordances. A future redesign should consider
+  explicit **Mark delivered** / **Undo delivery** actions (instead of or in addition to checkboxes),
+  stable status visibility while reconciling, optional bulk reconciliation for an office or provider,
+  clear processing/success/failure feedback, and accessible keyboard flows. Reliability fixes (2026-10-13)
+  keep pending rows visible until the server confirms and surface per-row errors; this item tracks the
+  broader UX pass.
+- **Status:** Open
+- **Source:** Staging delivery reconciliation defect investigation (2026-10-13).
 
 ## Entry template
 

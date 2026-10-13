@@ -11,17 +11,20 @@ import {
 } from "@/lib/delivery-reconciliation";
 import {
   applyDeliveriesToolbarFilters,
-  captureDeliveryToggleSnapshot,
   computeDeliveryProgress,
   filterDeliveriesOrders,
   formatDeliveryOrderDescription,
   groupOrdersByOfficeLocation,
   patchDeliveryOrder,
-  patchFromDelivered,
-  patchFromRevertedToPending,
   replaceDeliveriesUrlInHistory,
   type DeliveriesFilterState,
 } from "@/lib/deliveries";
+import {
+  finishDeliveryToggle,
+  prepareDeliveryToggle,
+  type DeliveryToggleMutationResult,
+} from "@/lib/delivery-reconciliation-toggle";
+import type { DeliveryOrderPatch } from "@/lib/deliveries";
 import type { OperationalOrder } from "@/lib/operational-orders";
 import { getJamaicaTodayDate } from "@/lib/datetime";
 import {
@@ -33,6 +36,8 @@ import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
 import { DeliveriesPageHeader } from "@/components/admin/deliveries-page-header";
 import {
   DELIVERY_TOGGLE_ERROR_MESSAGE,
+  DELIVERY_TOGGLE_PROCESSING_LABEL,
+  deliveryToggleCheckboxLabel,
   deliveriesOfficeCardClassName,
   deliveryStatusBadgeClassName,
   formatDeliveryStatusBadgeLabel,
@@ -74,14 +79,16 @@ function DeliveryCheckbox({
   order,
   canReconcile,
   checked,
+  processing,
   onToggle,
 }: {
   order: OperationalOrder;
   canReconcile: boolean;
   checked: boolean;
+  processing: boolean;
   onToggle: (nextChecked: boolean) => void;
 }) {
-  if (!canReconcile || !canToggleDeliveryCheckbox(order)) {
+  if (!canReconcile || (!canToggleDeliveryCheckbox(order) && !processing)) {
     const readOnlyChecked =
       order.deliveryState === "delivered" ||
       (order.deliveryState === "resolved" &&
@@ -97,10 +104,19 @@ function DeliveryCheckbox({
   return (
     <input
       type="checkbox"
-      aria-label={`Mark ${order.employeeName} delivered`}
+      aria-label={deliveryToggleCheckboxLabel(order.employeeName, processing)}
+      aria-busy={processing}
+      aria-disabled={processing}
+      disabled={processing}
       checked={checked}
-      onChange={(event) => onToggle(event.target.checked)}
-      className="size-4 rounded border-border text-primary focus:ring-primary/30"
+      onChange={(event) => {
+        if (processing) {
+          return;
+        }
+
+        onToggle(event.target.checked);
+      }}
+      className="size-4 rounded border-border text-primary focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
     />
   );
 }
@@ -146,6 +162,8 @@ function DeliveryRow({
   canReconcile,
   showProviderColumn,
   rowError,
+  rowSuccess,
+  processing,
   onToggleDelivered,
   onIssue,
 }: {
@@ -153,12 +171,15 @@ function DeliveryRow({
   canReconcile: boolean;
   showProviderColumn: boolean;
   rowError: string | null;
+  rowSuccess: string | null;
+  processing: boolean;
   onToggleDelivered: (nextChecked: boolean) => void;
   onIssue: () => void;
 }) {
   const issueOpen = order.deliveryState === "issue_open";
   const deliveredChecked = order.deliveryState === "delivered";
   const issueActionLabel = issueOpen ? "View / Edit issue" : "Issue";
+  const feedbackId = `delivery-feedback-${order.id}`;
 
   return (
     <>
@@ -168,6 +189,7 @@ function DeliveryRow({
             order={order}
             canReconcile={canReconcile}
             checked={deliveredChecked}
+            processing={processing}
             onToggle={onToggleDelivered}
           />
         </td>
@@ -191,7 +213,15 @@ function DeliveryRow({
           <DesktopQtyCell order={order} />
         </td>
         <td className="px-2 py-1.5 align-middle">
-          <DeliveryStatusBadge order={order} />
+          <div className="space-y-1">
+            <DeliveryStatusBadge order={order} />
+            {processing ? (
+              <p className="text-xs text-muted">{DELIVERY_TOGGLE_PROCESSING_LABEL}…</p>
+            ) : null}
+            {rowSuccess ? (
+              <p className="text-xs font-medium text-emerald-800">{rowSuccess}</p>
+            ) : null}
+          </div>
         </td>
         <td className="px-2 py-1.5 align-middle text-right">
           {(canReportIssue(order) || issueOpen) && canReconcile ? (
@@ -211,7 +241,9 @@ function DeliveryRow({
             colSpan={showProviderColumn ? 7 : 6}
             className="border-b border-border px-2 pb-2 text-xs text-red-700"
           >
-            {rowError}
+            <p id={feedbackId} role="alert">
+              {rowError}
+            </p>
           </td>
         </tr>
       ) : null}
@@ -228,13 +260,24 @@ function DeliveryRow({
                   order={order}
                   canReconcile={canReconcile}
                   checked={deliveredChecked}
+                  processing={processing}
                   onToggle={onToggleDelivered}
                 />
               </div>
               <p className="text-xs text-muted">{order.providerName}</p>
               <DesktopOrderCell order={order} />
               <DeliveryStatusBadge order={order} />
-              {rowError ? <p className="text-xs text-red-700">{rowError}</p> : null}
+              {processing ? (
+                <p className="text-xs text-muted">{DELIVERY_TOGGLE_PROCESSING_LABEL}…</p>
+              ) : null}
+              {rowSuccess ? (
+                <p className="text-xs font-medium text-emerald-800">{rowSuccess}</p>
+              ) : null}
+              {rowError ? (
+                <p id={feedbackId} role="alert" className="text-xs text-red-700">
+                  {rowError}
+                </p>
+              ) : null}
             </div>
             {(canReportIssue(order) || issueOpen) && canReconcile ? (
               <button
@@ -266,7 +309,12 @@ export function DeliveriesWorkspace({
   const [filters, setFilters] = useState<DeliveriesFilterState>(initialFilters);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [rowSuccesses, setRowSuccesses] = useState<Record<string, string>>({});
+  const [processingOrderIds, setProcessingOrderIds] = useState<Record<string, true>>({});
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const toggleVersionRef = useRef(new Map<string, number>());
+  const ordersRef = useRef(initialOrders);
+  const processingOrderIdsRef = useRef(new Set<string>());
 
   const syncFilters = useCallback((next: DeliveriesFilterState) => {
     setFilters(next);
@@ -302,7 +350,11 @@ export function DeliveriesWorkspace({
       return false;
     }
 
-    setOrders((current) => patchDeliveryOrder(current, result.patch));
+    setOrders((current) => {
+      const next = patchDeliveryOrder(current, result.patch);
+      ordersRef.current = next;
+      return next;
+    });
     setIssueOrderId(null);
     return true;
   };
@@ -319,60 +371,125 @@ export function DeliveriesWorkspace({
     });
   };
 
+  const clearRowSuccess = (orderId: string) => {
+    setRowSuccesses((current) => {
+      if (!current[orderId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[orderId];
+      return next;
+    });
+  };
+
+  const applyFinishedToggle = (
+    orderId: string,
+    expectedVersion: number,
+    rollbackSnapshot: DeliveryOrderPatch,
+    result: DeliveryToggleMutationResult,
+  ) => {
+    const currentVersion = toggleVersionRef.current.get(orderId) ?? 0;
+    let finishedRowError: string | null = null;
+    let finishedSuccessMessage: string | null = null;
+
+    setOrders((current) => {
+      const finished = finishDeliveryToggle(
+        current,
+        expectedVersion,
+        currentVersion,
+        rollbackSnapshot,
+        result,
+        DELIVERY_TOGGLE_ERROR_MESSAGE,
+      );
+
+      finishedRowError = finished.rowError;
+      finishedSuccessMessage = finished.successMessage;
+      ordersRef.current = finished.orders;
+      return finished.orders;
+    });
+
+    if (finishedRowError) {
+      setRowErrors((errors) => ({
+        ...errors,
+        [orderId]: finishedRowError!,
+      }));
+      setLiveAnnouncement(finishedRowError);
+      clearRowSuccess(orderId);
+    } else if (finishedSuccessMessage) {
+      setRowErrors((errors) => {
+        if (!errors[orderId]) {
+          return errors;
+        }
+
+        const next = { ...errors };
+        delete next[orderId];
+        return next;
+      });
+      setRowSuccesses((successes) => ({
+        ...successes,
+        [orderId]: finishedSuccessMessage!,
+      }));
+      setLiveAnnouncement(finishedSuccessMessage);
+    }
+  };
+
   const handleDeliveryToggle = (orderId: string, nextChecked: boolean) => {
     if (!reconcileEnabled) {
       return;
     }
 
-    let rollbackSnapshot: ReturnType<typeof captureDeliveryToggleSnapshot> | null =
-      null;
+    const prepared = prepareDeliveryToggle(
+      ordersRef.current,
+      orderId,
+      processingOrderIdsRef.current,
+    );
 
-    setOrders((current) => {
-      const order = current.find((entry) => entry.id === orderId);
-      if (!order || !canToggleDeliveryCheckbox(order)) {
-        return current;
-      }
-
-      rollbackSnapshot = captureDeliveryToggleSnapshot(order);
-      const optimisticPatch = nextChecked
-        ? patchFromDelivered(order, getJamaicaTodayDate())
-        : patchFromRevertedToPending(order);
-
-      return patchDeliveryOrder(current, optimisticPatch);
-    });
-
-    if (!rollbackSnapshot) {
+    if (prepared.kind !== "ready") {
       return;
     }
 
+    processingOrderIdsRef.current.add(orderId);
+    setProcessingOrderIds((current) => ({ ...current, [orderId]: true }));
+
+    const actualDeliveryDate = getJamaicaTodayDate();
     const version = (toggleVersionRef.current.get(orderId) ?? 0) + 1;
     toggleVersionRef.current.set(orderId, version);
     clearRowError(orderId);
+    clearRowSuccess(orderId);
 
     void (async () => {
-      const result = nextChecked
-        ? await markOrderDeliveredMutation({ orderId })
-        : await revertOrderDeliveryToPendingMutation({ orderId });
+      try {
+        const result = nextChecked
+          ? await markOrderDeliveredMutation({ orderId, actualDeliveryDate })
+          : await revertOrderDeliveryToPendingMutation({ orderId });
 
-      if (toggleVersionRef.current.get(orderId) !== version) {
-        return;
+        applyFinishedToggle(orderId, version, prepared.rollbackSnapshot, result);
+      } catch {
+        applyFinishedToggle(orderId, version, prepared.rollbackSnapshot, {
+          success: false,
+          error: DELIVERY_TOGGLE_ERROR_MESSAGE,
+        });
+      } finally {
+        processingOrderIdsRef.current.delete(orderId);
+        setProcessingOrderIds((current) => {
+          if (!current[orderId]) {
+            return current;
+          }
+
+          const next = { ...current };
+          delete next[orderId];
+          return next;
+        });
       }
-
-      if (!result.success) {
-        setOrders((current) => patchDeliveryOrder(current, rollbackSnapshot!));
-        setRowErrors((current) => ({
-          ...current,
-          [orderId]: DELIVERY_TOGGLE_ERROR_MESSAGE,
-        }));
-        return;
-      }
-
-      setOrders((current) => patchDeliveryOrder(current, result.patch));
     })();
   };
 
   return (
     <div className="space-y-3">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveAnnouncement}
+      </p>
       <DeliveriesPageHeader
         deliveryDateLabel={deliveryDateLabel}
         reconciled={overallProgress.reconciled}
@@ -489,6 +606,8 @@ export function DeliveriesWorkspace({
                       canReconcile={reconcileEnabled}
                       showProviderColumn={showProviderColumn}
                       rowError={rowErrors[order.id] ?? null}
+                      rowSuccess={rowSuccesses[order.id] ?? null}
+                      processing={processingOrderIds[order.id] === true}
                       onToggleDelivered={(nextChecked) =>
                         handleDeliveryToggle(order.id, nextChecked)
                       }
@@ -507,6 +626,8 @@ export function DeliveriesWorkspace({
                       canReconcile={reconcileEnabled}
                       showProviderColumn={showProviderColumn}
                       rowError={rowErrors[order.id] ?? null}
+                      rowSuccess={rowSuccesses[order.id] ?? null}
+                      processing={processingOrderIds[order.id] === true}
                       onToggleDelivered={(nextChecked) =>
                         handleDeliveryToggle(order.id, nextChecked)
                       }
