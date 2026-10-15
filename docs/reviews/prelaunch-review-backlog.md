@@ -39,7 +39,7 @@ record any failures found there as Accessibility findings below.
 | PRL-016 | UI/UX | Low | All Staff routes: loading, errors and zoom | Open |
 | PRL-017 | Accessibility | Low | Staff `/lunch`, `/home` and mobile navigation | Open |
 | PRL-018 | Workflow | Medium | Staff accessibility regression tests | Open |
-| PRL-019 | UI/UX | Medium | Staff `/lunch`: menu ratings presentation | In progress |
+| PRL-019 | UI/UX | Medium | Staff `/lunch`: menu ratings presentation | Resolved |
 | PRL-020 | UI/UX | High | HR `/admin/deliveries`: reconciliation UX redesign | Open |
 
 ## Security
@@ -320,8 +320,13 @@ because ordering was closed on the review date.
   delivery eligibility hints) cluttered the ordering menu. Main items should show compact read-only
   community-average stars beside the item name; sides and standalone items should show no rating UI;
   unrated mains show no stars. Staff rate on `/home` and `/my-orders` instead.
-- **Status:** In progress
+- **Status:** Resolved in commit `9385eb3`.
 - **Source:** Staff menu ratings UX refinement (2026-10-12).
+- **Staging verification (2026-10-15):** Confirmed staff can rate eligible delivered main meals and update
+  existing ratings (BBQ Chicken from 4 to 5 stars); Dashboard and My Orders display saved ratings; and
+  Today's Order shows the updated read-only community average beside rated main meals. Unrated mains,
+  sides and standalone items show no rating information, and Today's Order has no interactive rating
+  controls or helper text. Prices, Add buttons and the menu layout remain correct.
 
 ### PRL-020: HR `/admin/deliveries` reconciliation UX redesign
 
