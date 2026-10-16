@@ -4,13 +4,23 @@ import {
   applyAdminDeliveriesRapidReconciliationFixture,
   countDeliveredRapidReconciliationOrders,
   E2E_DELIVERIES_RAPID_ORDER_IDS,
+  markRapidReconciliationOrderDeliveredExternally,
   restoreAdminDeliveriesRapidReconciliationFixture,
 } from "./helpers/e2e-deliveries-fixture";
-import { requireHrCredentials } from "./helpers/env";
+import { hasOwnerCredentials, requireHrCredentials, requireOwnerCredentials } from "./helpers/env";
 import { STAFF_SEED } from "./helpers/seed-fixtures";
 
 async function signInAsHr(page: import("@playwright/test").Page) {
   const { email, password } = requireHrCredentials();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(/\/(admin\/|home|account)/, { timeout: 30_000 });
+}
+
+async function signInAsOwner(page: import("@playwright/test").Page) {
+  const { email, password } = requireOwnerCredentials();
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -217,5 +227,110 @@ test.describe("Admin deliveries — rapid reconciliation", () => {
         deliveriesTable.evaluate((table) => table.scrollWidth <= table.clientWidth),
       )
       .toBe(true);
+  });
+
+  test("all six filters keep their selection and counts after a confirmed delivery", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signInAsHr(page);
+    await page.goto(
+      `/admin/deliveries?provider=${STAFF_SEED.providerAlberries}&status=pending`,
+    );
+    const table = page.locator("table.md\\:min-w-\\[760px\\]");
+    const firstOrderId = E2E_DELIVERIES_RAPID_ORDER_IDS[0];
+    await table.locator(`[data-delivery-order-id="${firstOrderId}"]:visible`).click();
+    await expect(
+      page.getByRole("region", { name: "Recent delivery updates" }).getByRole("listitem"),
+    ).toHaveCount(1);
+
+    const filters = [
+      ["All", "all"],
+      ["Pending", "pending"],
+      ["Delivered", "delivered"],
+      ["Issues", "issues"],
+      ["Resolved", "resolved"],
+      ["Cancelled", "cancelled"],
+    ] as const;
+    for (const [label, status] of filters) {
+      const filter = page.getByRole("button", { name: new RegExp(`^${label} `) });
+      await filter.focus();
+      await page.keyboard.press("Enter");
+      await expect(filter).toHaveAttribute("aria-pressed", "true");
+      if (status === "pending") {
+        await expect(page).not.toHaveURL(/status=/);
+      } else {
+        await expect(page).toHaveURL(new RegExp(`status=${status}`));
+      }
+      await expect(page.getByRole("button", { name: /^All 4$/ })).toBeVisible();
+    }
+
+    const deliveredFilter = page.getByRole("button", { name: /^Delivered 1$/ });
+    await deliveredFilter.click();
+    await expect(deliveredFilter).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: /Undo delivery for/i })).toHaveCount(1);
+  });
+
+  test("stale delivery state refreshes without a duplicate mutation", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signInAsHr(page);
+    await page.goto(
+      `/admin/deliveries?provider=${STAFF_SEED.providerAlberries}&status=pending`,
+    );
+    const orderId = E2E_DELIVERIES_RAPID_ORDER_IDS[0];
+    const markDelivered = page.locator(`[data-delivery-order-id="${orderId}"]:visible`);
+    await expect(markDelivered).toBeEnabled();
+
+    markRapidReconciliationOrderDeliveredExternally(orderId);
+    const mutationRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && rapidOrderIdFromRequest(request) === orderId) {
+        mutationRequests.push(request.url());
+      }
+    });
+    await markDelivered.click();
+
+    await expect(
+      page.locator("p.text-sm.text-muted").filter({
+        hasText: /changed by another authorized HR user.*Latest delivery data/i,
+      }),
+    ).toBeVisible();
+    expect(mutationRequests).toHaveLength(1);
+    await expect(page.getByRole("button", { name: /^Pending 3$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Delivered 1$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Pending 3$/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(markDelivered).toHaveCount(0);
+
+    const deliveredFilter = page.getByRole("button", { name: /^Delivered 1$/ });
+    await deliveredFilter.focus();
+    await page.keyboard.press("Enter");
+    await expect(deliveredFilter).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(`[data-delivery-order-id="${orderId}"]:visible`)).toHaveText("Undo delivery");
+    expect(countDeliveredRapidReconciliationOrders()).toBe(1);
+  });
+
+  test("Owner Support Mode can view deliveries but cannot reconcile them", async ({ page }) => {
+    test.setTimeout(120_000);
+    test.skip(!hasOwnerCredentials(), "Owner Support Mode check requires a local Owner or shared staff password");
+    await signInAsOwner(page);
+    await page.goto("/admin/support", { waitUntil: "networkidle" });
+    const exitSupport = page.getByRole("button", { name: "Exit Support Mode" }).first();
+    if (await exitSupport.isVisible()) {
+      await exitSupport.click();
+      await expect(exitSupport).toBeHidden();
+    }
+
+    await page.getByRole("button", { name: /^HR Support\b/i }).click();
+    await page.getByLabel("Reason for support access").fill("E2E deliveries read-only check");
+    await page.getByRole("dialog").getByRole("button", { name: "Start Support Mode" }).click();
+    await expect(page.getByText("Support Mode: HR")).toBeVisible({ timeout: 30_000 });
+    await page.goto(`/admin/deliveries?provider=${STAFF_SEED.providerAlberries}&status=pending`);
+    await expect(page.getByText("Changes are unavailable in Support Mode.")).toBeVisible();
+    await expect(page.locator("[data-delivery-action]")).toHaveCount(0);
+
+    await page.goto("/admin/support", { waitUntil: "networkidle" });
+    const exitAfterTest = page.getByRole("button", { name: "Exit Support Mode" }).first();
+    if (await exitAfterTest.isVisible()) {
+      await exitAfterTest.click();
+      await expect(exitAfterTest).toBeHidden();
+    }
   });
 });

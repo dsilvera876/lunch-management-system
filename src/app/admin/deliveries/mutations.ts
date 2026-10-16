@@ -10,12 +10,13 @@ import {
   type DeliveryIssueType,
   type DeliveryResolutionType,
 } from "@/lib/delivery-reconciliation";
+import { isDeliveryReconciliationStateConflict } from "@/lib/delivery-reconciliation-toggle";
 import type { DeliveryOrderPatch } from "@/lib/deliveries";
 import { createClient } from "@/lib/supabase/server";
 
 export type DeliveryMutationResult =
   | { success: true; patch: DeliveryOrderPatch }
-  | { success: false; error: string };
+  | { success: false; error: string; conflict?: boolean };
 
 function readIssueType(value: unknown): DeliveryIssueType | null {
   if (typeof value !== "string") {
@@ -68,7 +69,11 @@ export async function revertOrderDeliveryToPendingMutation(input: {
   );
 
   if (!result.ok) {
-    return { success: false, error: result.error };
+    return {
+      success: false,
+      error: result.error,
+      conflict: isDeliveryReconciliationStateConflict(result.error),
+    };
   }
 
   return {
@@ -96,7 +101,11 @@ export async function markOrderDeliveredMutation(input: {
   );
 
   if (!result.ok) {
-    return { success: false, error: result.error };
+    return {
+      success: false,
+      error: result.error,
+      conflict: isDeliveryReconciliationStateConflict(result.error),
+    };
   }
 
   return {

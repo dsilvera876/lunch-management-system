@@ -252,6 +252,23 @@ export function countDeliveredRapidReconciliationOrders(): number {
   return Number(rows[0]?.c ?? 0);
 }
 
+/** Simulates a confirmed delivery update by a separate authorized HR session. */
+export function markRapidReconciliationOrderDeliveredExternally(orderId: string): void {
+  if (!E2E_DELIVERIES_RAPID_ORDER_IDS.includes(orderId as typeof E2E_DELIVERIES_RAPID_ORDER_IDS[number])) {
+    throw new Error("Unknown rapid reconciliation fixture order");
+  }
+
+  runLocalDbExec(`
+    update public.orders
+    set
+      delivery_state = 'delivered',
+      financial_disposition = 'chargeable',
+      status = 'fulfilled',
+      actual_delivery_date = private.jamaica_today_date()
+    where id = '${orderId}'::uuid;
+  `);
+}
+
 export function assertDeliveriesFixtureEnvironment(): void {
   if (!E2E_HR_PROFILE_ID) {
     throw new Error("Missing HR profile id for deliveries fixture");

@@ -30,6 +30,10 @@ export function requireOwnerCredentials(): { email: string; password: string } {
   return { email, password };
 }
 
+export function hasOwnerCredentials(): boolean {
+  return Boolean(process.env.E2E_OWNER_PASSWORD ?? process.env.E2E_STAFF_PASSWORD);
+}
+
 export function requireHrCredentials(): { email: string; password: string } {
   const email = process.env.E2E_HR_EMAIL?.trim() || "hr@lunch.test";
   const password = process.env.E2E_HR_PASSWORD ?? process.env.E2E_STAFF_PASSWORD;

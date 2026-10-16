@@ -146,6 +146,26 @@ describe("deliveries presentation", () => {
     assert.equal(counts.all, 1);
   });
 
+  it("keeps all six reconciliation filters mutually accurate", () => {
+    const orders = [
+      makeOrder({ id: "pending", deliveryState: "pending" }),
+      makeOrder({ id: "delivered", deliveryState: "delivered", status: "fulfilled" }),
+      makeOrder({ id: "issue", deliveryState: "issue_open" }),
+      makeOrder({ id: "resolved", deliveryState: "resolved", status: "fulfilled" }),
+      makeOrder({ id: "cancelled", deliveryState: "pending", status: "cancelled" }),
+    ];
+    const counts = countsForReconciliationFilter(orders as never);
+
+    assert.deepEqual(counts, {
+      all: 5,
+      pending: 1,
+      delivered: 1,
+      issues: 1,
+      resolved: 1,
+      cancelled: 1,
+    });
+  });
+
   it("patches a pending order to resolved when reporting and resolving no charge", () => {
     const orders = [
       {
@@ -197,8 +217,12 @@ describe("deliveries presentation", () => {
     assert.match(workspace, /Mark delivered/);
     assert.match(workspace, /Undo delivery/);
     assert.match(workspace, /useSyncExternalStore/);
-    assert.match(workspace, /disabled: processing \|\| !interactive/);
+    assert.match(workspace, /disabled: processing \|\| refreshing \|\| !interactive/);
     assert.match(workspace, /DeliveryUndoConfirmDialog/);
+    assert.match(workspace, /loadDeliveriesForDateAction/);
+    assert.match(workspace, /Delivery status changed by another authorized HR user/);
+    assert.match(workspace, /refreshInFlightRef/);
+    assert.match(workspace, /staleOrderIds/);
     assert.doesNotMatch(workspace, /type="checkbox"/);
     assert.doesNotMatch(workspace, /Delivery update saved successfully/);
     assert.doesNotMatch(workspace, /Order marked delivered successfully/);

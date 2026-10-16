@@ -8,7 +8,45 @@ import type { OperationalOrder } from "@/lib/operational-orders";
 
 export type DeliveryToggleMutationResult =
   | { success: true; patch: DeliveryOrderPatch }
-  | { success: false; error: string };
+  | { success: false; error: string; conflict?: boolean };
+
+/**
+ * These guards are returned by the delivery RPCs after another authorized HR
+ * user has changed the order since this client rendered it. They are not
+ * retryable from stale client state; callers must reload server truth first.
+ */
+export function isDeliveryReconciliationStateConflict(error: string): boolean {
+  return [
+    "Only pending deliveries can be marked delivered",
+    "Only delivered orders can be returned to pending",
+    "Cancelled orders cannot be marked delivered",
+    "Cancelled orders cannot be changed",
+  ].includes(error.trim());
+}
+
+/** Copy conflict IDs before React schedules state updaters that consume them. */
+export function snapshotDeliveryConflictOrderIds(
+  orderIds: ReadonlySet<string>,
+): string[] {
+  return [...orderIds];
+}
+
+/** Remove only refreshed conflict rows, retaining unrelated feedback. */
+export function clearDeliveryConflictEntries<T>(
+  entries: Record<string, T>,
+  conflictOrderIds: readonly string[],
+): Record<string, T> {
+  let next: Record<string, T> | null = null;
+
+  for (const orderId of conflictOrderIds) {
+    if (Object.hasOwn(entries, orderId)) {
+      next ??= { ...entries };
+      delete next[orderId];
+    }
+  }
+
+  return next ?? entries;
+}
 
 /**
  * Validate a delivery checkbox toggle and capture rollback state.

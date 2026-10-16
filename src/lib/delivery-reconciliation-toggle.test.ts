@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  clearDeliveryConflictEntries,
   finishDeliveryToggle,
+  isDeliveryReconciliationStateConflict,
   prepareDeliveryToggle,
+  snapshotDeliveryConflictOrderIds,
   type DeliveryToggleMutationResult,
 } from "./delivery-reconciliation-toggle";
 import { patchFromDelivered, type DeliveryOrderPatch } from "./deliveries";
@@ -41,6 +44,32 @@ function pendingOrder(id: string, employeeName: string): OperationalOrder {
 }
 
 describe("delivery reconciliation action orchestration", () => {
+  it("identifies stale delivery-state conflicts that require an authoritative refresh", () => {
+    for (const message of [
+      "Only pending deliveries can be marked delivered",
+      "Only delivered orders can be returned to pending",
+      "Cancelled orders cannot be marked delivered",
+      "Cancelled orders cannot be changed",
+    ]) {
+      assert.equal(isDeliveryReconciliationStateConflict(message), true);
+    }
+    assert.equal(isDeliveryReconciliationStateConflict("Delivery reconciliation access required"), false);
+  });
+
+  it("cleans deferred conflict feedback from an immutable snapshot", () => {
+    const mutableConflictIds = new Set(["conflict-order"]);
+    const snapshot = snapshotDeliveryConflictOrderIds(mutableConflictIds);
+    mutableConflictIds.clear();
+
+    const deferredCleanup = () =>
+      clearDeliveryConflictEntries(
+        { "conflict-order": true, "unrelated-order": true },
+        snapshot,
+      );
+
+    assert.deepEqual(deferredCleanup(), { "unrelated-order": true });
+  });
+
   it("keeps pending orders unchanged until server confirmation", () => {
     const deliveryDate = "2026-10-13";
     const orders = [

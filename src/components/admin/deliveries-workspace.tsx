@@ -28,8 +28,10 @@ import {
   type DeliveriesFilterState,
 } from "@/lib/deliveries";
 import {
+  clearDeliveryConflictEntries,
   finishDeliveryToggle,
   prepareDeliveryToggle,
+  snapshotDeliveryConflictOrderIds,
   type DeliveryToggleMutationResult,
 } from "@/lib/delivery-reconciliation-toggle";
 import type { DeliveryOrderPatch } from "@/lib/deliveries";
@@ -40,6 +42,7 @@ import {
   revertOrderDeliveryToPendingMutation,
   type DeliveryMutationResult,
 } from "@/app/admin/deliveries/mutations";
+import { loadDeliveriesForDateAction } from "@/app/admin/deliveries/load-data";
 import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
 import { DeliveriesPageHeader } from "@/components/admin/deliveries-page-header";
 import {
@@ -98,6 +101,7 @@ function DeliveryAction({
   order,
   canReconcile,
   interactive,
+  refreshing,
   processing,
   feedbackId,
   hasError,
@@ -107,6 +111,7 @@ function DeliveryAction({
   order: OperationalOrder;
   canReconcile: boolean;
   interactive: boolean;
+  refreshing: boolean;
   processing: boolean;
   feedbackId: string;
   hasError: boolean;
@@ -125,7 +130,7 @@ function DeliveryAction({
     "data-delivery-order-id": order.id,
     "aria-describedby": hasError ? feedbackId : undefined,
     "aria-busy": processing,
-    disabled: processing || !interactive,
+    disabled: processing || refreshing || !interactive,
   };
 
   if (canMarkDelivered(order)) {
@@ -179,6 +184,7 @@ function DeliveryRow({
   order,
   canReconcile,
   interactive,
+  refreshing,
   showProviderColumn,
   rowError,
   rowSuccess,
@@ -191,6 +197,7 @@ function DeliveryRow({
   order: OperationalOrder;
   canReconcile: boolean;
   interactive: boolean;
+  refreshing: boolean;
   showProviderColumn: boolean;
   rowError: string | null;
   rowSuccess: string | null;
@@ -213,6 +220,7 @@ function DeliveryRow({
             order={order}
             canReconcile={canReconcile}
             interactive={interactive}
+            refreshing={refreshing}
             processing={processing}
             feedbackId={desktopFeedbackId}
             hasError={rowError !== null}
@@ -292,6 +300,7 @@ function DeliveryRow({
                   order={order}
                   canReconcile={canReconcile}
                   interactive={interactive}
+                  refreshing={refreshing}
                   processing={processing}
                   feedbackId={mobileFeedbackId}
                   hasError={rowError !== null}
@@ -361,11 +370,17 @@ export function DeliveriesWorkspace({
     Array<{ orderId: string; message: string }>
   >([]);
   const [undoOrderId, setUndoOrderId] = useState<string | null>(null);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [refreshingOrders, setRefreshingOrders] = useState(false);
+  const [staleOrderIds, setStaleOrderIds] = useState<Record<string, true>>({});
   const toggleVersionRef = useRef(new Map<string, number>());
   const ordersRef = useRef(initialOrders);
   const processingOrderIdsRef = useRef(new Set<string>());
   const undoTriggerRef = useRef<HTMLElement | null>(null);
   const pendingFocusRef = useRef<{ orderId: string; index: number } | null>(null);
+  const conflictOrderIdsRef = useRef(new Set<string>());
+  const refreshRequestedRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
 
   const syncFilters = useCallback((next: DeliveriesFilterState) => {
     setFilters(next);
@@ -453,6 +468,56 @@ export function DeliveriesWorkspace({
     });
   };
 
+  const refreshAuthoritativeOrders = useCallback(() => {
+    if (
+      !refreshRequestedRef.current ||
+      refreshInFlightRef.current ||
+      processingOrderIdsRef.current.size > 0
+    ) {
+      return;
+    }
+
+    refreshRequestedRef.current = false;
+    refreshInFlightRef.current = true;
+    setRefreshingOrders(true);
+
+    void loadDeliveriesForDateAction(filters.deliveryDate)
+      .then((result) => {
+        if (!result.success) {
+          const message = "Could not refresh delivery status. Try again.";
+          setRefreshMessage(message);
+          setLiveAnnouncement(message);
+          return;
+        }
+
+        const conflictOrderIds = snapshotDeliveryConflictOrderIds(
+          conflictOrderIdsRef.current,
+        );
+        conflictOrderIdsRef.current.clear();
+        ordersRef.current = result.orders;
+        setOrders(result.orders);
+        setIssueOrderId((orderId) =>
+          orderId && result.orders.some((order) => order.id === orderId) ? orderId : null,
+        );
+        setUndoOrderId(null);
+        setRowErrors((errors) => clearDeliveryConflictEntries(errors, conflictOrderIds));
+        setRowSuccesses((successes) => clearDeliveryConflictEntries(successes, conflictOrderIds));
+        setStaleOrderIds((stale) => clearDeliveryConflictEntries(stale, conflictOrderIds));
+        const message = "Delivery status changed by another authorized HR user. Latest delivery data is now shown.";
+        setRefreshMessage(message);
+        setLiveAnnouncement(message);
+      })
+      .catch(() => {
+        const message = "Could not refresh delivery status. Try again.";
+        setRefreshMessage(message);
+        setLiveAnnouncement(message);
+      })
+      .finally(() => {
+        refreshInFlightRef.current = false;
+        setRefreshingOrders(false);
+      });
+  }, [filters.deliveryDate]);
+
   const applyFinishedToggle = (
     orderId: string,
     order: OperationalOrder,
@@ -476,13 +541,21 @@ export function DeliveriesWorkspace({
     const actionLabel = markingDelivered ? "mark delivered" : "undo delivery";
     const orderLabel = formatDeliveryOrderDescription(order).primaryLine;
     if (finished.rowError) {
-      const message = `Could not ${actionLabel} for ${order.employeeName}'s ${orderLabel} order. Try again.`;
+      const conflict = !result.success && result.conflict === true;
+      const message = !conflict
+        ? `Could not ${actionLabel} for ${order.employeeName}'s ${orderLabel} order. Try again.`
+        : `${order.employeeName}'s ${orderLabel} order changed before this update. Refreshing the latest delivery status.`;
       setRowErrors((errors) => ({
         ...errors,
         [orderId]: message,
       }));
       setLiveAnnouncement(message);
       clearRowSuccess(orderId);
+      if (conflict) {
+        conflictOrderIdsRef.current.add(orderId);
+        setStaleOrderIds((stale) => ({ ...stale, [orderId]: true }));
+        refreshRequestedRef.current = true;
+      }
     } else if (finished.successMessage) {
       const message = `${order.employeeName}'s ${orderLabel} order was ${markingDelivered ? "marked delivered" : "returned to Pending"}.`;
       setRowErrors((errors) => {
@@ -507,7 +580,7 @@ export function DeliveriesWorkspace({
   };
 
   const handleDeliveryToggle = (orderId: string, markingDelivered: boolean, trigger?: HTMLButtonElement) => {
-    if (!reconcileEnabled) {
+    if (!reconcileEnabled || refreshInFlightRef.current) {
       return;
     }
 
@@ -564,6 +637,7 @@ export function DeliveriesWorkspace({
           delete next[orderId];
           return next;
         });
+        refreshAuthoritativeOrders();
       }
     })();
   };
@@ -591,6 +665,12 @@ export function DeliveriesWorkspace({
       ) : null}
 
       {readOnly ? <SupportModeMutationHint /> : null}
+
+      {refreshMessage ? (
+        <p className="text-sm text-muted">
+          {refreshMessage}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-2 border-b border-border pb-3">
         <label className="text-xs text-muted">
@@ -701,6 +781,7 @@ export function DeliveriesWorkspace({
                       order={order}
                       canReconcile={reconcileEnabled}
                       interactive={interactive}
+                      refreshing={refreshingOrders}
                       showProviderColumn={showProviderColumn}
                       rowError={rowErrors[order.id] ?? null}
                       rowSuccess={rowSuccesses[order.id] ?? null}
@@ -711,6 +792,11 @@ export function DeliveriesWorkspace({
                          setUndoOrderId(order.id);
                        }}
                        onRetry={() => {
+                         if (staleOrderIds[order.id]) {
+                           refreshRequestedRef.current = true;
+                           refreshAuthoritativeOrders();
+                           return;
+                         }
                          if (order.deliveryState === "delivered") {
                            setUndoOrderId(order.id);
                            return;
