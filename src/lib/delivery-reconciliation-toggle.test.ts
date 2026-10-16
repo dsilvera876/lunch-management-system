@@ -40,7 +40,7 @@ function pendingOrder(id: string, employeeName: string): OperationalOrder {
   };
 }
 
-describe("delivery reconciliation checkbox toggle orchestration", () => {
+describe("delivery reconciliation action orchestration", () => {
   it("keeps pending orders unchanged until server confirmation", () => {
     const deliveryDate = "2026-10-13";
     const orders = [

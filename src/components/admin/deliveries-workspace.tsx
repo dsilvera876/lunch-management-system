@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   RECONCILIATION_FILTERS,
   canReportIssue,
-  canToggleDeliveryCheckbox,
+  canMarkDelivered,
+  canUnmarkDelivered,
   countsForReconciliationFilter,
   type ReconciliationFilter,
 } from "@/lib/delivery-reconciliation";
@@ -36,18 +44,17 @@ import { DeliveryIssuePanel } from "@/components/admin/delivery-issue-panel";
 import { DeliveriesPageHeader } from "@/components/admin/deliveries-page-header";
 import {
   DELIVERY_TOGGLE_ERROR_MESSAGE,
-  DELIVERY_TOGGLE_PROCESSING_LABEL,
-  deliveryToggleCheckboxLabel,
   deliveriesOfficeCardClassName,
   deliveryStatusBadgeClassName,
   formatDeliveryStatusBadgeLabel,
   resolveDeliveryStatusBadgeVariant,
 } from "@/lib/deliveries-presentation";
-import { linkButtonClass } from "@/components/ui/button";
+import { Button, linkButtonClass } from "@/components/ui/button";
 import { selectClassName } from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useSupportMode } from "@/components/app-shell/support-mode-context";
 import { SupportModeMutationHint } from "@/components/app-shell/support-mode-ui";
+import { DeliveryUndoConfirmDialog } from "@/components/admin/delivery-undo-confirm-dialog";
 
 const STATUS_LABELS: Record<ReconciliationFilter, string> = {
   all: "All",
@@ -57,6 +64,18 @@ const STATUS_LABELS: Record<ReconciliationFilter, string> = {
   resolved: "Resolved",
   cancelled: "Cancelled",
 };
+
+function subscribeToHydration() {
+  return () => undefined;
+}
+
+function getClientHydrationSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
 
 type Props = {
   initialOrders: OperationalOrder[];
@@ -75,50 +94,49 @@ function buildPrintHref(deliveryDate: string, providerId?: string): string {
   return `/admin/deliveries/print?deliveryDate=${deliveryDate}`;
 }
 
-function DeliveryCheckbox({
+function DeliveryAction({
   order,
   canReconcile,
-  checked,
+  interactive,
   processing,
-  onToggle,
+  feedbackId,
+  hasError,
+  onMarkDelivered,
+  onRequestUndo,
 }: {
   order: OperationalOrder;
   canReconcile: boolean;
-  checked: boolean;
+  interactive: boolean;
   processing: boolean;
-  onToggle: (nextChecked: boolean) => void;
+  feedbackId: string;
+  hasError: boolean;
+  onMarkDelivered: (trigger: HTMLButtonElement) => void;
+  onRequestUndo: (trigger: HTMLButtonElement) => void;
 }) {
-  if (!canReconcile || (!canToggleDeliveryCheckbox(order) && !processing)) {
-    const readOnlyChecked =
-      order.deliveryState === "delivered" ||
-      (order.deliveryState === "resolved" &&
-        order.financialDisposition === "chargeable");
-
-    return (
-      <span className="inline-flex min-h-8 min-w-8 items-center justify-center text-sm text-muted">
-        {readOnlyChecked ? "✓" : order.deliveryState === "issue_open" ? "⚠" : "—"}
-      </span>
-    );
+  if (!canReconcile) {
+    return null;
   }
 
-  return (
-    <input
-      type="checkbox"
-      aria-label={deliveryToggleCheckboxLabel(order.employeeName, processing)}
-      aria-busy={processing}
-      aria-disabled={processing}
-      disabled={processing}
-      checked={checked}
-      onChange={(event) => {
-        if (processing) {
-          return;
-        }
+  const description = formatDeliveryOrderDescription(order).primaryLine;
+  const commonProps = {
+    type: "button" as const,
+    className: "min-h-8 px-3 py-1 text-xs",
+    "data-delivery-action": true,
+    "data-delivery-order-id": order.id,
+    "aria-describedby": hasError ? feedbackId : undefined,
+    "aria-busy": processing,
+    disabled: processing || !interactive,
+  };
 
-        onToggle(event.target.checked);
-      }}
-      className="size-4 rounded border-border text-primary focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
-    />
-  );
+  if (canMarkDelivered(order)) {
+    return <Button {...commonProps} variant="primary" aria-label={processing ? `Marking ${order.employeeName}'s ${description} delivered` : `Mark ${order.employeeName}'s ${description} delivered`} onClick={(event) => onMarkDelivered(event.currentTarget)}>{processing ? "Marking delivered…" : "Mark delivered"}</Button>;
+  }
+
+  if (canUnmarkDelivered(order)) {
+    return <Button {...commonProps} variant="secondary" aria-label={processing ? `Undoing delivery for ${order.employeeName}'s ${description}` : `Undo delivery for ${order.employeeName}'s ${description}`} onClick={(event) => onRequestUndo(event.currentTarget)}>{processing ? "Undoing delivery…" : "Undo delivery"}</Button>;
+  }
+
+  return <span className="text-xs text-muted">No delivery action</span>;
 }
 
 function DeliveryStatusBadge({ order }: { order: OperationalOrder }) {
@@ -160,37 +178,46 @@ function DesktopQtyCell({ order }: { order: OperationalOrder }) {
 function DeliveryRow({
   order,
   canReconcile,
+  interactive,
   showProviderColumn,
   rowError,
   rowSuccess,
   processing,
-  onToggleDelivered,
+  onMarkDelivered,
+  onRequestUndo,
+  onRetry,
   onIssue,
 }: {
   order: OperationalOrder;
   canReconcile: boolean;
+  interactive: boolean;
   showProviderColumn: boolean;
   rowError: string | null;
   rowSuccess: string | null;
   processing: boolean;
-  onToggleDelivered: (nextChecked: boolean) => void;
+  onMarkDelivered: (trigger: HTMLButtonElement) => void;
+  onRequestUndo: (trigger: HTMLButtonElement) => void;
+  onRetry: () => void;
   onIssue: () => void;
 }) {
   const issueOpen = order.deliveryState === "issue_open";
-  const deliveredChecked = order.deliveryState === "delivered";
   const issueActionLabel = issueOpen ? "View / Edit issue" : "Issue";
-  const feedbackId = `delivery-feedback-${order.id}`;
+  const desktopFeedbackId = `delivery-feedback-desktop-${order.id}`;
+  const mobileFeedbackId = `delivery-feedback-mobile-${order.id}`;
 
   return (
     <>
       <tr className="hidden border-b border-border last:border-b-0 md:table-row">
         <td className="px-2 py-1.5 align-middle">
-          <DeliveryCheckbox
+          <DeliveryAction
             order={order}
             canReconcile={canReconcile}
-            checked={deliveredChecked}
+            interactive={interactive}
             processing={processing}
-            onToggle={onToggleDelivered}
+            feedbackId={desktopFeedbackId}
+            hasError={rowError !== null}
+            onMarkDelivered={onMarkDelivered}
+            onRequestUndo={onRequestUndo}
           />
         </td>
         <td className="px-2 py-1.5 align-middle text-sm font-medium text-foreground">
@@ -216,7 +243,7 @@ function DeliveryRow({
           <div className="space-y-1">
             <DeliveryStatusBadge order={order} />
             {processing ? (
-              <p className="text-xs text-muted">{DELIVERY_TOGGLE_PROCESSING_LABEL}…</p>
+              <p className="text-xs text-muted">Delivery update in progress…</p>
             ) : null}
             {rowSuccess ? (
               <p className="text-xs font-medium text-emerald-800">{rowSuccess}</p>
@@ -225,13 +252,13 @@ function DeliveryRow({
         </td>
         <td className="px-2 py-1.5 align-middle text-right">
           {(canReportIssue(order) || issueOpen) && canReconcile ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={onIssue}
-              className="rounded-md px-2 py-1 text-sm font-medium text-primary hover:bg-primary/10"
+              className="min-h-8 px-2 py-1 text-xs text-primary"
             >
               {issueActionLabel}
-            </button>
+            </Button>
           ) : null}
         </td>
       </tr>
@@ -241,9 +268,14 @@ function DeliveryRow({
             colSpan={showProviderColumn ? 7 : 6}
             className="border-b border-border px-2 pb-2 text-xs text-red-700"
           >
-            <p id={feedbackId} role="alert">
-              {rowError}
-            </p>
+            <div>
+              <p id={desktopFeedbackId} role="alert">
+                {rowError}
+              </p>
+              <Button type="button" variant="ghost" className="mt-1 min-h-8 px-2 py-1 text-xs text-red-800" onClick={onRetry}>
+                Retry
+              </Button>
+            </div>
           </td>
         </tr>
       ) : null}
@@ -256,37 +288,45 @@ function DeliveryRow({
                 <p className="truncate text-sm font-semibold text-foreground">
                   {order.employeeName}
                 </p>
-                <DeliveryCheckbox
+                <DeliveryAction
                   order={order}
                   canReconcile={canReconcile}
-                  checked={deliveredChecked}
+                  interactive={interactive}
                   processing={processing}
-                  onToggle={onToggleDelivered}
+                  feedbackId={mobileFeedbackId}
+                  hasError={rowError !== null}
+                  onMarkDelivered={onMarkDelivered}
+                  onRequestUndo={onRequestUndo}
                 />
               </div>
               <p className="text-xs text-muted">{order.providerName}</p>
               <DesktopOrderCell order={order} />
               <DeliveryStatusBadge order={order} />
               {processing ? (
-                <p className="text-xs text-muted">{DELIVERY_TOGGLE_PROCESSING_LABEL}…</p>
+                <p className="text-xs text-muted">Delivery update in progress…</p>
               ) : null}
               {rowSuccess ? (
                 <p className="text-xs font-medium text-emerald-800">{rowSuccess}</p>
               ) : null}
               {rowError ? (
-                <p id={feedbackId} role="alert" className="text-xs text-red-700">
-                  {rowError}
-                </p>
+                <div>
+                  <p id={mobileFeedbackId} role="alert" className="text-xs text-red-700">
+                    {rowError}
+                  </p>
+                  <Button type="button" variant="ghost" className="min-h-8 px-2 py-1 text-xs text-red-800" onClick={onRetry}>
+                    Retry
+                  </Button>
+                </div>
               ) : null}
             </div>
             {(canReportIssue(order) || issueOpen) && canReconcile ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={onIssue}
-                className="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-primary hover:bg-primary/10"
+                className="min-h-8 shrink-0 px-2 py-1 text-xs text-primary"
               >
                 {issueActionLabel}
-              </button>
+              </Button>
             ) : null}
           </div>
         </td>
@@ -312,9 +352,20 @@ export function DeliveriesWorkspace({
   const [rowSuccesses, setRowSuccesses] = useState<Record<string, string>>({});
   const [processingOrderIds, setProcessingOrderIds] = useState<Record<string, true>>({});
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const interactive = useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
+  );
+  const [recentUpdates, setRecentUpdates] = useState<
+    Array<{ orderId: string; message: string }>
+  >([]);
+  const [undoOrderId, setUndoOrderId] = useState<string | null>(null);
   const toggleVersionRef = useRef(new Map<string, number>());
   const ordersRef = useRef(initialOrders);
   const processingOrderIdsRef = useRef(new Set<string>());
+  const undoTriggerRef = useRef<HTMLElement | null>(null);
+  const pendingFocusRef = useRef<{ orderId: string; index: number } | null>(null);
 
   const syncFilters = useCallback((next: DeliveriesFilterState) => {
     setFilters(next);
@@ -344,6 +395,25 @@ export function DeliveriesWorkspace({
   const overallProgress = useMemo(() => computeDeliveryProgress(orders), [orders]);
   const issueOrder = orders.find((order) => order.id === issueOrderId) ?? null;
   const showProviderColumn = !filters.providerId;
+  const undoOrder = orders.find((order) => order.id === undoOrderId) ?? null;
+
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    if (!target || processingOrderIds[target.orderId]) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const actions = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-delivery-action]"))
+        .filter((button) => button.offsetParent !== null && !button.disabled);
+      const matchingAction = actions.find((button) => button.dataset.deliveryOrderId === target.orderId);
+      const fallback = actions[Math.min(target.index, Math.max(actions.length - 1, 0))]
+        ?? document.querySelector<HTMLButtonElement>("[data-delivery-filter]");
+      (matchingAction ?? fallback)?.focus({ preventScroll: true });
+      pendingFocusRef.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [orders, filters, processingOrderIds]);
 
   const applyMutation = (result: DeliveryMutationResult) => {
     if (!result.success) {
@@ -385,38 +455,36 @@ export function DeliveriesWorkspace({
 
   const applyFinishedToggle = (
     orderId: string,
+    order: OperationalOrder,
+    markingDelivered: boolean,
     expectedVersion: number,
     rollbackSnapshot: DeliveryOrderPatch,
     result: DeliveryToggleMutationResult,
   ) => {
     const currentVersion = toggleVersionRef.current.get(orderId) ?? 0;
-    let finishedRowError: string | null = null;
-    let finishedSuccessMessage: string | null = null;
+    const finished = finishDeliveryToggle(
+      ordersRef.current,
+      expectedVersion,
+      currentVersion,
+      rollbackSnapshot,
+      result,
+      DELIVERY_TOGGLE_ERROR_MESSAGE,
+    );
+    ordersRef.current = finished.orders;
+    setOrders(finished.orders);
 
-    setOrders((current) => {
-      const finished = finishDeliveryToggle(
-        current,
-        expectedVersion,
-        currentVersion,
-        rollbackSnapshot,
-        result,
-        DELIVERY_TOGGLE_ERROR_MESSAGE,
-      );
-
-      finishedRowError = finished.rowError;
-      finishedSuccessMessage = finished.successMessage;
-      ordersRef.current = finished.orders;
-      return finished.orders;
-    });
-
-    if (finishedRowError) {
+    const actionLabel = markingDelivered ? "mark delivered" : "undo delivery";
+    const orderLabel = formatDeliveryOrderDescription(order).primaryLine;
+    if (finished.rowError) {
+      const message = `Could not ${actionLabel} for ${order.employeeName}'s ${orderLabel} order. Try again.`;
       setRowErrors((errors) => ({
         ...errors,
-        [orderId]: finishedRowError!,
+        [orderId]: message,
       }));
-      setLiveAnnouncement(finishedRowError);
+      setLiveAnnouncement(message);
       clearRowSuccess(orderId);
-    } else if (finishedSuccessMessage) {
+    } else if (finished.successMessage) {
+      const message = `${order.employeeName}'s ${orderLabel} order was ${markingDelivered ? "marked delivered" : "returned to Pending"}.`;
       setRowErrors((errors) => {
         if (!errors[orderId]) {
           return errors;
@@ -428,13 +496,17 @@ export function DeliveriesWorkspace({
       });
       setRowSuccesses((successes) => ({
         ...successes,
-        [orderId]: finishedSuccessMessage!,
+        [orderId]: message,
       }));
-      setLiveAnnouncement(finishedSuccessMessage);
+      setRecentUpdates((updates) => [
+        { orderId, message },
+        ...updates.filter((update) => update.orderId !== orderId),
+      ].slice(0, 4));
+      setLiveAnnouncement(message);
     }
   };
 
-  const handleDeliveryToggle = (orderId: string, nextChecked: boolean) => {
+  const handleDeliveryToggle = (orderId: string, markingDelivered: boolean, trigger?: HTMLButtonElement) => {
     if (!reconcileEnabled) {
       return;
     }
@@ -449,6 +521,17 @@ export function DeliveriesWorkspace({
       return;
     }
 
+    const order = ordersRef.current.find((entry) => entry.id === orderId);
+    if (!order) {
+      return;
+    }
+    const actionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-delivery-action]"))
+      .filter((button) => button.offsetParent !== null);
+    pendingFocusRef.current = {
+      orderId,
+      index: trigger ? Math.max(actionButtons.indexOf(trigger), 0) : 0,
+    };
+
     processingOrderIdsRef.current.add(orderId);
     setProcessingOrderIds((current) => ({ ...current, [orderId]: true }));
 
@@ -460,13 +543,13 @@ export function DeliveriesWorkspace({
 
     void (async () => {
       try {
-        const result = nextChecked
+        const result = markingDelivered
           ? await markOrderDeliveredMutation({ orderId, actualDeliveryDate })
           : await revertOrderDeliveryToPendingMutation({ orderId });
 
-        applyFinishedToggle(orderId, version, prepared.rollbackSnapshot, result);
+        applyFinishedToggle(orderId, order, markingDelivered, version, prepared.rollbackSnapshot, result);
       } catch {
-        applyFinishedToggle(orderId, version, prepared.rollbackSnapshot, {
+        applyFinishedToggle(orderId, order, markingDelivered, version, prepared.rollbackSnapshot, {
           success: false,
           error: DELIVERY_TOGGLE_ERROR_MESSAGE,
         });
@@ -495,6 +578,17 @@ export function DeliveriesWorkspace({
         reconciled={overallProgress.reconciled}
         total={overallProgress.total}
       />
+
+      {recentUpdates.length > 0 ? (
+        <section aria-label="Recent delivery updates" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          <p className="font-medium">Recent delivery updates</p>
+          <ul className="mt-1 list-disc pl-5">
+            {recentUpdates.map((update) => (
+              <li key={update.orderId}>{update.message}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {readOnly ? <SupportModeMutationHint /> : null}
 
@@ -552,6 +646,8 @@ export function DeliveriesWorkspace({
             <button
               key={filter}
               type="button"
+              data-delivery-filter
+              aria-pressed={selected}
               onClick={() => syncFilters({ ...filters, reconciliationStatus: filter })}
               className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
                 selected
@@ -583,11 +679,11 @@ export function DeliveriesWorkspace({
               </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="hidden w-full min-w-[760px] border-collapse md:table">
-                <thead className="bg-muted/15 text-left text-[11px] uppercase tracking-wide text-muted">
+            <div className="md:overflow-x-auto">
+              <table className="w-full border-collapse md:min-w-[760px]">
+                <thead className="hidden bg-muted/15 text-left text-[11px] uppercase tracking-wide text-muted md:table-header-group">
                   <tr>
-                    <th className="w-10 px-2 py-1.5 font-medium">✓</th>
+                    <th className="w-32 px-2 py-1.5 font-medium">Delivery</th>
                     <th className="px-2 py-1.5 font-medium">Staff</th>
                     {showProviderColumn ? (
                       <th className="px-2 py-1.5 font-medium">Provider</th>
@@ -604,33 +700,23 @@ export function DeliveriesWorkspace({
                       key={order.id}
                       order={order}
                       canReconcile={reconcileEnabled}
+                      interactive={interactive}
                       showProviderColumn={showProviderColumn}
                       rowError={rowErrors[order.id] ?? null}
                       rowSuccess={rowSuccesses[order.id] ?? null}
                       processing={processingOrderIds[order.id] === true}
-                      onToggleDelivered={(nextChecked) =>
-                        handleDeliveryToggle(order.id, nextChecked)
-                      }
-                      onIssue={() => setIssueOrderId(order.id)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-
-              <table className="w-full border-collapse md:hidden">
-                <tbody>
-                  {office.orders.map((order) => (
-                    <DeliveryRow
-                      key={order.id}
-                      order={order}
-                      canReconcile={reconcileEnabled}
-                      showProviderColumn={showProviderColumn}
-                      rowError={rowErrors[order.id] ?? null}
-                      rowSuccess={rowSuccesses[order.id] ?? null}
-                      processing={processingOrderIds[order.id] === true}
-                      onToggleDelivered={(nextChecked) =>
-                        handleDeliveryToggle(order.id, nextChecked)
-                      }
+                       onMarkDelivered={(trigger) => handleDeliveryToggle(order.id, true, trigger)}
+                       onRequestUndo={(trigger) => {
+                         undoTriggerRef.current = trigger;
+                         setUndoOrderId(order.id);
+                       }}
+                       onRetry={() => {
+                         if (order.deliveryState === "delivered") {
+                           setUndoOrderId(order.id);
+                           return;
+                         }
+                         handleDeliveryToggle(order.id, true);
+                       }}
                       onIssue={() => setIssueOrderId(order.id)}
                     />
                   ))}
@@ -646,6 +732,24 @@ export function DeliveriesWorkspace({
         open={issueOrderId !== null}
         onClose={() => setIssueOrderId(null)}
         onMutated={applyMutation}
+      />
+      <DeliveryUndoConfirmDialog
+        order={undoOrder}
+        open={undoOrder !== null}
+        processing={undoOrder ? processingOrderIds[undoOrder.id] === true : false}
+        triggerRef={undoTriggerRef}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUndoOrderId(null);
+          }
+        }}
+        onConfirm={() => {
+          if (!undoOrder) {
+            return;
+          }
+          setUndoOrderId(null);
+          handleDeliveryToggle(undoOrder.id, false, undoTriggerRef.current as HTMLButtonElement | undefined);
+        }}
       />
     </div>
   );

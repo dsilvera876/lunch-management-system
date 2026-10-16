@@ -81,7 +81,7 @@ describe("deliveries presentation", () => {
     assert.match(deliveriesOfficeCardClassName, /border-t-4/);
   });
 
-  it("supports reversible delivery checkbox eligibility", () => {
+  it("supports reversible delivery action eligibility", () => {
     const pending = makeOrder({ deliveryState: "pending" });
     const delivered = makeOrder({ deliveryState: "delivered", status: "fulfilled" });
 
@@ -94,7 +94,7 @@ describe("deliveries presentation", () => {
     );
   });
 
-  it("optimistically patches pending and delivered states", () => {
+  it("patches pending and delivered states", () => {
     const pending = makeOrder({ id: "o1", deliveryState: "pending" });
     const delivered = patchDeliveryOrder(
       [pending],
@@ -115,12 +115,12 @@ describe("deliveries presentation", () => {
   it("rolls back from captured toggle snapshots", () => {
     const pending = makeOrder({ id: "o1", deliveryState: "pending" });
     const snapshot = captureDeliveryToggleSnapshot(pending);
-    const optimistic = patchDeliveryOrder(
+    const delivered = patchDeliveryOrder(
       [pending],
       patchFromDelivered(pending, "2026-09-23"),
     );
 
-    const rolledBack = patchDeliveryOrder(optimistic, snapshot);
+    const rolledBack = patchDeliveryOrder(delivered, snapshot);
     assert.equal(rolledBack[0]?.deliveryState, "pending");
   });
 
@@ -194,7 +194,12 @@ describe("deliveries presentation", () => {
     assert.match(workspace, /DELIVERY_TOGGLE_ERROR_MESSAGE/);
     assert.match(workspace, /prepareDeliveryToggle/);
     assert.match(workspace, /aria-live="polite"/);
-    assert.match(workspace, /type="checkbox"/);
+    assert.match(workspace, /Mark delivered/);
+    assert.match(workspace, /Undo delivery/);
+    assert.match(workspace, /useSyncExternalStore/);
+    assert.match(workspace, /disabled: processing \|\| !interactive/);
+    assert.match(workspace, /DeliveryUndoConfirmDialog/);
+    assert.doesNotMatch(workspace, /type="checkbox"/);
     assert.doesNotMatch(workspace, /Delivery update saved successfully/);
     assert.doesNotMatch(workspace, /Order marked delivered successfully/);
     assert.match(workspace, /View \/ Edit issue/);
