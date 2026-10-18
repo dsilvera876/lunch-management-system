@@ -12,12 +12,25 @@ describe("HR signup drawer action outcomes", () => {
     }
     assert.equal(outcome.closeDrawer, true);
     assert.equal(outcome.refreshList, true);
+    assert.equal(outcome.message, "Invitation queued successfully.");
+  });
+
+  it("distinguishes an already-completed setup from a queued invitation", () => {
+    const outcome = resolveSignupDrawerActionOutcome({
+      success: true,
+      outcome: "already_complete",
+    });
+    assert.equal(outcome.kind, "success");
+    if (outcome.kind !== "success") {
+      throw new Error("expected success outcome");
+    }
+    assert.equal(outcome.message, "Account setup is already complete.");
   });
 
   it("keeps the drawer open with a warning for partial success", () => {
     const outcome = resolveSignupDrawerActionOutcome({
       success: true,
-      warning: "Invitation sent, but Employee ID could not be saved.",
+      warning: "Invitation queued, but Employee ID could not be saved.",
     });
     assert.equal(outcome.kind, "partial");
     if (outcome.kind !== "partial") {

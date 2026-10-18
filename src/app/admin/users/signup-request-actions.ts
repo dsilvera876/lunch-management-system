@@ -5,11 +5,8 @@ import { requireManageStaffAccounts } from "@/lib/auth";
 import { getApplicationOrigin } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { buildAccountSetupEmailContent } from "@/lib/mail/account-setup-email";
-import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
 import {
   orchestrateSignupRequestInvite,
-  type AccountSetupEmailQueueClient,
   type AdminInviteClient,
   type SignupInviteDbClient,
   type SignupRequestInviteState,
@@ -17,13 +14,14 @@ import {
 import { orchestrateSignupRequestCancellation } from "@/lib/cancel-signup-request";
 import type { SignupCancellationReason } from "@/lib/signup-request-cancellation";
 import type { SignupRequestRow } from "@/lib/signup-request-presentation";
+import { buildSignedAccountSetupRecoveryRedirect } from "@/lib/signup-recovery-purpose";
 
 export type SearchSignupRequestsResult =
   | { success: true; rows: SignupRequestRow[]; totalCount: number }
   | { success: false; error: "search" | "unauthorized" };
 
 export type MutateSignupRequestResult =
-  | { success: true; warning?: string }
+  | { success: true; outcome?: "queued" | "already_complete"; warning?: string }
   | { success: false; error: string };
 
 const PROFILE_LOOKUP_ATTEMPTS = 5;
@@ -62,6 +60,7 @@ function mapGetSignupRequestRow(raw: Record<string, unknown>): SignupRequestInvi
     status: raw.status as SignupRequestInviteState["status"],
     createdProfileId: (raw.created_profile_id as string | null) ?? null,
     requestedEmployeeId: (raw.requested_employee_id as string | null) ?? null,
+    onboardingEstablished: raw.onboarding_established === true,
   };
 }
 
@@ -138,6 +137,24 @@ function createInviteDbClient(
         p_invite_error: message,
       });
     },
+    async prepareAccountSetupRecovery(requestId, expectedProfileId, nonce) {
+      const { data, error } = await supabase.rpc("prepare_signup_account_setup_recovery", {
+        p_request_id: requestId,
+        p_expected_profile_id: expectedProfileId,
+        p_nonce: nonce,
+      });
+
+      if (error) {
+        return { outcome: "error", errorMessage: error.message };
+      }
+
+      const outcome = String(data ?? "");
+      if (outcome === "prepared" || outcome === "completed") {
+        return { outcome };
+      }
+
+      return { outcome: "error", errorMessage: "Unexpected recovery preparation response." };
+    },
     async linkProfile(requestId, profileId) {
       const { error } = await supabase.rpc("link_signup_request_profile", {
         p_request_id: requestId,
@@ -175,64 +192,15 @@ function createAdminInviteClient(service: ReturnType<typeof createServiceClient>
         error: result.error ? { message: result.error.message } : null,
       };
     },
-    async generateInviteLink(email, options) {
-      const result = await service.auth.admin.generateLink({
-        type: "invite",
-        email,
-        options,
+    async requestPasswordRecovery(email, options) {
+      const redirectTo = buildSignedAccountSetupRecoveryRedirect({
+        nonce: options.accountSetup.nonce,
+        recipientEmail: email,
+        expectedAuthUserId: options.accountSetup.expectedAuthUserId,
+        redirectTo: options.redirectTo,
       });
-
-      const properties = result.data?.properties as
-        | { hashed_token?: string; action_link?: string }
-        | undefined;
-      const tokenHash = properties?.hashed_token?.trim() ?? "";
-
-      if (result.error || !result.data?.user?.id || !tokenHash) {
-        return {
-          data: result.data?.user?.id
-            ? { user: { id: result.data.user.id }, tokenHash }
-            : null,
-          error: {
-            message: result.error?.message ?? "Invite link could not be generated.",
-          },
-        };
-      }
-
-      return {
-        data: { user: { id: result.data.user.id }, tokenHash },
-        error: null,
-      };
-    },
-  };
-}
-
-function createAccountSetupQueueClient(
-  service: ReturnType<typeof createServiceClient>,
-): AccountSetupEmailQueueClient {
-  return {
-    async enqueueAccountSetupInvite(input) {
-      const content = buildAccountSetupEmailContent({
-        to: input.to,
-        fullName: input.fullName,
-        setupUrl: input.setupUrl,
-      });
-
-      const result = await enqueueEmailDelivery(service, {
-        messageType: "account_setup_invite",
-        recipientEmail: input.to,
-        subject: content.subject,
-        textBody: content.text,
-        htmlBody: content.html,
-        correlationType: "signup_request",
-        correlationId: input.requestId,
-        supersedeActive: true,
-      });
-
-      if (!result.success) {
-        return { ok: false, errorMessage: result.error };
-      }
-
-      return { ok: true };
+      const result = await service.auth.resetPasswordForEmail(email, { redirectTo });
+      return { error: result.error ? { message: result.error.message } : null };
     },
   };
 }
@@ -250,7 +218,6 @@ async function runSignupInviteOrchestration(input: {
   const result = await orchestrateSignupRequestInvite({
     db: createInviteDbClient(supabase, service),
     admin: createAdminInviteClient(service),
-    queue: createAccountSetupQueueClient(service),
     requestId: input.requestId,
     employeeIdInput: input.employeeId,
     redirectTo,
@@ -259,7 +226,7 @@ async function runSignupInviteOrchestration(input: {
   revalidatePath("/admin/users");
 
   if (result.success) {
-    return { success: true, warning: result.warning };
+    return { success: true, outcome: result.outcome, warning: result.warning };
   }
 
   return { success: false, error: result.error };

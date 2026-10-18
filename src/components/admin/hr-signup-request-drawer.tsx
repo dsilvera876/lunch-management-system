@@ -32,6 +32,7 @@ type Props = {
   onClose: () => void;
   onUpdated: () => void;
   onCancelled?: () => void;
+  onSucceeded?: (message: string) => void;
 };
 
 function formatTimestamp(value: string | null): string {
@@ -53,6 +54,7 @@ export function HrSignupRequestDrawer({
   onClose,
   onUpdated,
   onCancelled,
+  onSucceeded,
 }: Props) {
   const router = useRouter();
   const [employeeId, setEmployeeId] = useState(() => request?.requested_employee_id ?? "");
@@ -145,11 +147,8 @@ export function HrSignupRequestDrawer({
         return;
       }
 
-      setSuccessMessage(
-        showInviteAction && inviteIsRetry
-          ? "Invitation sent successfully."
-          : "Request approved and invitation sent.",
-      );
+      setSuccessMessage(outcome.message);
+      onSucceeded?.(outcome.message);
       resetAndClose();
       onUpdated();
       router.refresh();

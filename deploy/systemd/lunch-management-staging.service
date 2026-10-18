@@ -12,6 +12,7 @@ WorkingDirectory=/var/www/lunch-management-system
 
 # Secrets and runtime configuration live outside the repository.
 EnvironmentFile=/etc/lunch-management/staging.env
+EnvironmentFile=/etc/lunch-management/web-privileged.env
 
 # Bind only on localhost; Apache terminates public HTTP/HTTPS and proxies inbound traffic.
 # Do not rely on HOSTNAME/PORT env vars — Next.js 16 requires explicit CLI flags.

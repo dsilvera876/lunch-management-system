@@ -248,6 +248,9 @@ function HrSignupRequestsWorkspaceContent({
             variant: "success",
           });
         }}
+        onSucceeded={(message) => {
+          showToast({ title: message, variant: "success" });
+        }}
       />
     </>
   );

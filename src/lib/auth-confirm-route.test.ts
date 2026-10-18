@@ -35,4 +35,17 @@ describe("auth confirm route wiring", () => {
       null,
     );
   });
+
+  it("routes account-setup recovery verification failures without exposing token values", () => {
+    const route = readFileSync(
+      new URL("../app/auth/confirm/route.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(route, /getAuthConfirmFailurePathForNext\(type, safeNext\)/);
+    assert.match(route, /service_authorize_signup_onboarding/);
+    assert.match(route, /authorizationError \|\| authorized !== true/);
+    assert.match(route, /signOut\(\{ scope: "local" \}\)/);
+    assert.doesNotMatch(route, /console\.(log|debug|info|warn|error)\([^)]*token/i);
+  });
 });

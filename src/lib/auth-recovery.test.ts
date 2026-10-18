@@ -4,11 +4,14 @@ import { describe, it } from "node:test";
 import {
   FORGOT_PASSWORD_PATH,
   getAuthConfirmFailurePath,
+  getAuthConfirmFailurePathForNext,
+  getAccountSetupRecoveryNonce,
   getAuthConfirmSuccessPath,
   getPasswordResetInvalidLinkPath,
   getPasswordResetRedirectTo,
   getPasswordResetRequestSuccessPath,
   getPasswordUpdateRedirectPath,
+  isAccountSetupRecoveryNextPath,
   isValidEmail,
   PASSWORD_RESET_SUCCESS_MESSAGE,
   UPDATE_PASSWORD_PATH,
@@ -69,6 +72,42 @@ describe("auth recovery helpers", () => {
       "/forgot-password?error=invalid-link",
     );
     assert.equal(getPasswordResetInvalidLinkPath(), "/forgot-password?error=invalid-link");
+  });
+
+  it("routes invalid account-setup recovery tokens to generic setup-link messaging", () => {
+    assert.equal(
+      getAuthConfirmFailurePathForNext(
+        "recovery",
+        "/account/update-password?invite=1&setup_nonce=00000000-0000-4000-8000-000000000001",
+      ),
+      "/login?error=setup-link",
+    );
+  });
+
+  it("recognizes only a nonce-bound account-setup recovery destination", () => {
+    assert.equal(
+      isAccountSetupRecoveryNextPath(
+        "/account/update-password?invite=1&setup_nonce=00000000-0000-4000-8000-000000000001",
+      ),
+      true,
+    );
+    assert.equal(isAccountSetupRecoveryNextPath("/account/update-password?invite=1"), false);
+    assert.equal(
+      isAccountSetupRecoveryNextPath("/account/update-password?recovery=1"),
+      false,
+    );
+    assert.equal(
+      isAccountSetupRecoveryNextPath(
+        "/account/update-password?invite=1&setup_nonce=untrusted",
+      ),
+      false,
+    );
+    assert.equal(
+      getAccountSetupRecoveryNonce(
+        "/account/update-password?invite=1&setup_nonce=00000000-0000-4000-8000-000000000001",
+      ),
+      "00000000-0000-4000-8000-000000000001",
+    );
   });
 
   it("redirects successful recovery password updates to login", () => {

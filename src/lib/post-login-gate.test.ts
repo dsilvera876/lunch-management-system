@@ -12,7 +12,7 @@ import {
 describe("post-login profile gate", () => {
   it("allows active profiles with valid roles", () => {
     const result = evaluatePostLoginProfile(
-      { role: "staff", account_status: "active" },
+      { role: "staff", account_status: "active", onboarding_pending: false },
       false,
     );
     assert.equal(result.ok, true);
@@ -23,7 +23,7 @@ describe("post-login profile gate", () => {
 
   it("denies inactive accounts", () => {
     const result = evaluatePostLoginProfile(
-      { role: "staff", account_status: "inactive" },
+      { role: "staff", account_status: "inactive", onboarding_pending: false },
       false,
     );
     assert.equal(result.ok, false);
@@ -45,13 +45,43 @@ describe("post-login profile gate", () => {
 
   it("denies invalid roles", () => {
     const result = evaluatePostLoginProfile(
-      { role: "superuser", account_status: "active" },
+      { role: "superuser", account_status: "active", onboarding_pending: false },
       false,
     );
     assert.equal(result.ok, false);
     if (!result.ok) {
       assert.equal(result.reason, "invalid_role");
     }
+  });
+
+  it("denies active external accounts while linked onboarding is incomplete", () => {
+    const result = evaluatePostLoginProfile(
+      { role: "hr", account_status: "active", onboarding_pending: true },
+      false,
+    );
+
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.reason, "incomplete_onboarding");
+      assert.equal(
+        loginPathForPostLoginDeny(result.reason),
+        getLoginIncompleteSetupPath(),
+      );
+    }
+  });
+
+  it("allows completed external and ordinary active HR accounts", () => {
+    const completedExternal = evaluatePostLoginProfile(
+      { role: "hr", account_status: "active", onboarding_pending: false },
+      false,
+    );
+    const ordinaryHr = evaluatePostLoginProfile(
+      { role: "hr", account_status: "active", onboarding_pending: false },
+      false,
+    );
+
+    assert.deepEqual(completedExternal, { ok: true, role: "hr" });
+    assert.deepEqual(ordinaryHr, { ok: true, role: "hr" });
   });
 
   it("maps deny reasons to login error paths", () => {

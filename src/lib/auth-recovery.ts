@@ -17,6 +17,9 @@ export const ACCOUNT_SETUP_INVALID_LINK_MESSAGE =
 export const PASSWORD_UPDATED_MESSAGE =
   "Your password has been updated. Sign in with your new password.";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isValidEmail(email: string): boolean {
@@ -45,6 +48,17 @@ export function getPasswordResetInvalidLinkPath(): string {
 }
 
 export function getAuthConfirmFailurePath(type: EmailOtpType | null): string {
+  return getAuthConfirmFailurePathForNext(type, null);
+}
+
+export function getAuthConfirmFailurePathForNext(
+  type: EmailOtpType | null,
+  safeNextPath: string | null,
+): string {
+  if (type === "recovery" && isAccountSetupRecoveryNextPath(safeNextPath)) {
+    return appendSearchParams("/login", { error: "setup-link" });
+  }
+
   if (type === "recovery") {
     return getPasswordResetInvalidLinkPath();
   }
@@ -54,6 +68,32 @@ export function getAuthConfirmFailurePath(type: EmailOtpType | null): string {
   }
 
   return appendSearchParams("/login", { error: "confirmation" });
+}
+
+export function isAccountSetupRecoveryNextPath(path: string | null): boolean {
+  return getAccountSetupRecoveryNonce(path) !== null;
+}
+
+export function getAccountSetupRecoveryNonce(path: string | null): string | null {
+  if (!path) {
+    return null;
+  }
+
+  try {
+    const url = new URL(path, "http://internal.local");
+    const nonce = url.searchParams.get("setup_nonce")?.trim() ?? "";
+    if (
+      url.origin !== "http://internal.local" ||
+      url.pathname !== UPDATE_PASSWORD_PATH ||
+      url.searchParams.get("invite") !== "1" ||
+      !UUID_PATTERN.test(nonce)
+    ) {
+      return null;
+    }
+    return nonce;
+  } catch {
+    return null;
+  }
 }
 
 export function getPasswordUpdateRedirectPath(

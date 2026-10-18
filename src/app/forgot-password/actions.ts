@@ -25,7 +25,9 @@ export async function requestPasswordReset(formData: FormData) {
   });
 
   if (error) {
-    redirect(getPasswordResetRequestErrorPath("temporary"));
+    // Keep the browser response neutral. Hook/Auth failures may otherwise reveal
+    // whether a syntactically valid address has an account.
+    console.warn("[password-recovery] Auth did not accept a reset request.");
   }
 
   redirect(getPasswordResetRequestSuccessPath());

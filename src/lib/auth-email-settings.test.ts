@@ -9,10 +9,32 @@ import {
   mapAuthEmailOtpType,
   RECOVERY_EMAIL_EXPIRY_COPY,
 } from "@/lib/mail/auth-email-templates";
-import { enqueueAuthSendEmailHook } from "@/lib/mail/process-auth-send-email-hook";
+import {
+  enqueueAuthSendEmailHook,
+  getSignupRecoveryNonce,
+} from "@/lib/mail/process-auth-send-email-hook";
 import { getBreadcrumbs } from "@/lib/breadcrumbs";
 import { canAccessRoute, getNavForRole } from "@/lib/navigation";
 import { canManageAuthSettings } from "@/lib/roles";
+import { buildSignedAccountSetupRecoveryRedirect } from "@/lib/signup-recovery-purpose";
+
+const RECOVERY_PURPOSE_SECRET = "auth-email-test-purpose-secret-at-least-32-bytes";
+
+function signedSetupRedirect(input: {
+  nonce: string;
+  email: string;
+  authUserId: string;
+}): string {
+  return buildSignedAccountSetupRecoveryRedirect(
+    {
+      nonce: input.nonce,
+      recipientEmail: input.email,
+      expectedAuthUserId: input.authUserId,
+      redirectTo: "https://example.test/account/update-password",
+    },
+    { secret: RECOVERY_PURPOSE_SECRET },
+  );
+}
 
 describe("auth and email admin settings", () => {
   it("restricts auth settings management to admin and owner", () => {
@@ -200,7 +222,7 @@ describe("auth and email admin settings", () => {
     let capturedSubject: string | null = null;
     const result = await enqueueAuthSendEmailHook(
       {
-        user: { email: "user@example.test" },
+        user: { id: "00000000-0000-4000-8000-000000000001", email: "user@example.test" },
         email_data: {
           token: "123456",
           token_hash: "hash-value",
@@ -213,7 +235,7 @@ describe("auth and email admin settings", () => {
       },
       {
         getServiceClient: () => ({}) as never,
-        enqueue: async (_client, input) => {
+        enqueueOrdinaryRecovery: async (_client, input) => {
           capturedSubject = input.subject;
           return { success: true, queueId: "queue-1" };
         },
@@ -226,13 +248,207 @@ describe("auth and email admin settings", () => {
     assert.match(capturedSubject ?? "", /password/i);
   });
 
+  it("queues an authorized onboarding recovery email for its purpose nonce", async () => {
+    const previousOrigin = process.env.APP_ORIGIN;
+    process.env.APP_ORIGIN = "https://example.test";
+    const nonce = "00000000-0000-4000-8000-000000000019";
+    const heldInputs: Array<{
+      nonce: string;
+      authUserId: string;
+      recipientEmail: string;
+      tokenHash: string;
+      subject: string;
+      textBody: string;
+      htmlBody: string;
+    }> = [];
+    let ordinaryCalls = 0;
+
+    const payload = {
+      user: {
+        id: "00000000-0000-4000-8000-000000000018",
+        email: "external@gmail.com",
+        user_metadata: { full_name: "External User" },
+      },
+      email_data: {
+        token: "",
+        token_hash: "recovery-hash",
+        token_new: "",
+        token_hash_new: "",
+        redirect_to: signedSetupRedirect({
+          nonce,
+          email: "external@gmail.com",
+          authUserId: "00000000-0000-4000-8000-000000000018",
+        }),
+        email_action_type: "recovery",
+        site_url: "https://example.test",
+      },
+    };
+
+    const result = await enqueueAuthSendEmailHook(payload, {
+      getServiceClient: () => ({}) as never,
+      enqueueSignupRecovery: async (_client, input) => {
+        heldInputs.push(input);
+        return { success: true, outcome: "queued", queueId: "queue-1" };
+      },
+      enqueueOrdinaryRecovery: async () => {
+        ordinaryCalls += 1;
+        return { success: true, queueId: "queue-2" };
+      },
+      recoveryPurposeSecret: RECOVERY_PURPOSE_SECRET,
+    });
+
+    process.env.APP_ORIGIN = previousOrigin;
+
+    assert.equal(result.success, true);
+    assert.equal(
+      getSignupRecoveryNonce(payload, "https://example.test", {
+        secret: RECOVERY_PURPOSE_SECRET,
+      }),
+      nonce,
+    );
+    assert.equal(ordinaryCalls, 0);
+    const heldInput = heldInputs[0];
+    assert.ok(heldInput);
+    assert.equal(heldInput?.nonce, nonce);
+    assert.equal(heldInput?.authUserId, payload.user.id);
+    assert.equal(heldInput?.recipientEmail, payload.user.email);
+    assert.equal(heldInput?.tokenHash, "recovery-hash");
+    assert.match(heldInput?.subject ?? "", /account setup/i);
+    assert.match(heldInput?.textBody ?? "", /type=recovery/);
+    assert.match(heldInput?.textBody ?? "", /next=%2Faccount%2Fupdate-password%3Finvite%3D1/);
+    assert.match(heldInput?.textBody ?? "", /setup_nonce%3D/);
+  });
+
+  it("does not trust malformed or off-origin onboarding recovery parameters", async () => {
+    const previousOrigin = process.env.APP_ORIGIN;
+    process.env.APP_ORIGIN = "https://example.test";
+    let heldCalls = 0;
+    let ordinaryCalls = 0;
+
+    const result = await enqueueAuthSendEmailHook(
+      {
+        user: {
+          id: "00000000-0000-4000-8000-000000000020",
+          email: "external@gmail.com",
+        },
+        email_data: {
+          token: "",
+          token_hash: "recovery-hash",
+          token_new: "",
+          token_hash_new: "",
+          redirect_to:
+            "https://attacker.example/account/update-password?invite=1&setup_nonce=00000000-0000-4000-8000-000000000021",
+          email_action_type: "recovery",
+          site_url: "https://example.test",
+        },
+      },
+      {
+        getServiceClient: () => ({}) as never,
+        enqueueSignupRecovery: async () => {
+          heldCalls += 1;
+          return { success: true, outcome: "queued", queueId: "queue-1" };
+        },
+        enqueueOrdinaryRecovery: async (_client, input) => {
+          ordinaryCalls += 1;
+          assert.doesNotMatch(input.textBody, /attacker\.example|invite=1|setup_nonce/);
+          return { success: true, queueId: "queue-2" };
+        },
+      },
+    );
+
+    process.env.APP_ORIGIN = previousOrigin;
+
+    assert.equal(result.success, true);
+    assert.equal(heldCalls, 0);
+    assert.equal(ordinaryCalls, 1);
+  });
+
+  it("falls back to a canonical ordinary recovery when the signed nonce is no longer current", async () => {
+    const previousOrigin = process.env.APP_ORIGIN;
+    process.env.APP_ORIGIN = "https://example.test";
+    const nonce = "00000000-0000-4000-8000-000000000024";
+    let ordinaryBody = "";
+
+    const result = await enqueueAuthSendEmailHook(
+      {
+        user: {
+          id: "00000000-0000-4000-8000-000000000025",
+          email: "external@gmail.com",
+        },
+        email_data: {
+          token: "",
+          token_hash: "ordinary-fallback-hash",
+          token_new: "",
+          token_hash_new: "",
+          redirect_to: signedSetupRedirect({
+            nonce,
+            email: "external@gmail.com",
+            authUserId: "00000000-0000-4000-8000-000000000025",
+          }),
+          email_action_type: "recovery",
+          site_url: "https://example.test",
+        },
+      },
+      {
+        getServiceClient: () => ({}) as never,
+        enqueueSignupRecovery: async () => ({ success: true, outcome: "ordinary" }),
+        enqueueOrdinaryRecovery: async (_client, input) => {
+          ordinaryBody = input.textBody;
+          return { success: true, queueId: "queue-ordinary" };
+        },
+        recoveryPurposeSecret: RECOVERY_PURPOSE_SECRET,
+      },
+    );
+
+    process.env.APP_ORIGIN = previousOrigin;
+    assert.deepEqual(result, { success: true });
+    assert.match(ordinaryBody, /recovery%3D1/);
+    assert.doesNotMatch(ordinaryBody, /invite=1|setup_nonce|setup_signature|setup_expires/);
+  });
+
+  it("rejects Auth recovery generation when the held queue write fails", async () => {
+    const previousOrigin = process.env.APP_ORIGIN;
+    process.env.APP_ORIGIN = "https://example.test";
+
+    const result = await enqueueAuthSendEmailHook(
+      {
+        user: {
+          id: "00000000-0000-4000-8000-000000000022",
+          email: "external@gmail.com",
+        },
+        email_data: {
+          token: "",
+          token_hash: "recovery-hash",
+          token_new: "",
+          token_hash_new: "",
+          redirect_to: signedSetupRedirect({
+            nonce: "00000000-0000-4000-8000-000000000023",
+            email: "external@gmail.com",
+            authUserId: "00000000-0000-4000-8000-000000000022",
+          }),
+          email_action_type: "recovery",
+          site_url: "https://example.test",
+        },
+      },
+      {
+        getServiceClient: () => ({}) as never,
+        enqueueSignupRecovery: async () => ({ success: false, error: "Queue rejected" }),
+        recoveryPurposeSecret: RECOVERY_PURPOSE_SECRET,
+      },
+    );
+
+    process.env.APP_ORIGIN = previousOrigin;
+
+    assert.deepEqual(result, { success: false, error: "Queue rejected" });
+  });
+
   it("fails auth hook processing when queue enqueue fails", async () => {
     const previousOrigin = process.env.APP_ORIGIN;
     process.env.APP_ORIGIN = "https://example.test";
 
     const result = await enqueueAuthSendEmailHook(
       {
-        user: { email: "user@example.test" },
+        user: { id: "00000000-0000-4000-8000-000000000001", email: "user@example.test" },
         email_data: {
           token: "123456",
           token_hash: "hash-value",
@@ -266,7 +482,7 @@ describe("auth and email admin settings", () => {
 
     const result = await enqueueAuthSendEmailHook(
       {
-        user: { email: "external@gmail.com" },
+        user: { id: "00000000-0000-4000-8000-000000000002", email: "external@gmail.com" },
         email_data: {
           token: "",
           token_hash: "invite-hash-value",

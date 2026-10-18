@@ -40,6 +40,7 @@ function runLocalDbCommand(sql: string): string {
       encoding: "utf8",
       cwd: process.cwd(),
       stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, DO_NOT_TRACK: "1" },
       ...(process.platform === "win32"
         ? { shell: process.env.ComSpec ?? "cmd.exe" }
         : {}),

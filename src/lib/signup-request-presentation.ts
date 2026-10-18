@@ -19,11 +19,7 @@ export type SignupRequestRow = {
 };
 
 export function signupRequestNeedsInvitationResume(row: SignupRequestRow): boolean {
-  return (
-    row.status === "approved" &&
-    !row.onboarding_established &&
-    row.created_profile_id === null
-  );
+  return row.status === "approved" && !row.onboarding_established;
 }
 
 export function signupRequestOnboardingIncomplete(row: SignupRequestRow): boolean {

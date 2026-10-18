@@ -20,3 +20,9 @@ Admin and Owner can **Delete account permanently** from User Management (role di
 - The email address becomes reusable only after **Auth cleanup succeeds** (`auth.admin.deleteUser`). If that step fails, a durable audit record stays `pending` and the `worker:auth-deletion-cleanup` task retries automatically.
 
 Choose a deletion reason (test account, duplicate/error, other) when confirming. Confirmation requires typing the user's email address.
+
+## Recover incomplete external account setup (HR)
+
+For an approved external signup that is linked to an existing Auth identity but has not completed onboarding, permanent HR may use **Retry invitation**. The application preserves the Auth identity, profile, role, and account status and requests a standard Supabase password-recovery link. A newer recovery link may invalidate an older link.
+
+The retry uses a short-lived, hashed purpose nonce so the signed Send Email Hook can distinguish HR-issued account setup from ordinary password recovery. The nonce and `invite=1` are not authorization. `/auth/confirm` must first verify the Supabase recovery token and matching authenticated identity; onboarding is marked complete only after the password update succeeds. Completed accounts are an idempotent no-op. Admin and Owner Support Mode remains read-only.

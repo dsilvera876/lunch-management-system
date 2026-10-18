@@ -14,7 +14,7 @@ describe("async auth email delivery", () => {
 
     const result = await enqueueAuthSendEmailHook(
       {
-        user: { email: "invite@example.test" },
+        user: { id: "00000000-0000-4000-8000-000000000001", email: "invite@example.test" },
         email_data: {
           token: "",
           token_hash: "invite-hash",
@@ -48,7 +48,7 @@ describe("async auth email delivery", () => {
 
     await enqueueAuthSendEmailHook(
       {
-        user: { email: "invite@example.test" },
+        user: { id: "00000000-0000-4000-8000-000000000001", email: "invite@example.test" },
         email_data: {
           token: "",
           token_hash: "invite-hash",

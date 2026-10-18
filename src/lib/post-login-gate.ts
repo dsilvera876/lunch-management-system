@@ -7,14 +7,19 @@ export const LOGIN_INACTIVE_MESSAGE =
   "Your account is inactive. Contact HR for assistance.";
 
 export const LOGIN_INCOMPLETE_SETUP_MESSAGE =
-  "Your account setup is incomplete. Contact HR for assistance.";
+  "Your account setup is incomplete. Use the latest account setup email, or contact HR for a new link.";
 
 export type PostLoginProfileRow = {
   role: string;
   account_status: string;
+  onboarding_pending: boolean;
 };
 
-export type PostLoginDenyReason = "missing_profile" | "inactive" | "invalid_role";
+export type PostLoginDenyReason =
+  | "missing_profile"
+  | "inactive"
+  | "invalid_role"
+  | "incomplete_onboarding";
 
 export function getLoginInactivePath(): string {
   return appendSearchParams("/login", { error: "inactive" });
@@ -30,6 +35,7 @@ export function loginPathForPostLoginDeny(reason: PostLoginDenyReason): string {
       return getLoginInactivePath();
     case "missing_profile":
     case "invalid_role":
+    case "incomplete_onboarding":
       return getLoginIncompleteSetupPath();
   }
 }
@@ -48,6 +54,10 @@ export function evaluatePostLoginProfile(
 
   if (!isUserRole(profile.role)) {
     return { ok: false, reason: "invalid_role" };
+  }
+
+  if (profile.onboarding_pending) {
+    return { ok: false, reason: "incomplete_onboarding" };
   }
 
   return { ok: true, role: profile.role };
@@ -75,10 +85,12 @@ export async function gateApplicationProfileAfterAuth(
   const profile =
     profileRow &&
     typeof profileRow.role === "string" &&
-    typeof profileRow.account_status === "string"
+    typeof profileRow.account_status === "string" &&
+    typeof profileRow.onboarding_pending === "boolean"
       ? {
           role: profileRow.role,
           account_status: profileRow.account_status,
+          onboarding_pending: profileRow.onboarding_pending,
         }
       : null;
 

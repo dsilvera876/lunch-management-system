@@ -17,3 +17,15 @@ export function getSupabaseSecretKey(): string {
 
   return key;
 }
+
+export function getAccountSetupRecoveryPurposeSecret(): string {
+  const secret = process.env.ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET?.trim();
+
+  if (!secret || Buffer.byteLength(secret, "utf8") < 32) {
+    throw new Error(
+      "ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET must be configured with at least 32 bytes.",
+    );
+  }
+
+  return secret;
+}

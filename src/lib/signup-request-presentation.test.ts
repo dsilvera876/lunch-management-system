@@ -37,7 +37,7 @@ describe("signup request presentation", () => {
     assert.equal(signupRequestStatusBadgeKind("cancelled"), "cancelled");
   });
 
-  it("shows View for approved linked incomplete onboarding", () => {
+  it("shows Retry invitation for approved linked incomplete onboarding", () => {
     const linkedIncomplete = row({
       status: "approved",
       created_profile_id: "profile-id",
@@ -45,7 +45,7 @@ describe("signup request presentation", () => {
     });
 
     assert.equal(signupRequestOnboardingIncomplete(linkedIncomplete), true);
-    assert.equal(signupRequestListActionLabel(linkedIncomplete), "View");
+    assert.equal(signupRequestListActionLabel(linkedIncomplete), "Retry invitation");
   });
 
   it("shows View only for completed onboarding", () => {
@@ -54,7 +54,7 @@ describe("signup request presentation", () => {
     assert.equal(signupRequestListActionLabel(completed), "View");
   });
 
-  it("shows Retry invitation only for approved unlinked incomplete invites", () => {
+  it("shows Retry invitation for approved unlinked incomplete invites", () => {
     const unlinked = row({ created_profile_id: null, onboarding_established: false });
     assert.equal(signupRequestListActionLabel(unlinked), "Retry invitation");
   });

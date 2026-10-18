@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { getSupabaseSecretKey, getSupabaseUrl } from "./server";
+import {
+  getAccountSetupRecoveryPurposeSecret,
+  getSupabaseSecretKey,
+  getSupabaseUrl,
+} from "./server";
 
 const originalEnv = { ...process.env };
 
@@ -41,5 +45,22 @@ describe("worker Supabase env", () => {
       () => getSupabaseSecretKey(),
       /SUPABASE_SECRET_KEY is not configured/,
     );
+  });
+
+  it("requires a server-only recovery-purpose secret with at least 32 bytes", () => {
+    delete process.env.ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET;
+    assert.throws(
+      () => getAccountSetupRecoveryPurposeSecret(),
+      /at least 32 bytes/,
+    );
+
+    process.env.ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET = "too-short";
+    assert.throws(
+      () => getAccountSetupRecoveryPurposeSecret(),
+      /at least 32 bytes/,
+    );
+
+    process.env.ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET = "x".repeat(32);
+    assert.equal(getAccountSetupRecoveryPurposeSecret(), "x".repeat(32));
   });
 });

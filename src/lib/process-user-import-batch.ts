@@ -4,7 +4,6 @@ import { getApplicationOrigin } from "@/lib/request-origin";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   orchestrateSignupRequestInvite,
-  type AccountSetupEmailQueueClient,
   type AdminInviteClient,
   type SignupInviteDbClient,
 } from "@/lib/signup-request-invite";
@@ -12,14 +11,12 @@ import {
   classifyUserImportRuntimeError,
   logUserImportRuntimeError,
 } from "@/lib/user-import-runtime-errors";
-import { enqueueEmailDelivery } from "@/lib/mail/enqueue-email-delivery";
-import { buildAccountSetupEmailContent } from "@/lib/mail/account-setup-email";
-
 import { USER_IMPORT_MAX_ROWS } from "@/lib/user-import-csv";
 import {
   planUserImportRowExecution,
   type UserImportRowRecord,
 } from "@/lib/user-import-row-reconcile";
+import { buildSignedAccountSetupRecoveryRedirect } from "@/lib/signup-recovery-purpose";
 
 /** Matches SQL cap in worker_claim_user_import_rows (max 25 per claim). */
 export const USER_IMPORT_WORKER_CLAIM_CHUNK = 25;
@@ -59,7 +56,7 @@ function importRowFailure(
 
 function createWorkerInviteClients(
   service: SupabaseClient,
-): { admin: AdminInviteClient; queue: AccountSetupEmailQueueClient; db: SignupInviteDbClient } {
+): { admin: AdminInviteClient; db: SignupInviteDbClient } {
   const db: SignupInviteDbClient = {
     async getRequest(requestId) {
       const { data } = await service.rpc("get_signup_request", { p_request_id: requestId });
@@ -72,6 +69,7 @@ function createWorkerInviteClients(
         status: row.status as "pending" | "approved" | "rejected",
         createdProfileId: (row.created_profile_id as string | null) ?? null,
         requestedEmployeeId: (row.requested_employee_id as string | null) ?? null,
+        onboardingEstablished: row.onboarding_established === true,
       };
     },
     async markApproved(requestId, employeeId) {
@@ -118,6 +116,24 @@ function createWorkerInviteClients(
         p_invite_error: message,
       });
     },
+    async prepareAccountSetupRecovery(requestId, expectedProfileId, nonce) {
+      const { data, error } = await service.rpc("prepare_signup_account_setup_recovery", {
+        p_request_id: requestId,
+        p_expected_profile_id: expectedProfileId,
+        p_nonce: nonce,
+      });
+
+      if (error) {
+        return { outcome: "error", errorMessage: error.message };
+      }
+
+      const outcome = String(data ?? "");
+      if (outcome === "prepared" || outcome === "completed") {
+        return { outcome };
+      }
+
+      return { outcome: "error", errorMessage: "Unexpected recovery preparation response." };
+    },
     async linkProfile(requestId, profileId) {
       const { error } = await service.rpc("link_signup_request_profile", {
         p_request_id: requestId,
@@ -147,43 +163,15 @@ function createWorkerInviteClients(
           error: result.error ? { message: result.error.message } : null,
         };
       },
-      async generateInviteLink(email, options) {
-        const result = await service.auth.admin.generateLink({
-          type: "invite",
-          email,
-          options,
+      async requestPasswordRecovery(email, options) {
+        const redirectTo = buildSignedAccountSetupRecoveryRedirect({
+          nonce: options.accountSetup.nonce,
+          recipientEmail: email,
+          expectedAuthUserId: options.accountSetup.expectedAuthUserId,
+          redirectTo: options.redirectTo,
         });
-        const properties = result.data?.properties as { hashed_token?: string } | undefined;
-        const user = result.data?.user as { id: string } | undefined;
-        return {
-          data:
-            properties?.hashed_token && user?.id
-              ? { user: { id: user.id }, tokenHash: properties.hashed_token }
-              : null,
-          error: result.error ? { message: result.error.message } : null,
-        };
-      },
-    },
-    queue: {
-      async enqueueAccountSetupInvite(input) {
-        const content = buildAccountSetupEmailContent({
-          to: input.to,
-          fullName: input.fullName,
-          setupUrl: input.setupUrl,
-        });
-        const queued = await enqueueEmailDelivery(service, {
-          messageType: "account_setup_invite",
-          recipientEmail: input.to,
-          subject: content.subject,
-          textBody: content.text,
-          htmlBody: content.html,
-          correlationType: "signup_request",
-          correlationId: input.requestId,
-          supersedeActive: true,
-        });
-        return queued.success
-          ? { ok: true }
-          : { ok: false, errorMessage: queued.error ?? "Queue failed" };
+        const result = await service.auth.resetPasswordForEmail(email, { redirectTo });
+        return { error: result.error ? { message: result.error.message } : null };
       },
     },
     db,
@@ -277,7 +265,6 @@ async function runOnboardingInvitePath(
   const inviteResult = await orchestrateSignupRequestInvite({
     db: clients.db,
     admin: clients.admin,
-    queue: clients.queue,
     requestId,
     employeeIdInput: row.employee_id ?? "",
     redirectTo,
@@ -291,7 +278,11 @@ async function runOnboardingInvitePath(
 
   return {
     outcome: "succeeded",
-    message: inviteResult.warning ?? "Created — invitation queued.",
+    message:
+      inviteResult.warning ??
+      (inviteResult.outcome === "already_complete"
+        ? "Existing account setup is already complete."
+        : "Created — invitation queued."),
     profileId: profileId ?? undefined,
     signupRequestId: requestId,
   };

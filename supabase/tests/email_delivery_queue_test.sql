@@ -1,6 +1,6 @@
 begin;
 
-select plan(19);
+select plan(22);
 
 \ir support/isolate_existing_owner.inc
 
@@ -29,6 +29,13 @@ values (
 );
 
 reset role;
+
+select is(
+  has_table_privilege('authenticated', 'private.email_delivery_queue', 'select'),
+  false,
+  'authenticated users cannot inspect queued authentication links'
+);
+
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'c8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
@@ -177,6 +184,15 @@ select is(
 );
 
 select is(
+  (select text_body
+   from private.email_delivery_queue
+   where status = 'failed'
+     and last_error = 'Superseded by a newer delivery attempt.'),
+  '[redacted after terminal status]',
+  'superseded account setup body is redacted immediately'
+);
+
+select is(
   (select count(*)::int
    from private.email_delivery_queue
    where status = 'pending'),
@@ -187,6 +203,35 @@ select is(
 reset role;
 
 delete from private.email_delivery_queue where status = 'pending';
+
+insert into private.email_delivery_queue (
+  message_type,
+  recipient_email,
+  subject,
+  text_body,
+  html_body,
+  status
+)
+values (
+  'notification_hr_pending_signup',
+  'hr-notice@example.test',
+  'Non-auth notification',
+  'non-sensitive notification text',
+  '<p>non-sensitive notification</p>',
+  'pending'
+);
+
+update private.email_delivery_queue
+set status = 'failed', last_error = 'Test failure'
+where recipient_email = 'hr-notice@example.test';
+
+select is(
+  (select text_body
+   from private.email_delivery_queue
+   where recipient_email = 'hr-notice@example.test'),
+  'non-sensitive notification text',
+  'terminal redaction does not alter unrelated notification bodies'
+);
 
 insert into private.email_delivery_queue (
   message_type,

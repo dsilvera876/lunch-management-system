@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth-recovery";
 import { validatePasswordUpdate } from "@/lib/password";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export async function updatePassword(formData: FormData) {
   const password = formData.get("password");
@@ -46,14 +47,15 @@ export async function updatePassword(formData: FormData) {
   }
 
   if (isInvite) {
-    const { data: completion, error: completionError } = await supabase.rpc(
-      "complete_signup_onboarding",
-      { p_require_linked_request: true },
+    const service = createServiceClient();
+    const { data: completion, error: completionError } = await service.rpc(
+      "service_complete_signup_onboarding",
+      { p_user_id: user.id },
     );
 
     if (completionError) {
       console.error(
-        "[account-setup] complete_signup_onboarding failed:",
+        "[account-setup] service_complete_signup_onboarding failed:",
         completionError.message,
       );
       redirect(getPasswordUpdateErrorPath(isRecovery, "setup", true));
@@ -61,10 +63,10 @@ export async function updatePassword(formData: FormData) {
 
     const completionRow = completion as { ok?: boolean; code?: string } | null;
     if (
-      completionRow?.ok === false ||
-      (isInvite && completionRow?.code === "no_signup_request")
+      completionRow?.ok !== true ||
+      !["completed", "already_completed"].includes(completionRow.code ?? "")
     ) {
-      console.error("[account-setup] complete_signup_onboarding rejected:", completion);
+      console.error("[account-setup] onboarding completion rejected:", completionRow?.code);
       redirect(getPasswordUpdateErrorPath(isRecovery, "setup", true));
     }
   }

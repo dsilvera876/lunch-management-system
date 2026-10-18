@@ -64,6 +64,7 @@ The repository includes `.nvmrc` (`20.9.0`) as the documented minimum.
 ```text
 /var/www/lunch-management-system/              Application checkout (owned by lunchapp)
 /etc/lunch-management/staging.env                Environment file (outside repo)
+/etc/lunch-management/web-privileged.env         Dedicated server-only web credential (outside repo)
 /etc/systemd/system/lunch-management-staging.service
 /etc/apache2/sites-available/lunch-management-staging.conf
 /etc/apache2/sites-enabled/lunch-management-staging.conf -> ../sites-available/...
@@ -154,7 +155,18 @@ sudo cp /var/www/lunch-management-system/deploy/env/staging.env.example /etc/lun
 sudo nano /etc/lunch-management/staging.env
 sudo chown root:lunchapp /etc/lunch-management/staging.env
 sudo chmod 640 /etc/lunch-management/staging.env
+
+sudo cp /var/www/lunch-management-system/deploy/env/web-privileged.env.example \
+  /etc/lunch-management/web-privileged.env
+sudo nano /etc/lunch-management/web-privileged.env
+sudo chown root:lunchapp /etc/lunch-management/web-privileged.env
+sudo chmod 640 /etc/lunch-management/web-privileged.env
 ```
+
+Generate the independent account-setup purpose secret with a cryptographically secure source, for example
+`openssl rand -hex 32`, and place the result directly in the protected `web-privileged.env`. Run the command
+only in a trusted administrative shell without command tracing or session recording. Do not paste the value
+into terminal commands, logs, tickets, or chat.
 
 Required variables (use real values on the server only):
 
@@ -163,6 +175,9 @@ Required variables (use real values on the server only):
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key |
 | `APP_ORIGIN` | Browser-visible **HTTPS** origin (e.g. `https://STAGING_HOSTNAME`). **Required on staging.** |
+| `SUPABASE_URL` | Server-side Supabase project URL in `web-privileged.env`; must identify the same project as `NEXT_PUBLIC_SUPABASE_URL`. |
+| `SUPABASE_SECRET_KEY` | Dedicated, independently revocable server-only key in `web-privileged.env`; required for signed Auth-hook queueing, HR setup recovery, and onboarding completion. |
+| `ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET` | Independent server-only HMAC key of at least 32 random bytes in `web-privileged.env`; do not reuse a Supabase credential. |
 
 Example (replace placeholder on the server):
 
@@ -176,7 +191,22 @@ Do **not** set `HOSTNAME` or `PORT` — the systemd unit binds Next.js to `127.0
 
 `APP_ORIGIN` is server-only (not `NEXT_PUBLIC_*`). It pins auth redirect targets and prevents Host-header open redirects.
 
-Do **not** add `SUPABASE_SECRET_KEY` to the Next.js web app. It belongs only in `/etc/lunch-management/worker.env` for systemd workers.
+Never put `SUPABASE_SECRET_KEY` or `ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET` in `staging.env`, a `NEXT_PUBLIC_*` variable, Git, build output, or logs. The web service loads these only from `web-privileged.env`. Workers use a different Supabase key in `worker.env` so either credential can be revoked independently.
+
+Validate presence and URL agreement without printing any credential value:
+
+```bash
+sudo -u lunchapp bash -c '
+  set -a
+  . /etc/lunch-management/staging.env
+  . /etc/lunch-management/web-privileged.env
+  set +a
+  node /var/www/lunch-management-system/deploy/validate-web-privileged-env.mjs
+'
+```
+
+The validator rejects missing, empty, short, and known example/default purpose secrets without printing any
+credential value. The checked-in example is intentionally invalid and must not pass this check unchanged.
 
 ---
 
@@ -288,6 +318,7 @@ The template provides:
 - **Port 80** — permanent redirect to `https://STAGING_HOSTNAME/`
 - **Port 443** — SSL + reverse proxy to `http://127.0.0.1:3000/`
 - Separate access/error logs for HTTP and HTTPS vhosts
+- Path-only access logging: query strings and HTTP Referer values are omitted
 
 ### Apache logs
 
@@ -295,6 +326,17 @@ The template provides:
 sudo tail -f /var/log/apache2/lunch-management-staging-ssl-access.log \
              /var/log/apache2/lunch-management-staging-ssl-error.log
 ```
+
+After installing the template, verify the logging policy with a non-secret marker:
+
+```bash
+curl -k -I 'https://STAGING_HOSTNAME/auth/confirm?log-safety-probe=nonsecret'
+sudo grep -F 'log-safety-probe' /var/log/apache2/lunch-management-staging-ssl-access.log
+```
+
+The `grep` command must return no match, while the access log still records the method, path, status, size, and duration. Also confirm `/auth/confirm`, `/account/update-password`, and `/forgot-password` responses include `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+
+Logs created under the previous `combined` format may contain sensitive query strings or referrers. Before enabling account recovery, stop broad log forwarding, restrict those files to the existing root/administrator log group, rotate them, and follow the organization's approved security retention/destruction procedure. Never copy suspected tokens into tickets or terminal output.
 
 ---
 
@@ -466,9 +508,24 @@ sudo systemctl status lunch-management-staging
 
 Re-run smoke tests (section 14).
 
+### Coordinated PRL-021 deployment
+
+The five `2026101612*.sql` onboarding-recovery migrations and the matching application build must be deployed in one maintenance window. The final migration revokes the legacy authenticated onboarding-completion RPC, while the new build depends on the replacement service-only RPCs.
+
+1. Install the path-only Apache logging configuration and the dedicated `web-privileged.env`; run the non-printing environment validation in section 5, run `apache2ctl configtest`, reload Apache, and verify the non-secret log marker before enabling recovery.
+2. Build the new commit, but do not start it yet.
+3. Stop the web service and mail-queue timer/service so users cannot enter account setup and workers cannot claim mail during the transition.
+4. Reconfirm the linked Supabase project is staging, review `supabase migration list`, then apply the five migrations in timestamp order with the normal migration command.
+5. Install the matching web unit with `sudo cp deploy/systemd/lunch-management-staging.service /etc/systemd/system/`, then run `sudo systemctl daemon-reload`.
+6. Start the new web build, then the mail-queue timer. Run the login, ordinary recovery, incomplete external-account recovery, and Support Mode read-only smoke tests before ending maintenance.
+
+Each migration is transactional. If deployment stops between files, keep the application in maintenance, correct the failure, and resume the forward-only migration sequence. Do not restore a pre-PRL-021 application build after the final migration: its legacy completion call is intentionally revoked. Recover forward with the new build or an explicitly reviewed corrective migration.
+
 ---
 
 ## 17. Rollback procedure
+
+The generic application rollback below applies only when the target commit is compatible with the migrations already installed. For the coordinated PRL-021 deployment, use the forward-recovery procedure above after its final migration has been applied.
 
 ```bash
 cd /var/www/lunch-management-system
@@ -504,12 +561,13 @@ After deploying password recovery changes, run this checklist on staging (replac
 
 Two systemd timers run **outside** the Next.js web process. They load **`/etc/lunch-management/worker.env` only** (see `deploy/env/worker.env.example`).
 
-The Next.js web service continues to load **`/etc/lunch-management/staging.env` only** and must **not** receive the Supabase Secret key.
+The Next.js web service loads general configuration from `staging.env` and its dedicated server-only Supabase key from `web-privileged.env`. Worker services continue to load `worker.env` only and use a different key.
 
 | File | Used by | Typical secrets |
 |------|---------|-----------------|
 | `/etc/lunch-management/staging.env` | `lunch-management-staging.service` (Next.js) | publishable Supabase key, `APP_ORIGIN`, optional SMTP for HR manual supplemental sends |
-| `/etc/lunch-management/worker.env` | snapshot + automatic-dispatch workers | `SUPABASE_SECRET_KEY` (`sb_secret_...`), `SUPABASE_URL`, SMTP2Go |
+| `/etc/lunch-management/web-privileged.env` | `lunch-management-staging.service` only | `SUPABASE_URL`, dedicated `SUPABASE_SECRET_KEY`, independent account-setup purpose HMAC key |
+| `/etc/lunch-management/worker.env` | background workers only | separate `SUPABASE_SECRET_KEY` (`sb_secret_...`), `SUPABASE_URL`, SMTP2Go |
 
 Worker RPC authorization uses the effective Supabase **`service_role` Postgres/API role** supplied by the hosted gateway when using a Secret key. The worker never parses `sb_secret_...` as a JWT.
 
@@ -734,7 +792,7 @@ sudo systemctl disable --now lunch-management-operational-attention-purge.timer
 - Next.js listens on **127.0.0.1:3000 only**; Apache terminates TLS and proxies
 - Secrets in `/etc/lunch-management/staging.env`, not in Git
 - `APP_ORIGIN=https://STAGING_HOSTNAME` pins auth redirects
-- No Supabase Secret key in the Next.js app
+- Dedicated Supabase Secret key is available only to server modules in the Next.js process; it is never browser-exposed and is separate from worker credentials
 - systemd runs as dedicated non-root `lunchapp` user
 - Staging vhost uses separate Apache logs
 - Existing Apache sites are untouched

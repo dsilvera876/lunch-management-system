@@ -54,7 +54,9 @@ Adjust the Send Email URI so the Auth container can reach Next.js.
 |----------|---------|
 | `APP_ORIGIN` | Public app URL for auth links |
 | `SEND_EMAIL_HOOK_SECRET` | Verify Supabase Send Email hook payloads |
-| `SUPABASE_SECRET_KEY` | Service role for server/worker mail config + Vault decryption RPC |
+| `SUPABASE_URL` | Server-side project URL used with the dedicated web credential |
+| `SUPABASE_SECRET_KEY` | Server-only service role. Use separate, independently revocable web and worker keys; never expose either through `NEXT_PUBLIC_*`. |
+| `ACCOUNT_SETUP_RECOVERY_PURPOSE_SECRET` | Server-only HMAC key (at least 32 random bytes) binding HR recovery purpose to nonce, recipient, Auth identity, and expiry. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser Supabase client |
 
@@ -92,6 +94,8 @@ Never commit real secrets or hook keys.
   - `magiclink` → `type=magiclink`
 - The `/auth/confirm` route calls `supabase.auth.verifyOtp({ token_hash, type })` server-side and then redirects to `next` when present.
 - Token hashes must not appear in application logs.
+- Apache access logs must use the path-only format in `deploy/apache/lunch-management-staging.conf`; it omits query strings and Referer values. Auth routes also return `no-referrer` and `no-store` policies.
+- HR account-setup retry uses standard Supabase recovery tokens. A short-lived purpose nonce identifies the signed-hook request, but is not authentication; `/auth/confirm` must verify the recovery token and matching Auth identity before setup can continue. A newer recovery link may supersede an older one.
 
 ## SMTP link tracking
 

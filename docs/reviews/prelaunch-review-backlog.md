@@ -41,6 +41,7 @@ record any failures found there as Accessibility findings below.
 | PRL-018 | Workflow | Medium | Staff accessibility regression tests | Open |
 | PRL-019 | UI/UX | Medium | Staff `/lunch`: menu ratings presentation | Resolved |
 | PRL-020 | UI/UX | High | HR `/admin/deliveries`: reconciliation UX redesign | Open |
+| PRL-021 | Workflow | High | External signup onboarding recovery and login feedback | In Progress |
 
 ## Security
 
@@ -60,7 +61,7 @@ because ordering was closed on the review date.
   re-renders as a disabled "Added" button, and Remove unmounts its row), so focus falls to the page body.
   Screen-reader users lose their place and hear no confirmation. Focus should stay on, or move deliberately
   to, a stable target, with the result announced once. Code inspection (WCAG 2.4.3, 4.1.3).
-- **Status:** In progress
+- **Status:** In Progress
 - **Source:** Phase 2A review.
 - **Remediation (uncommitted, awaiting review):** "Added" and the quantity buttons at their limits use
   `aria-disabled` so they stay focusable. Finish This Order focuses the completed entry's heading. Remove
@@ -341,6 +342,18 @@ because ordering was closed on the review date.
   broader UX pass.
 - **Status:** Open
 - **Source:** Staging delivery reconciliation defect investigation (2026-10-13).
+
+### PRL-021: External signup onboarding can strand approved accounts
+
+- **Severity:** High
+- **Affected workflow:** Approved external signup invitation recovery and post-login routing.
+- **Description:** An approved external user can have a verified Auth identity, password and active profile
+  while application onboarding remains incomplete. Database authorization correctly blocks access, but
+  HR invitation retry reports success without queueing a usable setup link, and successful credential
+  authentication redirects through `/home` before returning silently to Login. HR needs a safe recovery
+  link for the existing identity, and incomplete accounts need a clear, non-enumerating login message.
+- **Status:** In progress
+- **Source:** Staging external-signup onboarding investigation (2026-10-16).
 
 ## Entry template
 

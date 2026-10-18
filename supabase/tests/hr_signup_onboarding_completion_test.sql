@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(19);
 
 \ir support/isolate_existing_owner.inc
 
@@ -39,6 +39,7 @@ insert into auth.users (
   role,
   email,
   encrypted_password,
+  invited_at,
   email_confirmed_at,
   last_sign_in_at,
   raw_app_meta_data,
@@ -55,6 +56,7 @@ values (
   'authenticated',
   'invite-stub@gmail.com',
   extensions.crypt('LunchTest123!', extensions.gen_salt('bf')),
+  now(),
   null,
   null,
   '{"provider":"email","providers":["email"]}'::jsonb,
@@ -136,16 +138,57 @@ select throws_ok(
   'incomplete onboarding cannot submit orders'
 );
 
+select throws_like(
+  $$ select public.complete_signup_onboarding() $$,
+  '%permission denied%',
+  'invited user cannot complete onboarding directly'
+);
+
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
 select is(
-  (public.complete_signup_onboarding() ->> 'code'),
-  'completed',
-  'invited user completes application onboarding marker'
+  (public.service_complete_signup_onboarding(
+    'e1999999-9999-4999-8999-999999999999'
+  ) ->> 'code'),
+  'not_authorized',
+  'service completion rejects a password update without verified token authorization'
 );
 
 select is(
-  (public.complete_signup_onboarding() ->> 'code'),
+  public.service_authorize_signup_onboarding(
+    'e1999999-9999-4999-8999-999999999999',
+    'invite',
+    null
+  ),
+  true,
+  'trusted route authorizes onboarding after verifying an invite token'
+);
+
+select is(
+  (public.service_complete_signup_onboarding(
+    'e1999999-9999-4999-8999-999999999999'
+  ) ->> 'code'),
+  'completed',
+  'trusted post-password-update workflow completes application onboarding marker'
+);
+
+select is(
+  (public.service_complete_signup_onboarding(
+    'e1999999-9999-4999-8999-999999999999'
+  ) ->> 'code'),
   'already_completed',
-  'completion RPC is idempotent'
+  'service completion RPC is idempotent'
+);
+
+reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', 'e1999999-9999-4999-8999-999999999999', 'role', 'authenticated')::text,
+  true
 );
 
 select is(
@@ -192,9 +235,13 @@ select is(
 );
 
 select is(
-  (public.complete_signup_onboarding() ->> 'code'),
-  'no_signup_request',
-  'completion RPC is harmless for users without linked signup requests'
+  has_function_privilege(
+    'authenticated',
+    'public.complete_signup_onboarding(boolean)',
+    'execute'
+  ),
+  false,
+  'ordinary users cannot invoke onboarding completion'
 );
 
 -- Partial Auth state: confirmed email, no marker, HR can still cancel
@@ -327,16 +374,23 @@ select set_config(
   true
 );
 
-select is(
-  (public.complete_signup_onboarding(true) ->> 'ok'),
-  'false',
-  'invite setup requires linked approved signup request'
+select throws_like(
+  $$ select public.complete_signup_onboarding(true) $$,
+  '%permission denied%',
+  'unlinked authenticated users cannot invoke onboarding completion'
 );
 
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
 select is(
-  (public.complete_signup_onboarding(false) ->> 'code'),
+  (public.service_complete_signup_onboarding(
+    'e1888888-8888-4888-8888-888888888888'
+  ) ->> 'code'),
   'no_signup_request',
-  'non-invite completion remains permissive without linked signup request'
+  'trusted completion refuses an unlinked Auth identity'
 );
 
 select * from finish();

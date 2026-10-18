@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(17);
 
 \ir support/isolate_existing_owner.inc
 
@@ -136,6 +136,42 @@ select lives_ok(
     )
   $$,
   're-link with same profile is idempotent'
+);
+
+select throws_ok(
+  $$
+    select public.link_signup_request_profile(
+      (select request_id from public.search_signup_requests(null, 'approved', 1, 0) limit 1),
+      'a8222222-2222-4222-8222-222222222222',
+      null
+    )
+  $$,
+  'Signup request is linked to a different profile',
+  'linked signup request cannot be reassigned to another Auth identity'
+);
+
+reset role;
+set local role anon;
+select public.request_external_signup('Mismatch Identity', 'mismatch-identity@gmail.com');
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', 'a8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
+select public.mark_signup_request_approved(
+  (select request_id from public.search_signup_requests('mismatch-identity@gmail.com', 'pending', 1, 0)),
+  null
+);
+
+select throws_ok(
+  $$
+    select public.link_signup_request_profile(
+      (select request_id from public.search_signup_requests('mismatch-identity@gmail.com', 'approved', 1, 0)),
+      'a8222222-2222-4222-8222-222222222222',
+      null
+    )
+  $$,
+  'Signup request and Auth identity email mismatch',
+  'initial linkage rejects an Auth identity with a different normalized email'
 );
 
 reset role;
