@@ -51,6 +51,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Never reset, truncate, seed, or destructively alter staging or production without explicit authorization.
   `npx supabase db reset --local` and destructive fixtures are local-only. Before any database command,
   identify the target environment; do not treat staging and production as interchangeable.
+- Before production launch, all staging data is disposable. With explicit deployment authorization, a full
+  reset of the **verified dedicated staging** Supabase project is allowed and is preferred when it makes a
+  coordinated schema deployment safer or simpler; do not require backups or retention of test accounts
+  solely for data preservation. Apply migrations only: never run the local development seed against hosted
+  staging. Independently verify the exact project reference and that it is neither production nor a shared
+  project before any remote reset. After production launch, preserve staging datasets and use
+  non-destructive migration-regression testing instead of full resets.
 - Do not change established rules without discussion and approval: Jamaica timezone/business calendars;
   ordering windows and cutoffs; late-order request/HR fulfillment; closure-driven declines; delivery
   reconciliation and state transitions; provider dispatch and order edits; period finalization and subsidy

@@ -14,6 +14,57 @@ npm run start
 
 ---
 
+## Staging data policy and remote-target preflight
+
+Before production launch, all staging data is disposable. Once a deployment is explicitly approved, a full
+reset of the dedicated staging Supabase project is allowed and is the preferred path when it reduces
+coordinated-deployment risk. Do not retain staging accounts or take backups solely to preserve test data.
+Apply migrations only: never run `supabase/seeds/development.sql` against hosted staging.
+
+This policy never authorizes a reset of production or a shared Supabase project. Before any remote database
+command, the deployment operator must record the expected staging project reference and the production
+project reference in the change approval, then verify all of the following without printing credentials:
+
+1. In the Supabase dashboard, the selected project name, organization, and reference match the dedicated
+   **staging** reference `cmdpxyjdbeklxmnhblvq`.
+2. The `NEXT_PUBLIC_SUPABASE_URL` in `staging.env` and `SUPABASE_URL` in `web-privileged.env` identify that
+   same reference. Run the non-printing validator in section 5 first.
+3. The staging reference is different from the recorded production reference and is not used by any shared
+   environment.
+4. Immediately before a destructive command, run `npx supabase link --project-ref cmdpxyjdbeklxmnhblvq` and
+   enter the database password only at its secure prompt. Then run `npx supabase projects list` and confirm
+   that `cmdpxyjdbeklxmnhblvq` is the one and only linked project. Run `npx supabase migration list --linked`
+   to confirm the target again. Do not continue if any output identifies a different linked project.
+
+After production launch, preserve staging datasets and run migration regression tests non-destructively;
+do not use the reset procedure below as routine maintenance.
+
+### Supabase-managed Auth and Storage state
+
+Remote `db reset --linked` drops user-created database entities, then replays local migrations. It does not
+reset Supabase-managed platform schemas as though the project were newly created. Do not assume it removes
+Auth users, Storage buckets, Storage objects, or custom database roles; inspect those after the reset.
+
+- Remove retained disposable Auth users in **Authentication → Users** (or through the approved server-only
+  Auth-admin workflow), never by writing directly to `auth.users`. This prevents an old Auth identity from
+  surviving while its application profile was reset. Create the intended operator account only after reset.
+- Remove retained disposable Storage objects and buckets through the **Storage** dashboard or Storage API,
+  never by deleting Storage metadata with SQL. Storage metadata and objects have different lifecycle rules.
+- Do not create test users for bootstrap. Create the actual first staging operator account through the normal
+  hosted Auth user-creation flow, confirm its `public.profiles` row exists, then have a privileged database
+  operator run the existing service-only bootstrap once:
+
+  ```sql
+  select public.bootstrap_first_owner('ACTUAL_OPERATOR_PROFILE_UUID');
+  ```
+
+  Run it from a protected Dashboard SQL Editor session as the privileged database role, only after confirming
+  that no Owner exists. It writes the audited first-Owner role assignment. That Owner then uses the
+  application User Management workflow to assign HR or Admin roles to actual registered operators; do not
+  directly update `public.profiles.role`.
+
+---
+
 ## Architecture
 
 ```text
@@ -365,7 +416,8 @@ Configure the hosted Supabase project for **HTTPS**:
 
 7. Apply all database migrations to the hosted project
 
-8. Promote at least one staging admin in `public.profiles`
+8. Bootstrap the first actual staging Owner through `public.bootstrap_first_owner(profile_id)`, then use the
+   application User Management workflow to assign any required HR or Admin roles
 
 9. Enable **`lunch-management-mail-queue.timer`** so `auth_hook` queue rows send (see Background workers).
 
@@ -512,14 +564,28 @@ Re-run smoke tests (section 14).
 
 The five `2026101612*.sql` onboarding-recovery migrations and the matching application build must be deployed in one maintenance window. The final migration revokes the legacy authenticated onboarding-completion RPC, while the new build depends on the replacement service-only RPCs.
 
+For the pre-launch disposable staging environment, use the linked-project reset path after the remote-target
+preflight above and explicit deployment approval. The installed CLI runs seed paths by default, so
+`--no-seed` is required. This applies the complete ordered migration set only:
+
+```bash
+cd /var/www/lunch-management-system
+npx supabase db reset --linked --no-seed --yes
+```
+
+The command is destructive to the project linked immediately before it. It must never be run until the
+operator has reconfirmed that the one linked reference is `cmdpxyjdbeklxmnhblvq`, not production or a shared
+project. Do not remove `--no-seed` or pass `--sql-paths`; staging will be populated manually after
+deployment.
+
 1. Install the path-only Apache logging configuration and the dedicated `web-privileged.env`; run the non-printing environment validation in section 5, run `apache2ctl configtest`, reload Apache, and verify the non-secret log marker before enabling recovery.
 2. Build the new commit, but do not start it yet.
 3. Stop the web service and mail-queue timer/service so users cannot enter account setup and workers cannot claim mail during the transition.
-4. Reconfirm the linked Supabase project is staging, review `supabase migration list`, then apply the five migrations in timestamp order with the normal migration command.
+4. Complete the remote-target preflight and, after explicit approval, run the linked-project reset command above. Re-run `npx supabase migration list --linked` to confirm the five PRL-021 migrations are present.
 5. Install the matching web unit with `sudo cp deploy/systemd/lunch-management-staging.service /etc/systemd/system/`, then run `sudo systemctl daemon-reload`.
 6. Start the new web build, then the mail-queue timer. Run the login, ordinary recovery, incomplete external-account recovery, and Support Mode read-only smoke tests before ending maintenance.
 
-Each migration is transactional. If deployment stops between files, keep the application in maintenance, correct the failure, and resume the forward-only migration sequence. Do not restore a pre-PRL-021 application build after the final migration: its legacy completion call is intentionally revoked. Recover forward with the new build or an explicitly reviewed corrective migration.
+The reset path is intentionally not a rollback mechanism. If it fails, keep the application in maintenance, correct the staging-only failure, and rerun it only after repeating the remote-target verification. Do not restore a pre-PRL-021 application build after the final migration: its legacy completion call is intentionally revoked. Recover forward with the new build or an explicitly reviewed corrective migration.
 
 ---
 
