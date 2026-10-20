@@ -236,7 +236,7 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   json_build_object('sub', 'ad222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'role audit support test') $$,
+  $$ select * from public.start_support_session('hr', 'role audit support test', (select session_id from public.get_support_session_status())) $$,
   'Admin starts HR Support Mode'
 );
 select throws_ok(
@@ -249,12 +249,12 @@ select throws_ok(
   'P0001', 'Role change audit is unavailable in Support Mode',
   'Admin in Support Mode cannot read the role change audit'
 );
-select lives_ok($$ select public.end_support_session() $$, 'Admin ends Support Mode');
+select lives_ok($$ select public.end_support_session((select session_id from public.get_support_session_status())) $$, 'Admin ends Support Mode');
 
 select set_config('request.jwt.claims',
   json_build_object('sub', 'ad111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 select lives_ok(
-  $$ select * from public.start_support_session('accounts', 'role audit support test') $$,
+  $$ select * from public.start_support_session('accounts', 'role audit support test', (select session_id from public.get_support_session_status())) $$,
   'Owner starts Accounts Support Mode'
 );
 select throws_ok(
@@ -267,7 +267,7 @@ select throws_ok(
   'P0001', 'Role management is unavailable in Support Mode',
   'Owner in Support Mode cannot assign roles'
 );
-select lives_ok($$ select public.end_support_session() $$, 'Owner ends Support Mode');
+select lives_ok($$ select public.end_support_session((select session_id from public.get_support_session_status())) $$, 'Owner ends Support Mode');
 
 reset role;
 

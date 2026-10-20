@@ -134,7 +134,7 @@ select throws_ok(
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'mir hr ratings denial') $$,
+  $$ select * from public.start_support_session('hr', 'mir hr ratings denial', (select session_id from public.get_support_session_status())) $$,
   'admin can start HR support session for denial test'
 );
 
@@ -152,7 +152,7 @@ select throws_ok(
   'support mode blocks HR rating removal'
 );
 
-select public.end_support_session();
+select public.end_support_session((select session_id from public.get_support_session_status()));
 reset role;
 
 -- HR dashboard aggregates

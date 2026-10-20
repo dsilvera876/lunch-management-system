@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { endSupportSessionAction } from "@/app/admin/support/actions";
-import { supportScopeLabel } from "@/lib/support-mode";
+import {
+  SUPPORT_SESSION_STALE_NOTICE,
+  supportScopeLabel,
+} from "@/lib/support-mode";
 import { useSupportMode } from "@/components/app-shell/support-mode-context";
 import { SupportModeExpiryDisplay } from "@/components/app-shell/support-mode-expiry-display";
 import { SupportModeExitButton } from "@/components/app-shell/support-mode-exit-button";
@@ -17,15 +20,22 @@ export function SupportModeBanner() {
   }
 
   const scopeLabel = supportScopeLabel(session.scope);
+  const displayedSessionId = session.id;
 
   async function handleExit() {
     setPending(true);
     setError(null);
 
     try {
-      const result = await endSupportSessionAction();
+      const result = await endSupportSessionAction(displayedSessionId);
       if (result && !result.success) {
         setError(result.error);
+        if (result.stale) {
+          window.location.replace(
+            `/admin/support?notice=${SUPPORT_SESSION_STALE_NOTICE}`,
+          );
+          return;
+        }
         setPending(false);
       }
     } catch (caught) {

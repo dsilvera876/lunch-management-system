@@ -156,7 +156,7 @@ select is(
 
 -- Support Mode does not reassign inbox ownership
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'oa support isolation') $$,
+  $$ select * from public.start_support_session('hr', 'oa support isolation', (select session_id from public.get_support_session_status())) $$,
   'Admin starts HR support session'
 );
 
@@ -175,7 +175,7 @@ select is(
 );
 
 select lives_ok(
-  $$ select public.end_support_session() $$,
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
   'Admin ends support session'
 );
 

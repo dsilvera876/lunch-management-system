@@ -6,7 +6,14 @@ import { requireAdminOrOwner } from "@/lib/auth";
 import {
   formatSupportSessionStartError,
   isSupportScope,
+  isSupportSessionId,
+  isSupportSessionIdentity,
+  mapSupportSessionFromRpcData,
+  parseSupportSessionMutationOutcome,
+  SUPPORT_SESSION_STALE_MESSAGE,
+  supportSessionMatchesIdentity,
   supportScopeLandingPath,
+  type SupportSessionIdentity,
   type SupportScope,
 } from "@/lib/support-mode";
 import { fetchActiveSupportSession } from "@/lib/support-mode-server";
@@ -14,6 +21,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export type SupportActionResult =
   | { success: true }
+  | { success: false; error: string; stale?: true };
+
+export type SupportSessionReconciliationResult =
+  | { success: true; status: "current" | "expired" | "replaced" }
   | { success: false; error: string };
 
 function revalidateSupportShell() {
@@ -26,11 +37,16 @@ function revalidateSupportShell() {
 export async function startSupportSessionAction(
   scope: SupportScope,
   reason: string,
+  expectedSessionId: string | null,
 ): Promise<SupportActionResult> {
   const profile = await requireAdminOrOwner();
 
   if (!isSupportScope(scope)) {
     return { success: false, error: "Invalid support scope." };
+  }
+
+  if (expectedSessionId !== null && !isSupportSessionId(expectedSessionId)) {
+    return { success: false, error: "Unable to verify the displayed Support Mode session." };
   }
 
   const trimmed = reason.trim();
@@ -39,9 +55,10 @@ export async function startSupportSessionAction(
   }
 
   const supabase = await createClient();
-  const { error: startError } = await supabase.rpc("start_support_session", {
+  const { data, error: startError } = await supabase.rpc("start_support_session", {
     p_scope: scope,
     p_reason: trimmed,
+    p_expected_session_id: expectedSessionId,
   });
 
   if (startError) {
@@ -55,6 +72,23 @@ export async function startSupportSessionAction(
     return {
       success: false,
       error: formatSupportSessionStartError(startError.message),
+    };
+  }
+
+  const outcome = parseSupportSessionMutationOutcome(data);
+  if (outcome === "stale") {
+    revalidateSupportShell();
+    return {
+      success: false,
+      stale: true,
+      error: SUPPORT_SESSION_STALE_MESSAGE,
+    };
+  }
+
+  if (outcome !== "started") {
+    return {
+      success: false,
+      error: "Support Mode could not be started. Refresh the page or try again.",
     };
   }
 
@@ -79,10 +113,19 @@ export async function startSupportSessionAction(
   redirect(supportScopeLandingPath(scope));
 }
 
-export async function endSupportSessionAction(): Promise<SupportActionResult> {
+export async function endSupportSessionAction(
+  expectedSessionId: string,
+): Promise<SupportActionResult> {
   const profile = await requireAdminOrOwner();
+
+  if (!isSupportSessionId(expectedSessionId)) {
+    return { success: false, error: "Unable to verify the displayed Support Mode session." };
+  }
+
   const supabase = await createClient();
-  const { error } = await supabase.rpc("end_support_session");
+  const { data, error } = await supabase.rpc("end_support_session", {
+    p_expected_session_id: expectedSessionId,
+  });
 
   if (error) {
     console.error("[support-mode] end_support_session failed", {
@@ -93,6 +136,23 @@ export async function endSupportSessionAction(): Promise<SupportActionResult> {
     return {
       success: false,
       error: error.message || "Unable to exit Support Mode.",
+    };
+  }
+
+  const outcome = parseSupportSessionMutationOutcome(data);
+  if (outcome === "stale") {
+    revalidateSupportShell();
+    return {
+      success: false,
+      stale: true,
+      error: SUPPORT_SESSION_STALE_MESSAGE,
+    };
+  }
+
+  if (outcome !== "ended") {
+    return {
+      success: false,
+      error: "Support Mode could not be ended. Try again or refresh the page.",
     };
   }
 
@@ -111,4 +171,44 @@ export async function endSupportSessionAction(): Promise<SupportActionResult> {
 
   revalidateSupportShell();
   redirect("/admin/support");
+}
+
+/**
+ * Read-only authoritative check used by the client expiration controller.
+ * The expected identity prevents an older tab from treating a newer session
+ * as its own. This action intentionally never ends or otherwise mutates a
+ * support session; natural expiry retains the existing audit semantics.
+ */
+export async function reconcileSupportSessionAction(
+  expected: SupportSessionIdentity,
+): Promise<SupportSessionReconciliationResult> {
+  const profile = await requireAdminOrOwner();
+
+  if (!isSupportSessionIdentity(expected)) {
+    return { success: false, error: "Unable to verify Support Mode." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_support_session_status");
+
+  if (error) {
+    console.error("[support-mode] expiration reconciliation failed", {
+      actorId: profile.id,
+      code: error.code,
+      message: error.message,
+    });
+    return { success: false, error: "Unable to verify Support Mode." };
+  }
+
+  const activeSession = mapSupportSessionFromRpcData(data);
+  if (!activeSession) {
+    return { success: true, status: "expired" };
+  }
+
+  return {
+    success: true,
+    status: supportSessionMatchesIdentity(activeSession, expected)
+      ? "current"
+      : "replaced",
+  };
 }

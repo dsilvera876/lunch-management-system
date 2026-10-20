@@ -82,7 +82,7 @@ select set_config('request.jwt.claims',
   json_build_object('sub', 'ae222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'atomic update support test') $$,
+  $$ select * from public.start_support_session('hr', 'atomic update support test', (select session_id from public.get_support_session_status())) $$,
   'Admin starts Support Mode'
 );
 
@@ -98,7 +98,7 @@ select results_eq(
   'Support Mode rejection leaves the name and role unchanged'
 );
 
-select lives_ok($$ select public.end_support_session() $$, 'Admin ends Support Mode');
+select lives_ok($$ select public.end_support_session((select session_id from public.get_support_session_status())) $$, 'Admin ends Support Mode');
 
 select set_config('request.jwt.claims',
   json_build_object('sub', 'ae444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
@@ -169,7 +169,7 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'atomic name-only support test') $$,
+  $$ select * from public.start_support_session('hr', 'atomic name-only support test', (select session_id from public.get_support_session_status())) $$,
   'Admin starts Support Mode again'
 );
 
@@ -178,7 +178,7 @@ select lives_ok(
   'Name-only edit keeps existing behavior in Support Mode'
 );
 
-select lives_ok($$ select public.end_support_session() $$, 'Admin ends Support Mode again');
+select lives_ok($$ select public.end_support_session((select session_id from public.get_support_session_status())) $$, 'Admin ends Support Mode again');
 
 select results_eq(
   $$ select full_name, role, role_audit_count from atomic_target_state $$,

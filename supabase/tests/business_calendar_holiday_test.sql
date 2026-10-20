@@ -154,7 +154,7 @@ select lives_ok(
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
-select public.start_support_session('hr', 'calendar read test');
+select public.start_support_session('hr', 'calendar read test', (select session_id from public.get_support_session_status()));
 
 select lives_ok(
   $$ select count(*) from public.list_business_calendar_entries(2099) $$,

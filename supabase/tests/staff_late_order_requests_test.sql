@@ -786,7 +786,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'f8333333-3333-
 set local role authenticated;
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'slor support regression') $$,
+  $$ select * from public.start_support_session('hr', 'slor support regression', (select session_id from public.get_support_session_status())) $$,
   'Admin starts HR support'
 );
 

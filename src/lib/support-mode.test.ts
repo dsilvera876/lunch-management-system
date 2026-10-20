@@ -11,6 +11,7 @@ import {
   formatSupportSessionStartError,
   mapSupportSessionFromRpcData,
   mapSupportSessionRow,
+  parseSupportSessionMutationOutcome,
   parseSupportSessionRpcData,
   supportScopeLandingPath,
 } from "./support-mode";
@@ -132,6 +133,7 @@ describe("support mode application wiring", () => {
   it("maps RPC payloads and landing paths for support activation", () => {
     const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
     const row = {
+      session_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       scope: "hr",
       reason: "ticket 42",
       started_at: new Date().toISOString(),
@@ -143,9 +145,17 @@ describe("support mode application wiring", () => {
     assert.equal(parseSupportSessionRpcData([]), null);
 
     const session = mapSupportSessionFromRpcData([row]);
+    assert.equal(session?.id, row.session_id);
     assert.equal(session?.scope, "hr");
     assert.equal(supportScopeLandingPath("hr"), "/admin/todays-orders");
     assert.equal(supportScopeLandingPath("accounts"), "/admin/lunch-periods");
+  });
+
+  it("parses structured Support Mode mutation outcomes", () => {
+    assert.equal(parseSupportSessionMutationOutcome([{ outcome: "started" }]), "started");
+    assert.equal(parseSupportSessionMutationOutcome([{ outcome: "stale" }]), "stale");
+    assert.equal(parseSupportSessionMutationOutcome("ended"), "ended");
+    assert.equal(parseSupportSessionMutationOutcome("unexpected"), null);
   });
 
   it("humanizes support start errors for the modal", () => {
@@ -211,6 +221,7 @@ describe("support mode application wiring", () => {
 
   it("drops expired support sessions from client mapping", () => {
     const expired = mapSupportSessionRow({
+      session_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
       scope: "hr",
       reason: "test",
       started_at: new Date(Date.now() - 60_000).toISOString(),

@@ -5,17 +5,22 @@ import { startSupportSessionAction } from "@/app/admin/support/actions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ActiveSupportSession, SupportScope } from "@/lib/support-mode";
-import { supportScopeLabel } from "@/lib/support-mode";
+import {
+  SUPPORT_SESSION_STALE_NOTICE,
+  supportScopeLabel,
+} from "@/lib/support-mode";
 import { SupportModeExpiryDisplay } from "@/components/app-shell/support-mode-expiry-display";
 import { SupportModeExitButton } from "@/components/app-shell/support-mode-exit-button";
 import { endSupportSessionAction } from "@/app/admin/support/actions";
 
 type Props = {
   activeSession: ActiveSupportSession | null;
+  notice?: string | null;
 };
 
-export function SupportModeWorkspace({ activeSession }: Props) {
+export function SupportModeWorkspace({ activeSession, notice = null }: Props) {
   const [pendingScope, setPendingScope] = useState<SupportScope | null>(null);
+  const [expectedSessionId, setExpectedSessionId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -24,12 +29,14 @@ export function SupportModeWorkspace({ activeSession }: Props) {
 
   function openDialog(scope: SupportScope) {
     setPendingScope(scope);
+    setExpectedSessionId(activeSession?.id ?? null);
     setReason("");
     setError(null);
   }
 
   function closeDialog() {
     setPendingScope(null);
+    setExpectedSessionId(null);
     setReason("");
     setError(null);
   }
@@ -43,9 +50,19 @@ export function SupportModeWorkspace({ activeSession }: Props) {
     setError(null);
 
     try {
-      const result = await startSupportSessionAction(pendingScope, reason);
+      const result = await startSupportSessionAction(
+        pendingScope,
+        reason,
+        expectedSessionId,
+      );
       if (result && !result.success) {
         setError(result.error);
+        if (result.stale) {
+          window.location.replace(
+            `/admin/support?notice=${SUPPORT_SESSION_STALE_NOTICE}`,
+          );
+          return;
+        }
         setSubmitting(false);
       }
     } catch (caught) {
@@ -70,9 +87,21 @@ export function SupportModeWorkspace({ activeSession }: Props) {
     setExitError(null);
 
     try {
-      const result = await endSupportSessionAction();
+      if (!activeSession) {
+        setExitError("The displayed Support Mode session is no longer active.");
+        setExitPending(false);
+        return;
+      }
+
+      const result = await endSupportSessionAction(activeSession.id);
       if (result && !result.success) {
         setExitError(result.error);
+        if (result.stale) {
+          window.location.replace(
+            `/admin/support?notice=${SUPPORT_SESSION_STALE_NOTICE}`,
+          );
+          return;
+        }
         setExitPending(false);
       }
     } catch (caught) {
@@ -92,6 +121,11 @@ export function SupportModeWorkspace({ activeSession }: Props) {
 
   return (
     <div className="space-y-6">
+      {notice ? (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-50">
+          {notice}
+        </p>
+      ) : null}
       {activeSession ? (
         <Card
           padding="md"

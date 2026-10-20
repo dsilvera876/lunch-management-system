@@ -12,15 +12,19 @@ const simulatedWeekdayPlaywright = process.env.PLAYWRIGHT_SIMULATED_WEEKDAY === 
 const phase2aPlaywrightOnly = process.env.PLAYWRIGHT_PHASE_2A_ONLY === "1";
 const deliveriesReconciliationPlaywrightOnly =
   process.env.PLAYWRIGHT_DELIVERIES_RECONCILIATION_ONLY === "1";
+const supportModeExpirationPlaywrightOnly =
+  process.env.PLAYWRIGHT_SUPPORT_MODE_EXPIRATION_ONLY === "1";
 const skipOrderingGlobalSetup =
   mostPopularPlaywrightOnly ||
   menuItemRatingsPlaywrightOnly ||
   emailPreviewPlaywrightOnly ||
   phase2aPlaywrightOnly ||
-  deliveriesReconciliationPlaywrightOnly;
+  deliveriesReconciliationPlaywrightOnly ||
+  supportModeExpirationPlaywrightOnly;
 const phase2aSpecs = /(login-a11y|page-titles|staff-late-order-drawer-focus)\.spec\.ts/;
 const staffPrl011012Spec = /staff-prl-011-012\.spec\.ts/;
 const adminDeliveriesReconciliationSpec = /admin-deliveries-reconciliation\.spec\.ts/;
+const supportModeExpirationSpec = /support-mode-expiration\.spec\.ts/;
 
 export default defineConfig({
   globalSetup: path.join(
@@ -72,6 +76,7 @@ export default defineConfig({
         /email-preview-sandbox\.spec\.ts/,
         /staff-checkout-a11y\.spec\.ts/,
         adminDeliveriesReconciliationSpec,
+        supportModeExpirationSpec,
         phase2aSpecs,
         staffPrl011012Spec,
       ],
@@ -294,6 +299,26 @@ export default defineConfig({
       fullyParallel: false,
       workers: 1,
       dependencies: ["chromium-deliveries-reconciliation"],
+      use: {
+        ...devices["Desktop Firefox"],
+      },
+    },
+    {
+      name: "chromium-support-mode-expiration",
+      testMatch: supportModeExpirationSpec,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: [],
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "firefox-support-mode-expiration",
+      testMatch: supportModeExpirationSpec,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ["chromium-support-mode-expiration"],
       use: {
         ...devices["Desktop Firefox"],
       },

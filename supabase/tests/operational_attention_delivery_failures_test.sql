@@ -782,7 +782,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'e0111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'oa3 delivery failure isolation') $$,
+  $$ select * from public.start_support_session('hr', 'oa3 delivery failure isolation', (select session_id from public.get_support_session_status())) $$,
   'Admin starts HR support session for delivery failure tests'
 );
 
@@ -816,7 +816,7 @@ select ok(
 );
 
 select lives_ok(
-  $$ select public.end_support_session() $$,
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
   'Admin ends support session after delivery failure isolation tests'
 );
 

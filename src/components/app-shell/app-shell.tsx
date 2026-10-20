@@ -13,7 +13,11 @@ import type { UserRole } from "@/lib/roles";
 import { NavIcon } from "@/components/icons/line-icons";
 import { SidebarBrand } from "@/components/app-shell/sidebar-brand";
 import { TopHeader } from "@/components/app-shell/top-header";
-import type { ActiveSupportSession } from "@/lib/support-mode";
+import {
+  getSupportSessionIdentity,
+  supportSessionIdentityKey,
+  type ActiveSupportSession,
+} from "@/lib/support-mode";
 import { SupportModeProvider } from "@/components/app-shell/support-mode-context";
 import { SupportModeBanner } from "@/components/app-shell/support-mode-banner";
 
@@ -138,7 +142,7 @@ export function AppShell({
   const homeHref = getPostLoginPath(profile.role);
 
   const supportProviderKey = supportSession
-    ? `${supportSession.scope}:${supportSession.startedAt}`
+    ? supportSessionIdentityKey(getSupportSessionIdentity(supportSession))
     : "inactive";
 
   return (

@@ -312,7 +312,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'e8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'notification timing test') $$,
+  $$ select * from public.start_support_session('hr', 'notification timing test', (select session_id from public.get_support_session_status())) $$,
   'Admin can start HR support for notification auth test'
 );
 
@@ -331,7 +331,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'e8111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select public.end_support_session() $$,
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
   'Admin ends support session after notification auth test'
 );
 

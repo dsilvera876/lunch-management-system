@@ -1,6 +1,6 @@
 begin;
 
-select plan(41);
+select plan(56);
 
 \ir support/isolate_existing_owner.inc
 
@@ -24,7 +24,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-4111-8111-111111111111', 'role', 'authenticated')::text, true);
 
 select throws_ok(
-  $$ select * from public.start_support_session('hr', 'ticket 1') $$,
+  $$ select * from public.start_support_session('hr', 'ticket 1', (select session_id from public.get_support_session_status())) $$,
   null,
   'Staff cannot start support session'
 );
@@ -32,7 +32,7 @@ select throws_ok(
 select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 
 select throws_ok(
-  $$ select * from public.start_support_session('hr', 'ticket 1') $$,
+  $$ select * from public.start_support_session('hr', 'ticket 1', (select session_id from public.get_support_session_status())) $$,
   null,
   'HR cannot start support session'
 );
@@ -40,7 +40,7 @@ select throws_ok(
 select set_config('request.jwt.claims', json_build_object('sub', '33333333-3333-4333-8333-333333333333', 'role', 'authenticated')::text, true);
 
 select throws_ok(
-  $$ select * from public.start_support_session('accounts', 'ticket 1') $$,
+  $$ select * from public.start_support_session('accounts', 'ticket 1', (select session_id from public.get_support_session_status())) $$,
   null,
   'Accounts cannot start support session'
 );
@@ -60,7 +60,7 @@ select results_eq(
 );
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'ticket hr-1') $$,
+  $$ select * from public.start_support_session('hr', 'ticket hr-1', (select session_id from public.get_support_session_status())) $$,
   'Admin can start HR support'
 );
 
@@ -78,13 +78,13 @@ select ok(
 );
 
 select throws_ok(
-  $$ select * from public.start_support_session('hr', '   ') $$,
+  $$ select * from public.start_support_session('hr', '   ', (select session_id from public.get_support_session_status())) $$,
   null,
   'Blank reason denied'
 );
 
 select throws_ok(
-  $$ select * from public.start_support_session('staff', 'ticket') $$,
+  $$ select * from public.start_support_session('staff', 'ticket', (select session_id from public.get_support_session_status())) $$,
   null,
   'Invalid scope denied'
 );
@@ -103,7 +103,7 @@ select results_eq(
 
 -- End session
 select lives_ok(
-  $$ select public.end_support_session() $$,
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
   'Admin can end support session'
 );
 
@@ -116,7 +116,7 @@ select is_empty(
 select set_config('request.jwt.claims', json_build_object('sub', '55555555-5555-4555-8555-555555555555', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select * from public.start_support_session('accounts', 'owner ticket') $$,
+  $$ select * from public.start_support_session('accounts', 'owner ticket', (select session_id from public.get_support_session_status())) $$,
   'Owner can start Accounts support'
 );
 
@@ -171,7 +171,7 @@ select results_eq(
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'rpc regression') $$,
+  $$ select * from public.start_support_session('hr', 'rpc regression', (select session_id from public.get_support_session_status())) $$,
   'Admin can restart HR support for RPC regression'
 );
 
@@ -191,12 +191,12 @@ select throws_ok(
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select public.end_support_session() $$,
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
   'End support before accounts RPC regression'
 );
 
 select lives_ok(
-  $$ select * from public.start_support_session('accounts', 'accounts rpc regression') $$,
+  $$ select * from public.start_support_session('accounts', 'accounts rpc regression', (select session_id from public.get_support_session_status())) $$,
   'Admin can start Accounts support for RPC regression'
 );
 
@@ -231,7 +231,7 @@ select is_empty(
 select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
 
 select lives_ok(
-  $$ select public.end_support_session() $$,
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
   'End admin session before expired-row regression'
 );
 
@@ -295,7 +295,7 @@ select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-
 set local role authenticated;
 
 select lives_ok(
-  $$ select * from public.start_support_session('hr', 'replaces stale row') $$,
+  $$ select * from public.start_support_session('hr', 'replaces stale row', (select session_id from public.get_support_session_status())) $$,
   'start_support_session can clean stale sessions in write context'
 );
 
@@ -326,6 +326,135 @@ select results_eq(
      where n.nspname = 'public' and p.proname = 'get_support_session_status' $$,
   array['s'::text],
   'get_support_session_status is STABLE and read-only'
+);
+
+select ok(
+  (select session_id is not null from public.get_support_session_status()),
+  'Status exposes the immutable active session UUID'
+);
+
+select ok(
+  to_regprocedure('public.start_support_session(text,text)') is null,
+  'Legacy identity-blind Start RPC is removed'
+);
+
+select ok(
+  to_regprocedure('public.end_support_session()') is null,
+  'Legacy identity-blind Exit RPC is removed'
+);
+
+select session_id as session_a_id
+from public.get_support_session_status()
+\gset
+
+select is(
+  (select outcome
+   from public.start_support_session(
+     'accounts',
+     'identity-bound replacement',
+     :'session_a_id'::uuid
+   )),
+  'started'::text,
+  'Intentional replacement succeeds with the current session UUID'
+);
+
+reset role;
+
+select results_eq(
+  format(
+    'select ended_reason from private.support_sessions where id = %L::uuid',
+    :'session_a_id'
+  ),
+  array['replaced'::text],
+  'Intentional replacement records the replaced audit reason'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+
+select session_id as session_b_id
+from public.get_support_session_status()
+\gset
+
+select is(
+  public.end_support_session(:'session_a_id'::uuid),
+  'stale'::text,
+  'A stale Exit cannot terminate the replacement session'
+);
+
+select results_eq(
+  format(
+    'select session_id from public.get_support_session_status() where session_id = %L::uuid',
+    :'session_b_id'
+  ),
+  array[:'session_b_id'::uuid],
+  'Replacement session remains active after stale Exit'
+);
+
+select is(
+  (select outcome
+   from public.start_support_session(
+     'hr',
+     'stale replacement attempt',
+     :'session_a_id'::uuid
+   )),
+  'stale'::text,
+  'A stale Start cannot replace the current session'
+);
+
+select results_eq(
+  $$ select reason from public.get_support_session_status() $$,
+  array['identity-bound replacement'::text],
+  'Stale Start preserves the current session details'
+);
+
+select is(
+  public.end_support_session(:'session_b_id'::uuid),
+  'ended'::text,
+  'Normal manual Exit succeeds with the current session UUID'
+);
+
+reset role;
+
+select results_eq(
+  format(
+    'select ended_reason from private.support_sessions where id = %L::uuid',
+    :'session_b_id'
+  ),
+  array['manual'::text],
+  'Normal manual Exit records the manual audit reason'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', '44444444-4444-4444-8444-444444444444', 'role', 'authenticated')::text, true);
+
+select is(
+  (select outcome
+   from public.start_support_session('hr', 'identity-bound no-session start', null)),
+  'started'::text,
+  'Start succeeds with a null expectation only when no session is active'
+);
+
+select ok(
+  position(
+    'for update'
+    in lower(pg_get_functiondef('public.start_support_session(text,text,uuid)'::regprocedure))
+  ) > 0,
+  'Start holds the shared actor profile-row lock'
+);
+
+select ok(
+  position(
+    'for update'
+    in lower(pg_get_functiondef('public.end_support_session(uuid)'::regprocedure))
+  ) > 0,
+  'Exit holds the shared actor profile-row lock'
+);
+
+select is(
+  public.end_support_session((select session_id from public.get_support_session_status())),
+  'ended'::text,
+  'Identity-bound test session cleanup succeeds'
 );
 
 select * from finish();
