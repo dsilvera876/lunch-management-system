@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ProviderOfficeTable } from "../components/admin/order-history-workspace";
 import {
   buildOrderHistoryUrl,
   compareOrdersNewestFirst,
@@ -8,6 +11,7 @@ import {
   isEmployeeHistoryMode,
   ORDER_HISTORY_ALL_DATES,
   parseOrderHistoryFilters,
+  resolveProviderPrintDeliveryDate,
   shouldShowEmployeeHistoryTable,
   shouldShowProviderGroupedResults,
   sortOrdersForEmployeeHistory,
@@ -164,6 +168,102 @@ describe("employee order history ordering", () => {
   });
 });
 
+describe("order history table display modes", () => {
+  const orders = [
+    makeOrder({
+      id: "older",
+      employeeName: "Employee One",
+      providerName: "Provider One",
+      officeLocationName: "Office One",
+      deliveryDate: "2026-09-23",
+    }),
+    makeOrder({
+      id: "newer",
+      employeeName: "Employee Two",
+      providerName: "Provider Two",
+      officeLocationName: "Office Two",
+      deliveryDate: "2026-09-24",
+    }),
+  ];
+
+  function renderTable(
+    context: "provider-office" | "employee-history",
+    showDeliveryDate: boolean,
+  ) {
+    return renderToStaticMarkup(
+      createElement(ProviderOfficeTable, {
+        orders,
+        context,
+        showDeliveryDate,
+        onView: () => undefined,
+      }),
+    );
+  }
+
+  it("shows Employee and each order's Delivery Date in all-dates provider cards", () => {
+    const html = renderTable("provider-office", true);
+
+    assert.match(html, /<th[^>]*>Delivery Date<\/th>/);
+    assert.match(html, /<th[^>]*>Employee<\/th>/);
+    assert.doesNotMatch(html, /<th[^>]*>Provider<\/th>/);
+    assert.doesNotMatch(html, /<th[^>]*>Office<\/th>/);
+    assert.match(html, /Wednesday, September 23/);
+    assert.match(html, /Thursday, September 24/);
+    assert.match(html, /Employee One/);
+    assert.match(html, /Employee Two/);
+    assert.equal((html.match(/View details/g) ?? []).length, 2);
+    assert.equal((html.match(/>Pending</g) ?? []).length, 2);
+  });
+
+  it("preserves the employee-only context columns for a specific-date provider card", () => {
+    const html = renderTable("provider-office", false);
+
+    assert.doesNotMatch(html, /<th[^>]*>Delivery Date<\/th>/);
+    assert.match(html, /<th[^>]*>Employee<\/th>/);
+    assert.doesNotMatch(html, /Wednesday, September 23|Thursday, September 24/);
+    assert.doesNotMatch(html, /<th[^>]*>Provider<\/th>|<th[^>]*>Office<\/th>/);
+  });
+
+  it("preserves Delivery Date, Provider, and Office in employee-history mode", () => {
+    const html = renderTable("employee-history", true);
+
+    assert.match(html, /<th[^>]*>Delivery Date<\/th>/);
+    assert.doesNotMatch(html, /<th[^>]*>Employee<\/th>/);
+    assert.match(html, /<th[^>]*>Provider<\/th>/);
+    assert.match(html, /<th[^>]*>Office<\/th>/);
+    assert.match(html, /Wednesday, September 23/);
+    assert.match(html, /Thursday, September 24/);
+    assert.match(html, /Provider One/);
+    assert.match(html, /Provider Two/);
+    assert.match(html, /Office One/);
+    assert.match(html, /Office Two/);
+    assert.doesNotMatch(html, /Employee One|Employee Two/);
+  });
+
+  it("preserves date-specific provider print-link resolution", () => {
+    const allDatesFilters = {
+      deliveryDate: ORDER_HISTORY_ALL_DATES,
+      providerId: "p1",
+      officeLocation: "",
+      reconciliationStatus: "all" as const,
+      employeeId: "",
+    };
+
+    assert.equal(
+      resolveProviderPrintDeliveryDate(orders, allDatesFilters, "2026-09-22"),
+      "2026-09-24",
+    );
+    assert.equal(
+      resolveProviderPrintDeliveryDate(
+        orders,
+        { ...allDatesFilters, deliveryDate: "2026-09-23" },
+        "2026-09-22",
+      ),
+      "2026-09-23",
+    );
+  });
+});
+
 describe("order history presentation wiring", () => {
   it("uses compact tables and drawer without preparation summaries", () => {
     const workspace = readFileSync(
@@ -186,6 +286,16 @@ describe("order history presentation wiring", () => {
     assert.doesNotMatch(workspace, /View preparation summary/);
     assert.doesNotMatch(workspace, /PreparationSummaryToggle/);
     assert.match(workspace, /ProviderOfficeTable/);
+    assert.match(workspace, /formatHumanDate\(order\.deliveryDate\)/);
+    assert.match(workspace, /context="employee-history"/);
+    assert.match(workspace, /context="provider-office"/);
+    assert.match(
+      workspace,
+      /const showDeliveryDate = initialFilters\.deliveryDate === ORDER_HISTORY_ALL_DATES/,
+    );
+    assert.match(workspace, /showDeliveryDate=\{showDeliveryDate\}/);
+    assert.match(workspace, /resolveProviderPrintDeliveryDate/);
+    assert.match(workspace, /Print Delivery Sheet/);
     assert.match(workspace, /border-t-4 border-t-primary/);
     assert.match(workspace, /TealIconWell/);
     assert.match(workspace, /IconUtensils/);

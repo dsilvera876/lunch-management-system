@@ -106,23 +106,32 @@ function CompactOrderCell({ order }: { order: OperationalOrder }) {
   );
 }
 
-function ProviderOfficeTable({
+export type OrderHistoryTableContext = "provider-office" | "employee-history";
+
+export function ProviderOfficeTable({
   orders,
-  includeDate,
+  context,
+  showDeliveryDate,
   onView,
 }: {
   orders: OperationalOrder[];
-  includeDate: boolean;
+  context: OrderHistoryTableContext;
+  showDeliveryDate: boolean;
   onView: (orderId: string) => void;
 }) {
+  const showEmployee = context === "provider-office";
+  const showProviderAndOffice = context === "employee-history";
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/15 text-left text-xs uppercase tracking-wide text-muted">
-            {includeDate ? <th className="px-2 py-2 font-semibold">Date</th> : null}
-            {!includeDate ? <th className="px-2 py-2 font-semibold">Employee</th> : null}
-            {includeDate ? (
+            {showDeliveryDate ? (
+              <th className="px-2 py-2 font-semibold">Delivery Date</th>
+            ) : null}
+            {showEmployee ? <th className="px-2 py-2 font-semibold">Employee</th> : null}
+            {showProviderAndOffice ? (
               <>
                 <th className="px-2 py-2 font-semibold">Provider</th>
                 <th className="px-2 py-2 font-semibold">Office</th>
@@ -137,15 +146,15 @@ function ProviderOfficeTable({
         <tbody>
           {orders.map((order) => (
             <tr key={order.id} className="border-b border-border/80 align-top">
-              {includeDate ? (
+              {showDeliveryDate ? (
                 <td className="px-2 py-2 whitespace-nowrap">
                   {formatHumanDate(order.deliveryDate)}
                 </td>
               ) : null}
-              {!includeDate ? (
+              {showEmployee ? (
                 <td className="px-2 py-2 font-medium">{order.employeeName}</td>
               ) : null}
-              {includeDate ? (
+              {showProviderAndOffice ? (
                 <>
                   <td className="px-2 py-2">{order.providerName}</td>
                   <td className="px-2 py-2">{order.officeLocationName}</td>
@@ -193,6 +202,7 @@ export function OrderHistoryWorkspace({
 
   const employeeHistoryMode = shouldShowEmployeeHistoryTable(initialFilters);
   const showProviderCards = shouldShowProviderGroupedResults(initialFilters);
+  const showDeliveryDate = initialFilters.deliveryDate === ORDER_HISTORY_ALL_DATES;
   const filterCounts = useMemo(
     () => countsForReconciliationFilter(unfilteredOrders),
     [unfilteredOrders],
@@ -408,7 +418,8 @@ export function OrderHistoryWorkspace({
               </div>
               <ProviderOfficeTable
                 orders={employeeHistoryOrders}
-                includeDate
+                context="employee-history"
+                showDeliveryDate
                 onView={setSelectedOrderId}
               />
             </section>
@@ -459,7 +470,8 @@ export function OrderHistoryWorkspace({
                       </div>
                       <ProviderOfficeTable
                         orders={office.orders}
-                        includeDate={false}
+                        context="provider-office"
+                        showDeliveryDate={showDeliveryDate}
                         onView={setSelectedOrderId}
                       />
                     </div>
