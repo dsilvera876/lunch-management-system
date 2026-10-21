@@ -1,4 +1,4 @@
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { getRelated } from "@/lib/format";
 import type {
   DeliveryIssueType,
@@ -30,11 +30,9 @@ export type OperationalOrderRow = {
   is_late_order: boolean;
   office_location_name: string | null;
   office_location_address: string | null;
-  late_order_creator: ReturnType<typeof getRelated<{ full_name: string | null }>>;
   order_delivery_reconciliation: ReturnType<
     typeof getRelated<{ hr_delivery_notes: string | null }>
   >;
-  profiles: ReturnType<typeof getRelated<{ full_name: string | null }>>;
   lunch_days: ReturnType<
     typeof getRelated<{
       lunch_date: string;
@@ -56,7 +54,98 @@ export type OperationalOrderRow = {
   }>;
 };
 
-export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalOrder | null {
+export type OperationalOrderDisplayNameRow = {
+  order_id: string;
+  employee_name: string | null;
+  late_order_created_by_name: string | null;
+};
+
+export type OperationalOrderDisplayNames = {
+  employeeName: string | null;
+  lateOrderCreatedByName: string | null;
+};
+
+export const OPERATIONAL_ORDER_DISPLAY_NAME_BATCH_SIZE = 200;
+
+export class OperationalOrderDisplayNamesError extends Error {
+  constructor(message = "Unable to load employee names for operational orders.") {
+    super(message);
+    this.name = "OperationalOrderDisplayNamesError";
+  }
+}
+
+export async function loadOperationalOrderDisplayNames(
+  supabase: SupabaseClient,
+  orderIds: string[],
+  logContext: string,
+): Promise<Map<string, OperationalOrderDisplayNames>> {
+  const uniqueOrderIds = [...new Set(orderIds)];
+  const namesByOrderId = new Map<string, OperationalOrderDisplayNames>();
+
+  for (
+    let offset = 0;
+    offset < uniqueOrderIds.length;
+    offset += OPERATIONAL_ORDER_DISPLAY_NAME_BATCH_SIZE
+  ) {
+    const orderIdBatch = uniqueOrderIds.slice(
+      offset,
+      offset + OPERATIONAL_ORDER_DISPLAY_NAME_BATCH_SIZE,
+    );
+    const { data, error } = await supabase.rpc("list_operational_order_display_names", {
+      p_order_ids: orderIdBatch,
+    });
+
+    if (error) {
+      logOperationalOrdersQueryError(`${logContext}:display-names`, error);
+      throw new OperationalOrderDisplayNamesError();
+    }
+
+    if (!Array.isArray(data)) {
+      console.error(`Invalid operational order display-name response (${logContext})`);
+      throw new OperationalOrderDisplayNamesError();
+    }
+
+    for (const value of data) {
+      const row = value as Partial<OperationalOrderDisplayNameRow>;
+
+      if (
+        typeof row.order_id !== "string" ||
+        (row.employee_name !== null && typeof row.employee_name !== "string") ||
+        (row.late_order_created_by_name !== null &&
+          typeof row.late_order_created_by_name !== "string") ||
+        !orderIdBatch.includes(row.order_id) ||
+        namesByOrderId.has(row.order_id)
+      ) {
+        console.error(`Invalid operational order display-name row (${logContext})`);
+        throw new OperationalOrderDisplayNamesError();
+      }
+
+      namesByOrderId.set(row.order_id, {
+        employeeName: row.employee_name,
+        lateOrderCreatedByName: row.late_order_created_by_name,
+      });
+    }
+  }
+
+  const missingOrderCount = uniqueOrderIds.reduce(
+    (count, orderId) => count + (namesByOrderId.has(orderId) ? 0 : 1),
+    0,
+  );
+
+  if (missingOrderCount > 0) {
+    console.error(`Operational order display-name rows were missing (${logContext})`, {
+      missingOrderCount,
+    });
+    throw new OperationalOrderDisplayNamesError();
+  }
+
+  return namesByOrderId;
+}
+
+export function parseOperationalOrderRow(
+  row: OperationalOrderRow,
+  displayNames: OperationalOrderDisplayNames,
+): OperationalOrder | null {
   const lunchDay = getRelated(row.lunch_days);
   const provider = lunchDay ? getRelated(lunchDay.lunch_providers) : null;
 
@@ -64,7 +153,6 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
     return null;
   }
 
-  const profile = getRelated(row.profiles);
   const items: OperationalOrderItem[] = row.order_items.map((item) => {
     const menuItem = getRelated(item.menu_items);
 
@@ -78,8 +166,6 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
   });
 
   const reconciliation = getRelated(row.order_delivery_reconciliation);
-  const lateCreator = getRelated(row.late_order_creator);
-
   return {
     id: row.id,
     profileId: row.profile_id,
@@ -95,7 +181,7 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
     updatedAt: row.updated_at,
     specialInstructions: row.special_instructions,
     mealQuantity: row.meal_quantity,
-    employeeName: profile?.full_name?.trim() || "Unnamed employee",
+    employeeName: displayNames.employeeName?.trim() || "Unnamed employee",
     officeLocationName: row.office_location_name?.trim() || "No delivery location",
     officeLocationAddress: row.office_location_address,
     orderDate: lunchDay.order_date ?? lunchDay.lunch_date,
@@ -104,16 +190,26 @@ export function parseOperationalOrderRow(row: OperationalOrderRow): OperationalO
     providerName: provider.name,
     items,
     isLateOrder: row.is_late_order,
-    lateOrderCreatedByName: lateCreator?.full_name?.trim() || null,
+    lateOrderCreatedByName: displayNames.lateOrderCreatedByName?.trim() || null,
     lateOrderDispatched: false,
   };
 }
 
-/** PostgREST FK: `orders.profile_id` → `profiles.id` (see pg_constraint `orders_profile_id_fkey`). */
-export const OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY = "orders_profile_id_fkey";
+export async function parseOperationalOrderRows(
+  supabase: SupabaseClient,
+  rows: OperationalOrderRow[],
+  logContext: string,
+): Promise<OperationalOrder[]> {
+  const namesByOrderId = await loadOperationalOrderDisplayNames(
+    supabase,
+    rows.map((row) => row.id),
+    logContext,
+  );
 
-export const OPERATIONAL_ORDER_LATE_CREATOR_PROFILE_FKEY =
-  "orders_late_order_created_by_fkey";
+  return rows
+    .map((row) => parseOperationalOrderRow(row, namesByOrderId.get(row.id)!))
+    .filter((order): order is OperationalOrder => order !== null);
+}
 
 export function logOperationalOrdersQueryError(
   logContext: string,
@@ -163,14 +259,8 @@ export const OPERATIONAL_ORDERS_SELECT = `
   is_late_order,
   office_location_name,
   office_location_address,
-  late_order_creator:profiles!${OPERATIONAL_ORDER_LATE_CREATOR_PROFILE_FKEY} (
-    full_name
-  ),
   order_delivery_reconciliation (
     hr_delivery_notes
-  ),
-  profiles!${OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY} (
-    full_name
   ),
   lunch_days!inner (
     lunch_date,

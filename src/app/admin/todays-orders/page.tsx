@@ -6,7 +6,7 @@ import { buildOperationalDeliveryReport } from "@/lib/operational-orders";
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import {
@@ -43,9 +43,11 @@ export default async function TodaysOrdersPage() {
     );
   }
 
-  const orders = (data ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is NonNullable<typeof order> => order !== null);
+  const orders = await parseOperationalOrderRows(
+    supabase,
+    (data ?? []) as unknown as OperationalOrderRow[],
+    "admin-todays-orders",
+  );
 
   const report = buildOperationalDeliveryReport(orders, orderDate);
   const summaryMetrics = buildTodaysOrdersSummaryMetrics(report);

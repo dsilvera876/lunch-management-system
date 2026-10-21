@@ -5,7 +5,7 @@ import { fetchDefaultOperationalDeliveryDate } from "@/lib/business-calendar-ser
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import {
@@ -60,9 +60,11 @@ export default async function ProviderDeliveryPrintPage({ params, searchParams }
     );
   }
 
-  const parsedOrders = (orders ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is NonNullable<typeof order> => order !== null);
+  const parsedOrders = await parseOperationalOrderRows(
+    supabase,
+    (orders ?? []) as unknown as OperationalOrderRow[],
+    "admin-provider-deliveries-print",
+  );
 
   const document = buildDeliveryPrintDocument(
     parsedOrders,

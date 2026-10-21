@@ -11,7 +11,7 @@ import {
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import { OperationalOrderCard } from "@/components/admin/operational-orders";
@@ -67,9 +67,11 @@ export default async function ProviderDeliveryPrintPage({
     );
   }
 
-  const parsedOrders = (orders ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is NonNullable<typeof order> => order !== null);
+  const parsedOrders = await parseOperationalOrderRows(
+    supabase,
+    (orders ?? []) as unknown as OperationalOrderRow[],
+    "admin-provider-orders-print",
+  );
 
   const report = buildOperationalDeliveryReport(parsedOrders, deliveryDate);
   const providerGroup = report.providers[0];

@@ -16,7 +16,7 @@ import type { OperationalOrder } from "@/lib/operational-orders";
 import {
   logOperationalOrdersQueryError,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -113,9 +113,26 @@ export async function executePrimaryProviderDispatch(
       };
     }
 
-    const orders = orderRows
-      .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-      .filter((order): order is OperationalOrder => order !== null);
+    let orders: OperationalOrder[];
+
+    try {
+      orders = await parseOperationalOrderRows(
+        supabase,
+        orderRows as unknown as OperationalOrderRow[],
+        "provider-primary-order-dispatch",
+      );
+    } catch {
+      await finalizeDispatch(supabase, input.finalizeRpc, {
+        dispatchId: claim.dispatch_id,
+        success: false,
+        errorSummary: "Unable to load employee names for provider email.",
+      });
+      return {
+        success: false,
+        dispatchId: claim.dispatch_id,
+        error: "Unable to load employee names for provider email.",
+      };
+    }
 
     try {
       assertPrimaryOrdersProviderScoped(orders, input.providerId, input.deliveryDate);

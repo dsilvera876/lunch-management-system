@@ -26,7 +26,7 @@ import {
   resolveLateOrderRowDispatchDisplay,
   type LateOrderDispatchMembershipRow,
 } from "@/lib/late-order-per-order-status";
-import { OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY } from "@/lib/operational-orders-data";
+import { loadOperationalOrderDisplayNames } from "@/lib/operational-orders-data";
 import { LateOrdersWorkspace } from "@/components/admin/late-orders-workspace";
 import { LateOrdersPageHeader } from "@/components/admin/late-orders/late-orders-page-header";
 import { formatProviderLateOrderCutoffLabel } from "@/lib/late-orders-presentation";
@@ -158,13 +158,12 @@ export default async function LateOrdersPage() {
         }),
       );
 
-      const { data: lateOrders } = await supabase
+      const { data: lateOrders, error: lateOrdersError } = await supabase
         .from("orders")
         .select(
           `
           id,
           created_at,
-          profiles!${OPERATIONAL_ORDER_EMPLOYEE_PROFILE_FKEY} ( full_name ),
           lunch_days!inner ( lunch_date, order_date, provider_id )
         `,
         )
@@ -173,7 +172,16 @@ export default async function LateOrdersPage() {
         .eq("lunch_days.lunch_date", deliveryDate)
         .order("created_at", { ascending: false });
 
+      if (lateOrdersError) {
+        throw new Error("Unable to load late orders.");
+      }
+
       const lateOrderIds = (lateOrders ?? []).map((order) => order.id as string);
+      const lateOrderNames = await loadOperationalOrderDisplayNames(
+        supabase,
+        lateOrderIds,
+        "admin-late-orders",
+      );
 
       const [{ data: dispatchRows }, { data: opportunityRow }] = await Promise.all([
         supabase
@@ -281,9 +289,6 @@ export default async function LateOrdersPage() {
         primaryOrderEmail: provider.primary_order_email,
         cutoffTimeLabel: formatProviderLateOrderCutoffLabel(provider.late_order_deadline_time),
         lateOrders: (lateOrders ?? []).map((order) => {
-          const profile = getRelated(
-            order.profiles as { full_name: string | null } | { full_name: string | null }[] | null,
-          );
           const orderId = order.id as string;
           const dispatchDisplay = resolveLateOrderRowDispatchDisplay(
             orderId,
@@ -293,7 +298,7 @@ export default async function LateOrdersPage() {
 
           return {
             id: orderId,
-            employeeName: profile?.full_name?.trim() || "Employee",
+            employeeName: lateOrderNames.get(orderId)!.employeeName?.trim() || "Employee",
             createdAt: order.created_at as string,
             dispatchDisplay,
           };

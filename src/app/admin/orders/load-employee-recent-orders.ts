@@ -6,7 +6,7 @@ import { EMPLOYEE_RECENT_ORDER_HISTORY_LIMIT } from "@/lib/order-history";
 import type { OperationalOrder } from "@/lib/operational-orders";
 import {
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 
@@ -44,9 +44,17 @@ export async function loadEmployeeRecentOrderHistory(
     return { ok: false, error: error.message };
   }
 
-  const orders = (data ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is OperationalOrder => order !== null);
+  let orders: OperationalOrder[];
+
+  try {
+    orders = await parseOperationalOrderRows(
+      supabase,
+      (data ?? []) as unknown as OperationalOrderRow[],
+      "admin-employee-recent-orders",
+    );
+  } catch {
+    return { ok: false, error: "Unable to load recent orders." };
+  }
 
   return { ok: true, orders };
 }

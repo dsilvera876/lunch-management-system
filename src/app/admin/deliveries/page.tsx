@@ -6,7 +6,7 @@ import { formatHumanDate } from "@/lib/format";
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import { DeliveriesWorkspace } from "@/components/admin/deliveries-workspace";
@@ -64,9 +64,11 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
     );
   }
 
-  const orders = (data ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is NonNullable<typeof order> => order !== null);
+  const orders = await parseOperationalOrderRows(
+    supabase,
+    (data ?? []) as unknown as OperationalOrderRow[],
+    "admin-deliveries",
+  );
 
   const locationNames = Array.from(
     new Set(

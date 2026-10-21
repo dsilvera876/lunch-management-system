@@ -6,7 +6,7 @@ import type { OperationalOrder } from "@/lib/operational-orders";
 import {
   logOperationalOrdersQueryError,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import { createClient } from "@/lib/supabase/server";
@@ -42,9 +42,17 @@ export async function loadDeliveriesForDateAction(
     return { success: false, error: "Unable to load deliveries." };
   }
 
-  const orders = (data ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is NonNullable<typeof order> => order !== null);
+  let orders: OperationalOrder[];
+
+  try {
+    orders = await parseOperationalOrderRows(
+      supabase,
+      (data ?? []) as unknown as OperationalOrderRow[],
+      "admin-deliveries-action",
+    );
+  } catch {
+    return { success: false, error: "Unable to load deliveries." };
+  }
 
   assertDeliveriesPayloadSafe({ orders });
 

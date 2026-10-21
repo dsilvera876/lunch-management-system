@@ -4,7 +4,7 @@ import { fetchDefaultOperationalDeliveryDate } from "@/lib/business-calendar-ser
 import {
   failOperationalOrdersQuery,
   OPERATIONAL_ORDERS_SELECT,
-  parseOperationalOrderRow,
+  parseOperationalOrderRows,
   type OperationalOrderRow,
 } from "@/lib/operational-orders-data";
 import {
@@ -123,9 +123,11 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
     failOperationalOrdersQuery("admin/orders", error, "Unable to load orders.");
   }
 
-  const parsedOrders = (data ?? [])
-    .map((row) => parseOperationalOrderRow(row as unknown as OperationalOrderRow))
-    .filter((order): order is NonNullable<typeof order> => order !== null);
+  const parsedOrders = await parseOperationalOrderRows(
+    supabase,
+    (data ?? []) as unknown as OperationalOrderRow[],
+    "admin-order-history",
+  );
 
   const orders = filterOrdersForHistoryView(
     parsedOrders,
