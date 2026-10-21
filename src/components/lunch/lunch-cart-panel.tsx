@@ -1,7 +1,15 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type RefObject,
+} from "react";
 import { FormSubmitButton } from "@/components/form-submit-button";
+import { FormActionStatus } from "@/components/ui/form-action-status";
 import {
   CART_CLEARED_ANNOUNCEMENT,
   formatCartEntryRemoveLabel,
@@ -45,6 +53,9 @@ type Props = {
   dailySubsidy: number;
   existingOrderDateGross: number;
   guidanceMessage: string | null;
+  checkoutError: { message: string } | null;
+  checkoutErrorSummaryId: string;
+  validationErrorRef: RefObject<HTMLDivElement | null>;
   canSubmit: boolean;
   orderingOpen: boolean;
   isSubmitting: boolean;
@@ -254,6 +265,7 @@ function ProviderSections(
     Props,
     | "providersById"
     | "orderingOpen"
+    | "isSubmitting"
     | "onRemoveEntry"
     | "onRemoveInProgressMain"
     | "onRemoveInProgressSide"
@@ -264,6 +276,7 @@ function ProviderSections(
     sections,
     providersById,
     orderingOpen,
+    isSubmitting,
     onRemoveEntry,
     onRemoveInProgressMain,
     onRemoveInProgressSide,
@@ -298,7 +311,7 @@ function ProviderSections(
                 </div>
                 <TrashButton
                   label={formatCartEntryRemoveLabel(section.providerName, entry.providerOrderIndex)}
-                  disabled={!orderingOpen}
+                  disabled={!orderingOpen || isSubmitting}
                   onClick={(event) =>
                     onRemove(
                       event,
@@ -316,7 +329,7 @@ function ProviderSections(
                 draft={entry.draft}
                 menuItems={menuItems}
                 providerName={section.providerName}
-                orderingOpen={orderingOpen}
+                orderingOpen={orderingOpen && !isSubmitting}
                 allowLineRemove={false}
                 onRemoveMain={() => undefined}
                 onRemoveSide={() => undefined}
@@ -352,7 +365,7 @@ function ProviderSections(
               draft={section.inProgress.draft}
               menuItems={menuItems}
               providerName={section.providerName}
-              orderingOpen={orderingOpen}
+              orderingOpen={orderingOpen && !isSubmitting}
               allowLineRemove
               onRemoveMain={(event, itemName) =>
                 onRemove(
@@ -408,6 +421,9 @@ export function LunchCartPanel({
   dailySubsidy,
   existingOrderDateGross,
   guidanceMessage,
+  checkoutError,
+  checkoutErrorSummaryId,
+  validationErrorRef,
   canSubmit,
   orderingOpen,
   isSubmitting,
@@ -462,6 +478,10 @@ export function LunchCartPanel({
   }, [focusEntryRequest]);
 
   const handleRemove: RemoveHandler = (event, remove, message) => {
+    if (isSubmitting) {
+      return;
+    }
+
     pendingFocus.current = {
       kind: "removal",
       index: getRemoveButtons().indexOf(event.currentTarget),
@@ -471,6 +491,10 @@ export function LunchCartPanel({
   };
 
   function handleClearAll() {
+    if (isSubmitting) {
+      return;
+    }
+
     pendingFocus.current = { kind: "heading" };
     onClearAll();
     announce(CART_CLEARED_ANNOUNCEMENT);
@@ -496,6 +520,11 @@ export function LunchCartPanel({
       : !canSubmit
         ? "Complete your lunch cart before placing your order."
         : null;
+  const activeCheckoutMessageId = checkoutError
+    ? checkoutErrorSummaryId
+    : placeOrderGuidanceText
+      ? placeOrderGuidanceId
+      : undefined;
 
   return (
     <Card
@@ -525,7 +554,7 @@ export function LunchCartPanel({
         <button
           type="button"
           onClick={handleClearAll}
-          disabled={!orderingOpen || cart.length === 0}
+          disabled={!orderingOpen || isSubmitting || cart.length === 0}
           className="inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-staff-teal hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
         >
           Clear All
@@ -542,6 +571,7 @@ export function LunchCartPanel({
             sections={sections}
             providersById={providersById}
             orderingOpen={orderingOpen}
+            isSubmitting={isSubmitting}
             onRemoveEntry={onRemoveEntry}
             onRemoveInProgressMain={onRemoveInProgressMain}
             onRemoveInProgressSide={onRemoveInProgressSide}
@@ -554,16 +584,6 @@ export function LunchCartPanel({
       <p className="sr-only" role="status" aria-atomic="true" data-cart-announcer>
         {withAnnouncementNonce(announcement.message, announcement.nonce)}
       </p>
-
-      {placeOrderGuidanceText ? (
-        <p
-          id={placeOrderGuidanceId}
-          className="mt-3 text-sm text-amber-900"
-          role="status"
-        >
-          {placeOrderGuidanceText}
-        </p>
-      ) : null}
 
       {checkout.combinedSubtotal > 0 ? (
         <dl className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
@@ -588,15 +608,33 @@ export function LunchCartPanel({
         </dl>
       ) : null}
 
+      {checkoutError ? (
+        <FormActionStatus
+          ref={validationErrorRef}
+          id={checkoutErrorSummaryId}
+          variant="error"
+          liveRegion={false}
+          className="mt-4"
+        >
+          {checkoutError.message}
+        </FormActionStatus>
+      ) : placeOrderGuidanceText ? (
+        <p
+          id={placeOrderGuidanceId}
+          className="mt-4 text-sm text-amber-900"
+          role="status"
+        >
+          {placeOrderGuidanceText}
+        </p>
+      ) : null}
+
       <div className="mt-4">
         <FormSubmitButton
           pendingText="Placing order…"
           variant="primary"
           staffPrimaryCta
           accessibilityBlocked={submitAccessibilityBlocked}
-          ariaDescribedBy={
-            submitAccessibilityBlocked ? placeOrderGuidanceId : undefined
-          }
+          ariaDescribedBy={activeCheckoutMessageId}
           forcePending={isSubmitting}
           focusableWhilePending
           onBlockedActivate={onBlockedPlaceOrder}

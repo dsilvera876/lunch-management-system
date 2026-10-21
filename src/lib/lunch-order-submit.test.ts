@@ -78,7 +78,11 @@ describe("lunch order submit workflow", () => {
 
     assert.match(shellSource, /buildCheckoutSuccessToastBody/);
     assert.match(shellSource, /<CheckoutSuccessPanel/);
-    assert.match(shellSource, /onCheckoutStart=\{\(\) => setCheckoutSuccess\(null\)\}/);
+    assert.match(
+      shellSource,
+      /function handleCheckoutPendingChange[\s\S]*?if \(pending\) \{[\s\S]*?setCheckoutSuccess\(null\)/,
+    );
+    assert.match(shellSource, /onCheckoutPendingChange=\{handleCheckoutPendingChange\}/);
     assert.doesNotMatch(shellSource, /useToast|showToast|ToastProvider/);
     assert.match(panelSource, /CHECKOUT_SUCCESS_TITLE/);
     assert.match(panelSource, /href="\/my-orders"/);

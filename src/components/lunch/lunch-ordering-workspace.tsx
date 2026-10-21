@@ -6,7 +6,6 @@ import { submitLunchCheckout } from "@/app/lunch/actions";
 import { ProviderSelector } from "@/components/lunch/provider-selector";
 import { ProviderMenuPanel } from "@/components/lunch/provider-menu-panel";
 import { LunchCartPanel } from "@/components/lunch/lunch-cart-panel";
-import { FormActionStatus } from "@/components/ui/form-action-status";
 import {
   canAddDraftToCart,
   createCartEntryFromDraft,
@@ -28,7 +27,14 @@ import {
 import { draftHasSelectedItems } from "@/lib/lunch-checkout";
 import { getLunchOrderErrorMessage } from "@/lib/lunch-order-errors";
 import { validateLunchCart } from "@/lib/lunch-checkout";
-import { resolveCheckoutBlock } from "@/lib/lunch-checkout-accessibility";
+import {
+  resolveCheckoutBlock,
+  resolveClientCheckoutErrorInvalidation,
+  resolveServerCheckoutErrorInvalidation,
+  shouldInvalidateCheckoutError,
+  type CheckoutErrorChange,
+  type CheckoutErrorInvalidation,
+} from "@/lib/lunch-checkout-accessibility";
 import { focusFormErrorSummary } from "@/lib/staff-form-accessibility";
 import type { ProviderMenuBundle } from "@/lib/staff-provider-menu";
 import type { OfficeLocationOption } from "@/lib/office-locations";
@@ -44,6 +50,7 @@ type CheckoutError = {
   message: string;
   /** False when another flow (the location picker) owns focus. */
   focusSummary: boolean;
+  invalidation: CheckoutErrorInvalidation;
 };
 
 type Props = {
@@ -57,7 +64,7 @@ type Props = {
   selectedOfficeLocationId: string;
   saveAsDefault: boolean;
   onRequestLocationPicker: (notice: string) => void;
-  onCheckoutStart: () => void;
+  onCheckoutPendingChange: (pending: boolean) => void;
   onCheckoutSuccess: (payload: CheckoutSuccess) => void;
   menuItemRatingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
@@ -75,7 +82,7 @@ export function LunchOrderingWorkspace({
   selectedOfficeLocationId,
   saveAsDefault,
   onRequestLocationPicker,
-  onCheckoutStart,
+  onCheckoutPendingChange,
   onCheckoutSuccess,
   menuItemRatingSummaries,
   ratingsLoadFailed,
@@ -98,6 +105,8 @@ export function LunchOrderingWorkspace({
   } | null>(null);
   const validationErrorRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
+  const previousOfficeLocationIdRef = useRef(selectedOfficeLocationId);
+  const previousOrderingStateRef = useRef({ orderDate, orderingOpen });
   const checkoutErrorSummaryId = useId();
 
   useEffect(() => {
@@ -107,9 +116,47 @@ export function LunchOrderingWorkspace({
     focusFormErrorSummary(validationErrorRef.current);
   }, [checkoutError]);
 
-  function setValidationError(message: string | null, options?: { focusSummary?: boolean }) {
-    setCheckoutError(
-      message ? { message, focusSummary: options?.focusSummary ?? true } : null,
+  useEffect(() => {
+    if (previousOfficeLocationIdRef.current === selectedOfficeLocationId) {
+      return;
+    }
+    previousOfficeLocationIdRef.current = selectedOfficeLocationId;
+    setCheckoutError((current) =>
+      current &&
+      shouldInvalidateCheckoutError(current.invalidation, { kind: "delivery-location" })
+        ? null
+        : current,
+    );
+  }, [selectedOfficeLocationId]);
+
+  useEffect(() => {
+    const previous = previousOrderingStateRef.current;
+    if (previous.orderDate === orderDate && previous.orderingOpen === orderingOpen) {
+      return;
+    }
+    previousOrderingStateRef.current = { orderDate, orderingOpen };
+    setCheckoutError((current) =>
+      current && shouldInvalidateCheckoutError(current.invalidation, { kind: "ordering-state" })
+        ? null
+        : current,
+    );
+  }, [orderDate, orderingOpen]);
+
+  function setValidationError(
+    message: string,
+    invalidation: CheckoutErrorInvalidation,
+    options?: { focusSummary?: boolean },
+  ) {
+    setCheckoutError({
+      message,
+      focusSummary: options?.focusSummary ?? true,
+      invalidation,
+    });
+  }
+
+  function clearValidationError(change: CheckoutErrorChange) {
+    setCheckoutError((current) =>
+      current && shouldInvalidateCheckoutError(current.invalidation, change) ? null : current,
     );
   }
 
@@ -144,11 +191,15 @@ export function LunchOrderingWorkspace({
   );
 
   function updateDraftForProvider(providerId: string, next: ProviderDraft) {
+    if (submittingRef.current) {
+      return;
+    }
+
     setDrafts((current) => ({
       ...current,
       [providerId]: next,
     }));
-    setValidationError(null);
+    clearValidationError({ kind: "draft" });
   }
 
   function updateDraft(next: ProviderDraft) {
@@ -164,17 +215,43 @@ export function LunchOrderingWorkspace({
   }
 
   function handleFinishOrder() {
-    if (!selectedProvider || !canAddDraftToCart(draft)) {
+    if (submittingRef.current || !selectedProvider || !canAddDraftToCart(draft)) {
       return;
     }
 
     const entry = createCartEntryFromDraft(selectedProvider, draft);
     setCart((current) => [...current, entry]);
+    clearValidationError({
+      kind: "cart",
+      providerId: selectedProvider.id,
+      removesProvider: false,
+    });
     updateDraftForProvider(selectedProvider.id, emptyProviderDraft());
     setFocusEntryRequest((current) => ({
       entryId: entry.id,
       nonce: (current?.nonce ?? 0) + 1,
     }));
+  }
+
+  function clearCart() {
+    if (submittingRef.current) {
+      return;
+    }
+
+    setCart([]);
+    clearValidationError({ kind: "cart", providerId: null, removesProvider: true });
+  }
+
+  function removeCartEntry(entryId: string) {
+    if (submittingRef.current) {
+      return;
+    }
+
+    const providerId = cart.find((entry) => entry.id === entryId)?.providerId ?? null;
+    const removesProvider =
+      providerId !== null && cart.filter((entry) => entry.providerId === providerId).length === 1;
+    setCart((current) => current.filter((entry) => entry.id !== entryId));
+    clearValidationError({ kind: "cart", providerId, removesProvider });
   }
 
   const checkoutGuidance =
@@ -208,12 +285,14 @@ export function LunchOrderingWorkspace({
     }
 
     if (block.kind === "location") {
-      setValidationError(block.message, { focusSummary: false });
+      setValidationError(block.message, resolveClientCheckoutErrorInvalidation(block.kind), {
+        focusSummary: false,
+      });
       onRequestLocationPicker(block.message);
       return true;
     }
 
-    setValidationError(block.message);
+    setValidationError(block.message, resolveClientCheckoutErrorInvalidation(block.kind));
     return true;
   }
 
@@ -226,8 +305,8 @@ export function LunchOrderingWorkspace({
 
     submittingRef.current = true;
     setIsSubmitting(true);
-    setValidationError(null);
-    onCheckoutStart();
+    setCheckoutError(null);
+    onCheckoutPendingChange(true);
 
     try {
       const result = await submitLunchCheckout({
@@ -254,10 +333,12 @@ export function LunchOrderingWorkspace({
           (result.providerName
             ? `${result.providerName}: ${getLunchOrderErrorMessage(result.errorCode)}`
             : getLunchOrderErrorMessage(result.errorCode)),
+        resolveServerCheckoutErrorInvalidation(result.errorCode, result.providerId),
       );
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
+      onCheckoutPendingChange(false);
     }
   }
 
@@ -280,7 +361,7 @@ export function LunchOrderingWorkspace({
           providerDescription={selectedProvider.description}
           menuItems={selectedProvider.menuItems}
           draft={draft}
-          disabled={!orderingOpen}
+          disabled={!orderingOpen || isSubmitting}
           onSelectMain={(itemId) => updateDraft(replaceMain(draft, itemId))}
           onAddSide={(itemId) => updateDraft(addSide(draft, itemId))}
           onAddStandalone={(itemId) => updateDraft(addStandalone(draft, itemId))}
@@ -311,13 +392,14 @@ export function LunchOrderingWorkspace({
           dailySubsidy={dailySubsidy}
           existingOrderDateGross={existingOrderDateGross}
           guidanceMessage={checkoutGuidance}
+          checkoutError={checkoutError}
+          checkoutErrorSummaryId={checkoutErrorSummaryId}
+          validationErrorRef={validationErrorRef}
           canSubmit={canSubmit}
           orderingOpen={orderingOpen}
           isSubmitting={isSubmitting}
-          onClearAll={() => setCart([])}
-          onRemoveEntry={(entryId) =>
-            setCart((current) => current.filter((entry) => entry.id !== entryId))
-          }
+          onClearAll={clearCart}
+          onRemoveEntry={removeCartEntry}
           onRemoveInProgressMain={(providerId) =>
             updateDraftForProvider(providerId, removeMain(getDraftForProvider(providerId)))
           }
@@ -337,18 +419,6 @@ export function LunchOrderingWorkspace({
           onBlockedPlaceOrder={explainCheckoutBlock}
         />
       </div>
-
-      {checkoutError ? (
-        <FormActionStatus
-          ref={validationErrorRef}
-          id={checkoutErrorSummaryId}
-          variant="error"
-          liveRegion={false}
-          className="mt-4"
-        >
-          {checkoutError.message}
-        </FormActionStatus>
-      ) : null}
     </form>
   );
 }

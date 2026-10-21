@@ -27,6 +27,7 @@ type Props = {
   showSaveAsDefault?: boolean;
   saveAsDefault?: boolean;
   defaultSaveError?: string | null;
+  locationSelectionDisabled?: boolean;
 };
 
 export function OrderingStatusBar({
@@ -47,6 +48,7 @@ export function OrderingStatusBar({
   showSaveAsDefault = false,
   saveAsDefault = false,
   defaultSaveError = null,
+  locationSelectionDisabled = false,
 }: Props) {
   const changeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -150,6 +152,7 @@ export function OrderingStatusBar({
                           : "Choose delivery location"
                       }
                       className="inline-flex min-h-10 items-center font-semibold text-staff-teal hover:underline"
+                      disabled={locationSelectionDisabled}
                       onClick={openLocationPicker}
                     >
                       <span aria-hidden="true">· {locationName ? "Change" : "Choose"}</span>

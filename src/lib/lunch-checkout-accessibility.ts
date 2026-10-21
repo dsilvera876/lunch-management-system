@@ -17,6 +17,81 @@ export type CheckoutBlock =
   | { kind: "unfinished"; message: string }
   | { kind: "cart"; message: string };
 
+export type CheckoutErrorInvalidation =
+  | { kind: "draft-or-cart" }
+  | { kind: "submitted-cart" }
+  | { kind: "delivery-location" }
+  | { kind: "unavailable-item"; providerId: string | null }
+  | { kind: "ordering-state" }
+  | { kind: "authoritative" };
+
+export type CheckoutErrorChange =
+  | { kind: "draft" }
+  | { kind: "cart"; providerId: string | null; removesProvider: boolean }
+  | { kind: "delivery-location" }
+  | { kind: "ordering-state" };
+
+export function resolveClientCheckoutErrorInvalidation(
+  blockKind: CheckoutBlock["kind"],
+): CheckoutErrorInvalidation {
+  if (blockKind === "location") {
+    return { kind: "delivery-location" };
+  }
+
+  if (blockKind === "closed") {
+    return { kind: "ordering-state" };
+  }
+
+  return { kind: "draft-or-cart" };
+}
+
+export function resolveServerCheckoutErrorInvalidation(
+  errorCode: string,
+  providerId: string | null,
+): CheckoutErrorInvalidation {
+  switch (errorCode) {
+    case "location":
+      return { kind: "delivery-location" };
+    case "unavailable-item":
+      return { kind: "unavailable-item", providerId };
+    case "closed":
+      return { kind: "ordering-state" };
+    case "empty":
+    case "composition":
+    case "instructions":
+      return { kind: "submitted-cart" };
+    default:
+      return { kind: "authoritative" };
+  }
+}
+
+/** Returns true only when the state change could correct the displayed error. */
+export function shouldInvalidateCheckoutError(
+  invalidation: CheckoutErrorInvalidation,
+  change: CheckoutErrorChange,
+): boolean {
+  switch (invalidation.kind) {
+    case "draft-or-cart":
+      return change.kind === "draft" || change.kind === "cart";
+    case "submitted-cart":
+      return change.kind === "cart";
+    case "delivery-location":
+      return change.kind === "delivery-location";
+    case "unavailable-item":
+      return (
+        change.kind === "cart" &&
+        (change.providerId === null ||
+          (change.removesProvider &&
+            invalidation.providerId !== null &&
+            change.providerId === invalidation.providerId))
+      );
+    case "ordering-state":
+      return change.kind === "ordering-state";
+    case "authoritative":
+      return false;
+  }
+}
+
 /**
  * Mirrors the checkout guard order so a blocked Place Order activation and a
  * form submit report the same correction. Returns null when checkout may proceed.

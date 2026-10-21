@@ -9,8 +9,11 @@ import {
   formatCartLineRemoveLabel,
   formatCartLineRemovedAnnouncement,
   resolveCheckoutBlock,
+  resolveClientCheckoutErrorInvalidation,
   resolveLocationPickerConfirmation,
   resolveRemovalFocusIndex,
+  resolveServerCheckoutErrorInvalidation,
+  shouldInvalidateCheckoutError,
   withAnnouncementNonce,
 } from "./lunch-checkout-accessibility";
 
@@ -79,6 +82,142 @@ describe("resolveCheckoutBlock", () => {
     const block = resolveCheckoutBlock({ ...ready, canSubmit: false });
     assert.equal(block?.kind, "cart");
     assert.match(block?.message ?? "", /Complete your lunch cart/);
+  });
+});
+
+describe("checkout error invalidation", () => {
+  it("clears client composition errors only after draft or cart changes", () => {
+    const invalidation = resolveClientCheckoutErrorInvalidation("unfinished");
+    assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "draft" }), true);
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: "provider-1",
+        removesProvider: false,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, { kind: "delivery-location" }),
+      false,
+    );
+  });
+
+  it("preserves server cart-validation errors until the submitted cart changes", () => {
+    for (const errorCode of ["empty", "composition", "instructions"]) {
+      const invalidation = resolveServerCheckoutErrorInvalidation(errorCode, null);
+      assert.deepEqual(invalidation, { kind: "submitted-cart" });
+      assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "draft" }), false);
+      assert.equal(
+        shouldInvalidateCheckoutError(invalidation, { kind: "delivery-location" }),
+        false,
+      );
+      assert.equal(
+        shouldInvalidateCheckoutError(invalidation, {
+          kind: "cart",
+          providerId: "provider-1",
+          removesProvider: false,
+        }),
+        true,
+      );
+    }
+  });
+
+  it("clears location errors only after the delivery location changes", () => {
+    const invalidation = resolveServerCheckoutErrorInvalidation("location", null);
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, { kind: "delivery-location" }),
+      true,
+    );
+    assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "draft" }), false);
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: null,
+        removesProvider: true,
+      }),
+      false,
+    );
+  });
+
+  it("clears unavailable-item errors only when the affected provider cart changes", () => {
+    const invalidation = resolveServerCheckoutErrorInvalidation(
+      "unavailable-item",
+      "provider-1",
+    );
+    assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "draft" }), false);
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: "provider-2",
+        removesProvider: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: "provider-1",
+        removesProvider: false,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: "provider-1",
+        removesProvider: true,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: null,
+        removesProvider: true,
+      }),
+      true,
+    );
+  });
+
+  it("preserves generic authoritative errors through unrelated changes", () => {
+    for (const errorCode of ["deadline", "finalized", "generic"]) {
+      const invalidation = resolveServerCheckoutErrorInvalidation(errorCode, null);
+      assert.deepEqual(invalidation, { kind: "authoritative" });
+      assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "draft" }), false);
+      assert.equal(
+        shouldInvalidateCheckoutError(invalidation, {
+          kind: "cart",
+          providerId: null,
+          removesProvider: true,
+        }),
+        false,
+      );
+      assert.equal(
+        shouldInvalidateCheckoutError(invalidation, { kind: "delivery-location" }),
+        false,
+      );
+    }
+  });
+
+  it("preserves local ordering-closed feedback until authoritative state changes", () => {
+    const invalidation = resolveClientCheckoutErrorInvalidation("closed");
+    assert.deepEqual(invalidation, { kind: "ordering-state" });
+    assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "draft" }), false);
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, {
+        kind: "cart",
+        providerId: null,
+        removesProvider: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldInvalidateCheckoutError(invalidation, { kind: "delivery-location" }),
+      false,
+    );
+    assert.equal(shouldInvalidateCheckoutError(invalidation, { kind: "ordering-state" }), true);
+    assert.deepEqual(resolveServerCheckoutErrorInvalidation("closed", null), invalidation);
   });
 });
 
@@ -177,6 +316,16 @@ describe("Staff checkout focus retention (source)", () => {
   it("guards against double submission while pending", () => {
     const workspace = readComponent("lunch/lunch-ordering-workspace.tsx");
     assert.match(workspace, /if \(submittingRef\.current \|\| explainCheckoutBlock\(\)\)/);
+    assert.match(workspace, /function updateDraftForProvider[\s\S]*?if \(submittingRef\.current\)/);
+    assert.match(workspace, /function clearCart\(\)[\s\S]*?if \(submittingRef\.current\)/);
+    assert.match(workspace, /function removeCartEntry[\s\S]*?if \(submittingRef\.current\)/);
+  });
+
+  it("guards shell-owned delivery location changes while checkout is pending", () => {
+    const shell = readComponent("lunch/lunch-ordering-shell.tsx");
+    assert.match(shell, /checkoutPendingRef\.current && open/);
+    assert.match(shell, /checkoutPendingRef\.current \|\| !locationId/);
+    assert.match(shell, /locationSelectionDisabled=\{checkoutPending\}/);
   });
 });
 

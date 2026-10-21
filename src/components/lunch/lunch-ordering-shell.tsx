@@ -81,6 +81,8 @@ export function LunchOrderingShell({
   );
   const [defaultSaveError, setDefaultSaveError] = useState<string | null>(null);
   const [locationPickerNotice, setLocationPickerNotice] = useState<string | null>(null);
+  const [checkoutPending, setCheckoutPending] = useState(false);
+  const checkoutPendingRef = useRef(false);
   const locationPickerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState<{
     body: string;
@@ -94,6 +96,10 @@ export function LunchOrderingShell({
   );
 
   function handleLocationPickerOpenChange(open: boolean) {
+    if (checkoutPendingRef.current && open) {
+      return;
+    }
+
     if (open) {
       locationPickerReturnFocusRef.current = null;
     } else {
@@ -103,6 +109,10 @@ export function LunchOrderingShell({
   }
 
   function handleRequestLocationPicker(notice: string) {
+    if (checkoutPendingRef.current) {
+      return;
+    }
+
     const active = document.activeElement;
     locationPickerReturnFocusRef.current = active instanceof HTMLElement ? active : null;
     setLocationPickerNotice(notice);
@@ -110,7 +120,7 @@ export function LunchOrderingShell({
   }
 
   function handleConfirmLocation(locationId: string, saveDefault: boolean) {
-    if (!locationId) {
+    if (checkoutPendingRef.current || !locationId) {
       return;
     }
 
@@ -162,6 +172,14 @@ export function LunchOrderingShell({
     }));
   }
 
+  function handleCheckoutPendingChange(pending: boolean) {
+    checkoutPendingRef.current = pending;
+    setCheckoutPending(pending);
+    if (pending) {
+      setCheckoutSuccess(null);
+    }
+  }
+
   return (
     <>
       {checkoutSuccess ? (
@@ -189,6 +207,7 @@ export function LunchOrderingShell({
         showSaveAsDefault
         saveAsDefault={saveAsDefault}
         defaultSaveError={defaultSaveError}
+        locationSelectionDisabled={checkoutPending}
       />
 
       <LunchOrderingWorkspace
@@ -202,7 +221,7 @@ export function LunchOrderingShell({
         selectedOfficeLocationId={selectedLocationId}
         saveAsDefault={persistDefaultOnCheckout}
         onRequestLocationPicker={handleRequestLocationPicker}
-        onCheckoutStart={() => setCheckoutSuccess(null)}
+        onCheckoutPendingChange={handleCheckoutPendingChange}
         onCheckoutSuccess={handleCheckoutSuccess}
         menuItemRatingSummaries={menuItemRatingSummaries}
         ratingsLoadFailed={ratingsLoadFailed}
