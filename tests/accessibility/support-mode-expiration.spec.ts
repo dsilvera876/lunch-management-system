@@ -136,8 +136,12 @@ test.describe("Support Mode expiration", () => {
     await page.getByLabel("Role").selectOption("staff");
 
     await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(
+      page.getByRole("columnheader", { name: "Last Logged In" }),
+    ).toBeVisible();
     const staffRow = page.getByRole("row").filter({ hasText: "Dev Staff One" });
     await expect(staffRow).toBeVisible();
+    await expect(staffRow.locator("[data-last-sign-in]")).not.toHaveText("Never");
     await expect(staffRow.getByRole("button", { name: "View" })).toBeVisible();
     await staffRow.getByRole("button", { name: "View" }).click();
     const detailsPanel = page.locator("aside").filter({
@@ -146,6 +150,32 @@ test.describe("Support Mode expiration", () => {
     await expect(detailsPanel).toBeVisible();
     await expect(detailsPanel.getByRole("button", { name: "Save changes" })).toHaveCount(0);
     await expect(detailsPanel.getByRole("button", { name: "Deactivate user" })).toHaveCount(0);
+  });
+
+  test("renders Last Logged In responsively in governance and HR directories", async ({ page }) => {
+    test.setTimeout(90_000);
+    await signInAsOwner(page);
+
+    await page.goto("/admin/users?context=governance");
+    await expect(
+      page.getByRole("columnheader", { name: "Last Logged In" }),
+    ).toBeVisible();
+    const ownerRow = page.getByRole("row").filter({ hasText: "Dev Owner" });
+    await expect(ownerRow.locator("[data-last-sign-in]")).not.toHaveText("Never");
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    await expect(
+      page.getByRole("columnheader", { name: "Last Logged In" }),
+    ).toBeHidden();
+    await expect(ownerRow.getByText(/Last logged in: (?!Never)/)).toBeVisible();
+
+    await startSupportMode(page, "HR");
+    await page.goto("/admin/users");
+    await page.getByLabel("Search").fill("Dev Staff One");
+    const staffRow = page.getByRole("row").filter({ hasText: "Dev Staff One" });
+    await expect(staffRow.getByText(/Last logged in: (?!Never)/)).toBeVisible();
+    await expect(staffRow.getByRole("button", { name: "View" })).toBeVisible();
   });
 
   test("denies directory search after HR Support Mode expires", async ({ page }) => {

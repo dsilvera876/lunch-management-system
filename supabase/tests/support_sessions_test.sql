@@ -1,6 +1,6 @@
 begin;
 
-select plan(73);
+select plan(74);
 
 \ir support/isolate_existing_owner.inc
 
@@ -11,6 +11,10 @@ values
   ('33333333-3333-4333-8333-333333333333', 'accounts@test.local', '{"full_name":"Accounts User"}'),
   ('44444444-4444-4444-8444-444444444444', 'admin@test.local', '{"full_name":"Admin User"}'),
   ('55555555-5555-4555-8555-555555555555', 'owner@test.local', '{"full_name":"Owner User"}');
+
+update auth.users
+set last_sign_in_at = '2026-10-21 18:15:00+00'::timestamptz
+where id = '11111111-1111-4111-8111-111111111111';
 
 \ir support/assign_test_office_defaults.inc
 
@@ -106,6 +110,12 @@ select results_eq(
   $$ select full_name from public.search_staff_directory('staff@test.local', null, null, 50, 0) $$,
   array['Staff User'::text],
   'Active Admin HR Support can search the staff directory'
+);
+
+select results_eq(
+  $$ select last_sign_in_at from public.search_staff_directory('staff@test.local', null, null, 50, 0) $$,
+  $$ values ('2026-10-21 18:15:00+00'::timestamptz) $$,
+  'Active Admin HR Support receives the authoritative sign-in timestamp'
 );
 
 select results_eq(

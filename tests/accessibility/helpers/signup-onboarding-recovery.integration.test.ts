@@ -146,6 +146,13 @@ test(
       assert.equal(created.error, null);
       assert.ok(created.data.user?.id);
       userId = created.data.user.id;
+
+      const [beforeRecovery] = runLocalDbQuery(`
+        select last_sign_in_at
+        from auth.users
+        where id = '${userId}'::uuid;
+      `);
+      assert.equal(beforeRecovery?.last_sign_in_at, null);
       runLocalDbExec(`select private.apply_profile_role('${userId}'::uuid, 'hr');`);
 
       runLocalDbExec(`
@@ -171,6 +178,16 @@ test(
         redirectTo: setupRedirect({ nonce: firstNonce, email, userId }),
       });
       assert.equal(firstReset.error, null);
+      const [afterRecoveryRequest] = runLocalDbQuery(`
+        select last_sign_in_at
+        from auth.users
+        where id = '${userId}'::uuid;
+      `);
+      assert.equal(
+        afterRecoveryRequest?.last_sign_in_at,
+        beforeRecovery?.last_sign_in_at,
+        "requesting password recovery must not record a successful authentication",
+      );
       const firstToken = latestSetupToken(requestId);
 
       runLocalDbExec(`
@@ -243,6 +260,14 @@ test(
       });
       assert.equal(verified.error, null);
       assert.equal(verified.data.user?.id, userId);
+
+      const [afterRecovery] = runLocalDbQuery(`
+        select last_sign_in_at
+        from auth.users
+        where id = '${userId}'::uuid;
+      `);
+      assert.equal(typeof afterRecovery?.last_sign_in_at, "string");
+      assert.notEqual(afterRecovery?.last_sign_in_at, beforeRecovery?.last_sign_in_at);
 
       const authorized = await admin.rpc("service_authorize_signup_onboarding", {
         p_user_id: userId,

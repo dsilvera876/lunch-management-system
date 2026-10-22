@@ -1,4 +1,5 @@
 import type { UserRole } from "@/lib/roles";
+import { readAuthoritativeLastSignInAt } from "@/lib/user-last-sign-in";
 
 export const STAFF_DIRECTORY_PAGE_SIZE = 25;
 
@@ -13,6 +14,7 @@ export type StaffDirectoryRow = {
   role: UserRole;
   status: "active" | "inactive";
   total_count: number;
+  last_sign_in_at: string | null;
 };
 
 export type EmployeeIdDirectoryRow = {
@@ -22,6 +24,21 @@ export type EmployeeIdDirectoryRow = {
   employee_id: string | null;
   total_count: number;
 };
+
+export function mapStaffDirectoryRow(
+  raw: Record<string, unknown>,
+): StaffDirectoryRow {
+  return {
+    profile_id: String(raw.profile_id),
+    full_name: (raw.full_name as string | null) ?? null,
+    email: String(raw.email),
+    employee_id: (raw.employee_id as string | null) ?? null,
+    role: raw.role as UserRole,
+    status: raw.status as StaffDirectoryRow["status"],
+    total_count: Number(raw.total_count ?? 0),
+    last_sign_in_at: readAuthoritativeLastSignInAt(raw),
+  };
+}
 
 export function staffDirectoryCountLabel(
   visibleCount: number,

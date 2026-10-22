@@ -12,28 +12,18 @@ import { HrUsersWorkspace } from "@/components/admin/hr-users-workspace";
 import { HrSignupRequestsWorkspace } from "@/components/admin/hr-signup-requests-workspace";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import type { ManageableUserRecord } from "@/lib/user-management-presentation";
-import type { StaffDirectoryRow } from "@/lib/staff-directory-presentation";
+import {
+  mapManageableUserRecord,
+  type ManageableUserRecord,
+} from "@/lib/user-management-presentation";
+import { mapStaffDirectoryRow } from "@/lib/staff-directory-presentation";
 import type { SignupRequestRow } from "@/lib/signup-request-presentation";
-import type { UserRole } from "@/lib/roles";
 import { isOwner } from "@/lib/roles";
 import { STAFF_DIRECTORY_PAGE_SIZE } from "@/lib/staff-directory-presentation";
 import { SIGNUP_REQUEST_PAGE_SIZE } from "@/lib/signup-request-presentation";
 import { pageMetadata } from "@/lib/page-titles";
 
 export const metadata = pageMetadata("adminUsers");
-
-function mapStaffDirectoryRow(raw: Record<string, unknown>): StaffDirectoryRow {
-  return {
-    profile_id: String(raw.profile_id),
-    full_name: (raw.full_name as string | null) ?? null,
-    email: String(raw.email),
-    employee_id: (raw.employee_id as string | null) ?? null,
-    role: raw.role as UserRole,
-    status: raw.status as StaffDirectoryRow["status"],
-    total_count: Number(raw.total_count ?? 0),
-  };
-}
 
 function mapSignupRequestRow(raw: Record<string, unknown>): SignupRequestRow {
   return {
@@ -146,11 +136,9 @@ export default async function UserManagementPage({ searchParams }: Props) {
       throw new Error("Unable to load users.");
     }
 
-    const rows = (users ?? []) as ManageableUserRecord[];
-    const normalizedUsers: ManageableUserRecord[] = rows.map((user) => ({
-      ...user,
-      role: user.role as UserRole,
-    }));
+    const normalizedUsers: ManageableUserRecord[] = (
+      (users ?? []) as Record<string, unknown>[]
+    ).map(mapManageableUserRecord);
 
     return (
       <>

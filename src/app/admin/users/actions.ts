@@ -18,7 +18,10 @@ import {
   type OwnershipTransferError,
 } from "@/lib/role-mutation-errors";
 import { createClient } from "@/lib/supabase/server";
-import type { ManageableUserRecord } from "@/lib/user-management-presentation";
+import {
+  mapManageableUserRecord,
+  type ManageableUserRecord,
+} from "@/lib/user-management-presentation";
 import {
   emailsMatchForDeletionConfirmation,
   type UserDeletionEligibility,
@@ -52,7 +55,9 @@ async function loadManageableUser(
     return null;
   }
 
-  const row = (data as ManageableUserRecord[]).find((user) => user.id === profileId);
+  const row = (data as Record<string, unknown>[])
+    .map(mapManageableUserRecord)
+    .find((user) => user.id === profileId);
   return row ?? null;
 }
 
@@ -79,9 +84,9 @@ export async function updateManageableUserInline(input: {
     return { success: false, error: "invalid" };
   }
 
-  const existing = (existingRows as ManageableUserRecord[]).find(
-    (user) => user.id === profileId,
-  );
+  const existing = (existingRows as Record<string, unknown>[])
+    .map(mapManageableUserRecord)
+    .find((user) => user.id === profileId);
 
   if (!existing) {
     return { success: false, error: "invalid" };

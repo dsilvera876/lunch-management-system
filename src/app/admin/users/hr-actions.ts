@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireHrOperationalRead, requireManageStaffAccounts } from "@/lib/auth";
 import { mapSetEmployeeIdError, validateEmployeeIdField } from "@/lib/employee-id";
 import { createClient } from "@/lib/supabase/server";
-import type {
-  AccountStatusFilter,
-  StaffDirectoryRow,
-  StaffRoleFilter,
+import {
+  mapStaffDirectoryRow,
+  type AccountStatusFilter,
+  type StaffDirectoryRow,
+  type StaffRoleFilter,
 } from "@/lib/staff-directory-presentation";
 
 export type SearchStaffDirectoryResult =
@@ -17,18 +18,6 @@ export type SearchStaffDirectoryResult =
 export type MutateStaffResult =
   | { success: true; row: StaffDirectoryRow }
   | { success: false; error: string };
-
-function mapDirectoryRow(raw: Record<string, unknown>): StaffDirectoryRow {
-  return {
-    profile_id: String(raw.profile_id),
-    full_name: (raw.full_name as string | null) ?? null,
-    email: String(raw.email),
-    employee_id: (raw.employee_id as string | null) ?? null,
-    role: raw.role as StaffDirectoryRow["role"],
-    status: raw.status as StaffDirectoryRow["status"],
-    total_count: Number(raw.total_count ?? 0),
-  };
-}
 
 export async function searchStaffDirectory(input: {
   search: string;
@@ -54,7 +43,7 @@ export async function searchStaffDirectory(input: {
     return { success: false, error: "search" };
   }
 
-  const rows = (data as Record<string, unknown>[]).map(mapDirectoryRow);
+  const rows = (data as Record<string, unknown>[]).map(mapStaffDirectoryRow);
   const totalCount = rows[0]?.total_count ?? 0;
 
   return { success: true, rows, totalCount };
@@ -80,7 +69,7 @@ async function reloadStaffRow(
     (entry) => String(entry.profile_id) === profileId,
   );
 
-  return row ? mapDirectoryRow(row) : null;
+  return row ? mapStaffDirectoryRow(row) : null;
 }
 
 export async function updateStaffNameInline(input: {

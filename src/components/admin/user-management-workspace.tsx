@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FormField, inputClassName, selectClassName } from "@/components/ui/form-field";
 import { Button, linkButtonClass } from "@/components/ui/button";
 import { ToastProvider } from "@/components/ui/toast";
+import { formatLastLoggedIn } from "@/lib/user-last-sign-in";
 
 type Props = {
   initialUsers: ManageableUserRecord[];
@@ -163,6 +164,9 @@ function UserManagementWorkspaceContent({
                 <tr>
                   <th className="px-3 py-2.5 font-semibold">Name</th>
                   <th className="hidden px-3 py-2.5 font-semibold md:table-cell">Email</th>
+                  <th className="hidden px-3 py-2.5 font-semibold lg:table-cell">
+                    Last Logged In
+                  </th>
                   <th className="px-3 py-2.5 font-semibold">Role</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Edit</th>
                 </tr>
@@ -177,9 +181,18 @@ function UserManagementWorkspaceContent({
                       <div className="truncate text-xs text-muted md:hidden">
                         {user.email}
                       </div>
+                      <div className="text-xs text-muted lg:hidden">
+                        Last logged in: {formatLastLoggedIn(user.last_sign_in_at)}
+                      </div>
                     </td>
                     <td className="hidden truncate px-3 py-2 align-middle text-muted md:table-cell">
                       {user.email}
+                    </td>
+                    <td
+                      className="hidden px-3 py-2 align-middle text-muted lg:table-cell"
+                      data-last-sign-in={user.last_sign_in_at ?? "never"}
+                    >
+                      {formatLastLoggedIn(user.last_sign_in_at)}
                     </td>
                     <td className="px-3 py-2 align-middle">
                       <UserRoleBadge role={user.role} />

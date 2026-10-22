@@ -1,11 +1,13 @@
 import type { UserRole } from "@/lib/roles";
 import { filterEmployeesForPicker } from "@/lib/employee-picker";
+import { readAuthoritativeLastSignInAt } from "@/lib/user-last-sign-in";
 
 export type ManageableUserRecord = {
   id: string;
   full_name: string | null;
   email: string;
   role: UserRole;
+  last_sign_in_at: string | null;
 };
 
 export type UserRoleFilter = "all" | UserRole;
@@ -19,6 +21,18 @@ export const USER_MANAGEMENT_TOAST = {
 } as const;
 
 export const USER_MANAGEMENT_SUCCESS_TOAST_DURATION_MS = 4500;
+
+export function mapManageableUserRecord(
+  raw: Record<string, unknown>,
+): ManageableUserRecord {
+  return {
+    id: String(raw.id),
+    full_name: (raw.full_name as string | null) ?? null,
+    email: String(raw.email),
+    role: raw.role as UserRole,
+    last_sign_in_at: readAuthoritativeLastSignInAt(raw),
+  };
+}
 
 export function displayUserName(user: ManageableUserRecord): string {
   return user.full_name?.trim() || "Unnamed employee";

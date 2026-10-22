@@ -7,9 +7,15 @@ import {
   applyOwnershipTransfer,
   displayUserName,
   filterManageableUsers,
+  mapManageableUserRecord,
+  mergeManageableUser,
   paginateUsers,
   type ManageableUserRecord,
 } from "./user-management-presentation";
+import {
+  mapStaffDirectoryRow,
+  mergeStaffDirectoryRow,
+} from "./staff-directory-presentation";
 
 const sampleUsers: ManageableUserRecord[] = [
   {
@@ -17,18 +23,21 @@ const sampleUsers: ManageableUserRecord[] = [
     full_name: "Alex Carter",
     email: "alex.carter@lunch.test",
     role: "hr",
+    last_sign_in_at: "2026-10-21T18:15:00Z",
   },
   {
     id: "2",
     full_name: "Dev Owner",
     email: "owner@lunch.test",
     role: "owner",
+    last_sign_in_at: null,
   },
   {
     id: "3",
     full_name: "Sam Staff",
     email: "sam@lunch.test",
     role: "staff",
+    last_sign_in_at: "2026-10-20T13:00:00Z",
   },
 ];
 
@@ -54,6 +63,7 @@ describe("user management presentation", () => {
       full_name: `User ${index}`,
       email: `user${index}@lunch.test`,
       role: "staff" as const,
+      last_sign_in_at: null,
     }));
 
     const filtered = filterManageableUsers(many, "", "all");
@@ -74,6 +84,38 @@ describe("user management presentation", () => {
   it("formats display names", () => {
     assert.equal(displayUserName({ ...sampleUsers[0]!, full_name: null }), "Unnamed employee");
   });
+
+  it("preserves authoritative timestamps when refreshed records are merged", () => {
+    const refreshedAdmin = mapManageableUserRecord({
+      ...sampleUsers[0]!,
+      full_name: "Updated HR",
+      last_sign_in_at: "2026-10-22T10:00:00Z",
+    });
+    assert.equal(
+      mergeManageableUser(sampleUsers, refreshedAdmin)[0]?.last_sign_in_at,
+      "2026-10-22T10:00:00Z",
+    );
+
+    const initialHr = mapStaffDirectoryRow({
+      profile_id: "1",
+      full_name: "Alex Carter",
+      email: "alex.carter@lunch.test",
+      employee_id: "1234",
+      role: "hr",
+      status: "active",
+      total_count: 3,
+      last_sign_in_at: "2026-10-21T18:15:00Z",
+    });
+    const refreshedHr = mapStaffDirectoryRow({
+      ...initialHr,
+      full_name: "Updated HR",
+      total_count: 1,
+      last_sign_in_at: "2026-10-22T10:00:00Z",
+    });
+    const [mergedHr] = mergeStaffDirectoryRow([initialHr], refreshedHr);
+    assert.equal(mergedHr?.last_sign_in_at, "2026-10-22T10:00:00Z");
+    assert.equal(mergedHr?.total_count, 3);
+  });
 });
 
 describe("user management workspace wiring", () => {
@@ -92,6 +134,9 @@ describe("user management workspace wiring", () => {
     );
 
     assert.match(workspace, /<table/);
+    assert.match(workspace, /Last Logged In/);
+    assert.match(workspace, /Last logged in:/);
+    assert.match(workspace, /formatLastLoggedIn/);
     assert.match(workspace, /Edit user/);
     assert.match(workspace, /IconPencil/);
     assert.match(drawer, /Edit user/);
@@ -195,6 +240,9 @@ describe("user management workspace wiring", () => {
     assert.match(page, /HrUsersWorkspace/);
     assert.match(page, /search_staff_directory/);
     assert.match(hrWorkspace, /Employee ID/);
+    assert.match(hrWorkspace, /Last Logged In/);
+    assert.match(hrWorkspace, /Last logged in:/);
+    assert.match(hrWorkspace, /formatLastLoggedIn/);
     assert.match(hrWorkspace, /data-testid="hr-users-table"/);
     assert.match(hrDrawer, /updateStaffNameInline/);
     assert.match(hrDrawer, /setStaffEmployeeIdInline/);
