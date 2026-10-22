@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import {
   EMPLOYEE_PICKER_EMPTY_MESSAGE,
   filterEmployeesForPicker,
+  normalizeEmployeeNameSearch,
   sortEmployeesForPicker,
   type EmployeePickerOption,
 } from "./employee-picker";
@@ -33,6 +34,118 @@ describe("employee picker", () => {
     const results = filterEmployeesForPicker(sample, "ZARA.ADAMS");
     assert.equal(results.length, 1);
     assert.equal(results[0]?.id, "2");
+  });
+
+  it("filters employee names without changing their Unicode display values", () => {
+    const unicodeEmployees: EmployeePickerOption[] = [
+      { id: "jose", name: "José Álvarez", email: "person-1@example.test" },
+      {
+        id: "renee",
+        name: "Renée O'Connor",
+        email: "person-2@example.test",
+      },
+      {
+        id: "francois",
+        name: "Anne-Marie François",
+        email: "person-3@example.test",
+      },
+      { id: "zoe", name: "Zoë Smith", email: "person-4@example.test" },
+      {
+        id: "dangelo",
+        name: "D’Angelo Brown",
+        email: "person-5@example.test",
+      },
+    ];
+
+    assert.deepEqual(
+      filterEmployeesForPicker(unicodeEmployees, "JOSE").map(
+        (employee) => employee.name,
+      ),
+      ["José Álvarez"],
+    );
+    assert.deepEqual(
+      filterEmployeesForPicker(unicodeEmployees, "francois").map(
+        (employee) => employee.name,
+      ),
+      ["Anne-Marie François"],
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "zoe")[0]?.name,
+      "Zoë Smith",
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "Renée O'Connor")[0]?.name,
+      "Renée O'Connor",
+    );
+  });
+
+  it("treats composed and decomposed accents as equivalent search text", () => {
+    const decomposedName = "Jose\u0301 Alvarez";
+    const unicodeEmployees: EmployeePickerOption[] = [
+      {
+        id: "decomposed",
+        name: decomposedName,
+        email: "decomposed@example.test",
+      },
+    ];
+
+    assert.equal(
+      normalizeEmployeeNameSearch("José"),
+      normalizeEmployeeNameSearch("Jose\u0301"),
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "José")[0]?.name,
+      decomposedName,
+    );
+  });
+
+  it("keeps hyphens and straight or curly apostrophes significant", () => {
+    const unicodeEmployees: EmployeePickerOption[] = [
+      {
+        id: "hyphen",
+        name: "Anne-Marie François",
+        email: "hyphen@example.test",
+      },
+      {
+        id: "straight",
+        name: "Renée O'Connor",
+        email: "straight@example.test",
+      },
+      {
+        id: "curly",
+        name: "D’Angelo Brown",
+        email: "curly@example.test",
+      },
+    ];
+
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "Anne-Marie").length,
+      1,
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "Anne Marie").length,
+      0,
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "O'Connor").length,
+      1,
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "O’Connor").length,
+      0,
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "D’Angelo").length,
+      1,
+    );
+    assert.equal(
+      filterEmployeesForPicker(unicodeEmployees, "D'Angelo").length,
+      0,
+    );
+  });
+
+  it("does not treat a combining-mark-only query as matching every name", () => {
+    assert.equal(filterEmployeesForPicker(sample, "\u0301").length, 0);
   });
 
   it("returns empty list when nothing matches and keeps empty message constant", () => {
