@@ -82,13 +82,6 @@ export default async function HrSettingsPage({ searchParams }: Props) {
               actionLabel="Manage locations"
               icon="map-pin"
             />
-            <SettingsOperationsCard
-              href="/admin/providers"
-              title="Provider communications"
-              description="Provider order-email settings are managed on each provider."
-              actionLabel="Manage providers"
-              icon="storefront"
-            />
           </div>
         </section>
       </div>

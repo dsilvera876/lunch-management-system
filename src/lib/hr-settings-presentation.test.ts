@@ -29,11 +29,19 @@ describe("HR settings presentation", () => {
     assert.match(settingsPage, /Business Calendar/);
     assert.match(settingsPage, /\/admin\/settings\/business-calendar/);
     assert.match(settingsPage, /Manage locations/);
-    assert.match(settingsPage, /Manage providers/);
     assert.match(operationsCard, /actionLabel/);
-    assert.match(settingsPage, /Provider communications/);
-    assert.match(settingsPage, /href="\/admin\/providers"/);
     assert.match(settingsPage, /href="\/admin\/locations"/);
+  });
+
+  it("omits the obsolete Provider communications card from Settings", () => {
+    const settingsPage = readFileSync(
+      new URL("../app/admin/settings/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.doesNotMatch(settingsPage, /Provider communications/);
+    assert.doesNotMatch(settingsPage, /Manage providers/);
+    assert.doesNotMatch(settingsPage, /href="\/admin\/providers"/);
   });
 
   it("uses toast for cutoff success and avoids page-level success banners", () => {
@@ -82,4 +90,3 @@ describe("HR settings presentation", () => {
     assert.match(settingsPage, /cutoffDraft/);
   });
 });
-
