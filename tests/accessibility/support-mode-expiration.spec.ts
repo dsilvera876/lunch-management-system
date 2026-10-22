@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loadLocalEnvFiles } from "./helpers/e2e-ordering-fixture";
-import { hasOwnerCredentials, requireOwnerCredentials } from "./helpers/env";
+import {
+  hasOwnerCredentials,
+  requireHrCredentials,
+  requireOwnerCredentials,
+} from "./helpers/env";
 import {
   assertLocalSupportModeFixture,
   closeActiveSupportModeFixtureSession,
@@ -13,6 +17,15 @@ import {
 
 async function signInAsOwner(page: Page) {
   const { email, password } = requireOwnerCredentials();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(/\/(admin\/|home|account)/, { timeout: 30_000 });
+}
+
+async function signInAsHr(page: Page) {
+  const { email, password } = requireHrCredentials();
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -107,6 +120,62 @@ test.describe("Support Mode expiration", () => {
     await page.goto("/admin/deliveries");
     await expect(page).toHaveURL(/\/account$/);
     await expect(page.getByText("Support Mode: HR")).toHaveCount(0);
+  });
+
+  test("keeps HR Users search and filters read-only in active Owner HR Support Mode", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await signInAsOwner(page);
+    await startSupportMode(page, "HR");
+    await page.goto("/admin/users");
+
+    await expect(page.getByText("Support Mode: HR")).toBeVisible();
+    await page.getByLabel("Search").fill("Dev Staff One");
+    await page.getByLabel("Status").selectOption("active");
+    await page.getByLabel("Role").selectOption("staff");
+
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    const staffRow = page.getByRole("row").filter({ hasText: "Dev Staff One" });
+    await expect(staffRow).toBeVisible();
+    await expect(staffRow.getByRole("button", { name: "View" })).toBeVisible();
+    await staffRow.getByRole("button", { name: "View" }).click();
+    const detailsPanel = page.locator("aside").filter({
+      has: page.getByRole("heading", { name: "User details" }),
+    });
+    await expect(detailsPanel).toBeVisible();
+    await expect(detailsPanel.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+    await expect(detailsPanel.getByRole("button", { name: "Deactivate user" })).toHaveCount(0);
+  });
+
+  test("denies directory search after HR Support Mode expires", async ({ page }) => {
+    test.setTimeout(90_000);
+    const ownerEmail = requireOwnerCredentials().email;
+    await signInAsOwner(page);
+    await startSupportMode(page, "HR");
+    await page.goto("/admin/users");
+    await expect(page.getByLabel("Search")).toBeVisible();
+
+    expireActiveSupportModeFixtureSession(ownerEmail);
+    await page.getByLabel("Search").fill("Dev Staff One");
+
+    await expect(page).toHaveURL(/\/admin\/support$/, { timeout: 20_000 });
+    await expect(page.getByTestId("hr-users-table")).toHaveCount(0);
+  });
+
+  test("keeps permanent HR directory search and management controls available", async ({ page }) => {
+    test.setTimeout(90_000);
+    await signInAsHr(page);
+    await page.goto("/admin/users");
+
+    await page.getByLabel("Search").fill("Dev Staff One");
+    await page.getByLabel("Status").selectOption("active");
+    await page.getByLabel("Role").selectOption("staff");
+
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    const staffRow = page.getByRole("row").filter({ hasText: "Dev Staff One" });
+    await expect(staffRow).toBeVisible();
+    await expect(staffRow.getByRole("button", { name: "Manage" })).toBeVisible();
   });
 
   for (const lifecycleEvent of ["focus", "visibilitychange", "pageshow"] as const) {

@@ -1,6 +1,6 @@
 begin;
 
-select plan(56);
+select plan(73);
 
 \ir support/isolate_existing_owner.inc
 
@@ -27,6 +27,13 @@ select throws_ok(
   $$ select * from public.start_support_session('hr', 'ticket 1', (select session_id from public.get_support_session_status())) $$,
   null,
   'Staff cannot start support session'
+);
+
+select throws_ok(
+  $$ select 1 from public.search_staff_directory('Staff', null, null, 50, 0) $$,
+  'P0001',
+  'Staff directory access required',
+  'Staff cannot search the HR directory'
 );
 
 select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
@@ -96,6 +103,48 @@ select results_eq(
 );
 
 select results_eq(
+  $$ select full_name from public.search_staff_directory('staff@test.local', null, null, 50, 0) $$,
+  array['Staff User'::text],
+  'Active Admin HR Support can search the staff directory'
+);
+
+select results_eq(
+  $$ select full_name from public.search_staff_directory('User', 'active', 'staff', 50, 0) $$,
+  array['Staff User'::text],
+  'Active Admin HR Support can filter the staff directory'
+);
+
+select results_eq(
+  $$
+    select count(*)::bigint, min(total_count)::bigint
+    from public.search_staff_directory('@test.local', 'active', null, 1, 1)
+  $$,
+  $$ values (1::bigint, 5::bigint) $$,
+  'Active Admin HR Support retains paginated directory totals'
+);
+
+select throws_ok(
+  $$ select public.update_staff_name('11111111-1111-4111-8111-111111111111', 'Blocked Name') $$,
+  'P0001',
+  'Staff account management access required',
+  'Active Admin HR Support cannot update staff names'
+);
+
+select throws_ok(
+  $$ select public.set_employee_id('11111111-1111-4111-8111-111111111111', '1234') $$,
+  'P0001',
+  'Employee ID management access required',
+  'Active Admin HR Support cannot update employee IDs'
+);
+
+select throws_ok(
+  $$ select public.set_staff_active_status('11111111-1111-4111-8111-111111111111', 'inactive') $$,
+  'P0001',
+  'Staff account management access required',
+  'Active Admin HR Support cannot change staff status'
+);
+
+select results_eq(
   $$ select private.can_manage_lunch_operations() $$,
   array[false],
   'HR Support grants no HR mutation capability'
@@ -144,6 +193,41 @@ select results_eq(
   'Support mode does not grant HR mutations'
 );
 
+select throws_ok(
+  $$ select 1 from public.search_staff_directory('Staff', null, null, 50, 0) $$,
+  'P0001',
+  'Staff directory access required',
+  'Owner Accounts Support cannot search the HR directory'
+);
+
+select lives_ok(
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
+  'Owner can end Accounts support before changing scope'
+);
+
+select lives_ok(
+  $$ select * from public.start_support_session('hr', 'owner HR directory regression', null) $$,
+  'Owner can start HR Support for directory search'
+);
+
+select results_eq(
+  $$ select full_name from public.search_staff_directory('staff@test.local', null, null, 50, 0) $$,
+  array['Staff User'::text],
+  'Active Owner HR Support can search the staff directory'
+);
+
+select throws_ok(
+  $$ select public.update_staff_name('11111111-1111-4111-8111-111111111111', 'Blocked Owner Support Name') $$,
+  'P0001',
+  'Staff account management access required',
+  'Active Owner HR Support cannot update staff names'
+);
+
+select lives_ok(
+  $$ select public.end_support_session((select session_id from public.get_support_session_status())) $$,
+  'Owner can end HR Support after directory search'
+);
+
 -- HR baseline
 select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-4222-8222-222222222222', 'role', 'authenticated')::text, true);
 
@@ -157,6 +241,17 @@ select results_eq(
   $$ select private.can_manage_lunch_operations() $$,
   array[true],
   'HR retains operational mutations'
+);
+
+select results_eq(
+  $$ select full_name from public.search_staff_directory('staff@test.local', null, null, 50, 0) $$,
+  array['Staff User'::text],
+  'Permanent HR retains staff-directory search access'
+);
+
+select lives_ok(
+  $$ select public.update_staff_name('11111111-1111-4111-8111-111111111111', 'Staff User') $$,
+  'Permanent HR retains staff-management mutation access'
 );
 
 reset role;
@@ -204,6 +299,13 @@ select results_eq(
   $$ select private.can_view_lunch_periods() $$,
   array[true],
   'Accounts support can read lunch periods capability'
+);
+
+select throws_ok(
+  $$ select 1 from public.search_staff_directory('Staff', null, null, 50, 0) $$,
+  'P0001',
+  'Staff directory access required',
+  'Admin Accounts Support cannot search the HR directory'
 );
 
 select throws_ok(
@@ -272,6 +374,13 @@ select results_eq(
   $$ select private.can_view_all_orders() $$,
   array[false],
   'Expired session does not grant HR read capability'
+);
+
+select throws_ok(
+  $$ select 1 from public.search_staff_directory('Staff', null, null, 50, 0) $$,
+  'P0001',
+  'Staff directory access required',
+  'Expired HR Support cannot search the staff directory'
 );
 
 select lives_ok(

@@ -202,6 +202,33 @@ describe("user management workspace wiring", () => {
     assert.match(hrDrawer, /Deactivate user/);
   });
 
+  it("uses the HR read guard only for directory search and preserves mutation guards", () => {
+    const actions = readFileSync(
+      new URL("../app/admin/users/hr-actions.ts", import.meta.url),
+      "utf8",
+    );
+    const actionSource = (name: string) => {
+      const start = actions.indexOf(`export async function ${name}`);
+      assert.notEqual(start, -1, `${name} must remain exported`);
+      const next = actions.indexOf("export async function ", start + 1);
+      return actions.slice(start, next === -1 ? actions.length : next);
+    };
+
+    const search = actionSource("searchStaffDirectory");
+    assert.match(search, /await requireHrOperationalRead\(\)/);
+    assert.doesNotMatch(search, /requireManageStaffAccounts\(\)/);
+
+    for (const mutation of [
+      "updateStaffNameInline",
+      "setStaffEmployeeIdInline",
+      "setStaffActiveStatusInline",
+    ]) {
+      const mutationSource = actionSource(mutation);
+      assert.match(mutationSource, /await requireManageStaffAccounts\(\)/);
+      assert.doesNotMatch(mutationSource, /requireHrOperationalRead\(\)/);
+    }
+  });
+
   it("exposes bulk import as a secondary HR-only action", () => {
     const page = readFileSync(
       new URL("../app/admin/users/page.tsx", import.meta.url),

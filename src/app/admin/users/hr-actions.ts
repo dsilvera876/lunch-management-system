@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireManageStaffAccounts } from "@/lib/auth";
+import { requireHrOperationalRead, requireManageStaffAccounts } from "@/lib/auth";
 import { mapSetEmployeeIdError, validateEmployeeIdField } from "@/lib/employee-id";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -37,7 +37,7 @@ export async function searchStaffDirectory(input: {
   page: number;
   pageSize: number;
 }): Promise<SearchStaffDirectoryResult> {
-  await requireManageStaffAccounts();
+  await requireHrOperationalRead();
 
   const supabase = await createClient();
   const offset = Math.max(0, (input.page - 1) * input.pageSize);
