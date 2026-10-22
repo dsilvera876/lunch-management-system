@@ -7,8 +7,10 @@ import { refreshProfileIfRoleChanged } from "@/lib/profile-refresh-client";
 import { shouldCheckRoleOnNavigation } from "@/lib/profile-refresh";
 import type { ActiveSupportSession } from "@/lib/support-mode";
 import { AppShell } from "./app-shell";
+import { AuthenticatedActivityReporter } from "./authenticated-activity-reporter";
 
 type Profile = {
+  id: string;
   full_name: string | null;
   role: string;
 };
@@ -67,17 +69,29 @@ export function AppShellWrapper({
     };
   }, [pathname, profile, isAuthPage, router]);
 
-  if (!profile || isAuthPage || isPrintDeliverySheet) {
+  if (!profile || isAuthPage) {
     return <>{children}</>;
   }
 
+  if (isPrintDeliverySheet) {
+    return (
+      <>
+        <AuthenticatedActivityReporter profileId={profile.id} />
+        {children}
+      </>
+    );
+  }
+
   return (
-    <AppShell
-      profile={profile}
-      operationalAttentionUnreadCount={operationalAttentionUnreadCount}
-      supportSession={supportSession}
-    >
-      {children}
-    </AppShell>
+    <>
+      <AuthenticatedActivityReporter profileId={profile.id} />
+      <AppShell
+        profile={profile}
+        operationalAttentionUnreadCount={operationalAttentionUnreadCount}
+        supportSession={supportSession}
+      >
+        {children}
+      </AppShell>
+    </>
   );
 }

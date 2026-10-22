@@ -20,6 +20,7 @@ import {
   type StaffRoleFilter,
 } from "@/lib/staff-directory-presentation";
 import { USER_ROLES, getRoleLabel } from "@/lib/roles";
+import { formatLastActive } from "@/lib/user-last-active";
 import { formatLastLoggedIn } from "@/lib/user-last-sign-in";
 
 type Props = {
@@ -172,6 +173,11 @@ function HrUsersWorkspaceContent({ initialRows, initialTotalCount, readOnly = fa
         </p>
       </div>
 
+      <p className="mb-3 text-xs text-muted">
+        Last Active is an approximate indicator updated at most every five minutes,
+        not real-time online presence.
+      </p>
+
       {loadError ? (
         <EmptyState title={loadError} description="Try refreshing the page." />
       ) : !loading && rows.length === 0 ? (
@@ -191,6 +197,9 @@ function HrUsersWorkspaceContent({ initialRows, initialTotalCount, readOnly = fa
                   <th className="hidden px-3 py-2.5 font-semibold xl:table-cell">
                     Last Logged In
                   </th>
+                  <th className="hidden px-3 py-2.5 font-semibold xl:table-cell">
+                    Last Active
+                  </th>
                   <th className="hidden px-3 py-2.5 font-semibold sm:table-cell">Role</th>
                   <th className="px-3 py-2.5 font-semibold">Status</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Actions</th>
@@ -209,6 +218,9 @@ function HrUsersWorkspaceContent({ initialRows, initialTotalCount, readOnly = fa
                       <div className="text-xs text-muted xl:hidden">
                         Last logged in: {formatLastLoggedIn(user.last_sign_in_at)}
                       </div>
+                      <div className="text-xs text-muted xl:hidden">
+                        Last active: {formatLastActive(user.last_active_at)}
+                      </div>
                     </td>
                     <td className="hidden truncate px-3 py-2 align-middle text-muted lg:table-cell">
                       {user.email}
@@ -221,6 +233,12 @@ function HrUsersWorkspaceContent({ initialRows, initialTotalCount, readOnly = fa
                       data-last-sign-in={user.last_sign_in_at ?? "never"}
                     >
                       {formatLastLoggedIn(user.last_sign_in_at)}
+                    </td>
+                    <td
+                      className="hidden px-3 py-2 align-middle text-muted xl:table-cell"
+                      data-last-active={user.last_active_at ?? "not-recorded"}
+                    >
+                      {formatLastActive(user.last_active_at)}
                     </td>
                     <td className="hidden px-3 py-2 align-middle sm:table-cell">
                       <UserRoleBadge role={user.role} />

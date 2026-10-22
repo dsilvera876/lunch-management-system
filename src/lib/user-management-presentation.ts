@@ -1,5 +1,6 @@
 import type { UserRole } from "@/lib/roles";
 import { filterEmployeesForPicker } from "@/lib/employee-picker";
+import { readAuthoritativeLastActiveAt } from "@/lib/user-last-active";
 import { readAuthoritativeLastSignInAt } from "@/lib/user-last-sign-in";
 
 export type ManageableUserRecord = {
@@ -8,6 +9,7 @@ export type ManageableUserRecord = {
   email: string;
   role: UserRole;
   last_sign_in_at: string | null;
+  last_active_at: string | null;
 };
 
 export type UserRoleFilter = "all" | UserRole;
@@ -31,6 +33,7 @@ export function mapManageableUserRecord(
     email: String(raw.email),
     role: raw.role as UserRole,
     last_sign_in_at: readAuthoritativeLastSignInAt(raw),
+    last_active_at: readAuthoritativeLastActiveAt(raw),
   };
 }
 

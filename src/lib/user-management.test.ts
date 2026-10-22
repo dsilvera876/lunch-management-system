@@ -24,6 +24,7 @@ const sampleUsers: ManageableUserRecord[] = [
     email: "alex.carter@lunch.test",
     role: "hr",
     last_sign_in_at: "2026-10-21T18:15:00Z",
+    last_active_at: "2026-10-22T12:00:00Z",
   },
   {
     id: "2",
@@ -31,6 +32,7 @@ const sampleUsers: ManageableUserRecord[] = [
     email: "owner@lunch.test",
     role: "owner",
     last_sign_in_at: null,
+    last_active_at: null,
   },
   {
     id: "3",
@@ -38,6 +40,7 @@ const sampleUsers: ManageableUserRecord[] = [
     email: "sam@lunch.test",
     role: "staff",
     last_sign_in_at: "2026-10-20T13:00:00Z",
+    last_active_at: null,
   },
 ];
 
@@ -64,6 +67,7 @@ describe("user management presentation", () => {
       email: `user${index}@lunch.test`,
       role: "staff" as const,
       last_sign_in_at: null,
+      last_active_at: null,
     }));
 
     const filtered = filterManageableUsers(many, "", "all");
@@ -90,10 +94,15 @@ describe("user management presentation", () => {
       ...sampleUsers[0]!,
       full_name: "Updated HR",
       last_sign_in_at: "2026-10-22T10:00:00Z",
+      last_active_at: "2026-10-22T11:00:00Z",
     });
     assert.equal(
       mergeManageableUser(sampleUsers, refreshedAdmin)[0]?.last_sign_in_at,
       "2026-10-22T10:00:00Z",
+    );
+    assert.equal(
+      mergeManageableUser(sampleUsers, refreshedAdmin)[0]?.last_active_at,
+      "2026-10-22T11:00:00Z",
     );
 
     const initialHr = mapStaffDirectoryRow({
@@ -105,15 +114,18 @@ describe("user management presentation", () => {
       status: "active",
       total_count: 3,
       last_sign_in_at: "2026-10-21T18:15:00Z",
+      last_active_at: "2026-10-22T12:00:00Z",
     });
     const refreshedHr = mapStaffDirectoryRow({
       ...initialHr,
       full_name: "Updated HR",
       total_count: 1,
       last_sign_in_at: "2026-10-22T10:00:00Z",
+      last_active_at: "2026-10-22T12:30:00Z",
     });
     const [mergedHr] = mergeStaffDirectoryRow([initialHr], refreshedHr);
     assert.equal(mergedHr?.last_sign_in_at, "2026-10-22T10:00:00Z");
+    assert.equal(mergedHr?.last_active_at, "2026-10-22T12:30:00Z");
     assert.equal(mergedHr?.total_count, 3);
   });
 });
@@ -137,6 +149,10 @@ describe("user management workspace wiring", () => {
     assert.match(workspace, /Last Logged In/);
     assert.match(workspace, /Last logged in:/);
     assert.match(workspace, /formatLastLoggedIn/);
+    assert.match(workspace, /Last Active/);
+    assert.match(workspace, /Last active:/);
+    assert.match(workspace, /formatLastActive/);
+    assert.match(workspace, /not real-time online presence/);
     assert.match(workspace, /Edit user/);
     assert.match(workspace, /IconPencil/);
     assert.match(drawer, /Edit user/);
@@ -243,6 +259,10 @@ describe("user management workspace wiring", () => {
     assert.match(hrWorkspace, /Last Logged In/);
     assert.match(hrWorkspace, /Last logged in:/);
     assert.match(hrWorkspace, /formatLastLoggedIn/);
+    assert.match(hrWorkspace, /Last Active/);
+    assert.match(hrWorkspace, /Last active:/);
+    assert.match(hrWorkspace, /formatLastActive/);
+    assert.match(hrWorkspace, /not real-time online presence/);
     assert.match(hrWorkspace, /data-testid="hr-users-table"/);
     assert.match(hrDrawer, /updateStaffNameInline/);
     assert.match(hrDrawer, /setStaffEmployeeIdInline/);

@@ -45,16 +45,16 @@ select private.apply_profile_role('b3000000-0000-4000-8000-000000000005', 'accou
 
 select is(
   pg_get_function_result('public.list_manageable_users()'::regprocedure),
-  'TABLE(id uuid, full_name text, email text, role text, last_sign_in_at timestamp with time zone)',
-  'manageable-user directory appends only last_sign_in_at'
+  'TABLE(id uuid, full_name text, email text, role text, last_sign_in_at timestamp with time zone, last_active_at timestamp with time zone)',
+  'manageable-user directory preserves last_sign_in_at before last_active_at'
 );
 
 select is(
   pg_get_function_result(
     'public.search_staff_directory(text,text,text,integer,integer)'::regprocedure
   ),
-  'TABLE(profile_id uuid, full_name text, email text, employee_id text, role text, status text, total_count bigint, last_sign_in_at timestamp with time zone)',
-  'HR directory appends only last_sign_in_at'
+  'TABLE(profile_id uuid, full_name text, email text, employee_id text, role text, status text, total_count bigint, last_sign_in_at timestamp with time zone, last_active_at timestamp with time zone)',
+  'HR directory preserves last_sign_in_at before last_active_at'
 );
 
 select ok(
