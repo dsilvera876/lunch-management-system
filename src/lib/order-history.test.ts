@@ -200,9 +200,35 @@ describe("order history table display modes", () => {
     );
   }
 
+  function renderedColumnProfile(html: string): string[] {
+    const colgroup = html.match(/<colgroup>([\s\S]*?)<\/colgroup>/)?.[1] ?? "";
+    return Array.from(
+      colgroup.matchAll(/data-order-history-column="([^"]+)"/g),
+      (match) => match[1]!,
+    );
+  }
+
+  function assertFixedTableStructure(html: string, expectedMinWidth: string) {
+    assert.match(html, /<table[^>]*class="[^"]*table-fixed[^"]*"/);
+    const escapedMinWidth = expectedMinWidth.replaceAll("[", "\\[").replaceAll("]", "\\]");
+    assert.match(html, new RegExp(`class="[^"]*${escapedMinWidth}[^"]*"`));
+    const headings = html.match(/<th(?:\s[^>]*)?>/g) ?? [];
+    assert.ok(headings.length > 0);
+    assert.ok(headings.every((heading) => /scope="col"/.test(heading)));
+  }
+
   it("shows Employee and each order's Delivery Date in all-dates provider cards", () => {
     const html = renderTable("provider-office", true);
 
+    assertFixedTableStructure(html, "min-w-[58rem]");
+    assert.deepEqual(renderedColumnProfile(html), [
+      "delivery-date",
+      "employee",
+      "order",
+      "quantity",
+      "status",
+      "action",
+    ]);
     assert.match(html, /<th[^>]*>Delivery Date<\/th>/);
     assert.match(html, /<th[^>]*>Employee<\/th>/);
     assert.doesNotMatch(html, /<th[^>]*>Provider<\/th>/);
@@ -218,6 +244,14 @@ describe("order history table display modes", () => {
   it("preserves the employee-only context columns for a specific-date provider card", () => {
     const html = renderTable("provider-office", false);
 
+    assertFixedTableStructure(html, "min-w-[48rem]");
+    assert.deepEqual(renderedColumnProfile(html), [
+      "employee",
+      "order",
+      "quantity",
+      "status",
+      "action",
+    ]);
     assert.doesNotMatch(html, /<th[^>]*>Delivery Date<\/th>/);
     assert.match(html, /<th[^>]*>Employee<\/th>/);
     assert.doesNotMatch(html, /Wednesday, September 23|Thursday, September 24/);
@@ -227,6 +261,16 @@ describe("order history table display modes", () => {
   it("preserves Delivery Date, Provider, and Office in employee-history mode", () => {
     const html = renderTable("employee-history", true);
 
+    assertFixedTableStructure(html, "min-w-[68rem]");
+    assert.deepEqual(renderedColumnProfile(html), [
+      "delivery-date",
+      "provider",
+      "office",
+      "order",
+      "quantity",
+      "status",
+      "action",
+    ]);
     assert.match(html, /<th[^>]*>Delivery Date<\/th>/);
     assert.doesNotMatch(html, /<th[^>]*>Employee<\/th>/);
     assert.match(html, /<th[^>]*>Provider<\/th>/);
@@ -238,6 +282,21 @@ describe("order history table display modes", () => {
     assert.match(html, /Office One/);
     assert.match(html, /Office Two/);
     assert.doesNotMatch(html, /Employee One|Employee Two/);
+  });
+
+  it("allows long employee and order content to wrap without truncation", () => {
+    const html = renderTable("provider-office", true);
+
+    assert.match(
+      html,
+      /data-order-history-column="employee" class="[^"]*break-words[^"]*"/,
+    );
+    assert.match(
+      html,
+      /data-order-history-column="order" class="[^"]*break-words[^"]*"/,
+    );
+    assert.match(html, /class="min-w-0 break-words text-sm"/);
+    assert.doesNotMatch(html, /\btruncate\b|\bline-clamp-/);
   });
 
   it("preserves date-specific provider print-link resolution", () => {

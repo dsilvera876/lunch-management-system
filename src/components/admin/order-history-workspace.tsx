@@ -97,7 +97,7 @@ function CompactOrderCell({ order }: { order: OperationalOrder }) {
   const [primary, ...rest] = lines;
 
   return (
-    <div className="min-w-[8rem] text-sm">
+    <div className="min-w-0 break-words text-sm">
       <p className="font-medium text-foreground">{primary}</p>
       {rest.length > 0 ? (
         <p className="text-xs text-muted">{rest.join(" · ")}</p>
@@ -107,6 +107,84 @@ function CompactOrderCell({ order }: { order: OperationalOrder }) {
 }
 
 export type OrderHistoryTableContext = "provider-office" | "employee-history";
+
+type OrderHistoryColumn = {
+  key:
+    | "delivery-date"
+    | "employee"
+    | "provider"
+    | "office"
+    | "order"
+    | "quantity"
+    | "status"
+    | "action";
+  widthClassName?: string;
+};
+
+const PROVIDER_SPECIFIC_DATE_COLUMNS: OrderHistoryColumn[] = [
+  { key: "employee", widthClassName: "w-[13rem]" },
+  { key: "order" },
+  { key: "quantity", widthClassName: "w-16" },
+  { key: "status", widthClassName: "w-40" },
+  { key: "action", widthClassName: "w-[7.5rem]" },
+];
+
+const PROVIDER_ALL_DATES_COLUMNS: OrderHistoryColumn[] = [
+  { key: "delivery-date", widthClassName: "w-[12.5rem]" },
+  ...PROVIDER_SPECIFIC_DATE_COLUMNS,
+];
+
+const EMPLOYEE_HISTORY_COLUMNS: OrderHistoryColumn[] = [
+  { key: "delivery-date", widthClassName: "w-[12.5rem]" },
+  { key: "provider", widthClassName: "w-44" },
+  { key: "office", widthClassName: "w-40" },
+  { key: "order" },
+  { key: "quantity", widthClassName: "w-16" },
+  { key: "status", widthClassName: "w-40" },
+  { key: "action", widthClassName: "w-[7.5rem]" },
+];
+
+function resolveOrderHistoryColumns(
+  context: OrderHistoryTableContext,
+  showDeliveryDate: boolean,
+): OrderHistoryColumn[] {
+  if (context === "employee-history") {
+    return EMPLOYEE_HISTORY_COLUMNS;
+  }
+
+  return showDeliveryDate ? PROVIDER_ALL_DATES_COLUMNS : PROVIDER_SPECIFIC_DATE_COLUMNS;
+}
+
+function resolveOrderHistoryTableMinWidth(
+  context: OrderHistoryTableContext,
+  showDeliveryDate: boolean,
+): string {
+  if (context === "employee-history") {
+    return "min-w-[68rem]";
+  }
+
+  return showDeliveryDate ? "min-w-[58rem]" : "min-w-[48rem]";
+}
+
+function OrderHistoryTableColGroup({
+  context,
+  showDeliveryDate,
+}: {
+  context: OrderHistoryTableContext;
+  showDeliveryDate: boolean;
+}) {
+  return (
+    <colgroup>
+      {resolveOrderHistoryColumns(context, showDeliveryDate).map((column) => (
+        <col
+          key={column.key}
+          data-order-history-column={column.key}
+          className={column.widthClassName}
+        />
+      ))}
+    </colgroup>
+  );
+}
 
 export function ProviderOfficeTable({
   orders,
@@ -121,55 +199,131 @@ export function ProviderOfficeTable({
 }) {
   const showEmployee = context === "provider-office";
   const showProviderAndOffice = context === "employee-history";
+  const tableMinWidth = resolveOrderHistoryTableMinWidth(context, showDeliveryDate);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-sm">
+    <div className="overflow-x-auto" data-order-history-table-scroll>
+      <table
+        className={`w-full ${tableMinWidth} table-fixed border-collapse text-sm`}
+        data-order-history-table-context={context}
+      >
+        <OrderHistoryTableColGroup context={context} showDeliveryDate={showDeliveryDate} />
         <thead>
           <tr className="border-b border-border bg-muted/15 text-left text-xs uppercase tracking-wide text-muted">
             {showDeliveryDate ? (
-              <th className="px-2 py-2 font-semibold">Delivery Date</th>
+              <th
+                scope="col"
+                data-order-history-column="delivery-date"
+                className="px-2 py-2 font-semibold"
+              >
+                Delivery Date
+              </th>
             ) : null}
-            {showEmployee ? <th className="px-2 py-2 font-semibold">Employee</th> : null}
+            {showEmployee ? (
+              <th
+                scope="col"
+                data-order-history-column="employee"
+                className="px-2 py-2 font-semibold"
+              >
+                Employee
+              </th>
+            ) : null}
             {showProviderAndOffice ? (
               <>
-                <th className="px-2 py-2 font-semibold">Provider</th>
-                <th className="px-2 py-2 font-semibold">Office</th>
+                <th
+                  scope="col"
+                  data-order-history-column="provider"
+                  className="px-2 py-2 font-semibold"
+                >
+                  Provider
+                </th>
+                <th
+                  scope="col"
+                  data-order-history-column="office"
+                  className="px-2 py-2 font-semibold"
+                >
+                  Office
+                </th>
               </>
             ) : null}
-            <th className="px-2 py-2 font-semibold">Order</th>
-            <th className="px-2 py-2 font-semibold">Qty</th>
-            <th className="px-2 py-2 font-semibold">Status</th>
-            <th className="px-2 py-2 font-semibold">Action</th>
+            <th
+              scope="col"
+              data-order-history-column="order"
+              className="px-2 py-2 font-semibold"
+            >
+              Order
+            </th>
+            <th
+              scope="col"
+              data-order-history-column="quantity"
+              className="px-2 py-2 font-semibold"
+            >
+              Qty
+            </th>
+            <th
+              scope="col"
+              data-order-history-column="status"
+              className="px-2 py-2 font-semibold"
+            >
+              Status
+            </th>
+            <th
+              scope="col"
+              data-order-history-column="action"
+              className="px-2 py-2 font-semibold"
+            >
+              Action
+            </th>
           </tr>
         </thead>
         <tbody>
           {orders.map((order) => (
             <tr key={order.id} className="border-b border-border/80 align-top">
               {showDeliveryDate ? (
-                <td className="px-2 py-2 whitespace-nowrap">
+                <td
+                  data-order-history-column="delivery-date"
+                  className="whitespace-nowrap px-2 py-2"
+                >
                   {formatHumanDate(order.deliveryDate)}
                 </td>
               ) : null}
               {showEmployee ? (
-                <td className="px-2 py-2 font-medium">{order.employeeName}</td>
+                <td
+                  data-order-history-column="employee"
+                  className="break-words px-2 py-2 font-medium"
+                >
+                  {order.employeeName}
+                </td>
               ) : null}
               {showProviderAndOffice ? (
                 <>
-                  <td className="px-2 py-2">{order.providerName}</td>
-                  <td className="px-2 py-2">{order.officeLocationName}</td>
+                  <td
+                    data-order-history-column="provider"
+                    className="break-words px-2 py-2"
+                  >
+                    {order.providerName}
+                  </td>
+                  <td
+                    data-order-history-column="office"
+                    className="break-words px-2 py-2"
+                  >
+                    {order.officeLocationName}
+                  </td>
                 </>
               ) : null}
-              <td className="px-2 py-2">
+              <td data-order-history-column="order" className="break-words px-2 py-2">
                 <CompactOrderCell order={order} />
               </td>
-              <td className="px-2 py-2 tabular-nums">
+              <td
+                data-order-history-column="quantity"
+                className="whitespace-nowrap px-2 py-2 tabular-nums"
+              >
                 {formatOrderHistoryTableQuantity(order)}
               </td>
-              <td className="px-2 py-2">
+              <td data-order-history-column="status" className="px-2 py-2">
                 <StatusBadge order={order} />
               </td>
-              <td className="px-2 py-2">
+              <td data-order-history-column="action" className="px-2 py-2">
                 <OrderTableAction onClick={() => onView(order.id)} label="View details" />
               </td>
             </tr>
@@ -438,6 +592,7 @@ export function OrderHistoryWorkspace({
               <section
                 key={provider.providerId}
                 className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
+                data-order-history-provider-card
               >
                 <div className="border-t-4 border-t-primary/50 px-4 py-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
