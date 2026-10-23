@@ -9,7 +9,41 @@ export type ProcessEmailQueueResult = {
   sent: number;
   retried: number;
   failed: number;
+  diagnostics: EmailQueueDiagnostics | null;
 };
+
+export type EmailQueueDiagnostics = {
+  pendingReady: number;
+  pendingFuture: number;
+  processing: number;
+  processingStale: number;
+};
+
+function mapQueueDiagnostics(raw: unknown): EmailQueueDiagnostics {
+  const diagnostics =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+
+  return {
+    pendingReady: Number(diagnostics.pending_ready ?? 0),
+    pendingFuture: Number(diagnostics.pending_future ?? 0),
+    processing: Number(diagnostics.processing ?? 0),
+    processingStale: Number(diagnostics.processing_stale ?? 0),
+  };
+}
+
+async function loadQueueDiagnostics(
+  supabase: SupabaseClient,
+): Promise<EmailQueueDiagnostics> {
+  const { data, error } = await supabase.rpc(
+    "worker_email_delivery_queue_claim_diagnostics",
+  );
+
+  if (error) {
+    throw new Error(`Email queue diagnostics failed: ${error.message}`);
+  }
+
+  return mapQueueDiagnostics(data);
+}
 
 function mapQueueRow(raw: Record<string, unknown>): EmailQueueRow {
   return {
@@ -37,7 +71,22 @@ export async function processEmailDeliveryQueue(
     sent: 0,
     retried: 0,
     failed: 0,
+    diagnostics: null,
   };
+
+  if (options.dryRun) {
+    result.diagnostics = await loadQueueDiagnostics(supabase);
+    console.log(
+      [
+        "Dry run: email queue unchanged; SMTP send skipped",
+        `pending_ready=${result.diagnostics.pendingReady}`,
+        `pending_future=${result.diagnostics.pendingFuture}`,
+        `processing=${result.diagnostics.processing}`,
+        `processing_stale=${result.diagnostics.processingStale}`,
+      ].join(" "),
+    );
+    return result;
+  }
 
   const { data, error } = await supabase.rpc("worker_claim_email_delivery_queue", {
     p_limit: batchSize,
@@ -50,29 +99,19 @@ export async function processEmailDeliveryQueue(
   const rows = ((data ?? []) as Record<string, unknown>[]).map(mapQueueRow);
   result.claimed = rows.length;
 
-  if (rows.length === 0 && !options.dryRun) {
-    const { data: diagnostics, error: diagnosticsError } = await supabase.rpc(
-      "worker_email_delivery_queue_claim_diagnostics",
-    );
+  if (rows.length === 0) {
+    try {
+      result.diagnostics = await loadQueueDiagnostics(supabase);
+      const diagnostics = result.diagnostics;
 
-    if (!diagnosticsError && diagnostics && typeof diagnostics === "object") {
-      const stats = diagnostics as Record<string, number>;
-      const pendingReady = Number(stats.pending_ready ?? 0);
-      const pendingFuture = Number(stats.pending_future ?? 0);
-      const processing = Number(stats.processing ?? 0);
-      const processingStale = Number(stats.processing_stale ?? 0);
-
-      if (pendingReady + pendingFuture + processing > 0) {
+      if (diagnostics.pendingReady + diagnostics.pendingFuture + diagnostics.processing > 0) {
         console.warn(
-          `Email queue claim returned 0 rows; pending_ready=${pendingReady} pending_future=${pendingFuture} processing=${processing} processing_stale=${processingStale}`,
+          `Email queue claim returned 0 rows; pending_ready=${diagnostics.pendingReady} pending_future=${diagnostics.pendingFuture} processing=${diagnostics.processing} processing_stale=${diagnostics.processingStale}`,
         );
       }
+    } catch {
+      // Claim diagnostics are best-effort during normal processing.
     }
-  }
-
-  if (options.dryRun) {
-    console.log(`Dry run: claimed ${rows.length} email queue message(s); SMTP send skipped`);
-    return result;
   }
 
   for (const row of rows) {

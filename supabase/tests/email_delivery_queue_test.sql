@@ -1,6 +1,6 @@
 begin;
 
-select plan(22);
+select plan(36);
 
 \ir support/isolate_existing_owner.inc
 
@@ -86,6 +86,36 @@ select set_config('request.jwt.claims', json_build_object('role', 'service_role'
 select set_config('request.jwt.claim.role', 'service_role', true);
 
 select is(
+  (select (public.worker_email_delivery_queue_claim_diagnostics() ->> 'pending_ready')::integer),
+  1,
+  'read-only diagnostics report the pending ready message'
+);
+
+reset role;
+
+select is(
+  (select status from private.email_delivery_queue limit 1),
+  'pending',
+  'read-only diagnostics do not change queue status'
+);
+
+select is(
+  (select attempts from private.email_delivery_queue limit 1),
+  0,
+  'read-only diagnostics do not increment queue attempts'
+);
+
+select is(
+  (select claimed_at from private.email_delivery_queue limit 1),
+  null,
+  'read-only diagnostics do not set the claim timestamp'
+);
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select is(
   (select count(*)::int from public.worker_claim_email_delivery_queue(5)),
   1,
   'worker claims pending queue row'
@@ -130,6 +160,67 @@ select is(
   '[redacted after send]',
   'successful send redacts sensitive queue body'
 );
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select is(
+  (select count(*)::int from public.worker_claim_email_delivery_queue(5)),
+  0,
+  'already-sent messages are not claimed again'
+);
+
+reset role;
+
+insert into private.email_delivery_queue (
+  message_type,
+  recipient_email,
+  subject,
+  text_body,
+  html_body,
+  status,
+  available_at
+)
+values (
+  'test',
+  'repeat-claim@example.test',
+  'Repeat claim subject',
+  'repeat claim body',
+  '<p>repeat claim body</p>',
+  'pending',
+  now()
+);
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select is(
+  (select count(*)::int from public.worker_claim_email_delivery_queue(1)),
+  1,
+  'first claim acquires the pending message'
+);
+
+select is(
+  (select count(*)::int from public.worker_claim_email_delivery_queue(1)),
+  0,
+  'a sequential repeat claim cannot reacquire the processing message'
+);
+
+reset role;
+
+select ok(
+  position(
+    'for update skip locked' in lower(
+      pg_get_functiondef('public.worker_claim_email_delivery_queue(integer)'::regprocedure)
+    )
+  ) > 0,
+  'worker claims retain row-locking with skip-locked concurrency protection'
+);
+
+delete from private.email_delivery_queue
+where recipient_email = 'repeat-claim@example.test';
 
 reset role;
 
@@ -232,6 +323,75 @@ select is(
   'non-sensitive notification text',
   'terminal redaction does not alter unrelated notification bodies'
 );
+
+insert into private.email_delivery_queue (
+  message_type,
+  recipient_email,
+  subject,
+  text_body,
+  html_body,
+  status,
+  attempts,
+  available_at
+)
+values (
+  'test',
+  'retry@example.test',
+  'Retry subject',
+  'retry body',
+  '<p>retry body</p>',
+  'pending',
+  0,
+  now()
+);
+
+set local role service_role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+select set_config(
+  'test.retry_queue_id',
+  coalesce((select id::text from public.worker_claim_email_delivery_queue(1) limit 1), ''),
+  false
+);
+
+select ok(current_setting('test.retry_queue_id') <> '', 'worker claims retry test message');
+
+select lives_ok(
+  format(
+    $$ select public.worker_complete_email_delivery('%s'::uuid, 'failed', 'Temporary SMTP failure') $$,
+    current_setting('test.retry_queue_id')
+  ),
+  'worker records a retryable delivery failure'
+);
+
+reset role;
+
+select is(
+  (select status from private.email_delivery_queue where recipient_email = 'retry@example.test'),
+  'pending',
+  'retryable failure returns queue row to pending'
+);
+
+select is(
+  (select attempts from private.email_delivery_queue where recipient_email = 'retry@example.test'),
+  1,
+  'retryable failure preserves the incremented attempt count'
+);
+
+select is(
+  (select claimed_at from private.email_delivery_queue where recipient_email = 'retry@example.test'),
+  null,
+  'retryable failure clears the claim timestamp'
+);
+
+select ok(
+  (select available_at > now() from private.email_delivery_queue where recipient_email = 'retry@example.test'),
+  'retryable failure applies a future backoff time'
+);
+
+delete from private.email_delivery_queue
+where recipient_email = 'retry@example.test';
 
 insert into private.email_delivery_queue (
   message_type,

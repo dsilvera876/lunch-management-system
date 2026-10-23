@@ -140,6 +140,11 @@ export async function processDeadlineReminderNotifications(
     diagnostics: null,
   };
 
+  if (options.dryRun) {
+    console.log("Dry run: deadline reminder batch preparation skipped");
+    return result;
+  }
+
   const { data: prepareData, error: prepareError } = await supabase.rpc(
     "worker_prepare_deadline_reminder_batch",
     { p_as_of: options.asOf ?? new Date().toISOString() },
@@ -160,11 +165,6 @@ export async function processDeadlineReminderNotifications(
   result.prepared = true;
   result.batchId = diagnostics.batchId ?? null;
   result.inserted = diagnostics.inserted ?? 0;
-
-  if (options.dryRun) {
-    await recordProcessingRunQueueStats(supabase, diagnostics, result);
-    return result;
-  }
 
   const { data: templateRow, error: templateError } = await supabase.rpc(
     "worker_get_notification_email_template",
