@@ -175,13 +175,12 @@ export function MyOrdersPageClient({
             />
           ) : (
             cancelled.map((checkout) => (
-              <GroupedCheckoutCard
-                key={checkout.orderGroupId}
-                checkout={checkout}
-                collapsible={false}
-                defaultExpanded
-                showViewLinks={false}
-              />
+                <GroupedCheckoutCard
+                  key={checkout.orderGroupId}
+                  checkout={checkout}
+                  collapsible={false}
+                  defaultExpanded
+                />
             ))
           )
         ) : null}

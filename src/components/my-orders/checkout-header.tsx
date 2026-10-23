@@ -1,4 +1,4 @@
-import { formatCurrency, formatDeadline, formatHumanDate } from "@/lib/format";
+import { formatDeadline, formatHumanDate } from "@/lib/format";
 import type { GroupedCheckout } from "@/lib/staff-my-orders";
 import { CheckoutStatusBadge } from "@/components/my-orders/checkout-status-badge";
 import { NavIcon } from "@/components/icons/line-icons";
@@ -8,6 +8,8 @@ type Props = {
   expanded?: boolean;
   onToggle?: () => void;
   collapsible?: boolean;
+  headingId?: string;
+  detailsId?: string;
 };
 
 export function CheckoutHeader({
@@ -15,10 +17,9 @@ export function CheckoutHeader({
   expanded = true,
   onToggle,
   collapsible = false,
+  headingId,
+  detailsId,
 }: Props) {
-  const orderCountLabel = `${checkout.orderCount} ${checkout.orderCount === 1 ? "order" : "orders"}`;
-  const providerCountLabel = `${checkout.providerCount} ${checkout.providerCount === 1 ? "provider" : "providers"}`;
-
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
@@ -29,7 +30,7 @@ export function CheckoutHeader({
           >
             <NavIcon id="calendar" size={18} />
           </span>
-          <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">
+          <h3 id={headingId} className="text-lg font-semibold text-slate-900 sm:text-xl">
             {formatHumanDate(checkout.deliveryDate)}
           </h3>
           <CheckoutStatusBadge
@@ -37,33 +38,26 @@ export function CheckoutHeader({
             kind={checkout.checkoutStatusKind}
           />
         </div>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-slate-700">
           Ordered {formatDeadline(checkout.placedAt)}
           {checkout.officeLocationName
             ? ` · Delivery to ${checkout.officeLocationName}`
             : ""}
         </p>
         {checkout.deliveredAt ? (
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-slate-700">
             Delivered {formatDeadline(checkout.deliveredAt)}
           </p>
         ) : null}
       </div>
 
       <div className="flex items-start gap-3">
-        <div className="text-right text-sm">
-          <p className="text-muted">
-            {orderCountLabel} from {providerCountLabel}
-          </p>
-          <p className="mt-1 font-semibold tabular-nums text-slate-900">
-            Total: {formatCurrency(checkout.subtotal)}
-          </p>
-        </div>
         {collapsible && onToggle ? (
           <button
             type="button"
             onClick={onToggle}
             aria-expanded={expanded}
+            aria-controls={detailsId}
             aria-label={expanded ? "Collapse order details" : "Expand order details"}
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-muted hover:text-foreground"
           >

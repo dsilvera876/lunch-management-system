@@ -32,11 +32,11 @@ type Props = {
 };
 
 export default async function MyOrdersPage({ searchParams }: Props) {
-  const profile = await requireProfile();
+  await requireProfile();
   const query = await searchParams;
   const tab = parseMyOrdersTab(query.tab);
   const [checkouts, lateOrderSubmissions, lateOrderOpportunityAvailable] = await Promise.all([
-    loadStaffGroupedCheckouts(profile.id),
+    loadStaffGroupedCheckouts(),
     loadMyStaffLateOrderRequests(),
     loadStaffLateOrderNewRequestAvailable(),
   ]);
