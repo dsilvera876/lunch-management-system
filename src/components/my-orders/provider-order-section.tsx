@@ -14,12 +14,12 @@ import {
 } from "@/lib/staff-my-orders";
 import { linkButtonClass } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { FormSubmitButton } from "@/components/form-submit-button";
-import { cancelLunchOrder } from "@/app/lunch/actions";
+import { MyOrdersCancelButton } from "@/components/my-orders/my-orders-cancel-button";
 import { MenuItemRatingBlock } from "@/components/menu-item-ratings/menu-item-rating-block";
 import { MenuItemMostPopularBadge } from "@/components/menu-item-ratings/menu-item-most-popular-badge";
 import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 import { isProviderOrderEligibleForMenuItemRatingsUi } from "@/lib/menu-item-ratings-eligibility-ui";
+import { ProviderIconWell } from "@/lib/provider-icons";
 
 type Props = {
   order: StaffProviderOrder;
@@ -30,22 +30,18 @@ type Props = {
 const providerCardAccents = [
   {
     header: "border-teal-200 bg-teal-50",
-    marker: "bg-teal-700 text-white",
     total: "text-teal-800",
   },
   {
     header: "border-indigo-200 bg-indigo-50",
-    marker: "bg-indigo-700 text-white",
     total: "text-indigo-800",
   },
   {
     header: "border-amber-200 bg-amber-50",
-    marker: "bg-amber-800 text-white",
     total: "text-amber-900",
   },
   {
     header: "border-sky-200 bg-sky-50",
-    marker: "bg-sky-700 text-white",
     total: "text-sky-800",
   },
 ] as const;
@@ -157,9 +153,14 @@ export function ProviderOrderSection({
         <div className="flex min-w-0 items-start gap-3">
           <span
             aria-hidden
-            className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-base font-bold ${accent.marker}`}
+            data-testid="provider-icon"
+            data-provider-icon-key={order.providerIconKey}
           >
-            {order.indexInGroup}
+            <ProviderIconWell
+              iconKey={order.providerIconKey}
+              size="medium"
+              alt=""
+            />
           </span>
           <div className="min-w-0">
             <h4 id={providerHeadingId} className="break-words text-base font-semibold text-slate-950">
@@ -288,18 +289,12 @@ export function ProviderOrderSection({
               </Link>
             ) : null}
             {order.canCancel ? (
-              <form action={cancelLunchOrder}>
-                <input type="hidden" name="orderId" value={order.id} />
-                <FormSubmitButton
-                  pendingText={`Cancelling order from ${order.providerName}...`}
-                  confirmMessage={`Cancel order ${order.indexInGroup} of ${order.groupOrderCount} from ${order.providerName}? Your other orders for this delivery date will not be affected.`}
-                  variant="danger"
-                  className="min-h-10 px-3 py-2 text-sm"
-                >
-                  <span>Cancel order</span>
-                  <span className="sr-only"> from {order.providerName}</span>
-                </FormSubmitButton>
-              </form>
+              <MyOrdersCancelButton
+                orderId={order.id}
+                providerName={order.providerName}
+                orderPosition={order.indexInGroup}
+                checkoutOrderCount={order.groupOrderCount}
+              />
             ) : null}
           </div>
         ) : null}

@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(18);
 
 \ir support/isolate_existing_owner.inc
 \ir support/isolate_lunch_periods.inc
@@ -25,6 +25,10 @@ reset role;
 update public.app_settings
 set daily_lunch_subsidy = 30
 where id = 1;
+
+update public.lunch_providers
+set icon_key = 'fruit'
+where id = '90000000-0000-0000-0000-000000000099';
 
 insert into public.orders (
   id,
@@ -183,6 +187,12 @@ select is(
   ),
   251,
   'Complete checkout associations are returned for every provider order'
+);
+
+select is(
+  (select payload #>> '{orders,0,lunch_days,lunch_providers,icon_key}' from staff_snapshot),
+  'fruit',
+  'The snapshot returns only the provider curated icon key needed for presentation'
 );
 
 select set_config(

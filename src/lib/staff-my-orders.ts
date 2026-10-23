@@ -6,6 +6,10 @@ import {
 } from "@/lib/menu-items";
 import type { DeliveryState, FinancialDisposition } from "@/lib/delivery-reconciliation";
 import { calculateMarginalOrderCheckout } from "@/lib/order-subsidy-preview";
+import {
+  parseProviderIconKey,
+  type ProviderIconKey,
+} from "@/lib/provider-icons";
 import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB } from "@/lib/staff-late-order-submissions";
 
 export type MyOrdersTab = "upcoming" | "past" | "cancelled" | typeof MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB;
@@ -24,6 +28,7 @@ export type StaffProviderOrder = {
   id: string;
   providerId: string;
   providerName: string;
+  providerIconKey: ProviderIconKey;
   ratingsEnabled: boolean;
   indexInGroup: number;
   groupOrderCount: number;
@@ -39,6 +44,7 @@ export type StaffProviderOrder = {
   canEdit: boolean;
   canCancel: boolean;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type GroupedCheckout = {
@@ -62,6 +68,22 @@ export type GroupedCheckout = {
   cancellationSummary: string | null;
 };
 
+export type DeliveryDateOrderGroup = {
+  deliveryDate: string;
+  checkouts: GroupedCheckout[];
+  financialProviderOrders: StaffProviderOrder[];
+  providerCount: number;
+  orderCount: number;
+  visibleOrderCount: number;
+  checkoutStatusLabel: GroupedCheckout["checkoutStatusLabel"];
+  checkoutStatusKind: GroupedCheckout["checkoutStatusKind"];
+  originalSubtotal: number;
+  chargeableSubtotal: number;
+  lunchSubsidy: number;
+  youPay: number;
+  payLabel: GroupedCheckout["payLabel"];
+};
+
 export type StaffMyOrdersRawRow = {
   id: string;
   lunch_day_id: string;
@@ -82,16 +104,16 @@ export type StaffMyOrdersRawRow = {
     order_date: string;
     order_deadline: string;
     lunch_providers:
-      | { id: string; name: string; ratings_enabled: boolean | null; active: boolean }
-      | { id: string; name: string; ratings_enabled: boolean | null; active: boolean }[];
+      | { id: string; name: string; icon_key: string | null; ratings_enabled: boolean | null; active: boolean }
+      | { id: string; name: string; icon_key: string | null; ratings_enabled: boolean | null; active: boolean }[];
   } | {
     status: string;
     lunch_date: string;
     order_date: string;
     order_deadline: string;
     lunch_providers:
-      | { id: string; name: string; ratings_enabled: boolean | null; active: boolean }
-      | { id: string; name: string; ratings_enabled: boolean | null; active: boolean }[];
+      | { id: string; name: string; icon_key: string | null; ratings_enabled: boolean | null; active: boolean }
+      | { id: string; name: string; icon_key: string | null; ratings_enabled: boolean | null; active: boolean }[];
   }[];
   order_items: Array<{
     quantity: number;
@@ -175,6 +197,7 @@ function hasValidProvider(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.id === "string" &&
     typeof value.name === "string" &&
+    isNullableString(value.icon_key) &&
     typeof value.ratings_enabled === "boolean" &&
     typeof value.active === "boolean";
 }
@@ -489,6 +512,7 @@ export function mapRawOrderToProviderOrder(
     id: order.id,
     providerId: provider?.id ?? "",
     providerName: provider?.name ?? "Lunch provider",
+    providerIconKey: parseProviderIconKey(provider?.icon_key),
     ratingsEnabled: provider?.ratings_enabled === true,
     indexInGroup,
     groupOrderCount,
@@ -504,6 +528,7 @@ export function mapRawOrderToProviderOrder(
     canEdit: capabilities.canEdit && !order.is_late_order && order.status === "submitted",
     canCancel: capabilities.canCancel && !order.is_late_order && order.status === "submitted",
     createdAt: order.created_at,
+    updatedAt: order.updated_at,
   };
 }
 
@@ -768,21 +793,193 @@ export function groupOrdersIntoCheckouts(
     .sort(comparePlacedNewestFirst);
 }
 
+export function groupCheckoutsByDeliveryDate(
+  visibleCheckouts: GroupedCheckout[],
+  completeFinancialContext: GroupedCheckout[],
+): DeliveryDateOrderGroup[] {
+  const financialByDate = new Map<string, GroupedCheckout[]>();
+  for (const checkout of completeFinancialContext) {
+    const dateCheckouts = financialByDate.get(checkout.deliveryDate) ?? [];
+    dateCheckouts.push(checkout);
+    financialByDate.set(checkout.deliveryDate, dateCheckouts);
+  }
+
+  const visibleByDate = new Map<string, GroupedCheckout[]>();
+  for (const checkout of visibleCheckouts) {
+    const dateCheckouts = visibleByDate.get(checkout.deliveryDate) ?? [];
+    dateCheckouts.push(checkout);
+    visibleByDate.set(checkout.deliveryDate, dateCheckouts);
+  }
+
+  const today = getJamaicaTodayDate();
+  return [...visibleByDate.entries()].map(([deliveryDate, checkouts]) => {
+    const sortedCheckouts = [...checkouts].sort(comparePlacedNewestFirst);
+    const authoritativeCheckouts = financialByDate.get(deliveryDate);
+    if (!authoritativeCheckouts) {
+      throw new Error("Unable to load your order totals.");
+    }
+
+    const authoritativeByCheckoutId = new Map(
+      authoritativeCheckouts.map((checkout) => [checkout.orderGroupId, checkout]),
+    );
+    for (const checkout of sortedCheckouts) {
+      const authoritative = authoritativeByCheckoutId.get(checkout.orderGroupId);
+      if (!authoritative) {
+        throw new Error("Unable to load your order totals.");
+      }
+      const authoritativeOrderIds = new Set(
+        authoritative.providerOrders.map((order) => order.id),
+      );
+      if (checkout.providerOrders.some((order) => !authoritativeOrderIds.has(order.id))) {
+        throw new Error("Unable to load your order totals.");
+      }
+
+      const cancelledOnly = checkout.providerOrders.every(
+        (order) => order.status === "cancelled",
+      );
+      if (
+        cancelledOnly
+          ? checkout.chargeableSubtotal !== 0 ||
+            checkout.lunchSubsidy !== 0 ||
+            checkout.youPay !== 0
+          : checkout.chargeableSubtotal !== authoritative.chargeableSubtotal ||
+            checkout.lunchSubsidy !== authoritative.lunchSubsidy ||
+            checkout.youPay !== authoritative.youPay
+      ) {
+        throw new Error("Unable to load your order totals.");
+      }
+    }
+
+    const visibleProviderOrders = sortedCheckouts.flatMap(
+      (checkout) => checkout.providerOrders,
+    );
+    const financialProviderOrders = visibleProviderOrders;
+    const checkoutStatus = deriveCheckoutStatus(
+      visibleProviderOrders,
+      deliveryDate,
+      today,
+    );
+    const originalSubtotal = sortedCheckouts.reduce(
+      (sum, checkout) => sum + checkout.originalSubtotal,
+      0,
+    );
+    const chargeableSubtotal = sortedCheckouts.reduce(
+      (sum, checkout) => sum + checkout.chargeableSubtotal,
+      0,
+    );
+    const lunchSubsidy = sortedCheckouts.reduce(
+      (sum, checkout) => sum + checkout.lunchSubsidy,
+      0,
+    );
+    const youPay = sortedCheckouts.reduce(
+      (sum, checkout) => sum + checkout.youPay,
+      0,
+    );
+
+    return {
+      deliveryDate,
+      checkouts: sortedCheckouts,
+      financialProviderOrders,
+      providerCount: new Set(
+        financialProviderOrders.map((order) => order.providerId).filter(Boolean),
+      ).size,
+      orderCount: financialProviderOrders.length,
+      visibleOrderCount: visibleProviderOrders.length,
+      checkoutStatusLabel: checkoutStatus.label,
+      checkoutStatusKind: checkoutStatus.kind,
+      originalSubtotal,
+      chargeableSubtotal,
+      lunchSubsidy,
+      youPay,
+      payLabel:
+        youPay <= 0
+          ? "No amount due"
+          : compareDeliveryDates(deliveryDate, today) >= 0
+            ? "You Pay"
+            : "Your cost",
+    };
+  });
+}
+
+function projectCheckoutProviderOrders(
+  checkout: GroupedCheckout,
+  providerOrders: StaffProviderOrder[],
+): GroupedCheckout | null {
+  if (providerOrders.length === 0) {
+    return null;
+  }
+
+  const cancelledOnly = providerOrders.every((order) => order.status === "cancelled");
+  const originalSubtotal = providerOrders.reduce(
+    (sum, order) => sum + order.orderTotal,
+    0,
+  );
+  const chargeableSubtotal = providerOrders
+    .filter(isFinanciallyChargeableOrder)
+    .reduce((sum, order) => sum + order.orderTotal, 0);
+
+  if (!cancelledOnly && chargeableSubtotal !== checkout.chargeableSubtotal) {
+    throw new Error("Unable to load your order totals.");
+  }
+
+  const today = getJamaicaTodayDate();
+  const status = deriveCheckoutStatus(providerOrders, checkout.deliveryDate, today);
+  const cancelledAt = cancelledOnly
+    ? providerOrders
+        .map((order) => order.updatedAt)
+        .sort()
+        .at(-1) ?? null
+    : null;
+  const lunchSubsidy = cancelledOnly ? 0 : checkout.lunchSubsidy;
+  const youPay = cancelledOnly ? 0 : checkout.youPay;
+
+  return {
+    ...checkout,
+    providerOrders,
+    providerCount: new Set(
+      providerOrders.map((order) => order.providerId).filter(Boolean),
+    ).size,
+    orderCount: providerOrders.length,
+    checkoutStatusLabel: status.label,
+    checkoutStatusKind: status.kind,
+    originalSubtotal,
+    chargeableSubtotal,
+    lunchSubsidy,
+    youPay,
+    payLabel:
+      youPay <= 0
+        ? "No amount due"
+        : compareDeliveryDates(checkout.deliveryDate, today) >= 0
+          ? "You Pay"
+          : "Your cost",
+    deliveredAt: cancelledOnly ? null : checkout.deliveredAt,
+    cancelledAt,
+    cancellationSummary: cancelledOnly
+      ? checkout.cancellationSummary ?? "Cancelled — not charged"
+      : null,
+  };
+}
+
+function withoutCancelledProviderOrders(
+  checkout: GroupedCheckout,
+): GroupedCheckout | null {
+  return projectCheckoutProviderOrders(
+    checkout,
+    checkout.providerOrders.filter((order) => order.status !== "cancelled"),
+  );
+}
+
 export function selectUpcomingCheckouts(groups: GroupedCheckout[]): GroupedCheckout[] {
   const today = getJamaicaTodayDate();
 
   return groups
-    .filter((group) => {
-      if (isFullyCancelledGroup(group.providerOrders)) {
-        return false;
-      }
-
-      if (group.checkoutStatusKind === "delivered") {
-        return false;
-      }
-
-      return compareDeliveryDates(group.deliveryDate, today) >= 0;
-    })
+    .map(withoutCancelledProviderOrders)
+    .filter((group): group is GroupedCheckout => Boolean(group))
+    .filter(
+      (group) =>
+        group.checkoutStatusKind !== "delivered" &&
+        compareDeliveryDates(group.deliveryDate, today) >= 0,
+    )
     .sort((a, b) => compareDeliveryDates(a.deliveryDate, b.deliveryDate));
 }
 
@@ -842,6 +1039,8 @@ export function selectPastCheckoutsForDate(
         group.deliveryDate === deliveryDate &&
         !isFullyCancelledGroup(group.providerOrders),
     )
+    .map(withoutCancelledProviderOrders)
+    .filter((group): group is GroupedCheckout => Boolean(group))
     .sort(comparePlacedNewestFirst);
 }
 
@@ -857,10 +1056,34 @@ export function selectCancelledCheckouts(
   groups: GroupedCheckout[],
   limit = 3,
 ): GroupedCheckout[] {
-  return groups
-    .filter((group) => isFullyCancelledGroup(group.providerOrders))
-    .sort((a, b) => (b.cancelledAt ?? b.placedAt).localeCompare(a.cancelledAt ?? a.placedAt))
+  const selectedByCheckoutId = new Map<string, StaffProviderOrder[]>();
+  const recentCancelledOrders = groups
+    .flatMap((checkout) =>
+      checkout.providerOrders
+        .filter((order) => order.status === "cancelled")
+        .map((order) => ({ checkout, order })),
+    )
+    .sort(
+      (a, b) =>
+        b.order.updatedAt.localeCompare(a.order.updatedAt) ||
+        b.order.id.localeCompare(a.order.id),
+    )
     .slice(0, limit);
+
+  for (const { checkout, order } of recentCancelledOrders) {
+    const selected = selectedByCheckoutId.get(checkout.orderGroupId) ?? [];
+    selected.push(order);
+    selectedByCheckoutId.set(checkout.orderGroupId, selected);
+  }
+
+  return [...selectedByCheckoutId.entries()]
+    .map(([checkoutId, providerOrders]) => {
+      const checkout = groups.find((candidate) => candidate.orderGroupId === checkoutId);
+      return checkout
+        ? projectCheckoutProviderOrders(checkout, providerOrders)
+        : null;
+    })
+    .filter((group): group is GroupedCheckout => Boolean(group));
 }
 
 export function parseMyOrdersTab(value: string | undefined): MyOrdersTab {

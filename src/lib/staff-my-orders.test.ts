@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { getRelated } from "./format";
 import {
   deriveStaffOrderCapabilities,
   deriveCheckoutStatus,
   getOrderFinancialStatusLabel,
+  groupCheckoutsByDeliveryDate,
   groupOrdersIntoCheckouts,
   isFullyCancelledGroup,
   isFinanciallyChargeableOrder,
@@ -23,6 +25,7 @@ function buildRawOrder(overrides: {
   groupId?: string | null;
   providerId: string;
   providerName: string;
+  providerIconKey?: string | null;
   deliveryDate: string;
   orderDate: string;
   status?: string;
@@ -58,6 +61,10 @@ function buildRawOrder(overrides: {
       lunch_providers: {
         id: overrides.providerId,
         name: overrides.providerName,
+        icon_key:
+          overrides.providerIconKey === undefined
+            ? "utensils"
+            : overrides.providerIconKey,
         ratings_enabled: false,
         active: overrides.providerActive ?? true,
       },
@@ -151,6 +158,246 @@ describe("staff my orders grouping", () => {
 
     const groups = groupOrdersIntoCheckouts(rows, 500, new Map());
     assert.equal(groups.length, 2);
+  });
+
+  it("groups separate checkouts under one delivery date and consolidates the daily employee cost", () => {
+    const rows = [
+      buildRawOrder({
+        id: "date-group-first",
+        groupId: "checkout-first",
+        providerId: "provider-first",
+        providerName: "Lunch Provider 3",
+        providerIconKey: "fruit",
+        deliveryDate: "2099-10-23",
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T12:33:00Z",
+        gross: 850,
+      }),
+      buildRawOrder({
+        id: "date-group-second",
+        groupId: "checkout-second",
+        providerId: "provider-second",
+        providerName: "Lunch Provider 5",
+        providerIconKey: "bowl",
+        deliveryDate: "2099-10-23",
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T12:57:00Z",
+        gross: 1000,
+      }),
+    ];
+
+    const checkouts = groupOrdersIntoCheckouts(
+      rows,
+      new Map([["2099-10-23", 400]]),
+      new Map(),
+    );
+    const deliveryGroups = groupCheckoutsByDeliveryDate(checkouts, checkouts);
+
+    assert.equal(deliveryGroups.length, 1);
+    assert.equal(deliveryGroups[0]!.checkouts.length, 2);
+    assert.deepEqual(
+      deliveryGroups[0]!.checkouts.map((checkout) => checkout.orderGroupId),
+      ["checkout-second", "checkout-first"],
+      "individual checkout ordering times remain available newest first",
+    );
+    assert.equal(deliveryGroups[0]!.chargeableSubtotal, 1850);
+    assert.equal(deliveryGroups[0]!.lunchSubsidy, 400);
+    assert.equal(deliveryGroups[0]!.youPay, 1450);
+    assert.equal(deliveryGroups[0]!.orderCount, 2);
+    assert.equal(deliveryGroups[0]!.providerCount, 2);
+    assert.equal(deliveryGroups[0]!.financialProviderOrders[0]!.providerIconKey, "bowl");
+    assert.equal(deliveryGroups[0]!.financialProviderOrders[1]!.providerIconKey, "fruit");
+  });
+
+  it("uses the neutral provider icon when snapshot icon data is null or unsupported", () => {
+    const missingIcon = mapRawOrderToProviderOrder(
+      buildRawOrder({
+        id: "missing-icon",
+        providerId: "provider-missing-icon",
+        providerName: "Provider without an icon",
+        providerIconKey: null,
+        deliveryDate: "2099-10-23",
+        orderDate: "2099-10-23",
+      }),
+      1,
+      1,
+    );
+    const unsupportedIcon = mapRawOrderToProviderOrder(
+      buildRawOrder({
+        id: "unsupported-icon",
+        providerId: "provider-unsupported-icon",
+        providerName: "Provider with an unsupported icon",
+        providerIconKey: "untrusted-icon-key",
+        deliveryDate: "2099-10-23",
+        orderDate: "2099-10-23",
+      }),
+      1,
+      1,
+    );
+
+    assert.equal(missingIcon.providerIconKey, "utensils");
+    assert.equal(unsupportedIcon.providerIconKey, "utensils");
+  });
+
+  it("keeps cancelled orders historical without presenting active same-date charges as payable", () => {
+    const rows = [
+      buildRawOrder({
+        id: "visible-cancelled",
+        groupId: "cancelled-checkout",
+        providerId: "cancelled-provider",
+        providerName: "Cancelled Provider",
+        deliveryDate: "2099-10-24",
+        orderDate: "2099-10-24",
+        createdAt: "2099-10-24T12:00:00Z",
+        gross: 900,
+        status: "cancelled",
+      }),
+      buildRawOrder({
+        id: "hidden-chargeable",
+        groupId: "active-checkout",
+        providerId: "active-provider",
+        providerName: "Active Provider",
+        deliveryDate: "2099-10-24",
+        orderDate: "2099-10-24",
+        createdAt: "2099-10-24T13:00:00Z",
+        gross: 850,
+      }),
+    ];
+    const checkouts = groupOrdersIntoCheckouts(
+      rows,
+      new Map([["2099-10-24", 400]]),
+      new Map(),
+    );
+    const cancelledOnly = selectCancelledCheckouts(checkouts);
+    const deliveryGroup = groupCheckoutsByDeliveryDate(cancelledOnly, checkouts)[0]!;
+
+    assert.equal(deliveryGroup.visibleOrderCount, 1);
+    assert.equal(deliveryGroup.orderCount, 1);
+    assert.equal(deliveryGroup.originalSubtotal, 900);
+    assert.equal(deliveryGroup.chargeableSubtotal, 0);
+    assert.equal(deliveryGroup.lunchSubsidy, 0);
+    assert.equal(deliveryGroup.youPay, 0);
+    assert.equal(deliveryGroup.payLabel, "No amount due");
+    assert.deepEqual(
+      deliveryGroup.financialProviderOrders.map((order) => order.id),
+      ["visible-cancelled"],
+    );
+  });
+
+  it("filters mixed checkouts at provider-order level without reallocating subsidy", () => {
+    const deliveryDate = "2099-10-26";
+    const rows = [
+      buildRawOrder({
+        id: "cancelled-davis",
+        groupId: "mixed-davis-checkout",
+        providerId: "davis",
+        providerName: "Davis Catering",
+        deliveryDate,
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T11:00:00Z",
+        gross: 200,
+        status: "cancelled",
+      }),
+      buildRawOrder({
+        id: "active-davis",
+        groupId: "mixed-davis-checkout",
+        providerId: "davis",
+        providerName: "Davis Catering",
+        deliveryDate,
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T11:01:00Z",
+        gross: 200,
+      }),
+      buildRawOrder({
+        id: "active-provider-four",
+        groupId: "provider-four-checkout",
+        providerId: "provider-four",
+        providerName: "Lunch Provider 4",
+        deliveryDate,
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T12:00:00Z",
+        gross: 1000,
+      }),
+      buildRawOrder({
+        id: "active-provider-three",
+        groupId: "provider-three-checkout",
+        providerId: "provider-three",
+        providerName: "Lunch Provider 3",
+        deliveryDate,
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T13:00:00Z",
+        gross: 1250,
+      }),
+    ];
+    const complete = groupOrdersIntoCheckouts(
+      rows,
+      new Map([["2099-10-23", 400]]),
+      new Map(),
+    );
+
+    const upcoming = groupCheckoutsByDeliveryDate(
+      selectUpcomingCheckouts(complete),
+      complete,
+    )[0]!;
+    assert.deepEqual(
+      upcoming.financialProviderOrders.map((order) => order.id).sort(),
+      ["active-davis", "active-provider-four", "active-provider-three"].sort(),
+    );
+    assert.equal(upcoming.orderCount, 3);
+    assert.equal(upcoming.originalSubtotal, 2450);
+    assert.equal(upcoming.chargeableSubtotal, 2450);
+    assert.equal(upcoming.lunchSubsidy, 400);
+    assert.equal(upcoming.youPay, 2050);
+
+    const cancelled = groupCheckoutsByDeliveryDate(
+      selectCancelledCheckouts(complete),
+      complete,
+    )[0]!;
+    assert.deepEqual(
+      cancelled.financialProviderOrders.map((order) => order.id),
+      ["cancelled-davis"],
+    );
+    assert.equal(cancelled.originalSubtotal, 200);
+    assert.equal(cancelled.chargeableSubtotal, 0);
+    assert.equal(cancelled.lunchSubsidy, 0);
+    assert.equal(cancelled.youPay, 0);
+    assert.equal(cancelled.payLabel, "No amount due");
+  });
+
+  it("keeps a cancelled order in Cancelled when the same item is ordered again", () => {
+    const rows = [
+      buildRawOrder({
+        id: "cancelled-original",
+        groupId: "original-checkout",
+        providerId: "same-provider",
+        providerName: "Same Provider",
+        deliveryDate: "2099-10-26",
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T10:00:00Z",
+        status: "cancelled",
+      }),
+      buildRawOrder({
+        id: "active-reorder",
+        groupId: "replacement-checkout",
+        providerId: "same-provider",
+        providerName: "Same Provider",
+        deliveryDate: "2099-10-26",
+        orderDate: "2099-10-23",
+        createdAt: "2099-10-23T11:00:00Z",
+      }),
+    ];
+    const complete = groupOrdersIntoCheckouts(rows, 500, new Map());
+
+    assert.deepEqual(
+      selectUpcomingCheckouts(complete).flatMap((checkout) =>
+        checkout.providerOrders.map((order) => order.id)),
+      ["active-reorder"],
+    );
+    assert.deepEqual(
+      selectCancelledCheckouts(complete).flatMap((checkout) =>
+        checkout.providerOrders.map((order) => order.id)),
+      ["cancelled-original"],
+    );
   });
 
   it("calculates checkout subsidy once per group", () => {
@@ -292,7 +539,7 @@ describe("staff my orders grouping", () => {
     assert.equal(group.youPay, 350);
   });
 
-  it("selects only the three most recent cancelled groups", () => {
+  it("selects only the three most recent cancelled provider orders", () => {
     const rows = [
       buildRawOrder({
         id: "c1",
@@ -339,6 +586,10 @@ describe("staff my orders grouping", () => {
     const groups = groupOrdersIntoCheckouts(rows, 500, new Map());
     const cancelled = selectCancelledCheckouts(groups, 3);
     assert.equal(cancelled.length, 3);
+    assert.equal(
+      cancelled.reduce((count, group) => count + group.providerOrders.length, 0),
+      3,
+    );
     assert.ok(cancelled.every((group) => isFullyCancelledGroup(group.providerOrders)));
   });
 
@@ -578,13 +829,26 @@ describe("staff my orders grouping", () => {
     assert.doesNotMatch(cardSource, /cancelLunchOrder|Cancel order|Edit order/);
     assert.match(providerSectionSource, /order\.canEdit/);
     assert.match(providerSectionSource, /order\.canCancel/);
-    assert.match(providerSectionSource, /cancelLunchOrder/);
-    assert.match(providerSectionSource, /Cancel order/);
+    assert.match(providerSectionSource, /MyOrdersCancelButton/);
     assert.match(providerSectionSource, /Edit order/);
     assert.match(providerSectionSource, /aria-labelledby=\{providerHeadingId\}/);
     assert.match(providerSectionSource, /from \{order\.providerName\}/);
-    assert.match(providerSectionSource, /bg-amber-800 text-white/);
+    assert.match(providerSectionSource, /ProviderIconWell/);
+    assert.match(providerSectionSource, /iconKey=\{order\.providerIconKey\}/);
     assert.doesNotMatch(providerSectionSource, /View order/);
+
+    const cancelButtonSource = readFileSync(
+      new URL("../components/my-orders/my-orders-cancel-button.tsx", import.meta.url),
+      "utf8",
+    );
+    assert.match(cancelButtonSource, /cancelLunchOrderFromMyOrders/);
+    assert.match(cancelButtonSource, /Cancel order/);
+    assert.match(
+      cancelButtonSource,
+      /Order cancelled successfully\. Your other orders were not affected\./,
+    );
+    assert.match(cancelButtonSource, /router\.refresh\(\)/);
+    assert.doesNotMatch(cancelButtonSource, /redirect\(|router\.push\(/);
 
     const rows = [
       buildRawOrder({
@@ -752,10 +1016,10 @@ describe("staff my orders grouping", () => {
     assert.match(providerSectionSource, /MenuItemRatingBlock/);
     assert.match(providerSectionSource, /OrderLineRatings/);
     assert.match(summarySource, /Provider order totals/);
-    assert.match(summarySource, /checkout\.originalSubtotal/);
-    assert.match(summarySource, /checkout\.chargeableSubtotal/);
-    assert.match(summarySource, /checkout\.lunchSubsidy/);
-    assert.match(summarySource, /checkout\.youPay/);
+    assert.match(summarySource, /deliveryGroup\.originalSubtotal/);
+    assert.match(summarySource, /deliveryGroup\.chargeableSubtotal/);
+    assert.match(summarySource, /deliveryGroup\.lunchSubsidy/);
+    assert.match(summarySource, /deliveryGroup\.youPay/);
   });
 
   it("backfill migration only assigns groups to late orders missing one", () => {
@@ -1021,6 +1285,11 @@ describe("staff my orders grouping", () => {
     const parsed = parseStaffMyOrdersSnapshot(payload);
     assert.equal(parsed.rows.length, 1);
     assert.equal(parsed.dailySubsidyByOrderDate.get("2026-08-12"), 500);
+    const parsedLunchDay = getRelated(parsed.rows[0]!.lunch_days);
+    assert.equal(
+      getRelated(parsedLunchDay!.lunch_providers)?.icon_key,
+      "utensils",
+    );
     assert.throws(
       () => parseStaffMyOrdersSnapshot({ ...payload, financial_context_valid: false }),
       /Unable to load your order totals/,
@@ -1035,6 +1304,25 @@ describe("staff my orders grouping", () => {
         orders: [snapshotOrder, snapshotOrder],
       }),
       /Unable to load your order totals/,
+    );
+    assert.throws(
+      () => parseStaffMyOrdersSnapshot({
+        ...payload,
+        orders: [{
+          ...snapshotOrder,
+          lunch_days: {
+            ...snapshotOrder.lunch_days,
+            lunch_providers: {
+              id: snapshotOrder.lunch_days.lunch_providers.id,
+              name: snapshotOrder.lunch_days.lunch_providers.name,
+              ratings_enabled: snapshotOrder.lunch_days.lunch_providers.ratings_enabled,
+              active: snapshotOrder.lunch_days.lunch_providers.active,
+            },
+          },
+        }],
+      }),
+      /Unable to load your order totals/,
+      "an application requiring provider icons fails safely until the migration is applied",
     );
   });
 

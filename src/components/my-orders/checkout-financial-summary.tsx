@@ -1,36 +1,35 @@
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDeadline } from "@/lib/format";
 import {
   getOrderFinancialStatusLabel,
   isFinanciallyChargeableOrder,
-  type GroupedCheckout,
+  type DeliveryDateOrderGroup,
 } from "@/lib/staff-my-orders";
 
 type Props = {
-  checkout: GroupedCheckout;
+  deliveryGroup: DeliveryDateOrderGroup;
 };
 
 const providerMarkers = ["bg-teal-700", "bg-indigo-700", "bg-amber-600", "bg-sky-700"];
 
-export function CheckoutFinancialSummary({ checkout }: Props) {
+export function CheckoutFinancialSummary({ deliveryGroup }: Props) {
   return (
     <aside
       className="rounded-xl border border-border bg-surface p-5 shadow-sm lg:sticky lg:top-4"
-      aria-label={`${checkout.payLabel} summary`}
+      aria-label={`${deliveryGroup.payLabel} summary for this delivery date`}
       data-testid="checkout-financial-summary"
     >
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-        {checkout.payLabel}
+        {deliveryGroup.payLabel}
       </p>
       <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-staff-teal-strong">
-        {formatCurrency(checkout.youPay)}
+        {formatCurrency(deliveryGroup.youPay)}
       </p>
       <p className="mt-2 text-sm text-muted">
-        {checkout.orderCount} {checkout.orderCount === 1 ? "order" : "orders"} from{" "}
-        {checkout.providerCount} {checkout.providerCount === 1 ? "provider" : "providers"}
+        {deliveryGroup.orderCount} {deliveryGroup.orderCount === 1 ? "order" : "orders"} from{" "}
+        {deliveryGroup.providerCount} {deliveryGroup.providerCount === 1 ? "provider" : "providers"}
       </p>
-
       <ul className="mt-5 space-y-2.5" aria-label="Provider order totals">
-        {checkout.providerOrders.map((order, index) => (
+        {deliveryGroup.financialProviderOrders.map((order, index) => (
           <li key={order.id} className="flex items-start justify-between gap-3 text-sm">
             <span className="flex min-w-0 items-start gap-2 text-muted">
               <span
@@ -39,9 +38,10 @@ export function CheckoutFinancialSummary({ checkout }: Props) {
               />
               <span className="min-w-0 break-words">
                 {order.providerName}
-                {checkout.providerOrders.length > 1 ? (
-                  <span className="sr-only">, order {order.indexInGroup}</span>
-                ) : null}
+                <span className="sr-only">
+                  , order {order.indexInGroup} of {order.groupOrderCount}, ordered{" "}
+                  {formatDeadline(order.createdAt)}
+                </span>
               </span>
             </span>
             {isFinanciallyChargeableOrder(order) ? (
@@ -63,30 +63,30 @@ export function CheckoutFinancialSummary({ checkout }: Props) {
       </ul>
 
       <dl className="mt-5 space-y-2 border-t border-border pt-4 text-sm">
-        {checkout.originalSubtotal !== checkout.chargeableSubtotal ? (
+        {deliveryGroup.originalSubtotal !== deliveryGroup.chargeableSubtotal ? (
           <div className="flex justify-between gap-4">
             <dt className="text-muted">Original order value</dt>
             <dd className="font-medium tabular-nums text-muted">
-              {formatCurrency(checkout.originalSubtotal)}
+              {formatCurrency(deliveryGroup.originalSubtotal)}
             </dd>
           </div>
         ) : null}
         <div className="flex justify-between gap-4">
           <dt className="text-muted">
-            {checkout.originalSubtotal === checkout.chargeableSubtotal
+            {deliveryGroup.originalSubtotal === deliveryGroup.chargeableSubtotal
               ? "Subtotal"
               : "Chargeable subtotal"}
           </dt>
           <dd className="font-medium tabular-nums text-foreground">
-            {formatCurrency(checkout.chargeableSubtotal)}
+            {formatCurrency(deliveryGroup.chargeableSubtotal)}
           </dd>
         </div>
-        {checkout.chargeableSubtotal > 0 ? (
+        {deliveryGroup.chargeableSubtotal > 0 ? (
           <div className="flex justify-between gap-4">
             <dt className="text-muted">Lunch subsidy</dt>
             <dd className="font-medium tabular-nums text-muted">
-              {checkout.lunchSubsidy > 0
-                ? `-${formatCurrency(checkout.lunchSubsidy)}`
+              {deliveryGroup.lunchSubsidy > 0
+                ? `-${formatCurrency(deliveryGroup.lunchSubsidy)}`
                 : formatCurrency(0)}
             </dd>
           </div>

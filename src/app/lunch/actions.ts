@@ -337,6 +337,58 @@ export async function updateLunchOrder(formData: FormData) {
   redirect(`/lunch/orders/${orderId}?updated=1`);
 }
 
+type CancelLunchOrderMutationResult =
+  | { ok: true }
+  | { ok: false; errorCode: string };
+
+export type CancelLunchOrderFromMyOrdersResult =
+  | { ok: true }
+  | { ok: false; errorCode: string; message: string };
+
+async function cancelLunchOrderById(
+  orderId: string,
+): Promise<CancelLunchOrderMutationResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc("cancel_order", {
+    p_order_id: orderId,
+  });
+
+  if (error) {
+    return { ok: false, errorCode: getOrderErrorCode(error.message) };
+  }
+
+  revalidatePath("/lunch");
+  revalidatePath("/my-orders");
+  revalidatePath(`/lunch/orders/${orderId}`);
+
+  return { ok: true };
+}
+
+export async function cancelLunchOrderFromMyOrders(
+  orderId: string,
+): Promise<CancelLunchOrderFromMyOrdersResult> {
+  await requireProfile();
+
+  if (!orderId) {
+    return {
+      ok: false,
+      errorCode: "invalid",
+      message: getLunchOrderErrorMessage("invalid"),
+    };
+  }
+
+  const result = await cancelLunchOrderById(orderId);
+  if (!result.ok) {
+    return {
+      ...result,
+      message: getLunchOrderErrorMessage(result.errorCode),
+    };
+  }
+
+  return result;
+}
+
 export async function cancelLunchOrder(formData: FormData) {
   await requireProfile();
 
@@ -346,19 +398,10 @@ export async function cancelLunchOrder(formData: FormData) {
     redirect("/lunch?error=invalid");
   }
 
-  const supabase = await createClient();
-
-  const { error } = await supabase.rpc("cancel_order", {
-    p_order_id: orderId,
-  });
-
-  if (error) {
-    const errorCode = getOrderErrorCode(error.message);
-    redirect(`/lunch/orders/${orderId}?error=${errorCode}`);
+  const result = await cancelLunchOrderById(orderId);
+  if (!result.ok) {
+    redirect(`/lunch/orders/${orderId}?error=${result.errorCode}`);
   }
-
-  revalidatePath("/lunch");
-  revalidatePath(`/lunch/orders/${orderId}`);
 
   redirect(`/lunch/orders/${orderId}?cancelled=1`);
 }

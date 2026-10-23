@@ -10,6 +10,7 @@ import { sortLateOrderSubmissions } from "@/lib/staff-late-order-submissions";
 import { LateOrderSubmissionCard } from "@/components/my-orders/late-order-submission-card";
 import {
   getMostRecentPastDeliveryDate,
+  groupCheckoutsByDeliveryDate,
   selectCancelledCheckouts,
   selectPastCheckoutsForDate,
   selectUpcomingCheckouts,
@@ -21,6 +22,7 @@ import { MyOrdersEmptyState } from "@/components/my-orders/my-orders-empty-state
 import { MY_ORDERS_TABPANEL_ID } from "@/lib/accessible-tabs";
 import type { MenuItemRatingSummariesById } from "@/lib/menu-item-ratings-collect";
 import { MenuItemRatingsLoadNotice } from "@/components/menu-item-ratings/menu-item-ratings-load-notice";
+import { ToastProvider } from "@/components/ui/toast";
 
 type Props = {
   checkouts: GroupedCheckout[];
@@ -59,20 +61,29 @@ export function MyOrdersPageClient({
 }: Props) {
   const router = useRouter();
 
-  const upcoming = useMemo(() => selectUpcomingCheckouts(checkouts), [checkouts]);
-  const cancelled = useMemo(() => selectCancelledCheckouts(checkouts), [checkouts]);
+  const upcoming = useMemo(
+    () => groupCheckoutsByDeliveryDate(selectUpcomingCheckouts(checkouts), checkouts),
+    [checkouts],
+  );
+  const cancelled = useMemo(
+    () => groupCheckoutsByDeliveryDate(selectCancelledCheckouts(checkouts), checkouts),
+    [checkouts],
+  );
 
   const sortedLateOrderSubmissions = useMemo(
     () => sortLateOrderSubmissions(lateOrderSubmissions),
     [lateOrderSubmissions],
   );
 
-  const pastCheckoutsForSelectedDate = useMemo(() => {
+  const pastDeliveryGroups = useMemo(() => {
     if (!selectedPastDate) {
       return [];
     }
 
-    return selectPastCheckoutsForDate(checkouts, selectedPastDate);
+    return groupCheckoutsByDeliveryDate(
+      selectPastCheckoutsForDate(checkouts, selectedPastDate),
+      checkouts,
+    );
   }, [checkouts, selectedPastDate]);
 
   function handleTabChange(tab: MyOrdersTab) {
@@ -90,7 +101,8 @@ export function MyOrdersPageClient({
   }
 
   return (
-    <div className="space-y-4">
+    <ToastProvider>
+      <div className="space-y-4">
       <MyOrdersToolbar
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -126,10 +138,10 @@ export function MyOrdersPageClient({
               }
             />
           ) : (
-            upcoming.map((checkout, index) => (
+            upcoming.map((deliveryGroup, index) => (
               <GroupedCheckoutCard
-                key={checkout.orderGroupId}
-                checkout={checkout}
+                key={deliveryGroup.deliveryDate}
+                deliveryGroup={deliveryGroup}
                 collapsible={upcoming.length > 1}
                 defaultExpanded={index === 0}
                 ratingSummaries={ratingSummaries}
@@ -146,16 +158,16 @@ export function MyOrdersPageClient({
                 title="Select a date to view your past lunch order."
                 icon="history"
               />
-            ) : pastCheckoutsForSelectedDate.length === 0 ? (
+            ) : pastDeliveryGroups.length === 0 ? (
               <MyOrdersEmptyState
                 title="No lunch order found for this date."
                 icon="calendar"
               />
             ) : (
-              pastCheckoutsForSelectedDate.map((checkout) => (
+              pastDeliveryGroups.map((deliveryGroup) => (
                 <GroupedCheckoutCard
-                  key={checkout.orderGroupId}
-                  checkout={checkout}
+                  key={deliveryGroup.deliveryDate}
+                  deliveryGroup={deliveryGroup}
                   collapsible={false}
                   defaultExpanded
                   ratingSummaries={ratingSummaries}
@@ -174,10 +186,10 @@ export function MyOrdersPageClient({
               icon="receipt"
             />
           ) : (
-            cancelled.map((checkout) => (
+            cancelled.map((deliveryGroup) => (
                 <GroupedCheckoutCard
-                  key={checkout.orderGroupId}
-                  checkout={checkout}
+                  key={deliveryGroup.deliveryDate}
+                  deliveryGroup={deliveryGroup}
                   collapsible={false}
                   defaultExpanded
                 />
@@ -208,6 +220,7 @@ export function MyOrdersPageClient({
           )
         ) : null}
       </div>
-    </div>
+      </div>
+    </ToastProvider>
   );
 }

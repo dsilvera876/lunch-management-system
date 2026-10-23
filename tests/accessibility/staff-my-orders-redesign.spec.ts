@@ -14,6 +14,115 @@ const CANCELLATION_FIXTURE = {
   siblingMarker: "E2E cancellation sibling",
 } as const;
 
+const DATE_GROUPING_FIXTURE = {
+  firstGroupId: "93000001-0001-4001-8001-000000000001",
+  secondGroupId: "93000002-0002-4002-8002-000000000002",
+  firstOrderId: "93000003-0003-4003-8003-000000000003",
+  secondOrderId: "93000004-0004-4004-8004-000000000004",
+  sourceFirstOrderId: CANCELLATION_FIXTURE.sourceFirstOrderId,
+  sourceSecondOrderId: CANCELLATION_FIXTURE.sourceSiblingOrderId,
+  firstMarker: "E2E same-date first checkout",
+  secondMarker: "E2E same-date second checkout",
+} as const;
+
+function cleanupDateGroupingFixture() {
+  runLocalDbExec(`
+    delete from public.orders
+    where id in (
+      '${DATE_GROUPING_FIXTURE.firstOrderId}'::uuid,
+      '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
+    );
+  `);
+}
+
+function prepareDateGroupingFixture() {
+  cleanupDateGroupingFixture();
+  runLocalDbExec(`
+    do $fixture$
+    begin
+      insert into public.orders (
+      id,
+      profile_id,
+      lunch_day_id,
+      status,
+      delivery_state,
+      financial_disposition,
+      special_instructions,
+      meal_quantity,
+      office_location_id,
+      office_location_name,
+      office_location_address,
+      order_group_id,
+      is_late_order,
+      created_at,
+      updated_at
+    )
+    select
+      case o.id
+        when '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid
+          then '${DATE_GROUPING_FIXTURE.firstOrderId}'::uuid
+        else '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
+      end,
+      o.profile_id,
+      o.lunch_day_id,
+      'submitted',
+      'pending',
+      'chargeable',
+      case o.id
+        when '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid
+          then '${DATE_GROUPING_FIXTURE.firstMarker}'
+        else '${DATE_GROUPING_FIXTURE.secondMarker}'
+      end,
+      o.meal_quantity,
+      o.office_location_id,
+      o.office_location_name,
+      o.office_location_address,
+      case o.id
+        when '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid
+          then '${DATE_GROUPING_FIXTURE.firstGroupId}'::uuid
+        else '${DATE_GROUPING_FIXTURE.secondGroupId}'::uuid
+      end,
+      false,
+      now() + case o.id
+        when '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid then interval '3 seconds'
+        else interval '4 seconds'
+      end,
+      now()
+      from public.orders o
+      where o.id in (
+        '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid,
+        '${DATE_GROUPING_FIXTURE.sourceSecondOrderId}'::uuid
+      );
+
+      insert into public.order_items (
+      order_id,
+      menu_item_id,
+      lunch_day_id,
+      quantity,
+      unit_price,
+      created_at
+    )
+    select
+      case oi.order_id
+        when '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid
+          then '${DATE_GROUPING_FIXTURE.firstOrderId}'::uuid
+        else '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
+      end,
+      oi.menu_item_id,
+      oi.lunch_day_id,
+      oi.quantity,
+      oi.unit_price,
+      now()
+      from public.order_items oi
+      where oi.order_id in (
+        '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid,
+        '${DATE_GROUPING_FIXTURE.sourceSecondOrderId}'::uuid
+      );
+    end;
+    $fixture$;
+  `);
+}
+
 function cleanupCancellationFixture() {
   runLocalDbExec(`
     do $fixture$
@@ -149,7 +258,7 @@ test.beforeEach(async ({ context, page }) => {
 });
 
 function firstExpandedCheckout(page: Page): Locator {
-  return page.getByTestId("checkout-group").filter({
+  return page.getByTestId("delivery-date-group").filter({
     has: page.getByTestId("provider-order-card"),
   }).first();
 }
@@ -165,7 +274,7 @@ async function selectTab(page: Page, name: string) {
 
 test.describe("Staff My Orders redesign", () => {
   test.describe.configure({ mode: "serial" });
-  test("groups provider cards inside one checkout and preserves authoritative summaries and actions", async ({
+  test("groups provider cards under one delivery date and preserves authoritative summaries and actions", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -186,6 +295,12 @@ test.describe("Staff My Orders redesign", () => {
       await expect(card.getByText(/Order \d+ of 2/)).toBeVisible();
       await expect(card.getByText("Submitted", { exact: true })).toBeVisible();
       await expect(card.getByText("Order total", { exact: true })).toBeVisible();
+      await expect(card.getByTestId("provider-icon")).toHaveAttribute(
+        "data-provider-icon-key",
+        /^(utensils|bowl|fruit|drink|pizza|burger|leaf|food-bag)$/,
+      );
+      await expect(card.getByTestId("provider-icon")).toHaveAttribute("aria-hidden", "true");
+      await expect(card.getByTestId("provider-icon").locator("img")).toBeVisible();
       await expect(card.getByRole("link", { name: `Edit order from ${providerName}`, exact: true })).toBeVisible();
       await expect(card.getByRole("button", { name: `Cancel order from ${providerName}`, exact: true })).toBeVisible();
       await expect(card.getByTestId("order-price-leader").first()).toHaveAttribute(
@@ -221,13 +336,38 @@ test.describe("Staff My Orders redesign", () => {
       name: `Cancel order from ${firstProviderName}`,
       exact: true,
     });
+    const cancelContrast = await cancel.evaluate((element) => {
+      const parseRgb = (value: string) =>
+        value.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+      const luminance = (rgb: number[]) => {
+        const channels = rgb.map((value) => {
+          const normalized = value / 255;
+          return normalized <= 0.04045
+            ? normalized / 12.92
+            : ((normalized + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+      };
+      const styles = getComputedStyle(element);
+      const foreground = luminance(parseRgb(styles.color));
+      const background = luminance(parseRgb(styles.backgroundColor));
+      return {
+        ratio: (Math.max(foreground, background) + 0.05) /
+          (Math.min(foreground, background) + 0.05),
+        background: styles.backgroundColor,
+      };
+    });
+    expect(cancelContrast.ratio).toBeGreaterThanOrEqual(4.5);
+    expect(cancelContrast.background).not.toBe("rgb(220, 38, 38)");
     let confirmationMessage = "";
     page.once("dialog", async (dialog) => {
       expect(dialog.type()).toBe("confirm");
       confirmationMessage = dialog.message();
       await dialog.dismiss();
     });
-    await cancel.click();
+    await cancel.focus();
+    await expect(cancel).toBeFocused();
+    await page.keyboard.press("Enter");
     expect(confirmationMessage).toContain(firstProviderName);
     expect(confirmationMessage).toContain("order 1 of 2");
     await expect(page).toHaveURL(/\/my-orders(?:\?|$)/);
@@ -237,6 +377,38 @@ test.describe("Staff My Orders redesign", () => {
       exact: true,
     }).click();
     await expect(page).toHaveURL(/\/lunch\/orders\/.+\?edit=1$/);
+  });
+
+  test("renders separate same-date checkouts beneath one heading and one daily summary", async ({
+    page,
+  }) => {
+    prepareDateGroupingFixture();
+    try {
+      await page.goto("/my-orders");
+      const deliveryGroup = page
+        .getByTestId("delivery-date-group")
+        .filter({ hasText: DATE_GROUPING_FIXTURE.firstMarker })
+        .filter({ hasText: DATE_GROUPING_FIXTURE.secondMarker });
+
+      await expect(deliveryGroup).toHaveCount(1);
+      await expect(deliveryGroup.getByRole("heading", { level: 3 })).toHaveCount(1);
+      await expect(deliveryGroup.getByTestId("checkout-financial-summary")).toHaveCount(1);
+      const firstCheckout = deliveryGroup.locator(
+        `[data-testid="checkout-subgroup"][data-checkout-id="${DATE_GROUPING_FIXTURE.firstGroupId}"]`,
+      );
+      const secondCheckout = deliveryGroup.locator(
+        `[data-testid="checkout-subgroup"][data-checkout-id="${DATE_GROUPING_FIXTURE.secondGroupId}"]`,
+      );
+      await expect(firstCheckout).toContainText(DATE_GROUPING_FIXTURE.firstMarker);
+      await expect(firstCheckout).toContainText(/^Ordered .+ · Delivery to /);
+      await expect(secondCheckout).toContainText(DATE_GROUPING_FIXTURE.secondMarker);
+      await expect(secondCheckout).toContainText(/^Ordered .+ · Delivery to /);
+      await expectNoAxeViolations(page, "My Orders same-date checkouts", {
+        mainContentOnly: true,
+      });
+    } finally {
+      cleanupDateGroupingFixture();
+    }
   });
 
   test("past orders keep full details and omit self-service mutation actions", async ({ page }) => {
@@ -328,12 +500,15 @@ test.describe("Staff My Orders redesign", () => {
     prepareCancellationFixture();
     try {
       await page.goto("/my-orders");
-      const checkout = page.getByTestId("checkout-group").filter({
+      const checkout = page.getByTestId("delivery-date-group").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });
       const targetCard = checkout.getByTestId("provider-order-card").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });
+      const activeCardCountBeforeCancellation = await checkout
+        .getByTestId("provider-order-card")
+        .count();
       const providerName = (await targetCard.getByRole("heading", { level: 4 }).textContent())!.trim();
 
       page.once("dialog", (dialog) => dialog.accept());
@@ -341,9 +516,53 @@ test.describe("Staff My Orders redesign", () => {
         name: `Cancel order from ${providerName}`,
         exact: true,
       }).click();
-      await expect(page).toHaveURL(
-        new RegExp(`/lunch/orders/${CANCELLATION_FIXTURE.firstOrderId}\\?cancelled=1$`),
+      await expect(page).toHaveURL(/\/my-orders(?:\?|$)/);
+      await expect(
+        page.getByRole("status").getByText(
+          "Order cancelled successfully. Your other orders were not affected.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+
+      const refreshedUpcoming = page.getByTestId("delivery-date-group").filter({
+        hasText: CANCELLATION_FIXTURE.siblingMarker,
+      });
+      await expect(refreshedUpcoming).not.toContainText(CANCELLATION_FIXTURE.firstMarker);
+      await expect(refreshedUpcoming).toContainText(CANCELLATION_FIXTURE.siblingMarker);
+      const activeCardCountAfterCancellation = activeCardCountBeforeCancellation - 1;
+      await expect(refreshedUpcoming.getByTestId("provider-order-card")).toHaveCount(
+        activeCardCountAfterCancellation,
       );
+      await expect(
+        refreshedUpcoming.getByTestId("checkout-financial-summary"),
+      ).toContainText(
+        `${activeCardCountAfterCancellation} ${activeCardCountAfterCancellation === 1 ? "order" : "orders"}`,
+      );
+
+      await selectTab(page, "Cancelled");
+      const cancelledGroup = page.getByTestId("delivery-date-group").filter({
+        hasText: CANCELLATION_FIXTURE.firstMarker,
+      });
+      await expect(cancelledGroup).toContainText(CANCELLATION_FIXTURE.firstMarker);
+      await expect(cancelledGroup).not.toContainText(CANCELLATION_FIXTURE.siblingMarker);
+      await expect(cancelledGroup.getByText("Cancelled", { exact: true }).first()).toBeVisible();
+      await expect(
+        cancelledGroup.getByText("Original order value", { exact: true }).first(),
+      ).toBeVisible();
+      await expect(
+        cancelledGroup.getByTestId("checkout-financial-summary"),
+      ).toContainText("No amount due");
+
+      await page.reload();
+      await expect(page.getByRole("tab", { name: "Cancelled" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(
+        page.getByTestId("delivery-date-group").filter({
+          hasText: CANCELLATION_FIXTURE.firstMarker,
+        }),
+      ).toBeVisible();
 
       const state = runLocalDbQuery(`
         select id::text, status
@@ -359,21 +578,6 @@ test.describe("Staff My Orders redesign", () => {
         { id: CANCELLATION_FIXTURE.siblingOrderId, status: "submitted" },
       ]);
 
-      await page.reload();
-      await page.goto("/my-orders");
-      const refreshedCheckout = page.getByTestId("checkout-group").filter({
-        hasText: CANCELLATION_FIXTURE.firstMarker,
-      });
-      await expect(
-        refreshedCheckout.getByTestId("provider-order-card").filter({
-          hasText: CANCELLATION_FIXTURE.firstMarker,
-        }).getByText("Cancelled", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        refreshedCheckout.getByTestId("provider-order-card").filter({
-          hasText: CANCELLATION_FIXTURE.siblingMarker,
-        }).getByText("Submitted", { exact: true }),
-      ).toBeVisible();
     } finally {
       cleanupCancellationFixture();
     }
@@ -383,7 +587,7 @@ test.describe("Staff My Orders redesign", () => {
     prepareCancellationFixture();
     try {
       await page.goto("/my-orders");
-      const checkout = page.getByTestId("checkout-group").filter({
+      const checkout = page.getByTestId("delivery-date-group").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });
       const targetCard = checkout.getByTestId("provider-order-card").filter({
@@ -403,9 +607,30 @@ test.describe("Staff My Orders redesign", () => {
         name: `Cancel order from ${providerName}`,
         exact: true,
       }).click();
-      await expect(page).toHaveURL(
-        new RegExp(`/lunch/orders/${CANCELLATION_FIXTURE.firstOrderId}\\?error=`),
-      );
+      await expect(page).toHaveURL(/\/my-orders(?:\?|$)/);
+      await expect(
+        page.getByRole("alert").getByText(
+          "This order can no longer be cancelled.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          "Order cancelled successfully. Your other orders were not affected.",
+          { exact: true },
+        ),
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId("delivery-date-group").filter({
+          hasText: CANCELLATION_FIXTURE.siblingMarker,
+        }),
+      ).not.toContainText(CANCELLATION_FIXTURE.firstMarker);
+      await selectTab(page, "Cancelled");
+      await expect(
+        page.getByTestId("delivery-date-group").filter({
+          hasText: CANCELLATION_FIXTURE.firstMarker,
+        }),
+      ).toBeVisible();
       await expect(page).not.toHaveURL(/cancelled=1/);
 
       const state = runLocalDbQuery(`

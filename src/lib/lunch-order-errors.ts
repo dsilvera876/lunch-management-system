@@ -16,6 +16,8 @@ export function getLunchOrderErrorMessage(code: string): string {
       return "Special instructions must be 500 characters or fewer.";
     case "location":
       return "Choose an active delivery location before placing your order.";
+    case "locked":
+      return "This order can no longer be cancelled.";
     default:
       return "Unable to complete the request. Please try again.";
   }

@@ -1,10 +1,10 @@
-import { formatDeadline, formatHumanDate } from "@/lib/format";
-import type { GroupedCheckout } from "@/lib/staff-my-orders";
+import { formatHumanDate } from "@/lib/format";
+import type { DeliveryDateOrderGroup } from "@/lib/staff-my-orders";
 import { CheckoutStatusBadge } from "@/components/my-orders/checkout-status-badge";
 import { NavIcon } from "@/components/icons/line-icons";
 
 type Props = {
-  checkout: GroupedCheckout;
+  deliveryGroup: DeliveryDateOrderGroup;
   expanded?: boolean;
   onToggle?: () => void;
   collapsible?: boolean;
@@ -13,7 +13,7 @@ type Props = {
 };
 
 export function CheckoutHeader({
-  checkout,
+  deliveryGroup,
   expanded = true,
   onToggle,
   collapsible = false,
@@ -31,24 +31,13 @@ export function CheckoutHeader({
             <NavIcon id="calendar" size={18} />
           </span>
           <h3 id={headingId} className="text-lg font-semibold text-slate-900 sm:text-xl">
-            {formatHumanDate(checkout.deliveryDate)}
+            {formatHumanDate(deliveryGroup.deliveryDate)}
           </h3>
           <CheckoutStatusBadge
-            label={checkout.checkoutStatusLabel}
-            kind={checkout.checkoutStatusKind}
+            label={deliveryGroup.checkoutStatusLabel}
+            kind={deliveryGroup.checkoutStatusKind}
           />
         </div>
-        <p className="mt-2 text-sm text-slate-700">
-          Ordered {formatDeadline(checkout.placedAt)}
-          {checkout.officeLocationName
-            ? ` · Delivery to ${checkout.officeLocationName}`
-            : ""}
-        </p>
-        {checkout.deliveredAt ? (
-          <p className="mt-1 text-sm text-slate-700">
-            Delivered {formatDeadline(checkout.deliveredAt)}
-          </p>
-        ) : null}
       </div>
 
       <div className="flex items-start gap-3">
@@ -58,8 +47,8 @@ export function CheckoutHeader({
             onClick={onToggle}
             aria-expanded={expanded}
             aria-controls={detailsId}
-            aria-label={expanded ? "Collapse order details" : "Expand order details"}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-muted hover:text-foreground"
+            aria-label={expanded ? "Collapse orders for this delivery date" : "Expand orders for this delivery date"}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <svg
               width="18"
