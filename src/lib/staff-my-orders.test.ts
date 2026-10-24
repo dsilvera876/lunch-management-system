@@ -5,7 +5,9 @@ import { getRelated } from "./format";
 import {
   deriveStaffOrderCapabilities,
   deriveCheckoutStatus,
+  deriveProviderStatusLabel,
   getOrderFinancialStatusLabel,
+  getProviderOrderDeliveredAt,
   groupCheckoutsByDeliveryDate,
   groupOrdersIntoCheckouts,
   isFullyCancelledGroup,
@@ -237,6 +239,86 @@ describe("staff my orders grouping", () => {
 
     assert.equal(missingIcon.providerIconKey, "utensils");
     assert.equal(unsupportedIcon.providerIconKey, "utensils");
+  });
+
+  it("keeps delivery timestamps per provider order and hides stale events for non-delivered states", () => {
+    const deliveredAt = "2026-09-21T17:05:00Z";
+    const stalePendingEventAt = "2026-09-21T16:45:00Z";
+    const staleIssueEventAt = "2026-09-21T17:15:00Z";
+    const staleResolvedEventAt = "2026-09-21T17:30:00Z";
+    const rows = [
+      buildRawOrder({
+        id: "delivered-order",
+        groupId: "mixed-delivery-checkout",
+        providerId: "provider-delivered",
+        providerName: "Delivered Provider",
+        deliveryDate: "2026-09-21",
+        orderDate: "2026-09-18",
+        status: "fulfilled",
+        deliveryState: "delivered",
+      }),
+      buildRawOrder({
+        id: "pending-order",
+        groupId: "mixed-delivery-checkout",
+        providerId: "provider-pending",
+        providerName: "Pending Provider",
+        deliveryDate: "2026-09-21",
+        orderDate: "2026-09-18",
+      }),
+      buildRawOrder({
+        id: "issue-order",
+        groupId: "mixed-delivery-checkout",
+        providerId: "provider-issue",
+        providerName: "Issue Provider",
+        deliveryDate: "2026-09-21",
+        orderDate: "2026-09-18",
+        status: "fulfilled",
+        deliveryState: "issue_open",
+        financialDisposition: "on_hold",
+      }),
+      buildRawOrder({
+        id: "resolved-order",
+        groupId: "mixed-delivery-checkout",
+        providerId: "provider-resolved",
+        providerName: "Resolved Provider",
+        deliveryDate: "2026-09-21",
+        orderDate: "2026-09-18",
+        status: "fulfilled",
+        deliveryState: "resolved",
+        financialDisposition: "waived",
+      }),
+    ];
+    const deliveryEvents = new Map([
+      ["delivered-order", deliveredAt],
+      ["pending-order", stalePendingEventAt],
+      ["issue-order", staleIssueEventAt],
+      ["resolved-order", staleResolvedEventAt],
+    ]);
+
+    const checkout = groupOrdersIntoCheckouts(rows, 500, deliveryEvents)[0]!;
+    const delivered = checkout.providerOrders.find((order) => order.id === "delivered-order")!;
+    const pending = checkout.providerOrders.find((order) => order.id === "pending-order")!;
+    const issue = checkout.providerOrders.find((order) => order.id === "issue-order")!;
+    const resolved = checkout.providerOrders.find((order) => order.id === "resolved-order")!;
+
+    assert.equal(delivered.deliveredAt, deliveredAt);
+    assert.equal(pending.deliveredAt, stalePendingEventAt);
+    assert.equal(issue.deliveredAt, staleIssueEventAt);
+    assert.equal(resolved.deliveredAt, staleResolvedEventAt);
+    assert.equal(getProviderOrderDeliveredAt(delivered), deliveredAt);
+    assert.equal(getProviderOrderDeliveredAt(pending), null);
+    assert.equal(getProviderOrderDeliveredAt(issue), null);
+    assert.equal(getProviderOrderDeliveredAt(resolved), null);
+    assert.equal(issue.statusLabel, "Issue Reported");
+    assert.equal(resolved.statusLabel, "Issue Resolved");
+    assert.equal(
+      deriveProviderStatusLabel({ status: "fulfilled", delivery_state: "issue_open" }),
+      "Issue Reported",
+    );
+    assert.equal(
+      deriveProviderStatusLabel({ status: "fulfilled", delivery_state: "resolved" }),
+      "Issue Resolved",
+    );
   });
 
   it("keeps cancelled orders historical without presenting active same-date charges as payable", () => {
@@ -848,6 +930,9 @@ describe("staff my orders grouping", () => {
       /Order cancelled successfully\. Your other orders were not affected\./,
     );
     assert.match(cancelButtonSource, /router\.refresh\(\)/);
+    assert.match(cancelButtonSource, /hover:bg-red-700!/);
+    assert.match(cancelButtonSource, /hover:text-white!/);
+    assert.match(cancelButtonSource, /focus-visible:outline-red-700/);
     assert.doesNotMatch(cancelButtonSource, /redirect\(|router\.push\(/);
 
     const rows = [
@@ -1011,6 +1096,11 @@ describe("staff my orders grouping", () => {
 
     assert.match(cardSource, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(17rem,20rem\)\]/);
     assert.match(providerSectionSource, /data-testid="provider-order-card"/);
+    assert.match(providerSectionSource, /data-testid="provider-order-metadata"/);
+    assert.match(providerSectionSource, /formatDeadline\(checkoutMetadata\.placedAt\)/);
+    assert.match(providerSectionSource, /checkoutMetadata\.officeLocationName/);
+    assert.match(providerSectionSource, /getProviderOrderDeliveredAt\(order\)/);
+    assert.match(providerSectionSource, /formatDeadline\(order\.updatedAt\)/);
     assert.match(providerSectionSource, /data-testid="order-price-leader"/);
     assert.match(providerSectionSource, /aria-hidden/);
     assert.match(providerSectionSource, /MenuItemRatingBlock/);
@@ -1020,6 +1110,8 @@ describe("staff my orders grouping", () => {
     assert.match(summarySource, /deliveryGroup\.chargeableSubtotal/);
     assert.match(summarySource, /deliveryGroup\.lunchSubsidy/);
     assert.match(summarySource, /deliveryGroup\.youPay/);
+    assert.doesNotMatch(cardSource, /<p className="text-sm text-slate-700">/);
+    assert.doesNotMatch(cardSource, /<footer className="rounded-lg bg-slate-50/);
   });
 
   it("backfill migration only assigns groups to late orders missing one", () => {

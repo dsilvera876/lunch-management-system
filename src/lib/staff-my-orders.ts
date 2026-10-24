@@ -43,6 +43,7 @@ export type StaffProviderOrder = {
   isLateOrder: boolean;
   canEdit: boolean;
   canCancel: boolean;
+  deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -488,6 +489,7 @@ export function mapRawOrderToProviderOrder(
   indexInGroup: number,
   groupOrderCount: number,
   capabilities: StaffOrderCapabilities = { canEdit: false, canCancel: false },
+  deliveredAt: string | null = null,
 ): StaffProviderOrder {
   const lunchDay = getRelated(order.lunch_days);
   const provider = lunchDay ? getRelated(lunchDay.lunch_providers) : null;
@@ -527,9 +529,18 @@ export function mapRawOrderToProviderOrder(
     isLateOrder: Boolean(order.is_late_order),
     canEdit: capabilities.canEdit && !order.is_late_order && order.status === "submitted",
     canCancel: capabilities.canCancel && !order.is_late_order && order.status === "submitted",
+    deliveredAt,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
   };
+}
+
+export function getProviderOrderDeliveredAt(order: StaffProviderOrder): string | null {
+  if (order.status !== "fulfilled" || order.deliveryState !== "delivered") {
+    return null;
+  }
+
+  return order.deliveredAt;
 }
 
 export function deriveProviderStatusLabel(order: {
@@ -540,16 +551,16 @@ export function deriveProviderStatusLabel(order: {
     return "Cancelled";
   }
 
-  if (order.status === "fulfilled" || order.delivery_state === "delivered") {
-    return "Delivered";
-  }
-
   if (order.delivery_state === "issue_open") {
-    return "Delivery issue";
+    return "Issue Reported";
   }
 
   if (order.delivery_state === "resolved") {
-    return "Resolved";
+    return "Issue Resolved";
+  }
+
+  if (order.status === "fulfilled" || order.delivery_state === "delivered") {
+    return "Delivered";
   }
 
   return "Submitted";
@@ -654,6 +665,7 @@ export function groupOrdersIntoCheckouts(
         index + 1,
         sorted.length,
         capabilitiesByOrderId.get(order.id),
+        deliveredAtByOrderId.get(order.id) ?? null,
       ),
     );
 

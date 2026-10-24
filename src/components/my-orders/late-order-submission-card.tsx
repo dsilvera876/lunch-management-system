@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 import type { StaffLateOrderRequestRow } from "@/app/home/staff-late-order-request-actions";
-import { Button, linkButtonClass } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { FormActionStatus } from "@/components/ui/form-action-status";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDeadline, formatHumanDate } from "@/lib/format";
@@ -19,7 +17,7 @@ type Props = {
 
 export function LateOrderSubmissionCard({ request }: Props) {
   const router = useRouter();
-  const statusId = useId();
+  const headingId = useId();
   const feedbackRef = useRef<HTMLDivElement>(null);
   const editTriggerRef = useRef<HTMLButtonElement>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -50,87 +48,104 @@ export function LateOrderSubmissionCard({ request }: Props) {
 
   return (
     <>
-      <Card padding="md" className="max-w-full overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
+      <article
+        aria-labelledby={headingId}
+        className="max-w-full overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
+        data-testid="late-order-submission-card"
+      >
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-teal-200 bg-teal-50 px-4 py-3.5 sm:px-5">
+          <div className="min-w-0">
+            <h3 id={headingId} className="break-words text-base font-semibold text-slate-950">
+              {request.provider_name}
+            </h3>
+            <p className="mt-1 text-sm text-slate-700">
+              Delivery {formatHumanDate(request.scheduled_delivery_date)}
+            </p>
+          </div>
+          <StatusBadge status={lateOrderRequestStatusBadgeStatus(request.status)} />
+        </header>
+
+        <div className="space-y-4 px-4 py-4 sm:px-5">
+          <dl className="grid gap-2 text-sm text-foreground sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="font-medium text-muted">Location</dt>
+              <dd className="mt-0.5 break-words">{request.office_location_name}</dd>
+            </div>
             <div>
-              <p className="text-sm font-medium text-foreground">
-                {formatHumanDate(request.scheduled_delivery_date)} · {request.provider_name}
-              </p>
-              <p className="mt-1 text-sm text-staff-instruction">
-                {request.office_location_name}
-              </p>
+              <dt className="font-medium text-muted">Submitted</dt>
+              <dd className="mt-0.5">{formatDeadline(request.created_at)}</dd>
             </div>
-            <div id={statusId}>
-              <StatusBadge status={lateOrderRequestStatusBadgeStatus(request.status)} />
+            <div>
+              <dt className="font-medium text-muted">Quantity</dt>
+              <dd className="mt-0.5 tabular-nums">{request.quantity}</dd>
             </div>
-            <dl className="space-y-1 text-sm text-foreground">
-              <div>
-                <dt className="inline font-medium after:content-[':']">Requested</dt>{" "}
-                <dd className="inline">{request.requested_summary}</dd>
-              </div>
-              <div>
-                <dt className="inline font-medium after:content-[':']">Quantity</dt>{" "}
-                <dd className="inline">{request.quantity}</dd>
-              </div>
-              {request.special_instructions ? (
-                <div>
-                  <dt className="inline font-medium after:content-[':']">Instructions</dt>{" "}
-                  <dd className="inline">{request.special_instructions}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt className="inline font-medium after:content-[':']">Submitted</dt>{" "}
-                <dd className="inline">{formatDeadline(request.created_at)}</dd>
-              </div>
-            </dl>
-            {normalizedStatus === "declined" && request.decline_reason ? (
-              <p className="text-sm text-staff-instruction" role="status">
-                Reason: {request.decline_reason}
+          </dl>
+
+          <section aria-label="Requested items" className="rounded-lg bg-slate-50 px-3 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Requested items
+            </p>
+            <p className="mt-1 break-words text-sm text-foreground">
+              {request.requested_summary}
+            </p>
+          </section>
+
+          {request.special_instructions ? (
+            <section
+              aria-label="Special instructions"
+              className="rounded-lg bg-amber-50 px-3 py-3 text-amber-950"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide">
+                Special instructions
               </p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {normalizedStatus === "pending" ? (
-              <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  ref={editTriggerRef}
-                  onClick={() => setEditOpen(true)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={isPending}
-                  onClick={handleCancel}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : null}
-            {normalizedStatus === "fulfilled" && request.fulfilled_order_id ? (
-              <Link
-                href={`/lunch/orders/${request.fulfilled_order_id}`}
-                className={linkButtonClass("secondary")}
-              >
-                View order
-              </Link>
-            ) : null}
-          </div>
+              <p className="mt-1 break-words text-sm">{request.special_instructions}</p>
+            </section>
+          ) : null}
+
+          {normalizedStatus === "declined" && request.decline_reason ? (
+            <section
+              aria-label="Decline reason"
+              className="rounded-lg bg-rose-50 px-3 py-3 text-rose-950"
+              role="status"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide">Decline reason</p>
+              <p className="mt-1 break-words text-sm">{request.decline_reason}</p>
+            </section>
+          ) : null}
+
+          {feedback ? (
+            <FormActionStatus
+              ref={feedbackRef}
+              variant={feedback.kind === "success" ? "success" : "error"}
+            >
+              {feedback.message}
+            </FormActionStatus>
+          ) : null}
         </div>
-        {feedback ? (
-          <FormActionStatus
-            ref={feedbackRef}
-            variant={feedback.kind === "success" ? "success" : "error"}
-            className="mt-3"
-          >
-            {feedback.message}
-          </FormActionStatus>
+
+        {normalizedStatus === "pending" ? (
+          <footer className="flex flex-wrap justify-end gap-2 border-t border-border bg-slate-50/70 px-4 py-3.5 sm:px-5">
+            <Button
+              type="button"
+              variant="secondary"
+              ref={editTriggerRef}
+              onClick={() => setEditOpen(true)}
+            >
+              Edit
+              <span className="sr-only"> late order submission for {request.provider_name}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isPending}
+              onClick={handleCancel}
+            >
+              Cancel
+              <span className="sr-only"> late order submission for {request.provider_name}</span>
+            </Button>
+          </footer>
         ) : null}
-      </Card>
+      </article>
 
       {normalizedStatus === "pending" ? (
         <LateOrderSubmissionEditModal

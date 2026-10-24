@@ -150,6 +150,12 @@ function cleanupCancellationFixture() {
           select 1 from private.notification_delivery_log d where d.batch_id = b.id
         );
 
+      delete from public.order_delivery_events
+      where order_id in (
+        '${CANCELLATION_FIXTURE.firstOrderId}'::uuid,
+        '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid
+      );
+
       delete from public.orders
       where id in (
         '${CANCELLATION_FIXTURE.firstOrderId}'::uuid,
@@ -287,6 +293,8 @@ test.describe("Staff My Orders redesign", () => {
     await expect(checkout.getByRole("link", { name: "View order" })).toHaveCount(0);
     await expect(checkout.getByRole("link", { name: /^Edit order from / })).toHaveCount(2);
     await expect(checkout.getByRole("button", { name: /^Cancel order from / })).toHaveCount(2);
+    await expect(checkout.locator('[data-testid="checkout-subgroup"] > p')).toHaveCount(0);
+    await expect(checkout.locator('[data-testid="checkout-subgroup"] > footer')).toHaveCount(0);
 
     for (const [index, card] of (await providerCards.all()).entries()) {
       const providerName = (await card.getByRole("heading", { level: 4 }).textContent())?.trim();
@@ -295,6 +303,9 @@ test.describe("Staff My Orders redesign", () => {
       await expect(card.getByText(/Order \d+ of 2/)).toBeVisible();
       await expect(card.getByText("Submitted", { exact: true })).toBeVisible();
       await expect(card.getByText("Order total", { exact: true })).toBeVisible();
+      const metadata = card.getByTestId("provider-order-metadata");
+      await expect(metadata).toContainText("Ordered");
+      await expect(metadata).toContainText("Delivery to");
       await expect(card.getByTestId("provider-icon")).toHaveAttribute(
         "data-provider-icon-key",
         /^(utensils|bowl|fruit|drink|pizza|burger|leaf|food-bag)$/,
@@ -359,6 +370,49 @@ test.describe("Staff My Orders redesign", () => {
     });
     expect(cancelContrast.ratio).toBeGreaterThanOrEqual(4.5);
     expect(cancelContrast.background).not.toBe("rgb(220, 38, 38)");
+    await cancel.hover();
+    await expect.poll(
+      () => cancel.evaluate((element) => getComputedStyle(element).color),
+    ).toBe("rgb(255, 255, 255)");
+    const hoverContrast = await cancel.evaluate((element) => {
+      const toRgb = (value: string) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const context = canvas.getContext("2d")!;
+        context.fillStyle = value;
+        context.fillRect(0, 0, 1, 1);
+        return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+      };
+      const luminance = (rgb: number[]) => {
+        const channels = rgb.map((value) => {
+          const normalized = value / 255;
+          return normalized <= 0.04045
+            ? normalized / 12.92
+            : ((normalized + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+      };
+      const styles = getComputedStyle(element);
+      const foreground = toRgb(styles.color);
+      const background = toRgb(styles.backgroundColor);
+      const foregroundLuminance = luminance(foreground);
+      const backgroundLuminance = luminance(background);
+      return {
+        foregroundCss: styles.color,
+        backgroundCss: styles.backgroundColor,
+        foreground,
+        background,
+        ratio: (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+          (Math.min(foregroundLuminance, backgroundLuminance) + 0.05),
+      };
+    });
+    expect(hoverContrast.foregroundCss).toBe("rgb(255, 255, 255)");
+    expect(hoverContrast.backgroundCss).not.toBe(cancelContrast.background);
+    expect(hoverContrast.foreground).toEqual([255, 255, 255]);
+    expect(hoverContrast.background[0]).toBeGreaterThan(hoverContrast.background[1]!);
+    expect(hoverContrast.ratio).toBeGreaterThanOrEqual(4.5);
+    await page.mouse.move(0, 0);
     let confirmationMessage = "";
     page.once("dialog", async (dialog) => {
       expect(dialog.type()).toBe("confirm");
@@ -400,9 +454,25 @@ test.describe("Staff My Orders redesign", () => {
         `[data-testid="checkout-subgroup"][data-checkout-id="${DATE_GROUPING_FIXTURE.secondGroupId}"]`,
       );
       await expect(firstCheckout).toContainText(DATE_GROUPING_FIXTURE.firstMarker);
-      await expect(firstCheckout).toContainText(/^Ordered .+ · Delivery to /);
+      await expect(firstCheckout.locator(":scope > p")).toHaveCount(0);
+      await expect(firstCheckout.locator(":scope > footer")).toHaveCount(0);
+      await expect(firstCheckout.getByTestId("provider-order-metadata")).toContainText("Ordered");
+      await expect(firstCheckout.getByTestId("provider-order-metadata")).toContainText("Delivery to");
       await expect(secondCheckout).toContainText(DATE_GROUPING_FIXTURE.secondMarker);
-      await expect(secondCheckout).toContainText(/^Ordered .+ · Delivery to /);
+      await expect(secondCheckout.locator(":scope > p")).toHaveCount(0);
+      await expect(secondCheckout.locator(":scope > footer")).toHaveCount(0);
+      await expect(secondCheckout.getByTestId("provider-order-metadata")).toContainText("Ordered");
+      await expect(secondCheckout.getByTestId("provider-order-metadata")).toContainText("Delivery to");
+      const checkoutNames = await Promise.all([
+        firstCheckout.getAttribute("aria-label"),
+        secondCheckout.getAttribute("aria-label"),
+      ]);
+      for (const checkoutName of checkoutNames) {
+        expect(checkoutName).toMatch(
+          /^Checkout \d+ of \d+, ordered .+, with 1 order$/,
+        );
+      }
+      expect(checkoutNames[0]).not.toBe(checkoutNames[1]);
       await expectNoAxeViolations(page, "My Orders same-date checkouts", {
         mainContentOnly: true,
       });
@@ -419,6 +489,8 @@ test.describe("Staff My Orders redesign", () => {
     await expect(checkout.getByText("Order total", { exact: true }).first()).toBeVisible();
     await expect(checkout.getByRole("link", { name: "Edit order" })).toHaveCount(0);
     await expect(checkout.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+    await expect(checkout.getByTestId("provider-order-metadata").first()).toContainText("Ordered");
+    await expect(checkout.getByTestId("provider-order-metadata").first()).toContainText("Delivery to");
     await expect(checkout.getByText("You Paid", { exact: true })).toHaveCount(0);
     await expect(checkout.getByText("Your cost", { exact: true }).first()).toBeVisible();
     await expectNoAxeViolations(page, "My Orders historical view", { mainContentOnly: true });
@@ -494,6 +566,88 @@ test.describe("Staff My Orders redesign", () => {
     await expect(card.locator("footer strong")).toBeVisible();
   });
 
+  test("shows a delivery timestamp only on the provider order that was delivered", async ({
+    page,
+  }) => {
+    prepareCancellationFixture();
+    try {
+      runLocalDbExec(`
+        do $fixture$
+        begin
+          update public.orders
+          set status = 'fulfilled', delivery_state = 'delivered'
+          where id = '${CANCELLATION_FIXTURE.firstOrderId}'::uuid;
+
+          update public.orders
+          set status = 'fulfilled', delivery_state = 'issue_open', financial_disposition = 'on_hold'
+          where id = '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid;
+
+          insert into public.order_delivery_events (order_id, event_type, payload, created_at)
+          values
+            (
+              '${CANCELLATION_FIXTURE.firstOrderId}'::uuid,
+              'marked_delivered',
+              '{}'::jsonb,
+              now() - interval '2 minutes'
+            ),
+            (
+              '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid,
+              'marked_delivered',
+              '{}'::jsonb,
+              now() - interval '1 minute'
+            );
+        end;
+        $fixture$;
+      `);
+
+      await page.goto("/my-orders");
+      const deliveryGroup = page
+        .getByRole("tabpanel", { name: "Upcoming" })
+        .getByTestId("delivery-date-group")
+        .filter({ hasText: CANCELLATION_FIXTURE.firstMarker });
+      const deliveredCard = deliveryGroup.getByTestId("provider-order-card").filter({
+        hasText: CANCELLATION_FIXTURE.firstMarker,
+      });
+      const issueCard = deliveryGroup.getByTestId("provider-order-card").filter({
+        hasText: CANCELLATION_FIXTURE.siblingMarker,
+      });
+
+      await expect(deliveredCard.getByTestId("provider-order-metadata")).toContainText(
+        "Delivered",
+      );
+      await expect(issueCard.getByTestId("provider-order-metadata")).not.toContainText(
+        "Delivered",
+      );
+      const issueBadge = issueCard.locator("header").getByText("Issue Reported", {
+        exact: true,
+      });
+      await expect(issueBadge).toBeVisible();
+      await expect(issueBadge).toHaveClass(/bg-rose-50/);
+
+      runLocalDbExec(`
+        update public.orders
+        set delivery_state = 'resolved', financial_disposition = 'waived'
+        where id = '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid
+      `);
+      await page.goto("/my-orders?tab=past");
+
+      const resolvedCard = page
+        .getByRole("tabpanel", { name: "Past Orders" })
+        .getByTestId("provider-order-card")
+        .filter({ hasText: CANCELLATION_FIXTURE.siblingMarker });
+      const resolvedBadge = resolvedCard.locator("header").getByText("Issue Resolved", {
+        exact: true,
+      });
+      await expect(resolvedBadge).toBeVisible();
+      await expect(resolvedBadge).toHaveClass(/bg-teal-50/);
+      await expect(resolvedCard.getByTestId("provider-order-metadata")).not.toContainText(
+        "Delivered",
+      );
+    } finally {
+      cleanupCancellationFixture();
+    }
+  });
+
   test("successful cancellation persists after reload and preserves its sibling provider order", async ({
     page,
   }) => {
@@ -547,6 +701,10 @@ test.describe("Staff My Orders redesign", () => {
       await expect(cancelledGroup).not.toContainText(CANCELLATION_FIXTURE.siblingMarker);
       await expect(cancelledGroup.getByText("Cancelled", { exact: true }).first()).toBeVisible();
       await expect(
+        cancelledGroup.getByTestId("provider-order-metadata").first(),
+      ).toContainText("Cancelled");
+      await expect(cancelledGroup.locator('[data-testid="checkout-subgroup"] > footer')).toHaveCount(0);
+      await expect(
         cancelledGroup.getByText("Original order value", { exact: true }).first(),
       ).toBeVisible();
       await expect(
@@ -559,9 +717,10 @@ test.describe("Staff My Orders redesign", () => {
         "true",
       );
       await expect(
-        page.getByTestId("delivery-date-group").filter({
-          hasText: CANCELLATION_FIXTURE.firstMarker,
-        }),
+        page
+          .getByRole("tabpanel", { name: "Cancelled" })
+          .getByTestId("delivery-date-group")
+          .filter({ hasText: CANCELLATION_FIXTURE.firstMarker }),
       ).toBeVisible();
 
       const state = runLocalDbQuery(`

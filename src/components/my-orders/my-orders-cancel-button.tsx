@@ -88,7 +88,7 @@ export function MyOrdersCancelButton({
       disabled={pending}
       aria-busy={pending ? true : undefined}
       data-testid="my-orders-cancel-button"
-      className="min-h-10 border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 hover:border-red-400 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+      className="min-h-10 border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 hover:border-red-700! hover:bg-red-700! hover:text-white! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
       onClick={handleCancel}
     >
       <span>{pending ? "Cancelling..." : "Cancel order"}</span>

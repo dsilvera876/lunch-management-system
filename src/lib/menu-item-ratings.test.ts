@@ -226,6 +226,7 @@ describe("menu item ratings collection", () => {
           isLateOrder: false,
           canEdit: false,
           canCancel: false,
+          deliveredAt: "2026-01-10T18:00:00Z",
           createdAt: "2026-01-07T12:00:00Z",
           updatedAt: "2026-01-07T12:00:00Z",
         },

@@ -48,43 +48,27 @@ export function GroupedCheckoutCard({
         <div id={detailsId} className="space-y-4">
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)]">
             <div className="min-w-0 space-y-4" data-testid="provider-order-list">
-              {deliveryGroup.checkouts.map((checkout) => (
+              {deliveryGroup.checkouts.map((checkout, checkoutIndex) => (
                 <section
                   key={checkout.orderGroupId}
-                  aria-label={`Checkout ordered ${formatDeadline(checkout.placedAt)}`}
-                  className="space-y-3"
+                  aria-label={`Checkout ${checkoutIndex + 1} of ${deliveryGroup.checkouts.length}, ordered ${formatDeadline(checkout.placedAt)}, with ${checkout.orderCount} ${checkout.orderCount === 1 ? "order" : "orders"}`}
+                  className="space-y-4"
                   data-testid="checkout-subgroup"
                   data-checkout-id={checkout.orderGroupId}
                 >
-                  <p className="text-sm text-slate-700">
-                    Ordered {formatDeadline(checkout.placedAt)}
-                    {checkout.officeLocationName
-                      ? ` · Delivery to ${checkout.officeLocationName}`
-                      : ""}
-                  </p>
-                  {checkout.deliveredAt ? (
-                    <p className="-mt-2 text-sm text-slate-700">
-                      Delivered {formatDeadline(checkout.deliveredAt)}
-                    </p>
-                  ) : null}
                   {checkout.providerOrders.map((order) => (
                     <ProviderOrderSection
                       key={order.id}
                       order={order}
+                      checkoutMetadata={{
+                        placedAt: checkout.placedAt,
+                        officeLocationName: checkout.officeLocationName,
+                        cancellationSummary: checkout.cancellationSummary,
+                      }}
                       ratingSummaries={ratingSummaries}
                       ratingsLoadFailed={ratingsLoadFailed}
                     />
                   ))}
-                  {checkout.cancellationSummary ? (
-                    <footer className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-muted">
-                      <p>{checkout.cancellationSummary}</p>
-                      {checkout.cancelledAt ? (
-                        <p className="mt-1 text-xs">
-                          Cancelled {formatDeadline(checkout.cancelledAt)}
-                        </p>
-                      ) : null}
-                    </footer>
-                  ) : null}
                 </section>
               ))}
             </div>

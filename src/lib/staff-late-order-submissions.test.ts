@@ -98,6 +98,26 @@ describe("drawer submission-only UX", () => {
     assert.match(pageClient, /LateOrderSubmissionCard/);
     assert.match(pageClient, /No late order submissions yet/);
   });
+
+  it("renders compact, self-contained submission cards without a redundant order link", () => {
+    const card = readFileSync(
+      new URL("../components/my-orders/late-order-submission-card.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(card, /data-testid="late-order-submission-card"/);
+    assert.match(card, /aria-labelledby=\{headingId\}/);
+    assert.match(card, /request\.provider_name/);
+    assert.match(card, /formatHumanDate\(request\.scheduled_delivery_date\)/);
+    assert.match(card, /request\.office_location_name/);
+    assert.match(card, /request\.requested_summary/);
+    assert.match(card, /request\.quantity/);
+    assert.match(card, /formatDeadline\(request\.created_at\)/);
+    assert.match(card, /Special instructions/);
+    assert.match(card, /normalizedStatus === "pending"/);
+    assert.doesNotMatch(card, /View order/);
+    assert.doesNotMatch(card, /fulfilled_order_id/);
+  });
 });
 
 describe("late order submission edit modal focus return", () => {

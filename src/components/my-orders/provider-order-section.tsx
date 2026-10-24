@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { formatCurrency, formatPrice } from "@/lib/format";
+import { formatCurrency, formatDeadline, formatPrice } from "@/lib/format";
 import {
   formatMenuItemLabel,
   formatOrderLineLabel,
@@ -8,6 +8,7 @@ import {
 import { formatMealBundleLabel } from "@/lib/order-payload";
 import {
   getOrderFinancialStatusLabel,
+  getProviderOrderDeliveredAt,
   getMealAndStandaloneLines,
   isFinanciallyChargeableOrder,
   type StaffProviderOrder,
@@ -23,6 +24,11 @@ import { ProviderIconWell } from "@/lib/provider-icons";
 
 type Props = {
   order: StaffProviderOrder;
+  checkoutMetadata: {
+    placedAt: string;
+    officeLocationName: string | null;
+    cancellationSummary: string | null;
+  };
   ratingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
 };
@@ -45,6 +51,16 @@ const providerCardAccents = [
     total: "text-sky-800",
   },
 ] as const;
+
+function getProviderStatusTone(statusLabel: string): string {
+  if (statusLabel === "Issue Reported") {
+    return "bg-rose-50 text-rose-800 ring-rose-200";
+  }
+  if (statusLabel === "Issue Resolved") {
+    return "bg-teal-50 text-teal-800 ring-teal-200";
+  }
+  return "bg-white text-slate-800 ring-slate-300";
+}
 
 function formatIncludedPrice(price: number): string {
   return price > 0 ? formatCurrency(price) : "Included";
@@ -134,6 +150,7 @@ function OrderLineRatings({
 
 export function ProviderOrderSection({
   order,
+  checkoutMetadata,
   ratingSummaries,
   ratingsLoadFailed,
 }: Props) {
@@ -142,6 +159,7 @@ export function ProviderOrderSection({
   const providerHeadingId = `provider-order-heading-${order.id}`;
   const financiallyChargeable = isFinanciallyChargeableOrder(order);
   const financialStatusLabel = getOrderFinancialStatusLabel(order);
+  const deliveredAt = getProviderOrderDeliveredAt(order);
 
   return (
     <article
@@ -172,12 +190,48 @@ export function ProviderOrderSection({
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-slate-800 ring-1 ring-inset ring-slate-300">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getProviderStatusTone(order.statusLabel)}`}
+          >
             {order.statusLabel}
           </span>
           {order.isLateOrder ? <StatusBadge status="late_order" /> : null}
         </div>
       </header>
+
+      <div
+        className="flex flex-wrap gap-x-4 gap-y-1 border-b border-border bg-slate-50/50 px-4 py-2.5 text-xs text-slate-700 sm:px-5"
+        data-testid="provider-order-metadata"
+      >
+        <p>
+          <span className="font-medium text-slate-900">Ordered</span>{" "}
+          {formatDeadline(checkoutMetadata.placedAt)}
+        </p>
+        {checkoutMetadata.officeLocationName ? (
+          <p>
+            <span className="font-medium text-slate-900">Delivery to</span>{" "}
+            <span className="break-words">{checkoutMetadata.officeLocationName}</span>
+          </p>
+        ) : null}
+        {deliveredAt ? (
+          <p>
+            <span className="font-medium text-slate-900">Delivered</span>{" "}
+            {formatDeadline(deliveredAt)}
+          </p>
+        ) : null}
+        {order.status === "cancelled" ? (
+          <p>
+            {checkoutMetadata.cancellationSummary === "Cancelled before cutoff" ? (
+              <>
+                <span className="font-medium text-slate-900">Before cutoff</span>{" "}
+                <span aria-hidden>·</span>{" "}
+              </>
+            ) : null}
+            <span className="font-medium text-slate-900">Cancelled</span>{" "}
+            {formatDeadline(order.updatedAt)}
+          </p>
+        ) : null}
+      </div>
 
       <div className="space-y-4 px-4 py-4 text-sm sm:px-5">
         {mealMain ? (

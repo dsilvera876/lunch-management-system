@@ -950,6 +950,14 @@ export const E2E_LATE_ORDER_SUBMISSION_EDIT_SUMMARIES = {
   B: "E2E edit fixture B",
 } as const;
 
+export const E2E_LATE_ORDER_SUBMISSION_PRESENTATION = {
+  fulfilledSummary: "E2E fulfilled jerk chicken lunch with rice and peas",
+  fulfilledInstructions: "Please package the sauce separately.",
+  declinedSummary:
+    "E2E declined long freeform request for a vegetarian lunch with roasted vegetables, plantain, fresh salad, and dressing packaged separately for responsive layout coverage.",
+  declineReason: "The provider could not accommodate this request before the delivery cutoff.",
+} as const;
+
 const LATE_ORDER_SUBMISSION_EDIT_CUTOFF_RESTORE_FILE = path.join(
   __dirname,
   "..",
@@ -1129,6 +1137,53 @@ export function applyLateOrderSubmissionEditFixture(): void {
       )
     `);
   }
+}
+
+/** Converts the isolated edit fixtures into representative terminal presentation states. */
+export function applyLateOrderSubmissionPresentationFixture(): void {
+  const fulfilledOrder = runLocalDbQuery(`
+    select o.id::text as id
+    from public.orders o
+    where o.profile_id = '${E2E_STAFF1_PROFILE_ID}'::uuid
+    order by o.created_at desc, o.id desc
+    limit 1
+  `)[0];
+  const fulfilledOrderId = String(fulfilledOrder?.id ?? "");
+  if (!fulfilledOrderId) {
+    throw new Error(
+      "[a11y fixture] A local staff order is required for the fulfilled late-order presentation fixture.",
+    );
+  }
+
+  runLocalDbExec(`
+    do $fixture$
+    begin
+      update private.staff_late_order_requests
+      set
+        status = 'fulfilled',
+        requested_summary = ${sqlString(E2E_LATE_ORDER_SUBMISSION_PRESENTATION.fulfilledSummary)},
+        special_instructions = ${sqlString(E2E_LATE_ORDER_SUBMISSION_PRESENTATION.fulfilledInstructions)},
+        fulfilled_at = now() - interval '2 minutes',
+        fulfilled_order_id = '${fulfilledOrderId}'::uuid,
+        reviewed_by = '${E2E_HR_PROFILE_ID}'::uuid,
+        decline_reason = null,
+        declined_at = null
+      where id = '${E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS.requestA}'::uuid;
+
+      update private.staff_late_order_requests
+      set
+        status = 'declined',
+        requested_summary = ${sqlString(E2E_LATE_ORDER_SUBMISSION_PRESENTATION.declinedSummary)},
+        special_instructions = null,
+        declined_at = now() - interval '1 minute',
+        decline_reason = ${sqlString(E2E_LATE_ORDER_SUBMISSION_PRESENTATION.declineReason)},
+        reviewed_by = '${E2E_HR_PROFILE_ID}'::uuid,
+        fulfilled_at = null,
+        fulfilled_order_id = null
+      where id = '${E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS.requestB}'::uuid;
+    end;
+    $fixture$;
+  `);
 }
 
 /** Deterministic normal order on Jamaica today for HR Today's Orders modal a11y (local DB only). */
