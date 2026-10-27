@@ -86,6 +86,7 @@ export function LunchOrderingShell({
   const locationPickerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState<{
     body: string;
+    orderGroupId: string;
     focusKey: number;
   } | null>(null);
 
@@ -161,13 +162,18 @@ export function LunchOrderingShell({
     selectedLocationId,
   );
 
-  function handleCheckoutSuccess(payload: { orderCount: number; providerCount: number }) {
+  function handleCheckoutSuccess(payload: {
+    orderCount: number;
+    providerCount: number;
+    orderGroupId: string;
+  }) {
     setCheckoutSuccess((current) => ({
       body: buildCheckoutSuccessToastBody(
         payload.orderCount,
         payload.providerCount,
         deliveryDate,
       ),
+      orderGroupId: payload.orderGroupId,
       focusKey: (current?.focusKey ?? 0) + 1,
     }));
   }
@@ -185,6 +191,7 @@ export function LunchOrderingShell({
       {checkoutSuccess ? (
         <CheckoutSuccessPanel
           body={checkoutSuccess.body}
+          orderGroupId={checkoutSuccess.orderGroupId}
           focusKey={checkoutSuccess.focusKey}
         />
       ) : null}

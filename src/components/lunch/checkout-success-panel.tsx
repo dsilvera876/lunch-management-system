@@ -7,11 +7,12 @@ import { CHECKOUT_SUCCESS_TITLE } from "@/lib/lunch-checkout-accessibility";
 
 type Props = {
   body: string;
+  orderGroupId: string;
   /** Changes on each successful checkout so focus moves to the new confirmation. */
   focusKey: number;
 };
 
-export function CheckoutSuccessPanel({ body, focusKey }: Props) {
+export function CheckoutSuccessPanel({ body, orderGroupId, focusKey }: Props) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -41,7 +42,7 @@ export function CheckoutSuccessPanel({ body, focusKey }: Props) {
           </h2>
           <p className="mt-1 text-sm text-emerald-950">{body}</p>
           <Link
-            href="/my-orders"
+            href={`/my-orders?checkout=${encodeURIComponent(orderGroupId)}`}
             className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-primary/40 bg-white px-3 py-1.5 text-sm font-semibold text-staff-teal-strong no-underline transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             View My Orders

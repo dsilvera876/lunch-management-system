@@ -656,14 +656,33 @@ test.describe("Staff checkout accessibility (PRL-004 to PRL-007)", () => {
       await expect(region).toContainText(/1 lunch order from 1 provider/);
       await expect(region).not.toHaveAttribute("role", /alert|status/);
       const myOrders = region.getByRole("link", { name: "View My Orders" });
-      await expect(myOrders).toHaveAttribute("href", "/my-orders");
+      await expect(myOrders).toHaveAttribute(
+        "href",
+        /^\/my-orders\?checkout=[0-9a-f-]{36}$/,
+      );
+      const href = await myOrders.getAttribute("href");
+      const orderGroupId = new URL(href!, "http://localhost").searchParams.get("checkout");
+      expect(orderGroupId).toMatch(/^[0-9a-f-]{36}$/);
 
       await page.waitForTimeout(8_000);
       await expect(region).toBeVisible();
       await expectNoAxeViolations(page, "Checkout success confirmation");
 
       await myOrders.click();
-      await expect(page).toHaveURL(/\/my-orders/);
+      await expect(page).toHaveURL(/\/my-orders$/);
+      const placedCheckout = page.locator(
+        `[data-testid="checkout-subgroup"][data-checkout-id="${orderGroupId}"]`,
+      );
+      await expect(placedCheckout).toBeInViewport();
+      await expect(
+        placedCheckout.getByTestId("provider-order-card").first(),
+      ).toHaveAttribute("data-new-order-highlight", "true");
+      await expect(page.getByRole("status")).toContainText(
+        "Your newly placed order is shown below.",
+      );
+      await expect(
+        placedCheckout.getByTestId("provider-order-card").first(),
+      ).not.toHaveAttribute("data-new-order-highlight", "true", { timeout: 5_000 });
     });
   });
 });

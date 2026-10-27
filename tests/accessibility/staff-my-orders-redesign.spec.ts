@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "./helpers/axe";
 import { runLocalDbExec, runLocalDbQuery } from "./helpers/e2e-local-db";
 
 const CANCELLATION_FIXTURE = {
+  deliveryDate: "2099-10-27",
   groupId: "92000001-0001-4001-8001-000000000001",
   firstOrderId: "92000002-0002-4002-8002-000000000002",
   siblingOrderId: "92000003-0003-4003-8003-000000000003",
@@ -15,6 +16,7 @@ const CANCELLATION_FIXTURE = {
 } as const;
 
 const DATE_GROUPING_FIXTURE = {
+  deliveryDate: "2099-10-28",
   firstGroupId: "93000001-0001-4001-8001-000000000001",
   secondGroupId: "93000002-0002-4002-8002-000000000002",
   firstOrderId: "93000003-0003-4003-8003-000000000003",
@@ -25,21 +27,73 @@ const DATE_GROUPING_FIXTURE = {
   secondMarker: "E2E same-date second checkout",
 } as const;
 
+let dateGroupingCreatedLunchDayIds: string[] = [];
+let cancellationCreatedLunchDayIds: string[] = [];
+
+function readFixtureLunchDayIds(deliveryDate: string): string[] {
+  return runLocalDbQuery(`
+    select id::text
+    from public.lunch_days
+    where order_date = '${deliveryDate}'::date
+      and provider_id in (
+        '30000001-0001-4001-8001-000000000001'::uuid,
+        '30000003-0003-4003-8003-000000000003'::uuid
+      )
+    order by id
+  `).map((row) => {
+    if (typeof row.id !== "string" || !/^[0-9a-f-]{36}$/i.test(row.id)) {
+      throw new Error("My Orders fixture received an invalid lunch-day identifier.");
+    }
+    return row.id;
+  });
+}
+
+function deleteOwnedLunchDaysSql(ids: string[]): string {
+  if (ids.length === 0) {
+    return "";
+  }
+
+  return `delete from public.lunch_days where id in (${ids
+    .map((id) => `'${id}'::uuid`)
+    .join(", ")});`;
+}
+
 function cleanupDateGroupingFixture() {
   runLocalDbExec(`
-    delete from public.orders
-    where id in (
-      '${DATE_GROUPING_FIXTURE.firstOrderId}'::uuid,
-      '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
-    );
+    do $fixture$
+    begin
+      delete from public.orders
+      where id in (
+        '${DATE_GROUPING_FIXTURE.firstOrderId}'::uuid,
+        '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
+      );
+
+      ${deleteOwnedLunchDaysSql(dateGroupingCreatedLunchDayIds)}
+    end;
+    $fixture$;
   `);
+  dateGroupingCreatedLunchDayIds = [];
 }
 
 function prepareDateGroupingFixture() {
   cleanupDateGroupingFixture();
+  const existingLunchDayIds = new Set(
+    readFixtureLunchDayIds(DATE_GROUPING_FIXTURE.deliveryDate),
+  );
   runLocalDbExec(`
     do $fixture$
     begin
+      perform private.ensure_provider_lunch_day(
+        source_day.provider_id,
+        '${DATE_GROUPING_FIXTURE.deliveryDate}'::date
+      )
+      from public.orders source_order
+      join public.lunch_days source_day on source_day.id = source_order.lunch_day_id
+      where source_order.id in (
+        '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid,
+        '${DATE_GROUPING_FIXTURE.sourceSecondOrderId}'::uuid
+      );
+
       insert into public.orders (
       id,
       profile_id,
@@ -64,7 +118,7 @@ function prepareDateGroupingFixture() {
         else '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
       end,
       o.profile_id,
-      o.lunch_day_id,
+      fixture_day.id,
       'submitted',
       'pending',
       'chargeable',
@@ -89,6 +143,10 @@ function prepareDateGroupingFixture() {
       end,
       now()
       from public.orders o
+      join public.lunch_days source_day on source_day.id = o.lunch_day_id
+      join public.lunch_days fixture_day
+        on fixture_day.provider_id = source_day.provider_id
+       and fixture_day.order_date = '${DATE_GROUPING_FIXTURE.deliveryDate}'::date
       where o.id in (
         '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid,
         '${DATE_GROUPING_FIXTURE.sourceSecondOrderId}'::uuid
@@ -108,12 +166,21 @@ function prepareDateGroupingFixture() {
           then '${DATE_GROUPING_FIXTURE.firstOrderId}'::uuid
         else '${DATE_GROUPING_FIXTURE.secondOrderId}'::uuid
       end,
-      oi.menu_item_id,
-      oi.lunch_day_id,
+      fixture_item.id,
+      fixture_day.id,
       oi.quantity,
       oi.unit_price,
       now()
       from public.order_items oi
+      join public.orders source_order on source_order.id = oi.order_id
+      join public.lunch_days source_day on source_day.id = source_order.lunch_day_id
+      join public.lunch_days fixture_day
+        on fixture_day.provider_id = source_day.provider_id
+       and fixture_day.order_date = '${DATE_GROUPING_FIXTURE.deliveryDate}'::date
+      join public.menu_items source_item on source_item.id = oi.menu_item_id
+      join public.menu_items fixture_item
+        on fixture_item.lunch_day_id = fixture_day.id
+       and fixture_item.provider_menu_item_id = source_item.provider_menu_item_id
       where oi.order_id in (
         '${DATE_GROUPING_FIXTURE.sourceFirstOrderId}'::uuid,
         '${DATE_GROUPING_FIXTURE.sourceSecondOrderId}'::uuid
@@ -121,6 +188,9 @@ function prepareDateGroupingFixture() {
     end;
     $fixture$;
   `);
+  dateGroupingCreatedLunchDayIds = readFixtureLunchDayIds(
+    DATE_GROUPING_FIXTURE.deliveryDate,
+  ).filter((id) => !existingLunchDayIds.has(id));
 }
 
 function cleanupCancellationFixture() {
@@ -161,16 +231,33 @@ function cleanupCancellationFixture() {
         '${CANCELLATION_FIXTURE.firstOrderId}'::uuid,
         '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid
       );
+
+      ${deleteOwnedLunchDaysSql(cancellationCreatedLunchDayIds)}
     end;
     $fixture$;
   `);
+  cancellationCreatedLunchDayIds = [];
 }
 
 function prepareCancellationFixture() {
   cleanupCancellationFixture();
+  const existingLunchDayIds = new Set(
+    readFixtureLunchDayIds(CANCELLATION_FIXTURE.deliveryDate),
+  );
   runLocalDbExec(`
     do $fixture$
     begin
+      perform private.ensure_provider_lunch_day(
+        source_day.provider_id,
+        '${CANCELLATION_FIXTURE.deliveryDate}'::date
+      )
+      from public.orders source_order
+      join public.lunch_days source_day on source_day.id = source_order.lunch_day_id
+      where source_order.id in (
+        '${CANCELLATION_FIXTURE.sourceFirstOrderId}'::uuid,
+        '${CANCELLATION_FIXTURE.sourceSiblingOrderId}'::uuid
+      );
+
       insert into public.orders (
       id,
       profile_id,
@@ -195,7 +282,7 @@ function prepareCancellationFixture() {
         else '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid
       end,
       o.profile_id,
-      o.lunch_day_id,
+      fixture_day.id,
       'submitted',
       'pending',
       'chargeable',
@@ -216,6 +303,10 @@ function prepareCancellationFixture() {
       end,
       now()
       from public.orders o
+      join public.lunch_days source_day on source_day.id = o.lunch_day_id
+      join public.lunch_days fixture_day
+        on fixture_day.provider_id = source_day.provider_id
+       and fixture_day.order_date = '${CANCELLATION_FIXTURE.deliveryDate}'::date
       where o.id in (
         '${CANCELLATION_FIXTURE.sourceFirstOrderId}'::uuid,
         '${CANCELLATION_FIXTURE.sourceSiblingOrderId}'::uuid
@@ -235,12 +326,21 @@ function prepareCancellationFixture() {
           then '${CANCELLATION_FIXTURE.firstOrderId}'::uuid
         else '${CANCELLATION_FIXTURE.siblingOrderId}'::uuid
       end,
-      oi.menu_item_id,
-      oi.lunch_day_id,
+      fixture_item.id,
+      fixture_day.id,
       oi.quantity,
       oi.unit_price,
       now()
       from public.order_items oi
+      join public.orders source_order on source_order.id = oi.order_id
+      join public.lunch_days source_day on source_day.id = source_order.lunch_day_id
+      join public.lunch_days fixture_day
+        on fixture_day.provider_id = source_day.provider_id
+       and fixture_day.order_date = '${CANCELLATION_FIXTURE.deliveryDate}'::date
+      join public.menu_items source_item on source_item.id = oi.menu_item_id
+      join public.menu_items fixture_item
+        on fixture_item.lunch_day_id = fixture_day.id
+       and fixture_item.provider_menu_item_id = source_item.provider_menu_item_id
       where oi.order_id in (
         '${CANCELLATION_FIXTURE.sourceFirstOrderId}'::uuid,
         '${CANCELLATION_FIXTURE.sourceSiblingOrderId}'::uuid
@@ -248,6 +348,9 @@ function prepareCancellationFixture() {
     end;
     $fixture$;
   `);
+  cancellationCreatedLunchDayIds = readFixtureLunchDayIds(
+    CANCELLATION_FIXTURE.deliveryDate,
+  ).filter((id) => !existingLunchDayIds.has(id));
 
   const created = runLocalDbQuery(`
     select count(*)::integer as count
@@ -278,13 +381,203 @@ async function selectTab(page: Page, name: string) {
   }).toPass();
 }
 
+async function confirmDeliveryGroupHydrated(page: Page, group: Locator) {
+  const heading = (await group.getByRole("heading", { level: 3 }).textContent())?.trim();
+  expect(heading).toBeTruthy();
+  const stableGroup = page.getByTestId("delivery-date-group").filter({
+    has: page.getByRole("heading", { level: 3, name: heading!, exact: true }),
+  });
+  const toggle = stableGroup.locator("button[aria-controls]");
+  await expect(toggle).toHaveAccessibleName("Collapse orders for this delivery date");
+  await expect
+    .poll(
+      async () => {
+        if ((await toggle.getAttribute("aria-expanded")) === "true") {
+          await toggle.click();
+        }
+        return toggle.getAttribute("aria-expanded");
+      },
+      { message: "My Orders controls should be hydrated" },
+    )
+    .toBe("false");
+  await expect(toggle).toHaveAccessibleName("Expand orders for this delivery date");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
+
+async function installCheckoutScrollObserver(page: Page) {
+  await page.addInitScript(() => {
+    const observedWindow = window as typeof window & {
+      __myOrdersCheckoutScrollBehaviors?: Array<ScrollBehavior | null>;
+    };
+    observedWindow.__myOrdersCheckoutScrollBehaviors = [];
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(options) {
+      if (
+        this instanceof HTMLElement &&
+        this.dataset.testid === "checkout-subgroup"
+      ) {
+        observedWindow.__myOrdersCheckoutScrollBehaviors?.push(
+          typeof options === "object" ? (options.behavior ?? null) : null,
+        );
+      }
+      originalScrollIntoView.call(this, options);
+    };
+  });
+}
+
+async function checkoutScrollBehaviors(page: Page): Promise<Array<ScrollBehavior | null>> {
+  return page.evaluate(() => {
+    const observedWindow = window as typeof window & {
+      __myOrdersCheckoutScrollBehaviors?: Array<ScrollBehavior | null>;
+    };
+    return observedWindow.__myOrdersCheckoutScrollBehaviors ?? [];
+  });
+}
+
 test.describe("Staff My Orders redesign", () => {
   test.describe.configure({ mode: "serial" });
+  test("starts every delivery date expanded, preserves ordering, and allows manual collapse", async ({
+    page,
+  }) => {
+    const groups = page.locator('[data-testid="delivery-date-group"]:visible');
+    await expect(groups.first()).toBeVisible();
+    await expect(page.locator('[data-new-order-highlight="true"]')).toHaveCount(0);
+
+    const dates = await groups.getByRole("heading", { level: 3 }).allTextContents();
+    const timestamps = dates.map((date) => Date.parse(date));
+    expect(timestamps.every(Number.isFinite)).toBe(true);
+    expect(timestamps).toEqual([...timestamps].sort((a, b) => a - b));
+
+    const collapseButtons = page.locator(
+      'button[aria-label="Collapse orders for this delivery date"]:visible',
+    );
+    await expect(collapseButtons.first()).toBeVisible();
+    const groupCount = await groups.count();
+    await expect(collapseButtons).toHaveCount(groupCount);
+    for (const button of await collapseButtons.all()) {
+      await expect(button).toHaveAttribute("aria-expanded", "true");
+    }
+
+    const lastGroup = groups.last();
+    await lastGroup.getByRole("button", {
+      name: "Collapse orders for this delivery date",
+    }).click();
+    await expect(lastGroup.getByTestId("provider-order-card")).toHaveCount(0);
+    const expand = lastGroup.getByRole("button", {
+      name: "Expand orders for this delivery date",
+    });
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    await expand.click();
+    await expect(lastGroup.getByTestId("provider-order-card").first()).toBeVisible();
+  });
+
+  test("targets a requested checkout once and does not highlight an ordinary visit", async ({
+    page,
+  }) => {
+    const existingCheckout = page.getByTestId("checkout-subgroup").first();
+    await expect(existingCheckout).toBeVisible();
+    const checkoutId = await existingCheckout.getAttribute("data-checkout-id");
+    expect(checkoutId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    await page.goto("/my-orders?tab=late-order-submissions");
+    await page.goto(`/my-orders?checkout=${checkoutId}&source=checkout`);
+    const target = page.locator(
+      `[data-testid="checkout-subgroup"][data-checkout-id="${checkoutId}"]:visible`,
+    );
+    await expect(target).toBeInViewport();
+    const targetCards = target.getByTestId("provider-order-card");
+    const targetCardCount = await targetCards.count();
+    expect(targetCardCount).toBeGreaterThan(0);
+    for (let index = 0; index < targetCardCount; index += 1) {
+      await expect(targetCards.nth(index)).toHaveAttribute("data-new-order-highlight", "true");
+    }
+    await expect(page).toHaveURL(/\/my-orders\?source=checkout$/);
+    for (let index = 0; index < targetCardCount; index += 1) {
+      await expect(targetCards.nth(index)).not.toHaveAttribute(
+        "data-new-order-highlight",
+        "true",
+        { timeout: 5_000 },
+      );
+    }
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/my-orders\?tab=late-order-submissions$/);
+    await page.goForward();
+    await expect(page).toHaveURL(/\/my-orders\?source=checkout$/);
+    await expect(page.locator('[data-new-order-highlight="true"]')).toHaveCount(0);
+  });
+
+  test("uses non-smooth scrolling for reduced motion", async ({ page }) => {
+    const checkout = page.getByTestId("checkout-subgroup").first();
+    await expect(checkout).toBeVisible();
+    const checkoutId = await checkout.getAttribute("data-checkout-id");
+    expect(checkoutId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await installCheckoutScrollObserver(page);
+    await page.goto(`/my-orders?checkout=${checkoutId}`);
+
+    await expect.poll(() => checkoutScrollBehaviors(page)).toContain("auto");
+    await expect(page).toHaveURL(/\/my-orders$/);
+  });
+
+  test("cleans invalid, stale, and foreign checkout targets without scrolling or highlighting", async ({
+    page,
+  }) => {
+    const checkout = page.getByTestId("checkout-subgroup").first();
+    await expect(checkout).toBeVisible();
+    const checkoutId = await checkout.getAttribute("data-checkout-id");
+    expect(checkoutId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    const foreignRows = runLocalDbQuery(`
+      select candidate.order_group_id::text as order_group_id
+      from public.orders source
+      join public.orders candidate on candidate.profile_id <> source.profile_id
+      where source.order_group_id = '${checkoutId}'::uuid
+        and candidate.order_group_id is not null
+      order by candidate.created_at desc, candidate.id desc
+      limit 1
+    `);
+    const foreignCheckoutId = foreignRows[0]?.order_group_id;
+    expect(foreignCheckoutId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    await installCheckoutScrollObserver(page);
+    for (const target of [
+      "not-a-checkout",
+      "94000001-0001-4001-8001-000000000001",
+      String(foreignCheckoutId),
+    ]) {
+      await page.goto(`/my-orders?checkout=${encodeURIComponent(target)}&retained=1`);
+      await expect(page.getByRole("heading", { name: "My Orders" })).toBeVisible();
+      await expect(page).toHaveURL(/\/my-orders\?retained=1$/);
+      await expect(page.locator('[data-new-order-highlight="true"]')).toHaveCount(0);
+      expect(await checkoutScrollBehaviors(page)).toEqual([]);
+    }
+
+    await page.goto("/my-orders?retained=ordinary");
+    await expect(page.locator('[data-new-order-highlight="true"]')).toHaveCount(0);
+    expect(await checkoutScrollBehaviors(page)).toEqual([]);
+  });
+
   test("groups provider cards under one delivery date and preserves authoritative summaries and actions", async ({
     page,
   }) => {
+    prepareCancellationFixture();
+    try {
+    await page.goto("/my-orders");
     await page.setViewportSize({ width: 1440, height: 900 });
-    const checkout = firstExpandedCheckout(page);
+    const checkout = page.getByTestId("delivery-date-group").filter({
+      hasText: CANCELLATION_FIXTURE.firstMarker,
+    });
     const providerCards = checkout.getByTestId("provider-order-card");
     const summary = checkout.getByTestId("checkout-financial-summary");
 
@@ -431,6 +724,9 @@ test.describe("Staff My Orders redesign", () => {
       exact: true,
     }).click();
     await expect(page).toHaveURL(/\/lunch\/orders\/.+\?edit=1$/);
+    } finally {
+      cleanupCancellationFixture();
+    }
   });
 
   test("renders separate same-date checkouts beneath one heading and one daily summary", async ({
@@ -513,12 +809,17 @@ test.describe("Staff My Orders redesign", () => {
   test("320px and 375px stack the summary beneath compact provider cards without page overflow", async ({
     page,
   }) => {
+    prepareCancellationFixture();
+    try {
+    await page.goto("/my-orders");
     for (const viewport of [
       { width: 375, height: 812 },
       { width: 320, height: 568 },
     ]) {
       await page.setViewportSize(viewport);
-      const checkout = firstExpandedCheckout(page);
+      const checkout = page.getByTestId("delivery-date-group").filter({
+        hasText: CANCELLATION_FIXTURE.firstMarker,
+      });
       const providerCards = checkout.getByTestId("provider-order-card");
       const summary = checkout.getByTestId("checkout-financial-summary");
 
@@ -539,6 +840,9 @@ test.describe("Staff My Orders redesign", () => {
       await expectNoAxeViolations(page, `My Orders ${viewport.width}px view`, {
         mainContentOnly: true,
       });
+    }
+    } finally {
+      cleanupCancellationFixture();
     }
   });
 
@@ -657,6 +961,7 @@ test.describe("Staff My Orders redesign", () => {
       const checkout = page.getByTestId("delivery-date-group").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });
+      await confirmDeliveryGroupHydrated(page, checkout);
       const targetCard = checkout.getByTestId("provider-order-card").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });
@@ -749,6 +1054,7 @@ test.describe("Staff My Orders redesign", () => {
       const checkout = page.getByTestId("delivery-date-group").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });
+      await confirmDeliveryGroupHydrated(page, checkout);
       const targetCard = checkout.getByTestId("provider-order-card").filter({
         hasText: CANCELLATION_FIXTURE.firstMarker,
       });

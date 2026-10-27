@@ -16,6 +16,7 @@ export type StaffLateOrderRequestRow = {
   id: string;
   provider_id: string;
   provider_name: string;
+  provider_icon_key?: string | null;
   order_date: string;
   scheduled_delivery_date: string;
   status: string;
@@ -30,6 +31,34 @@ export type StaffLateOrderRequestRow = {
   updated_at: string;
 };
 
+async function addProviderIconsToLateOrderRequests(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  requests: StaffLateOrderRequestRow[],
+): Promise<StaffLateOrderRequestRow[]> {
+  const providerIds = Array.from(new Set(requests.map((request) => request.provider_id)));
+  if (providerIds.length === 0) {
+    return requests;
+  }
+
+  const { data, error } = await supabase
+    .from("lunch_providers")
+    .select("id, icon_key")
+    .in("id", providerIds);
+
+  if (error) {
+    return requests.map((request) => ({ ...request, provider_icon_key: null }));
+  }
+
+  const iconByProviderId = new Map(
+    (data ?? []).map((provider) => [provider.id, provider.icon_key]),
+  );
+
+  return requests.map((request) => ({
+    ...request,
+    provider_icon_key: iconByProviderId.get(request.provider_id) ?? null,
+  }));
+}
+
 export async function loadMyStaffLateOrderRequests(): Promise<StaffLateOrderRequestRow[]> {
   await requireProfile();
   const supabase = await createClient();
@@ -39,7 +68,10 @@ export async function loadMyStaffLateOrderRequests(): Promise<StaffLateOrderRequ
     throw new Error(error.message);
   }
 
-  return (data ?? []) as StaffLateOrderRequestRow[];
+  return addProviderIconsToLateOrderRequests(
+    supabase,
+    (data ?? []) as StaffLateOrderRequestRow[],
+  );
 }
 
 export type EligibleLateOrderCycle = {

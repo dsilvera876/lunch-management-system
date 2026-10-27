@@ -85,7 +85,9 @@ describe("lunch order submit workflow", () => {
     assert.match(shellSource, /onCheckoutPendingChange=\{handleCheckoutPendingChange\}/);
     assert.doesNotMatch(shellSource, /useToast|showToast|ToastProvider/);
     assert.match(panelSource, /CHECKOUT_SUCCESS_TITLE/);
-    assert.match(panelSource, /href="\/my-orders"/);
+    assert.match(panelSource, /\/my-orders\?checkout=/);
+    assert.match(panelSource, /encodeURIComponent\(orderGroupId\)/);
+    assert.match(shellSource, /orderGroupId: payload\.orderGroupId/);
     assert.match(panelSource, /View My Orders/);
     assert.match(panelSource, /tabIndex=\{-1\}/);
     assert.doesNotMatch(panelSource, /role="(status|alert)"|aria-live/);
@@ -105,7 +107,7 @@ describe("lunch order submit workflow", () => {
     assert.doesNotMatch(lunchPageSource, /OrderSummaryCard/);
     assert.doesNotMatch(lunchPageSource, /Legacy open lunches/);
     assert.doesNotMatch(lunchPageSource, /provider_id.*null/);
-    assert.match(myOrdersSource, /grouped by checkout/);
+    assert.match(myOrdersSource, /grouped by delivery date/);
     assert.match(myOrdersSource, /staff-my-orders-load/);
   });
 });

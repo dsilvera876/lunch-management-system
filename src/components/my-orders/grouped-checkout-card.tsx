@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatDeadline } from "@/lib/format";
 import type { DeliveryDateOrderGroup } from "@/lib/staff-my-orders";
 import { CheckoutHeader } from "@/components/my-orders/checkout-header";
@@ -15,6 +15,7 @@ type Props = {
   showFinancialSummary?: boolean;
   ratingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
+  highlightedOrderGroupId?: string | null;
 };
 
 export function GroupedCheckoutCard({
@@ -24,10 +25,38 @@ export function GroupedCheckoutCard({
   showFinancialSummary = true,
   ratingSummaries,
   ratingsLoadFailed,
+  highlightedOrderGroupId = null,
 }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const containsHighlightedCheckout = deliveryGroup.checkouts.some(
+    (checkout) => checkout.orderGroupId === highlightedOrderGroupId,
+  );
+  const [showNewOrderHighlight, setShowNewOrderHighlight] = useState(
+    containsHighlightedCheckout,
+  );
+  const highlightedCheckoutRef = useRef<HTMLElement>(null);
   const headingId = `delivery-date-heading-${deliveryGroup.deliveryDate}`;
   const detailsId = `delivery-date-details-${deliveryGroup.deliveryDate}`;
+
+  useEffect(() => {
+    if (!containsHighlightedCheckout) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      highlightedCheckoutRef.current?.scrollIntoView({
+        behavior: reducedMotion ? "auto" : "smooth",
+        block: "center",
+      });
+    });
+    const timeout = window.setTimeout(() => setShowNewOrderHighlight(false), 2_500);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [containsHighlightedCheckout]);
 
   return (
     <section
@@ -51,11 +80,21 @@ export function GroupedCheckoutCard({
               {deliveryGroup.checkouts.map((checkout, checkoutIndex) => (
                 <section
                   key={checkout.orderGroupId}
+                  ref={
+                    checkout.orderGroupId === highlightedOrderGroupId
+                      ? highlightedCheckoutRef
+                      : undefined
+                  }
                   aria-label={`Checkout ${checkoutIndex + 1} of ${deliveryGroup.checkouts.length}, ordered ${formatDeadline(checkout.placedAt)}, with ${checkout.orderCount} ${checkout.orderCount === 1 ? "order" : "orders"}`}
                   className="space-y-4"
                   data-testid="checkout-subgroup"
                   data-checkout-id={checkout.orderGroupId}
                 >
+                  {checkout.orderGroupId === highlightedOrderGroupId && showNewOrderHighlight ? (
+                    <p className="sr-only" role="status">
+                      Your newly placed order is shown below.
+                    </p>
+                  ) : null}
                   {checkout.providerOrders.map((order) => (
                     <ProviderOrderSection
                       key={order.id}
@@ -67,6 +106,10 @@ export function GroupedCheckoutCard({
                       }}
                       ratingSummaries={ratingSummaries}
                       ratingsLoadFailed={ratingsLoadFailed}
+                      highlighted={
+                        checkout.orderGroupId === highlightedOrderGroupId &&
+                        showNewOrderHighlight
+                      }
                     />
                   ))}
                 </section>

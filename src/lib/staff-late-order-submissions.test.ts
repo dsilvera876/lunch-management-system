@@ -14,6 +14,7 @@ const baseRequest: StaffLateOrderRequestRow = {
   id: "req-1",
   provider_id: "p1",
   provider_name: "Provider A",
+  provider_icon_key: "bowl",
   order_date: "2099-01-06",
   scheduled_delivery_date: "2099-01-07",
   status: "pending",
@@ -108,6 +109,8 @@ describe("drawer submission-only UX", () => {
     assert.match(card, /data-testid="late-order-submission-card"/);
     assert.match(card, /aria-labelledby=\{headingId\}/);
     assert.match(card, /request\.provider_name/);
+    assert.match(card, /ProviderIconWell/);
+    assert.match(card, /request\.provider_icon_key/);
     assert.match(card, /formatHumanDate\(request\.scheduled_delivery_date\)/);
     assert.match(card, /request\.office_location_name/);
     assert.match(card, /request\.requested_summary/);
@@ -115,8 +118,26 @@ describe("drawer submission-only UX", () => {
     assert.match(card, /formatDeadline\(request\.created_at\)/);
     assert.match(card, /Special instructions/);
     assert.match(card, /normalizedStatus === "pending"/);
+    assert.match(card, /LateOrderSubmissionStatusBadge/);
+    for (const status of ["Pending", "Fulfilled", "Declined", "Cancelled"]) {
+      assert.match(card, new RegExp(`label: "${status}"`));
+    }
     assert.doesNotMatch(card, /View order/);
     assert.doesNotMatch(card, /fulfilled_order_id/);
+  });
+
+  it("hydrates configured provider icons with one RLS-scoped batch read and keeps a fallback", () => {
+    const actions = readFileSync(
+      new URL("../app/home/staff-late-order-request-actions.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(actions, /new Set\(requests\.map\(\(request\) => request\.provider_id\)\)/);
+    assert.match(actions, /\.from\("lunch_providers"\)/);
+    assert.match(actions, /\.select\("id, icon_key"\)/);
+    assert.match(actions, /\.in\("id", providerIds\)/);
+    assert.match(actions, /provider_icon_key: iconByProviderId\.get/);
+    assert.match(actions, /provider_icon_key: null/);
   });
 });
 

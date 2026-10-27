@@ -31,6 +31,7 @@ type Props = {
   };
   ratingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
+  highlighted?: boolean;
 };
 
 const providerCardAccents = [
@@ -153,6 +154,7 @@ export function ProviderOrderSection({
   checkoutMetadata,
   ratingSummaries,
   ratingsLoadFailed,
+  highlighted = false,
 }: Props) {
   const { mealMain, mealSides, standalone } = getMealAndStandaloneLines(order.lines);
   const accent = providerCardAccents[(order.indexInGroup - 1) % providerCardAccents.length]!;
@@ -164,8 +166,9 @@ export function ProviderOrderSection({
   return (
     <article
       aria-labelledby={providerHeadingId}
-      className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
+      className={`overflow-hidden rounded-xl border border-border bg-surface shadow-sm motion-safe:transition-shadow motion-safe:duration-500 ${highlighted ? "ring-2 ring-teal-600 ring-offset-2" : "ring-0"}`}
       data-testid="provider-order-card"
+      data-new-order-highlight={highlighted ? "true" : undefined}
     >
       <header className={`flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3.5 sm:px-5 ${accent.header}`}>
         <div className="flex min-w-0 items-start gap-3">

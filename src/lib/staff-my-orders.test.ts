@@ -13,6 +13,7 @@ import {
   isFullyCancelledGroup,
   isFinanciallyChargeableOrder,
   mapRawOrderToProviderOrder,
+  normalizeMyOrdersCheckoutTarget,
   normalizePastOrderDateParam,
   selectCancelledCheckouts,
   selectPastCheckoutsForDate,
@@ -724,6 +725,34 @@ describe("staff my orders grouping", () => {
     assert.equal(normalizePastOrderDateParam("2026-13-01"), null);
     assert.equal(normalizePastOrderDateParam("not-a-date"), null);
     assert.equal(normalizePastOrderDateParam(undefined), null);
+  });
+
+  it("accepts only canonical checkout UUIDs for post-checkout targeting", () => {
+    assert.equal(
+      normalizeMyOrdersCheckoutTarget("93000001-0001-4001-8001-000000000001"),
+      "93000001-0001-4001-8001-000000000001",
+    );
+    assert.equal(normalizeMyOrdersCheckoutTarget("not-a-checkout"), null);
+    assert.equal(normalizeMyOrdersCheckoutTarget(undefined), null);
+  });
+
+  it("starts every upcoming delivery group expanded and consumes a valid checkout target", () => {
+    const clientSource = readFileSync(
+      new URL("../components/my-orders/my-orders-page-client.tsx", import.meta.url),
+      "utf8",
+    );
+    const groupSource = readFileSync(
+      new URL("../components/my-orders/grouped-checkout-card.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(clientSource, /upcoming\.map\(\(deliveryGroup\) =>/);
+    assert.match(clientSource, /defaultExpanded/);
+    assert.doesNotMatch(clientSource, /defaultExpanded=\{index === 0\}/);
+    assert.match(clientSource, /window\.history\.replaceState/);
+    assert.match(groupSource, /scrollIntoView/);
+    assert.match(groupSource, /prefers-reduced-motion: reduce/);
+    assert.match(groupSource, /setShowNewOrderHighlight\(false\)/);
   });
 
   it("wires past date picker to URL-selected date in YYYY-MM-DD form", () => {

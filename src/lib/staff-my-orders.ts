@@ -14,6 +14,13 @@ import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB } from "@/lib/staff-late-order-sub
 
 export type MyOrdersTab = "upcoming" | "past" | "cancelled" | typeof MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB;
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function normalizeMyOrdersCheckoutTarget(value: unknown): string | null {
+  return typeof value === "string" && UUID_PATTERN.test(value) ? value : null;
+}
+
 export type ProviderOrderLine = {
   name: string;
   quantity: number;

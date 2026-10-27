@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
   applyLateOrderSubmissionEditFixture,
+  applyLateOrderSubmissionCancelledFixture,
   applyLateOrderSubmissionPresentationFixture,
   restoreLateOrderSubmissionEditFixture,
   E2E_LATE_ORDER_SUBMISSION_EDIT_SUMMARIES,
@@ -34,6 +35,19 @@ test.describe("My Orders — late order submission edit focus", () => {
     const editA = editButtonForSummary(page, E2E_LATE_ORDER_SUBMISSION_EDIT_SUMMARIES.A);
     await expect(editA).toBeVisible();
     await expect(editB).toBeVisible();
+    const pendingCards = page.getByTestId("late-order-submission-card");
+    await expect(pendingCards).toHaveCount(2);
+    for (const card of await pendingCards.all()) {
+      await expect(card.getByTestId("late-order-status")).toHaveText("Pending");
+      await expect(card.getByTestId("late-order-provider-icon")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+      await expect(card.getByTestId("late-order-provider-icon").locator("img")).toHaveAttribute(
+        "src",
+        /(?:\/provider-icons\/|%2Fprovider-icons%2F)/i,
+      );
+    }
     await expect(
       page
         .getByTestId("late-order-submission-card")
@@ -95,6 +109,14 @@ test.describe("My Orders — late order submission edit focus", () => {
       await expect(card.getByText("Location", { exact: true })).toBeVisible();
       await expect(card.getByText("Submitted", { exact: true })).toBeVisible();
       await expect(card.getByText("Quantity", { exact: true })).toBeVisible();
+      const descriptionGroups = card.locator("dl > div");
+      await expect(descriptionGroups).toHaveCount(3);
+      for (const group of await descriptionGroups.all()) {
+        await expect(group.locator(":scope > dt")).toHaveCount(1);
+        await expect(group.locator(":scope > dd")).toHaveCount(1);
+        await expect(group.locator(":scope > :not(dt):not(dd)")).toHaveCount(0);
+        await expect(group.locator(":scope > dt svg[aria-hidden='true']")).toHaveCount(1);
+      }
       await expect(card.getByRole("link", { name: "View order" })).toHaveCount(0);
       await expect(
         card.getByRole("button", { name: /^Edit late order submission for / }),
@@ -105,6 +127,7 @@ test.describe("My Orders — late order submission edit focus", () => {
     }
 
     await expect(fulfilledCard.getByText("Fulfilled", { exact: true })).toBeVisible();
+    await expect(fulfilledCard.getByTestId("late-order-status")).toHaveClass(/emerald/);
     await expect(fulfilledCard.getByRole("region", { name: "Requested items" })).toContainText(
       E2E_LATE_ORDER_SUBMISSION_PRESENTATION.fulfilledSummary,
     );
@@ -113,6 +136,7 @@ test.describe("My Orders — late order submission edit focus", () => {
     ).toContainText(E2E_LATE_ORDER_SUBMISSION_PRESENTATION.fulfilledInstructions);
 
     await expect(declinedCard.getByText("Declined", { exact: true })).toBeVisible();
+    await expect(declinedCard.getByTestId("late-order-status")).toHaveClass(/rose/);
     await expect(declinedCard.getByRole("region", { name: "Requested items" })).toContainText(
       E2E_LATE_ORDER_SUBMISSION_PRESENTATION.declinedSummary,
     );
@@ -140,5 +164,16 @@ test.describe("My Orders — late order submission edit focus", () => {
         ).toBe(true);
       }
     }
+
+    applyLateOrderSubmissionCancelledFixture();
+    await page.reload();
+    const cancelledCard = page
+      .getByTestId("late-order-submission-card")
+      .filter({ hasText: E2E_LATE_ORDER_SUBMISSION_PRESENTATION.declinedSummary });
+    await expect(cancelledCard.getByTestId("late-order-status")).toHaveText("Cancelled");
+    await expect(cancelledCard.getByTestId("late-order-status")).toHaveClass(/slate/);
+    await expect(cancelledCard.getByRole("status", { name: "Decline reason" })).toHaveCount(0);
+    await expect(cancelledCard.getByRole("button", { name: /^Edit / })).toHaveCount(0);
+    await expect(cancelledCard.getByRole("button", { name: /^Cancel / })).toHaveCount(0);
   });
 });

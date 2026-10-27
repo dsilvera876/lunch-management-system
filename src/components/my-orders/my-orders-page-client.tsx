@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
 import type { StaffLateOrderRequestRow } from "@/app/home/staff-late-order-request-actions";
 import type { GroupedCheckout, MyOrdersTab } from "@/lib/staff-my-orders";
 import { MY_ORDERS_LATE_ORDER_SUBMISSIONS_TAB } from "@/lib/staff-late-order-submissions";
@@ -34,6 +34,8 @@ type Props = {
   ratingSummaries?: MenuItemRatingSummariesById;
   ratingsLoadFailed?: boolean;
   ratingsLoadErrorMessage?: string | null;
+  highlightedOrderGroupId?: string | null;
+  checkoutTargetPresent?: boolean;
 };
 
 function buildMyOrdersHref(tab: MyOrdersTab, date: string | null): string {
@@ -58,8 +60,12 @@ export function MyOrdersPageClient({
   ratingSummaries,
   ratingsLoadFailed = false,
   ratingsLoadErrorMessage,
+  highlightedOrderGroupId = null,
+  checkoutTargetPresent = false,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const checkoutQueryValue = searchParams.get("checkout");
 
   const upcoming = useMemo(
     () => groupCheckoutsByDeliveryDate(selectUpcomingCheckouts(checkouts), checkouts),
@@ -85,6 +91,40 @@ export function MyOrdersPageClient({
       checkouts,
     );
   }, [checkouts, selectedPastDate]);
+
+  const hasHighlightedCheckout = useMemo(
+    () =>
+      Boolean(highlightedOrderGroupId) &&
+      upcoming.some((deliveryGroup) =>
+        deliveryGroup.checkouts.some(
+          (checkout) => checkout.orderGroupId === highlightedOrderGroupId,
+        ),
+      ),
+    [highlightedOrderGroupId, upcoming],
+  );
+
+  useEffect(() => {
+    if (!checkoutTargetPresent || checkoutQueryValue === null) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("checkout")) {
+      return;
+    }
+
+    if (hasHighlightedCheckout && checkoutQueryValue !== highlightedOrderGroupId) {
+      return;
+    }
+
+    url.searchParams.delete("checkout");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [
+    checkoutQueryValue,
+    checkoutTargetPresent,
+    hasHighlightedCheckout,
+    highlightedOrderGroupId,
+  ]);
 
   function handleTabChange(tab: MyOrdersTab) {
     if (tab === "past") {
@@ -138,12 +178,13 @@ export function MyOrdersPageClient({
               }
             />
           ) : (
-            upcoming.map((deliveryGroup, index) => (
+            upcoming.map((deliveryGroup) => (
               <GroupedCheckoutCard
                 key={deliveryGroup.deliveryDate}
                 deliveryGroup={deliveryGroup}
-                collapsible={upcoming.length > 1}
-                defaultExpanded={index === 0}
+                collapsible
+                defaultExpanded
+                highlightedOrderGroupId={highlightedOrderGroupId}
                 ratingSummaries={ratingSummaries}
                 ratingsLoadFailed={ratingsLoadFailed}
               />

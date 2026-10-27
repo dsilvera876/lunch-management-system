@@ -16,6 +16,7 @@ import {
 } from "@/lib/menu-item-ratings-collect";
 import {
   getMostRecentPastDeliveryDate,
+  normalizeMyOrdersCheckoutTarget,
   normalizePastOrderDateParam,
   parseMyOrdersTab,
   selectPastDeliveryDates,
@@ -28,6 +29,7 @@ type Props = {
   searchParams: Promise<{
     tab?: string;
     date?: string;
+    checkout?: string;
   }>;
 };
 
@@ -35,6 +37,8 @@ export default async function MyOrdersPage({ searchParams }: Props) {
   await requireProfile();
   const query = await searchParams;
   const tab = parseMyOrdersTab(query.tab);
+  const highlightedOrderGroupId = normalizeMyOrdersCheckoutTarget(query.checkout);
+  const checkoutTargetPresent = Object.prototype.hasOwnProperty.call(query, "checkout");
   const [checkouts, lateOrderSubmissions, lateOrderOpportunityAvailable] = await Promise.all([
     loadStaffGroupedCheckouts(),
     loadMyStaffLateOrderRequests(),
@@ -77,6 +81,8 @@ export default async function MyOrdersPage({ searchParams }: Props) {
         ratingSummaries={ratingsLoad.summariesById}
         ratingsLoadFailed={ratingsLoad.loadFailed}
         ratingsLoadErrorMessage={ratingsLoad.loadErrorMessage}
+        highlightedOrderGroupId={highlightedOrderGroupId}
+        checkoutTargetPresent={checkoutTargetPresent}
       />
     </>
   );

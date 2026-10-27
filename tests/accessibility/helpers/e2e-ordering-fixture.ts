@@ -1186,6 +1186,23 @@ export function applyLateOrderSubmissionPresentationFixture(): void {
   `);
 }
 
+/** Moves the declined presentation fixture to its terminal cancelled state. */
+export function applyLateOrderSubmissionCancelledFixture(): void {
+  runLocalDbExec(`
+    update private.staff_late_order_requests
+    set
+      status = 'cancelled',
+      special_instructions = null,
+      decline_reason = null,
+      declined_at = null,
+      reviewed_by = null,
+      fulfilled_at = null,
+      fulfilled_order_id = null,
+      updated_at = now()
+    where id = '${E2E_LATE_ORDER_SUBMISSION_EDIT_FIXTURE_IDS.requestB}'::uuid
+  `);
+}
+
 /** Deterministic normal order on Jamaica today for HR Today's Orders modal a11y (local DB only). */
 export const E2E_HR_TODAYS_ORDERS_MODAL_ORDER_ID =
   "e0100001-0001-4001-8001-000000000001";
