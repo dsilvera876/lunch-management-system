@@ -29,6 +29,7 @@ type Props = {
   fieldErrorId?: string;
   fieldErrorMessage?: string | null;
   onValidationClear?: () => void;
+  onLocationChange?: (locationId: string) => void;
 };
 
 export function OfficeLocationPicker({
@@ -47,6 +48,7 @@ export function OfficeLocationPicker({
   fieldErrorId,
   fieldErrorMessage = null,
   onValidationClear,
+  onLocationChange,
 }: Props) {
   const initialSelection = useMemo(() => {
     if (!defaultLocationId) {
@@ -89,6 +91,7 @@ export function OfficeLocationPicker({
 
   function handleLocationChange(nextLocationId: string) {
     setSelectedLocationId(nextLocationId);
+    onLocationChange?.(nextLocationId);
     onValidationClear?.();
     if (hideCollapsedSummary && nextLocationId.length > 0) {
       collapseSelector();
@@ -130,6 +133,7 @@ export function OfficeLocationPicker({
           value={selectedLocationId}
           onChange={(event) => {
             setSelectedLocationId(event.target.value);
+            onLocationChange?.(event.target.value);
             onValidationClear?.();
           }}
           required={!selectDisabled}

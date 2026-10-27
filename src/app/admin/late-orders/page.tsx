@@ -20,12 +20,17 @@ export default async function LateOrdersPage() {
     today,
     now: new Date(),
     canCreateLateOrders: profile.role === "hr",
+    canPreviewLateOrders: profile.role !== "hr",
   });
 
   return (
     <div className="space-y-4">
       <LateOrdersPageHeader />
-      <LateOrdersWorkspace jamaicaToday={today} {...pageData} />
+      <LateOrdersWorkspace
+        jamaicaToday={today}
+        supportPreview={profile.role !== "hr"}
+        {...pageData}
+      />
     </div>
   );
 }

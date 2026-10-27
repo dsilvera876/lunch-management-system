@@ -14,6 +14,84 @@ import {
   replaceActiveSupportModeFixtureSession,
   shortenActiveSupportModeFixtureSession,
 } from "./helpers/e2e-support-mode-fixture";
+import { runLocalDbQuery } from "./helpers/e2e-local-db";
+
+type LateOrderPreviewFixture = {
+  providerId: string;
+  acceptsLateOrders: boolean;
+  deadlineDay: string | null;
+  deadlineTime: string | null;
+  cutoffTime: string;
+};
+
+function prepareLateOrderPreviewFixture(): LateOrderPreviewFixture {
+  const rows = runLocalDbQuery(`
+    with candidate as (
+      select id, accepts_late_orders, late_order_deadline_day, late_order_deadline_time
+      from public.lunch_providers
+      where active = true
+        and exists (
+          select 1 from public.provider_menu_items pmi
+          where pmi.provider_id = lunch_providers.id and pmi.active = true
+        )
+      order by id
+      limit 1
+    ), settings as (
+      select order_cutoff_time from public.app_settings limit 1
+    ), provider_update as (
+      update public.lunch_providers lp
+      set accepts_late_orders = true,
+          late_order_deadline_day = 'order_day',
+          late_order_deadline_time = '23:59:00'
+      from candidate c
+      where lp.id = c.id
+      returning lp.id
+    ), settings_update as (
+      update public.app_settings set order_cutoff_time = '00:01:00'
+      returning id
+    )
+    select
+      c.id::text as provider_id,
+      c.accepts_late_orders,
+      c.late_order_deadline_day,
+      c.late_order_deadline_time::text,
+      s.order_cutoff_time::text
+    from candidate c cross join settings s;
+  `);
+  const row = rows[0];
+  if (
+    !row || typeof row.provider_id !== "string"
+    || typeof row.accepts_late_orders !== "boolean"
+    || (row.late_order_deadline_day !== null && typeof row.late_order_deadline_day !== "string")
+    || (row.late_order_deadline_time !== null && typeof row.late_order_deadline_time !== "string")
+    || typeof row.order_cutoff_time !== "string"
+  ) {
+    throw new Error("[support preview fixture] Unable to prepare a local late-order provider.");
+  }
+  return {
+    providerId: row.provider_id,
+    acceptsLateOrders: row.accepts_late_orders,
+    deadlineDay: row.late_order_deadline_day ?? null,
+    deadlineTime: row.late_order_deadline_time ?? null,
+    cutoffTime: row.order_cutoff_time,
+  };
+}
+
+function restoreLateOrderPreviewFixture(fixture: LateOrderPreviewFixture): void {
+  runLocalDbQuery(`
+    with provider_restore as (
+      update public.lunch_providers
+      set accepts_late_orders = ${fixture.acceptsLateOrders ? "true" : "false"},
+          late_order_deadline_day = ${fixture.deadlineDay ? `'${fixture.deadlineDay}'` : "null"},
+          late_order_deadline_time = ${fixture.deadlineTime ? `'${fixture.deadlineTime}'::time` : "null"}
+      where id = '${fixture.providerId}'::uuid
+      returning id
+    )
+    update public.app_settings
+    set order_cutoff_time = '${fixture.cutoffTime}'::time
+    returning id;
+  `);
+}
 
 async function signInAsOwner(page: Page) {
   const { email, password } = requireOwnerCredentials();
@@ -153,6 +231,66 @@ test.describe("Support Mode expiration", () => {
     await expect(detailsPanel).toBeVisible();
     await expect(detailsPanel.getByRole("button", { name: "Save changes" })).toHaveCount(0);
     await expect(detailsPanel.getByRole("button", { name: "Deactivate user" })).toHaveCount(0);
+  });
+
+  test("provides an interactive but non-submittable HR late-order support preview", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const fixture = prepareLateOrderPreviewFixture();
+    try {
+      await signInAsOwner(page);
+      await startSupportMode(page, "HR");
+
+    const actionResponses: string[] = [];
+    page.on("response", async (response) => {
+      if (response.request().method() === "POST" && response.url().includes("/admin/late-orders")) {
+        actionResponses.push(await response.text().catch(() => ""));
+      }
+    });
+
+      await page.goto("/admin/late-orders");
+      await expect(
+        page.getByRole("status").filter({
+          hasText: /Support Preview — You can inspect and test this form/,
+        }).first(),
+      ).toBeVisible();
+      await expect(page.getByRole("heading", { name: "1. Order Details" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "2. Choose Items" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "3. Provider Status" })).toBeVisible();
+      await expect(page.getByRole("button", { name: /Create late order/i })).toHaveCount(0);
+
+      await page.getByRole("combobox", { name: "Employee" }).click();
+      await page.getByPlaceholder("Search by name or email").fill("Dev Staff One");
+      await expect(page.getByRole("option", { name: /Dev Staff One/ })).toBeVisible();
+      await page.getByRole("option", { name: /Dev Staff One/ }).click();
+
+      const location = page.getByLabel("Delivery location");
+      await expect(location).toBeVisible();
+      const firstLocation = await location.locator("option:not([disabled])").first().getAttribute("value");
+      if (firstLocation) {
+        await location.selectOption(firstLocation);
+      }
+
+      const mainItem = page.getByRole("radio").first();
+      const sideItem = page.getByRole("checkbox").first();
+      await expect(mainItem).toBeVisible();
+      await expect(sideItem).toBeVisible();
+      await mainItem.check();
+      await sideItem.check();
+      await page.getByLabel(/Special instructions/).fill("Support preview only");
+      await expect(
+        page.getByRole("paragraph").filter({ hasText: "Support preview only" }),
+      ).toBeVisible();
+      await expect(page.getByText("Order total").first()).toBeVisible();
+
+      await expect(page.getByText("Changes are unavailable in Support Mode.")).toBeVisible();
+      await expect(page.getByText(/Support Mode: HR/)).toBeVisible();
+      expect(actionResponses.join("\n")).not.toContain("employee_id");
+      expect(actionResponses.join("\n")).not.toContain("employeeId");
+    } finally {
+      restoreLateOrderPreviewFixture(fixture);
+    }
   });
 
   test("renders login and approximate activity timestamps responsively", async ({ page }) => {

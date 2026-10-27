@@ -19,6 +19,10 @@ describe("HR late-order UI", () => {
     assert.match(source, /deliveryPickByProvider/);
     assert.match(source, /layoutVariant="late-order"/);
     assert.match(source, /loadHrLateOrderSnapshotMenuAction/);
+    assert.match(source, /loadHrLateOrderPreviewMenuAction/);
+    assert.match(source, /searchHrLateOrderPreviewEmployeesAction/);
+    assert.match(source, /Support Preview/);
+    assert.match(source, /previewOnly=\{supportPreview\}/);
     assert.match(source, /ReadOnlyFormValue/);
     assert.match(source, /FormActionStatus/);
     assert.match(source, /ToastProvider/);
@@ -64,6 +68,8 @@ describe("HR late-order UI", () => {
     assert.match(formSource, /useSplitLayout/);
     assert.match(formSource, /Select items below to see line items/);
     assert.match(formSource, /layoutVariant/);
+    assert.match(formSource, /if \(previewOnly\)/);
+    assert.match(formSource, /!previewOnly/);
   });
 
   it("validates meal composition for HR late orders", () => {

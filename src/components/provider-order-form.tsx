@@ -119,6 +119,9 @@ type Props = {
   showClientSubmitError?: (error: string) => boolean;
   /** Rendered directly above the submit control (e.g. HR change reason). */
   submitFooter?: ReactNode;
+  /** Read-only Support Mode simulation: all controls remain local and no submit control is rendered. */
+  previewOnly?: boolean;
+  onOfficeLocationChange?: (locationId: string) => void;
 };
 
 function StandaloneItemCard({
@@ -194,6 +197,8 @@ export function ProviderOrderForm({
   clientSubmitGuard,
   showClientSubmitError = () => true,
   submitFooter = null,
+  previewOnly = false,
+  onOfficeLocationChange,
 }: Props) {
   const isLateOrderLayout = layoutVariant === "late-order";
   const compactMenuLayout = isLateOrderLayout;
@@ -345,6 +350,11 @@ export function ProviderOrderForm({
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (previewOnly) {
+      event.preventDefault();
+      return;
+    }
+
     if (menuLoading || submitDisabled || clientSubmitLockRef.current.held) {
       event.preventDefault();
       return;
@@ -707,7 +717,7 @@ export function ProviderOrderForm({
       orderDate.length > 0 && !menuLoading && !submitDisabled;
 
     return (
-      <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
+      <form action={previewOnly ? undefined : formAction} onSubmit={handleSubmit} className="space-y-4">
         {providerId ? (
           <>
             <input type="hidden" name="providerId" value={providerId} />
@@ -742,6 +752,7 @@ export function ProviderOrderForm({
                   invalidField === "officeLocation" ? validationError : null
                 }
                 onValidationClear={clearValidation}
+                onLocationChange={onOfficeLocationChange}
               />
               <LateOrderSummaryPanel
                 providerName={providerName}
@@ -900,18 +911,20 @@ export function ProviderOrderForm({
 
           {validationSummary}
 
-          <div className="mt-4">
-            {submitFooter ? <div className="mb-4">{submitFooter}</div> : null}
-            <FormSubmitButton
-              pendingText={pendingLabel}
-              variant="primary"
-              staffPrimaryCta={!isLateOrderLayout}
-              disabled={menuLoading || submitDisabled}
-              forcePending={clientSubmitPending}
-            >
-              {submitLabel}
-            </FormSubmitButton>
-          </div>
+          {!previewOnly ? (
+            <div className="mt-4">
+              {submitFooter ? <div className="mb-4">{submitFooter}</div> : null}
+              <FormSubmitButton
+                pendingText={pendingLabel}
+                variant="primary"
+                staffPrimaryCta={!isLateOrderLayout}
+                disabled={menuLoading || submitDisabled}
+                forcePending={clientSubmitPending}
+              >
+                {submitLabel}
+              </FormSubmitButton>
+            </div>
+          ) : null}
         </Card>
       </form>
     );
@@ -919,7 +932,7 @@ export function ProviderOrderForm({
 
   return (
     <form
-      action={formAction}
+      action={previewOnly ? undefined : formAction}
       onSubmit={handleSubmit}
       className={
         useSplitLayout
@@ -950,6 +963,7 @@ export function ProviderOrderForm({
               invalidField === "officeLocation" ? validationError : null
             }
             onValidationClear={clearValidation}
+            onLocationChange={onOfficeLocationChange}
           />
         )}
 

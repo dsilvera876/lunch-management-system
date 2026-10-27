@@ -230,8 +230,8 @@ describe("employee picker", () => {
   });
 
   it("wires searchable employee picker in late orders without changing profile query filters", () => {
-    const page = readFileSync(
-      new URL("../app/admin/late-orders/page.tsx", import.meta.url),
+    const loader = readFileSync(
+      new URL("./hr-late-orders-page-load.ts", import.meta.url),
       "utf8",
     );
     const workspace = readFileSync(
@@ -239,11 +239,17 @@ describe("employee picker", () => {
       "utf8",
     );
 
-    assert.match(page, /list_late_order_employee_profiles/);
-    assert.match(page, /Unable to load employees for late orders/);
-    assert.doesNotMatch(page, /\.eq\("role"/);
+    const actions = readFileSync(
+      new URL("../app/admin/late-orders/actions.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(loader, /list_late_order_employee_profiles/);
+    assert.match(actions, /search_hr_late_order_preview_employees/);
+    assert.doesNotMatch(loader, /\.eq\("role"/);
     assert.match(workspace, /EmployeePicker/);
     assert.doesNotMatch(workspace, /setProfileId\(event\.target\.value\)/);
     assert.match(workspace, /onValueChange=\{setProfileId\}/);
+    assert.match(workspace, /searchEmployees=\{previewOnly \? searchPreviewEmployees : undefined\}/);
   });
 });

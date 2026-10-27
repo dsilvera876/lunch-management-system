@@ -709,6 +709,7 @@ export async function loadHrLateOrdersPageData(input: {
   today: string;
   now: Date;
   canCreateLateOrders: boolean;
+  canPreviewLateOrders?: boolean;
   onMetrics?: (metrics: HrLateOrdersLoaderMetrics) => void;
 }): Promise<HrLateOrdersPageData> {
   const startedAt = performance.now();
@@ -813,10 +814,16 @@ export async function loadHrLateOrdersPageData(input: {
     );
 
     phaseStartedAt = performance.now();
-    const creationContextPromise =
-      input.canCreateLateOrders && hasActionableCreationCycle
-        ? Promise.all([input.source.fetchEmployees(), input.source.fetchLocations()])
-        : Promise.resolve<[EmployeeRow[], LocationRow[]]>([[], []]);
+    const creationContextPromise = hasActionableCreationCycle
+      ? Promise.all([
+          input.canCreateLateOrders
+            ? input.source.fetchEmployees()
+            : Promise.resolve<EmployeeRow[]>([]),
+          input.canCreateLateOrders || input.canPreviewLateOrders
+            ? input.source.fetchLocations()
+            : Promise.resolve<LocationRow[]>([]),
+        ])
+      : Promise.resolve<[EmployeeRow[], LocationRow[]]>([[], []]);
     const [lunchDays, lateOrders, membershipRows, dispatchRows, opportunityRows] = operationalRows;
     const lateOrderIds = lateOrders.map((order) => order.id);
     const [creationContext, lateOrderNames] = await Promise.all([

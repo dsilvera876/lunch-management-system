@@ -252,6 +252,7 @@ function createSource(overrides: SourceOverrides = {}) {
 async function load(
   source: HrLateOrdersDataSource,
   canCreateLateOrders = false,
+  canPreviewLateOrders = false,
 ): Promise<{ data: Awaited<ReturnType<typeof loadHrLateOrdersPageData>>; metrics: HrLateOrdersLoaderMetrics }> {
   let metrics: HrLateOrdersLoaderMetrics | null = null;
   const data = await loadHrLateOrdersPageData({
@@ -259,6 +260,7 @@ async function load(
     today: TODAY,
     now: NOW,
     canCreateLateOrders,
+    canPreviewLateOrders,
     onMetrics: (value) => {
       metrics = value;
     },
@@ -594,7 +596,7 @@ describe("HR Late Orders request-scoped page loader", () => {
     });
 
     const hrResult = await load(permanentHr.source, true);
-    const supportResult = await load(supportMode.source, false);
+    const supportResult = await load(supportMode.source, false, true);
 
     assert.deepEqual(hrResult.data.employees, [
       { id: "employee-1", name: "Anne-Marie François", email: "staff@example.test" },
@@ -603,10 +605,17 @@ describe("HR Late Orders request-scoped page loader", () => {
     assert.equal(permanentHr.locationCalls(), 1);
     assert.equal(hrResult.metrics.databaseRequestCount, 14);
     assert.deepEqual(supportResult.data.employees, []);
-    assert.deepEqual(supportResult.data.locations, []);
+    assert.deepEqual(supportResult.data.locations, [
+      {
+        id: "location-1",
+        name: "Hidden Location",
+        address: null,
+        description: null,
+      },
+    ]);
     assert.equal(supportMode.employeeCalls(), 0);
-    assert.equal(supportMode.locationCalls(), 0);
-    assert.equal(supportResult.metrics.databaseRequestCount, 12);
+    assert.equal(supportMode.locationCalls(), 1);
+    assert.equal(supportResult.metrics.databaseRequestCount, 13);
   });
 
   it("does not load creation-only data when HR has no actionable cycle", async () => {
@@ -638,6 +647,7 @@ describe("HR Late Orders request-scoped page loader", () => {
     assert.doesNotMatch(loaderSource, /\.rpc\("(?:worker_|send_|create_late_order)/);
     assert.match(pageSource, /requireViewAllOrders\(\)/);
     assert.match(pageSource, /canCreateLateOrders:\s*profile\.role === "hr"/);
+    assert.match(pageSource, /canPreviewLateOrders:\s*profile\.role !== "hr"/);
   });
 
   it("provides an accessible immediate loading boundary", () => {

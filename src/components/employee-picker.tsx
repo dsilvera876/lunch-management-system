@@ -32,6 +32,8 @@ type Props = {
   placeholder?: string;
   id?: string;
   "aria-labelledby"?: string;
+  searchEmployees?: (query: string) => Promise<EmployeePickerOption[]>;
+  minimumSearchLength?: number;
 };
 
 export function EmployeePicker({
@@ -42,6 +44,8 @@ export function EmployeePicker({
   placeholder = EMPLOYEE_PICKER_DEFAULT_PLACEHOLDER,
   id: idProp,
   "aria-labelledby": ariaLabelledBy,
+  searchEmployees,
+  minimumSearchLength = 2,
 }: Props) {
   const generatedId = useId();
   const controlId = idProp ?? generatedId;
@@ -57,13 +61,62 @@ export function EmployeePicker({
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [dropdownPosition, setDropdownPosition] =
     useState<EmployeePickerDropdownPosition | null>(null);
+  const [remoteEmployees, setRemoteEmployees] = useState<EmployeePickerOption[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [selectedRemoteEmployee, setSelectedRemoteEmployee] =
+    useState<EmployeePickerOption | null>(null);
+
+  const availableEmployees = searchEmployees ? remoteEmployees : employees;
+  const remoteQueryReady = query.trim().length >= minimumSearchLength;
 
   const filtered = useMemo(
-    () => filterEmployeesForPicker(employees, query),
-    [employees, query],
+    () =>
+      searchEmployees
+        ? remoteQueryReady
+          ? availableEmployees
+          : []
+        : filterEmployeesForPicker(availableEmployees, query),
+    [availableEmployees, query, remoteQueryReady, searchEmployees],
   );
 
-  const selected = findEmployeePickerOption(employees, value);
+  const selected =
+    findEmployeePickerOption(availableEmployees, value) ??
+    (selectedRemoteEmployee?.id === value ? selectedRemoteEmployee : null);
+
+  useEffect(() => {
+    if (!searchEmployees || !open) {
+      return;
+    }
+
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < minimumSearchLength) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchEmployees(normalizedQuery)
+        .then((results) => {
+          if (!cancelled) {
+            setRemoteEmployees(results);
+            setRemoteLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setRemoteEmployees([]);
+            setRemoteLoading(false);
+            setRemoteError("Unable to search employees right now.");
+          }
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [minimumSearchLength, open, query, searchEmployees]);
 
   const activeHighlightIndex =
     filtered.length === 0
@@ -133,9 +186,17 @@ export function EmployeePicker({
     setOpen(false);
     setQuery("");
     setDropdownPosition(null);
+    setRemoteEmployees([]);
+    setRemoteLoading(false);
+    setRemoteError(null);
   }
 
   function selectEmployee(employeeId: string) {
+    if (searchEmployees) {
+      setSelectedRemoteEmployee(
+        availableEmployees.find((employee) => employee.id === employeeId) ?? null,
+      );
+    }
     onValueChange(employeeId);
     closePicker();
   }
@@ -213,7 +274,16 @@ export function EmployeePicker({
             type="search"
             value={query}
             onChange={(event) => {
-              setQuery(event.target.value);
+              const nextQuery = event.target.value;
+              setQuery(nextQuery);
+              if (searchEmployees && nextQuery.trim().length < minimumSearchLength) {
+                setRemoteEmployees([]);
+                setRemoteLoading(false);
+                setRemoteError(null);
+              } else if (searchEmployees) {
+                setRemoteLoading(true);
+                setRemoteError(null);
+              }
               setHighlightIndex(0);
             }}
             onKeyDown={handleSearchKeyDown}
@@ -230,7 +300,15 @@ export function EmployeePicker({
           style={{ maxHeight: dropdownPosition.listMaxHeight }}
           className="overflow-y-auto py-1"
         >
-          {filtered.length === 0 ? (
+          {remoteLoading ? (
+            <li className="px-3 py-2 text-sm text-muted" role="status">Searching employees…</li>
+          ) : remoteError ? (
+            <li className="px-3 py-2 text-sm text-red-800" role="status">{remoteError}</li>
+          ) : searchEmployees && query.trim().length < minimumSearchLength ? (
+            <li className="px-3 py-2 text-sm text-muted">
+              Type at least {minimumSearchLength} characters to search.
+            </li>
+          ) : filtered.length === 0 ? (
             <li className="px-3 py-2 text-sm text-muted">{EMPLOYEE_PICKER_EMPTY_MESSAGE}</li>
           ) : (
             filtered.map((employee, index) => {

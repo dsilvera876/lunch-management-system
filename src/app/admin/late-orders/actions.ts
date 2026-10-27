@@ -34,9 +34,128 @@ export type LoadHrLateOrderSnapshotMenuResult =
     }
   | { success: false; error: string };
 
+export type HrLateOrderPreviewEmployee = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type SearchHrLateOrderPreviewEmployeesResult =
+  | { success: true; employees: HrLateOrderPreviewEmployee[] }
+  | { success: false; error: string };
+
 export type LateOrderActionResult =
   | { success: true; dispatchId?: string }
   | { success: false; error: string };
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parseSnapshotMenuPayload(
+  data: unknown,
+  fallbackDeliveryDate: string,
+): LoadHrLateOrderSnapshotMenuResult {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { success: false, error: "The menu response was invalid." };
+  }
+
+  const payload = data as Record<string, unknown>;
+  if (!Array.isArray(payload.menu_items)) {
+    return { success: false, error: "The menu response was invalid." };
+  }
+
+  const menuItems: HrLateOrderSnapshotMenuItem[] = [];
+  for (const rawItem of payload.menu_items) {
+    if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+      return { success: false, error: "The menu response was invalid." };
+    }
+    const item = rawItem as Record<string, unknown>;
+    const price = Number(item.price);
+    if (
+      typeof item.id !== "string" ||
+      !UUID_PATTERN.test(item.id) ||
+      typeof item.name !== "string" ||
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !["main", "side", "standalone"].includes(String(item.item_type)) ||
+      typeof item.unit_label !== "string"
+    ) {
+      return { success: false, error: "The menu response was invalid." };
+    }
+    menuItems.push({
+      id: item.id,
+      name: item.name,
+      description: typeof item.description === "string" ? item.description : null,
+      price,
+      itemType: item.item_type as MenuItemType,
+      unitLabel: item.unit_label,
+      displayCategory:
+        typeof item.display_category === "string" ? item.display_category : null,
+    });
+  }
+
+  return {
+    success: true,
+    status: typeof payload.status === "string" ? payload.status : "unknown",
+    orderDate: typeof payload.order_date === "string" ? payload.order_date : "",
+    deliveryDate:
+      typeof payload.delivery_date === "string"
+        ? payload.delivery_date
+        : fallbackDeliveryDate,
+    menuItems,
+  };
+}
+
+export async function searchHrLateOrderPreviewEmployeesAction(
+  search: string,
+): Promise<SearchHrLateOrderPreviewEmployeesResult> {
+  try {
+    await requireViewAllOrders();
+  } catch {
+    return { success: false, error: "HR late-order access required." };
+  }
+
+  if (search.trim().length < 2) {
+    return { success: true, employees: [] };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("search_hr_late_order_preview_employees", {
+    p_search: search,
+    p_limit: 20,
+  });
+
+  if (error) {
+    console.error("Failed to search HR late-order preview employees", {
+      message: error.message,
+      code: error.code,
+    });
+    return { success: false, error: "Unable to search employees right now." };
+  }
+
+  if (!Array.isArray(data)) {
+    return { success: false, error: "The employee search response was invalid." };
+  }
+
+  const employees: HrLateOrderPreviewEmployee[] = [];
+  for (const rawRow of data) {
+    if (!rawRow || typeof rawRow !== "object" || Array.isArray(rawRow)) {
+      return { success: false, error: "The employee search response was invalid." };
+    }
+    const row = rawRow as Record<string, unknown>;
+    if (
+      typeof row.profile_id !== "string" ||
+      !UUID_PATTERN.test(row.profile_id) ||
+      typeof row.full_name !== "string" ||
+      typeof row.email !== "string"
+    ) {
+      return { success: false, error: "The employee search response was invalid." };
+    }
+    employees.push({ id: row.profile_id, name: row.full_name, email: row.email });
+  }
+
+  return { success: true, employees };
+}
 
 export async function fulfillStaffLateOrderRequestAction(input: {
   requestId: string;
@@ -148,38 +267,41 @@ export async function loadHrLateOrderSnapshotMenuAction(input: {
     };
   }
 
-  const payload = data as {
-    status?: string;
-    order_date?: string;
-    delivery_date?: string;
-    menu_items?: Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price: number | string;
-      item_type: string;
-      unit_label: string;
-      display_category: string | null;
-    }>;
-  };
+  return parseSnapshotMenuPayload(data, input.deliveryDate);
+}
 
-  const menuItems = (payload.menu_items ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    price: Number(item.price),
-    itemType: item.item_type as MenuItemType,
-    unitLabel: item.unit_label,
-    displayCategory: item.display_category,
-  }));
+export async function loadHrLateOrderPreviewMenuAction(input: {
+  providerId: string;
+  deliveryDate: string;
+  profileId?: string;
+  officeLocationId?: string;
+}): Promise<LoadHrLateOrderSnapshotMenuResult> {
+  try {
+    await requireViewAllOrders();
+  } catch {
+    return { success: false, error: "HR late-order access required." };
+  }
 
-  return {
-    success: true,
-    status: payload.status ?? "unknown",
-    orderDate: String(payload.order_date ?? ""),
-    deliveryDate: String(payload.delivery_date ?? input.deliveryDate),
-    menuItems,
-  };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("preview_hr_late_order_menu", {
+    p_provider_id: input.providerId,
+    p_delivery_date: input.deliveryDate,
+    p_profile_id: input.profileId ?? null,
+    p_office_location_id: input.officeLocationId ?? null,
+  });
+
+  if (error) {
+    console.error("Failed to load HR late-order preview menu", {
+      message: error.message,
+      code: error.code,
+    });
+    return {
+      success: false,
+      error: "Unable to load the menu preview for this provider and delivery date.",
+    };
+  }
+
+  return parseSnapshotMenuPayload(data, input.deliveryDate);
 }
 
 export async function createHrLateOrderFormAction(

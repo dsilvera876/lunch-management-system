@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   acknowledgeDispatchNotReceivedAction,
   acknowledgeDispatchReceivedAction,
   createHrLateOrderFormAction,
   fulfillStaffLateOrderRequestAction,
+  loadHrLateOrderPreviewMenuAction,
   loadHrLateOrderSnapshotMenuAction,
+  searchHrLateOrderPreviewEmployeesAction,
   sendProviderLateOrderSupplementAction,
   type HrLateOrderSnapshotMenuItem,
 } from "@/app/admin/late-orders/actions";
@@ -92,6 +94,7 @@ type Props = {
   jamaicaToday: string;
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
   pendingStaffRequests: PendingStaffLateOrderRequest[];
+  supportPreview: boolean;
 };
 
 type WorkspaceFeedback = {
@@ -116,6 +119,7 @@ function LateOrdersWorkspaceInner({
   jamaicaToday,
   providerCreationCycles,
   pendingStaffRequests = [],
+  supportPreview,
 }: Props) {
   const { readOnly } = useSupportMode();
   const router = useRouter();
@@ -244,6 +248,13 @@ function LateOrdersWorkspaceInner({
 
   return (
     <div className="space-y-6">
+      {supportPreview ? (
+        <FormActionStatus variant="info">
+          <strong>Support Preview</strong> — You can inspect and test this form, but no
+          orders or changes can be submitted.
+        </FormActionStatus>
+      ) : null}
+
       {feedback ? (
         <FormActionStatus variant={feedback.variant}>{feedback.message}</FormActionStatus>
       ) : null}
@@ -257,7 +268,7 @@ function LateOrdersWorkspaceInner({
         <LateOrdersUnavailableCard reason={unavailableReason} />
       ) : (
         <>
-          {showFullWorkflow && !readOnly ? (
+          {showFullWorkflow && (!readOnly || supportPreview) ? (
             <LateOrderCreatePanel
               key={fulfillRequest?.id ?? "hr-late-create"}
               employees={employees}
@@ -271,6 +282,7 @@ function LateOrdersWorkspaceInner({
                 setFulfillRequest(null);
                 router.refresh();
               }}
+              previewOnly={supportPreview}
             />
           ) : null}
 
@@ -278,7 +290,7 @@ function LateOrdersWorkspaceInner({
             <Card padding="sm" className={lateOrderMajorCardClassName}>
               <LateOrderSectionHeader
                 icon={<IconClock aria-hidden />}
-                title={showFullWorkflow && !readOnly ? "3. Provider Status" : "Provider Status"}
+                title={showFullWorkflow ? "3. Provider Status" : "Provider Status"}
                 description="Current late-order availability for each provider."
               />
               {readOnly ? <SupportModeMutationHint className="mt-3" /> : null}
@@ -320,6 +332,7 @@ function LateOrderCreatePanel({
   providerCreationCycles,
   fulfillRequest,
   onCreateSuccess,
+  previewOnly,
 }: {
   employees: Array<{ id: string; name: string; email: string }>;
   locations: OfficeLocationOption[];
@@ -329,6 +342,7 @@ function LateOrderCreatePanel({
   providerCreationCycles: Record<string, HrLateOrderCreationCycle[]>;
   fulfillRequest: PendingStaffLateOrderRequest | null;
   onCreateSuccess: () => void;
+  previewOnly: boolean;
 }) {
   const { showToast } = useToast();
   const [profileId, setProfileId] = useState(fulfillRequest?.requesterProfileId ?? "");
@@ -373,10 +387,21 @@ function LateOrderCreatePanel({
   const [loadingMenu, setLoadingMenu] = useState(false);
   /** Bumps menu-selection state inside ProviderOrderForm without remounting Order Details. */
   const [menuSelectionEpoch, setMenuSelectionEpoch] = useState(0);
+  const [previewOfficeLocationId, setPreviewOfficeLocationId] = useState(
+    locations[0]?.id ?? "",
+  );
 
   const providerName = providers.find((provider) => provider.id === providerId)?.name ?? "Provider";
 
   const noActionableCycles = actionableCycles.length === 0;
+
+  const searchPreviewEmployees = useCallback(async (query: string) => {
+    const result = await searchHrLateOrderPreviewEmployeesAction(query);
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    return result.employees;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -392,10 +417,13 @@ function LateOrderCreatePanel({
       setMenuStatus(null);
       setMenuSelectionEpoch((value) => value + 1);
 
-      const result = await loadHrLateOrderSnapshotMenuAction({
+      const result = await (previewOnly
+        ? loadHrLateOrderPreviewMenuAction
+        : loadHrLateOrderSnapshotMenuAction)({
         providerId,
         deliveryDate,
         profileId: (fulfillRequest?.requesterProfileId ?? profileId) || undefined,
+        officeLocationId: previewOnly ? previewOfficeLocationId || undefined : undefined,
       });
 
       if (cancelled) {
@@ -420,7 +448,7 @@ function LateOrderCreatePanel({
     return () => {
       cancelled = true;
     };
-  }, [providerId, deliveryDate, fulfillRequest?.requesterProfileId, profileId]);
+  }, [providerId, deliveryDate, fulfillRequest?.requesterProfileId, previewOfficeLocationId, previewOnly, profileId]);
 
   const menuPresentation = resolveLateOrderMenuPresentation({
     loading: loadingMenu,
@@ -504,6 +532,8 @@ function LateOrderCreatePanel({
               employees={employees}
               value={profileId}
               onValueChange={setProfileId}
+              searchEmployees={previewOnly ? searchPreviewEmployees : undefined}
+              minimumSearchLength={2}
             />
           )}
         </div>
@@ -602,6 +632,8 @@ function LateOrderCreatePanel({
         displayCategory: item.displayCategory,
       }))}
       formAction={handleFormAction}
+      previewOnly={previewOnly}
+      onOfficeLocationChange={previewOnly ? setPreviewOfficeLocationId : undefined}
       mainFieldName="mainMenuItemId"
       quantityFieldPrefix="quantity"
       submitLabel={fulfillRequest ? "Fulfill request" : "Create late order"}
