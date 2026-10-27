@@ -33,14 +33,14 @@ describe("HR pending staff late-order requests panel", () => {
     assert.doesNotMatch(panel, /role="status"/);
   });
 
-  it("maps fulfillment_window_open from the HR list RPC on the server page", () => {
-    const page = readFileSync(
-      new URL("../app/admin/late-orders/page.tsx", import.meta.url),
+  it("maps fulfillment_window_open from the HR list RPC in the server loader", () => {
+    const loader = readFileSync(
+      new URL("./hr-late-orders-page-load.ts", import.meta.url),
       "utf8",
     );
 
-    assert.match(page, /list_pending_staff_late_order_requests_for_hr/);
-    assert.match(page, /fulfillment_window_open/);
-    assert.match(page, /fulfillmentWindowOpen/);
+    assert.match(loader, /list_pending_staff_late_order_requests_for_hr/);
+    assert.match(loader, /fulfillment_window_open/);
+    assert.match(loader, /fulfillmentWindowOpen/);
   });
 });

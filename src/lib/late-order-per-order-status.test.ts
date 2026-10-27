@@ -112,21 +112,21 @@ describe("late-order per-order dispatch status", () => {
   });
 
   it("uses eligible count on the late orders page loader", () => {
-    const pageSource = readFileSync(
-      new URL("../app/admin/late-orders/page.tsx", import.meta.url),
+    const loaderSource = readFileSync(
+      new URL("./hr-late-orders-page-load.ts", import.meta.url),
       "utf8",
     );
 
-    assert.match(pageSource, /countEligibleLateOrdersForSupplementSend/);
+    assert.match(loaderSource, /countEligibleLateOrdersForSupplementSend/);
   });
 
   it("loads all sent dispatch memberships on the late orders page", () => {
-    const pageSource = readFileSync(
-      new URL("../app/admin/late-orders/page.tsx", import.meta.url),
+    const loaderSource = readFileSync(
+      new URL("./hr-late-orders-page-load.ts", import.meta.url),
       "utf8",
     );
 
-    assert.doesNotMatch(pageSource, /provider_late_order_dispatch_orders[\s\S]*?\.limit\(1\)/);
-    assert.match(pageSource, /buildSentLateOrderDispatchMap/);
+    assert.doesNotMatch(loaderSource, /provider_late_order_dispatch_orders[\s\S]*?\.limit\(1\)/);
+    assert.match(loaderSource, /buildSentLateOrderDispatchMap/);
   });
 });
