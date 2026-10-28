@@ -19,6 +19,8 @@ import { FinancialMetricGrid } from "@/components/admin/financial-reports/financ
 import { Alert } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button, linkButtonClass } from "@/components/ui/button";
+import { FinancialFinalizationBlockers } from "@/components/admin/financial-reports/financial-finalization-blockers";
+import type { FinancialFinalizationBlockerSummary } from "@/lib/lunch-period-finalization-blockers";
 
 type Props = {
   summary: LunchPeriodFinancialSummary;
@@ -26,7 +28,7 @@ type Props = {
   returnTo: string;
   canExport: boolean;
   canFinalize: boolean;
-  unresolvedIssueCount: number;
+  finalizationBlockers: FinancialFinalizationBlockerSummary;
   supportReadOnly?: boolean;
 };
 
@@ -36,9 +38,10 @@ export function FinancialPeriodReport({
   returnTo,
   canExport,
   canFinalize,
-  unresolvedIssueCount,
+  finalizationBlockers,
   supportReadOnly = false,
 }: Props) {
+  const unresolvedIssueCount = finalizationBlockers.counts.total;
   const metrics = buildFinancialGrandMetrics(summary);
   const effectiveSubsidy = getEffectivePeriodSubsidyAmount(summary);
   const periodEligibleForFinalization = isLunchPeriodEligibleForFinalization(
@@ -143,6 +146,10 @@ export function FinancialPeriodReport({
               reconciliation before finalization.
             </span>
           </Alert>
+        ) : null}
+
+        {showReconciliationWarning ? (
+          <FinancialFinalizationBlockers summary={finalizationBlockers} />
         ) : null}
 
         <FinancialMetricGrid

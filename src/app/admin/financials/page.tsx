@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { pageMetadata } from "@/lib/page-titles";
+import { loadFinancialFinalizationBlockers } from "@/lib/lunch-period-finalization-blockers";
 
 export const metadata = pageMetadata("adminFinancialReports");
 
@@ -44,19 +45,12 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
   const periods = await listLunchPeriods(supabase);
   const currentPeriod = periods.find((period) => period.is_current) ?? null;
   const selectedPeriodId = params.periodId ?? currentPeriod?.id ?? periods[0]?.id ?? null;
-  const summary = selectedPeriodId
-    ? await getLunchPeriodFinancialSummary(supabase, selectedPeriodId)
-    : null;
-  const unresolvedIssueCount =
-    selectedPeriodId && summary?.period.status === "open"
-      ? Number(
-          (
-            await supabase.rpc("get_lunch_period_unresolved_delivery_issue_count", {
-              p_period_id: selectedPeriodId,
-            })
-          ).data ?? 0,
-        )
-      : 0;
+  const [summary, finalizationBlockers] = selectedPeriodId
+    ? await Promise.all([
+        getLunchPeriodFinancialSummary(supabase, selectedPeriodId),
+        loadFinancialFinalizationBlockers(supabase, selectedPeriodId),
+      ])
+    : [null, null];
   const returnTo = selectedPeriodId
     ? `/admin/financials?periodId=${selectedPeriodId}`
     : "/admin/financials";
@@ -104,7 +98,7 @@ export default async function AdminFinancialsPage({ searchParams }: Props) {
             returnTo={returnTo}
             canExport={!supportReadOnly && canExportFinancialSummaries(profile.role)}
             canFinalize={!supportReadOnly && canFinalizeLunchPeriods(profile.role)}
-            unresolvedIssueCount={unresolvedIssueCount}
+            finalizationBlockers={finalizationBlockers!}
             supportReadOnly={supportReadOnly}
           />
           {staffNoticeSummary ? (
