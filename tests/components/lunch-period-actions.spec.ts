@@ -15,6 +15,9 @@ type HarnessWindow = typeof window & {
   __releaseLunchPeriodAction?: () => void;
   __unmountLunchPeriodsHarness?: () => void;
   __setTableCurrent?: () => void;
+  __setTableDetails?: (label: string, endDate: string) => void;
+  __tableEditSubmissions?: { label: string; endDate: string }[];
+  __tableHistorical?: boolean;
 };
 
 const projectRoot = path.resolve(__dirname, "../..");
@@ -247,7 +250,7 @@ function createTableBrowserBundle() {
     "@/components/ui/empty-state": 'exports.EmptyState = () => null;',
     "@/components/admin/lunch-periods/lunch-period-status-badge": 'const R = require("react"); exports.LunchPeriodStatusBadge = ({status}) => R.createElement("span", null, status);',
     "@/components/app-shell/support-mode-context": 'exports.SUPPORT_MODE_DISABLED_HINT = "Read only";',
-    "@/lib/lunch-periods": 'exports.countLunchPeriodDays = () => 7; exports.formatLunchPeriodAdminDate = x => x; exports.getLunchPeriodAdminStatus = x => x.is_current ? "active" : "locked"; exports.isLatestLunchPeriod = () => true;',
+    "@/lib/lunch-periods": 'exports.countLunchPeriodDays = () => 7; exports.formatLunchPeriodAdminDate = x => x; exports.getLunchPeriodAdminStatus = x => x.is_current ? "active" : "locked"; exports.isLatestLunchPeriod = () => !window.__tableHistorical;',
     "@/app/admin/lunch-periods/actions": `
       exports.setCurrentLunchPeriod = async () => {
         window.__lunchPeriodCalls += 1;
@@ -259,8 +262,19 @@ function createTableBrowserBundle() {
         window.__setTableCurrent?.();
         return { success: true };
       };
-      exports.updateLunchPeriodLabel = async () => ({ success: true });
-      exports.updateLatestLunchPeriodEndDate = async () => ({ success: true });
+      exports.updateLunchPeriodDetails = async formData => {
+        const label = String(formData.get("label")).trim();
+        const endDate = String(formData.get("endDate"));
+        window.__tableEditSubmissions.push({label, endDate});
+        if (window.__lunchPeriodMode === "delayed-success") {
+          await new Promise(resolve => { window.__releaseLunchPeriodAction = resolve; });
+        }
+        if (!label || endDate < "2026-10-01" || window.__lunchPeriodMode === "failure") {
+          return {success: false, error: "update"};
+        }
+        window.__setTableDetails?.(label, endDate);
+        return {success: true};
+      };
     `,
     harness: `
       const R = require("react");
@@ -269,10 +283,12 @@ function createTableBrowserBundle() {
       const { LunchPeriodsTable } = require("table");
       function Harness() {
         const [current, setCurrent] = R.useState(false);
+        const [details, setDetails] = R.useState({label: "Fixture period", end_date: "2026-10-07"});
         window.__setTableCurrent = () => setCurrent(true);
+        window.__setTableDetails = (label, endDate) => setDetails({label, end_date: endDate});
         return R.createElement(LunchPeriodsWorkspace, null,
           R.createElement("div", {style: {height: 1200}, "aria-hidden": true}),
-          R.createElement(LunchPeriodsTable, { periods: [{id: "fixture-period", label: "Fixture period", start_date: "2026-10-01", end_date: "2026-10-07", is_current: current, status: "open"}] }),
+          R.createElement(LunchPeriodsTable, { periods: [{id: "fixture-period", ...details, start_date: "2026-10-01", is_current: current, status: "open"}] }),
           R.createElement("div", {style: {height: 800}, "aria-hidden": true}));
       }
       const root = createRoot(document.getElementById("root"));
@@ -300,16 +316,20 @@ function createTableBrowserBundle() {
 
 const tableBrowserBundle = createTableBrowserBundle();
 
-async function mountTable(page: Page) {
+async function mountTable(page: Page, historical = false) {
   await page.setContent('<!doctype html><html><body style="margin:0"><div id="root"></div></body></html>');
   await page.evaluate(() => {
     const state = window as HarnessWindow;
     state.__lunchPeriodMode = "success";
     state.__lunchPeriodCalls = 0;
+    state.__tableEditSubmissions = [];
     state.__releaseLunchPeriodAction = undefined;
   });
   await page.addScriptTag({content: tableBrowserBundle});
   await expect(page.getByRole("button", {name: "Edit", exact: true})).toBeVisible();
+  await page.evaluate((historical) => {
+    (window as HarnessWindow).__tableHistorical = historical;
+  }, historical);
 }
 
 async function mountHarness(page: Page) {
@@ -556,4 +576,73 @@ test("actual table ignores a delayed Make Current completion after navigation", 
   await page.waitForTimeout(100);
   await expect(page.getByRole("button", {name: "Destination"})).toBeFocused();
   await expect(page.getByText("Current lunch period updated successfully.")).toHaveCount(0);
+});
+
+for (const edit of [
+  {name: "label only", label: "Renamed period", endDate: "2026-10-07"},
+  {name: "end date only", label: "Fixture period", endDate: "2026-10-09"},
+  {name: "both fields", label: "Combined period", endDate: "2026-10-09"},
+  {name: "unchanged values", label: "Fixture period", endDate: "2026-10-07"},
+]) {
+  test(`actual table saves ${edit.name} through one form`, async ({page}) => {
+    await mountTable(page);
+    await page.getByRole("button", {name: "Edit", exact: true}).click();
+    await expect(page.getByRole("button", {name: "Save Changes", exact: true})).toHaveCount(1);
+    await expect(page.getByRole("button", {name: /Save label|Save end date/})).toHaveCount(0);
+    await page.getByLabel("Label", {exact: true}).fill(edit.label);
+    await page.getByLabel("End date", {exact: true}).fill(edit.endDate);
+    const save = page.getByRole("button", {name: "Save Changes", exact: true});
+    await save.scrollIntoViewIfNeeded();
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await save.click();
+    await expect(page.getByRole("button", {name: "Edit", exact: true})).toBeFocused();
+    await expect(page.locator("tbody")).toContainText(edit.label);
+    await expect(page.locator("tbody")).toContainText(edit.endDate);
+    await expect(page.getByRole("status").filter({hasText: "Lunch period updated successfully."})).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+    expect(await page.evaluate(() => (window as HarnessWindow).__tableEditSubmissions)).toEqual([
+      {label: edit.label, endDate: edit.endDate},
+    ]);
+  });
+}
+
+test("actual unified editor preserves both drafts after rejection and guards a delayed retry", async ({page}) => {
+  await mountTable(page);
+  await page.getByRole("button", {name: "Edit", exact: true}).click();
+  await page.getByLabel("Label", {exact: true}).fill("Rejected label");
+  await page.getByLabel("End date", {exact: true}).fill("2026-09-30");
+  const save = page.getByRole("button", {name: "Save Changes", exact: true});
+  await save.click();
+  await expect(page.getByRole("alert")).toHaveText("Unable to complete that lunch period action.");
+  await expect(page.getByLabel("Label", {exact: true})).toHaveValue("Rejected label");
+  await expect(page.getByLabel("End date", {exact: true})).toHaveValue("2026-09-30");
+  await expect(page.getByRole("region", {name: "Notifications"})).toBeEmpty();
+  await page.getByLabel("End date", {exact: true}).fill("2026-10-08");
+  await page.evaluate(() => { (window as HarnessWindow).__lunchPeriodMode = "delayed-success"; });
+  await save.evaluate(button => {
+    const form = (button as HTMLButtonElement).form!;
+    form.requestSubmit(button as HTMLButtonElement);
+    form.requestSubmit(button as HTMLButtonElement);
+  });
+  await expect(save).toBeDisabled();
+  await expect(page.getByLabel("Label", {exact: true})).toBeDisabled();
+  await expect(page.getByLabel("End date", {exact: true})).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => (window as HarnessWindow).__tableEditSubmissions?.length)).toBe(2);
+  await page.evaluate(() => (window as HarnessWindow).__releaseLunchPeriodAction?.());
+  await expect(page.getByRole("button", {name: "Edit", exact: true})).toBeFocused();
+  await expect(page.locator("tbody")).toContainText("Rejected label");
+  await expect(page.locator("tbody")).toContainText("2026-10-08");
+});
+
+test("actual historical editor saves a label while its end date stays locked", async ({page}) => {
+  await mountTable(page, true);
+  await page.getByRole("button", {name: "Edit", exact: true}).click();
+  await expect(page.getByText("End date (locked)")).toBeVisible();
+  await expect(page.locator('input[type="date"]')).toHaveCount(0);
+  await page.getByLabel("Label", {exact: true}).fill("Historical rename");
+  await page.getByRole("button", {name: "Save Changes", exact: true}).click();
+  await expect(page.getByRole("button", {name: "Edit", exact: true})).toBeFocused();
+  expect(await page.evaluate(() => (window as HarnessWindow).__tableEditSubmissions)).toEqual([
+    {label: "Historical rename", endDate: "2026-10-07"},
+  ]);
 });

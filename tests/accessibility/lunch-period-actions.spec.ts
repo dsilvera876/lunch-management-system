@@ -151,13 +151,18 @@ test.describe("real lunch-period Server Action lifecycle", () => {
     const originalRow = page.locator("tbody tr").filter({ hasText: FIXTURE_LABEL });
     await originalRow.getByRole("button", { name: "Edit" }).click();
     await page.getByLabel("Label", { exact: true }).fill(TEST_LABEL);
-    const saveButton = page.getByRole("button", { name: "Save label" });
+    const endDateInput = page.getByLabel("End date", { exact: true });
+    const nextEndDate = new Date(`${await endDateInput.inputValue()}T00:00:00Z`);
+    nextEndDate.setUTCDate(nextEndDate.getUTCDate() + 1);
+    const updatedEndDate = nextEndDate.toISOString().slice(0, 10);
+    await endDateInput.fill(updatedEndDate);
+    const saveButton = page.getByRole("button", { name: "Save Changes" });
     await saveButton.scrollIntoViewIfNeeded();
     const scrollBefore = await page.evaluate(() => window.scrollY);
 
     await saveButton.evaluate((button) => {
       const form = (button as HTMLButtonElement).form;
-      if (!form) throw new Error("Save label button has no form owner");
+      if (!form) throw new Error("Save Changes button has no form owner");
       form.requestSubmit(button as HTMLButtonElement);
       form.requestSubmit(button as HTMLButtonElement);
     });
@@ -172,6 +177,10 @@ test.describe("real lunch-period Server Action lifecycle", () => {
     await expect(updatedRow.getByRole("button", { name: "Edit" })).toBeFocused();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollBefore);
     await expect.poll(() => serverActionPosts).toBe(1);
+    expect(runLocalDbQuery(`
+      select label, end_date::text from public.lunch_periods
+      where id = '${PERIOD_ID}'::uuid
+    `)).toEqual([{label: TEST_LABEL, end_date: updatedEndDate}]);
     await page
       .getByRole("button", {
         name: "Dismiss Lunch period updated successfully. notification",
@@ -182,7 +191,7 @@ test.describe("real lunch-period Server Action lifecycle", () => {
     await page.locator('input[name="periodId"]').first().evaluate((input) => {
       (input as HTMLInputElement).value = "00000000-0000-4000-8000-000000000099";
     });
-    await page.getByRole("button", { name: "Save label" }).click();
+    await page.getByRole("button", { name: "Save Changes" }).click();
 
     await expect(
       page.getByRole("alert").filter({

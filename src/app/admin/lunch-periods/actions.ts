@@ -98,6 +98,38 @@ export async function createNextLunchPeriod(
   return { success: true };
 }
 
+export async function updateLunchPeriodDetails(
+  formData: FormData,
+): Promise<LunchPeriodActionResult> {
+  await requireManageLunchPeriods();
+
+  const periodId = formData.get("periodId");
+  const label = formData.get("label");
+  const endDate = formData.get("endDate");
+  if (
+    typeof periodId !== "string" || !periodId ||
+    typeof label !== "string" || !label.trim() ||
+    typeof endDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)
+  ) {
+    return { success: false, error: "invalid" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_lunch_period_details", {
+    p_period_id: periodId,
+    p_label: label.trim(),
+    p_end_date: endDate,
+  });
+  if (error) {
+    return { success: false, error: "update" };
+  }
+
+  revalidatePath("/admin/lunch-periods");
+  revalidatePath("/home");
+  revalidatePath("/account");
+  return { success: true };
+}
+
 export async function updateLunchPeriodLabel(
   formData: FormData,
 ): Promise<LunchPeriodActionResult> {

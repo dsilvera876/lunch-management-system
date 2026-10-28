@@ -126,8 +126,7 @@ describe("lunch period admin presentation", () => {
     assert.match(summarySource, /admin\/financials\/export\?periodId=/);
     assert.match(summarySource, /Export to Excel/);
     assert.match(appendSource, /mutationAction=\{createNextLunchPeriod\}/);
-    assert.match(tableSource, /mutationAction=\{updateLunchPeriodLabel\}/);
-    assert.match(tableSource, /mutationAction=\{updateLatestLunchPeriodEndDate\}/);
+    assert.match(tableSource, /mutationAction=\{updateLunchPeriodDetails\}/);
     assert.match(tableSource, /mutationAction=\{setCurrentLunchPeriod\}/);
   });
 });

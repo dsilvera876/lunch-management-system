@@ -3,8 +3,7 @@
 import { useState } from "react";
 import {
   setCurrentLunchPeriod,
-  updateLatestLunchPeriodEndDate,
-  updateLunchPeriodLabel,
+  updateLunchPeriodDetails,
 } from "@/app/admin/lunch-periods/actions";
 import {
   countLunchPeriodDays,
@@ -135,7 +134,7 @@ function PeriodTableRow({
           <div className="space-y-4">
             <p className="text-sm font-semibold text-slate-900">Edit {period.label}</p>
             <LunchPeriodMutationForm
-              mutationAction={updateLunchPeriodLabel}
+              mutationAction={updateLunchPeriodDetails}
               successMessage={LUNCH_PERIOD_UPDATED_SUCCESS}
               focusAfterSuccessId={`edit-lunch-period-${period.id}`}
               className="grid gap-3 md:grid-cols-2"
@@ -143,62 +142,45 @@ function PeriodTableRow({
             >
               <input type="hidden" name="periodId" value={period.id} />
               <FormField label="Label" htmlFor={`edit-label-${period.id}`}>
-                <input
+                <PeriodEditInput
                   id={`edit-label-${period.id}`}
                   name="label"
-                  defaultValue={period.label}
-                  required
-                  className={inputClassName}
+                  initialValue={period.label}
                 />
               </FormField>
-              <div className="flex items-end">
-                <Button type="submit" variant="secondary">
-                  Save label
-                </Button>
+              <div>
+                <p className="text-sm font-medium text-foreground">Start date</p>
+                <p className="mt-1 rounded-lg border border-border bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  {formatLunchPeriodAdminDate(period.start_date)}
+                </p>
               </div>
-            </LunchPeriodMutationForm>
-
-            {latest ? (
-              <LunchPeriodMutationForm
-                mutationAction={updateLatestLunchPeriodEndDate}
-                successMessage={LUNCH_PERIOD_UPDATED_SUCCESS}
-                focusAfterSuccessId={`edit-lunch-period-${period.id}`}
-                className="grid gap-3 md:grid-cols-2"
-                onSuccess={onCancel}
-              >
-                <input type="hidden" name="periodId" value={period.id} />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Start date</p>
-                  <p className="mt-1 rounded-lg border border-border bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    {formatLunchPeriodAdminDate(period.start_date)}
-                  </p>
-                </div>
+              {latest ? (
                 <FormField label="End date" htmlFor={`edit-end-${period.id}`}>
-                  <input
+                  <PeriodEditInput
                     id={`edit-end-${period.id}`}
                     name="endDate"
                     type="date"
-                    defaultValue={period.end_date}
-                    required
-                    className={inputClassName}
+                    initialValue={period.end_date}
                   />
                 </FormField>
-                <div className="md:col-span-2 flex flex-wrap gap-2">
-                  <Button type="submit" variant="primary">
-                    Save end date
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={onCancel}>
-                    Cancel
-                  </Button>
+              ) : (
+                <div>
+                  <input type="hidden" name="endDate" value={period.end_date} />
+                  <p className="text-sm font-medium text-foreground">End date (locked)</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {formatLunchPeriodAdminDate(period.end_date)}
+                  </p>
                 </div>
-              </LunchPeriodMutationForm>
-            ) : (
-              <div className="flex gap-2">
+              )}
+              <div className="md:col-span-2 flex flex-wrap gap-2">
+                <Button type="submit" variant="primary">
+                  Save Changes
+                </Button>
                 <Button type="button" variant="ghost" onClick={onCancel}>
                   Cancel
                 </Button>
               </div>
-            )}
+            </LunchPeriodMutationForm>
 
             {!period.is_current ? (
               <LunchPeriodMutationForm
@@ -269,5 +251,29 @@ function PeriodTableRow({
         </td>
       )}
     </tr>
+  );
+}
+
+// React resets uncontrolled fields after a resolved form action, including an
+// action returning a validation error. Retain drafts until this editor closes.
+function PeriodEditInput({
+  id, name, type = "text", initialValue,
+}: {
+  id: string;
+  name: string;
+  type?: "text" | "date";
+  initialValue: string;
+}) {
+  const [value, setValue] = useState(initialValue);
+  return (
+    <input
+      id={id}
+      name={name}
+      type={type}
+      value={value}
+      onChange={(event) => setValue(event.currentTarget.value)}
+      required
+      className={inputClassName}
+    />
   );
 }
