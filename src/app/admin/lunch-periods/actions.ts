@@ -1,15 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireManageLunchPeriods } from "@/lib/auth";
+import type { LunchPeriodActionResult } from "@/lib/lunch-period-action-feedback";
 import {
   validateFirstLunchPeriodInput,
   validateNextLunchPeriodInput,
 } from "@/lib/lunch-periods";
 import { createClient } from "@/lib/supabase/server";
 
-export async function createFirstLunchPeriod(formData: FormData) {
+export async function createFirstLunchPeriod(
+  formData: FormData,
+): Promise<LunchPeriodActionResult> {
   await requireManageLunchPeriods();
 
   const label = formData.get("label");
@@ -21,7 +23,7 @@ export async function createFirstLunchPeriod(formData: FormData) {
     typeof startDate !== "string" ||
     typeof endDate !== "string"
   ) {
-    redirect("/admin/lunch-periods?error=invalid");
+    return { success: false, error: "invalid" };
   }
 
   const validationError = validateFirstLunchPeriodInput({
@@ -31,7 +33,7 @@ export async function createFirstLunchPeriod(formData: FormData) {
   });
 
   if (validationError) {
-    redirect("/admin/lunch-periods?error=invalid-range");
+    return { success: false, error: "invalid-range" };
   }
 
   const supabase = await createClient();
@@ -43,16 +45,18 @@ export async function createFirstLunchPeriod(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/lunch-periods?error=create");
+    return { success: false, error: "create" };
   }
 
   revalidatePath("/admin/lunch-periods");
   revalidatePath("/home");
   revalidatePath("/account");
-  redirect("/admin/lunch-periods?created=1");
+  return { success: true };
 }
 
-export async function createNextLunchPeriod(formData: FormData) {
+export async function createNextLunchPeriod(
+  formData: FormData,
+): Promise<LunchPeriodActionResult> {
   await requireManageLunchPeriods();
 
   const label = formData.get("label");
@@ -64,7 +68,7 @@ export async function createNextLunchPeriod(formData: FormData) {
     typeof endDate !== "string" ||
     typeof derivedStartDate !== "string"
   ) {
-    redirect("/admin/lunch-periods?error=invalid");
+    return { success: false, error: "invalid" };
   }
 
   const validationError = validateNextLunchPeriodInput({
@@ -74,7 +78,7 @@ export async function createNextLunchPeriod(formData: FormData) {
   });
 
   if (validationError) {
-    redirect("/admin/lunch-periods?error=invalid-range");
+    return { success: false, error: "invalid-range" };
   }
 
   const supabase = await createClient();
@@ -85,23 +89,25 @@ export async function createNextLunchPeriod(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/lunch-periods?error=create");
+    return { success: false, error: "create" };
   }
 
   revalidatePath("/admin/lunch-periods");
   revalidatePath("/home");
   revalidatePath("/account");
-  redirect("/admin/lunch-periods?created=1");
+  return { success: true };
 }
 
-export async function updateLunchPeriodLabel(formData: FormData) {
+export async function updateLunchPeriodLabel(
+  formData: FormData,
+): Promise<LunchPeriodActionResult> {
   await requireManageLunchPeriods();
 
   const periodId = formData.get("periodId");
   const label = formData.get("label");
 
   if (typeof periodId !== "string" || !periodId || typeof label !== "string" || !label.trim()) {
-    redirect("/admin/lunch-periods?error=invalid");
+    return { success: false, error: "invalid" };
   }
 
   const supabase = await createClient();
@@ -112,23 +118,25 @@ export async function updateLunchPeriodLabel(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/lunch-periods?error=update");
+    return { success: false, error: "update" };
   }
 
   revalidatePath("/admin/lunch-periods");
   revalidatePath("/home");
   revalidatePath("/account");
-  redirect("/admin/lunch-periods?updated=1");
+  return { success: true };
 }
 
-export async function updateLatestLunchPeriodEndDate(formData: FormData) {
+export async function updateLatestLunchPeriodEndDate(
+  formData: FormData,
+): Promise<LunchPeriodActionResult> {
   await requireManageLunchPeriods();
 
   const periodId = formData.get("periodId");
   const endDate = formData.get("endDate");
 
   if (typeof periodId !== "string" || !periodId || typeof endDate !== "string") {
-    redirect("/admin/lunch-periods?error=invalid");
+    return { success: false, error: "invalid" };
   }
 
   const supabase = await createClient();
@@ -139,22 +147,24 @@ export async function updateLatestLunchPeriodEndDate(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/lunch-periods?error=update-end");
+    return { success: false, error: "update-end" };
   }
 
   revalidatePath("/admin/lunch-periods");
   revalidatePath("/home");
   revalidatePath("/account");
-  redirect("/admin/lunch-periods?updated=1");
+  return { success: true };
 }
 
-export async function setCurrentLunchPeriod(formData: FormData) {
+export async function setCurrentLunchPeriod(
+  formData: FormData,
+): Promise<LunchPeriodActionResult> {
   await requireManageLunchPeriods();
 
   const periodId = formData.get("periodId");
 
   if (typeof periodId !== "string" || !periodId) {
-    redirect("/admin/lunch-periods?error=invalid");
+    return { success: false, error: "invalid" };
   }
 
   const supabase = await createClient();
@@ -164,11 +174,11 @@ export async function setCurrentLunchPeriod(formData: FormData) {
   });
 
   if (error) {
-    redirect("/admin/lunch-periods?error=set-current");
+    return { success: false, error: "set-current" };
   }
 
   revalidatePath("/admin/lunch-periods");
   revalidatePath("/home");
   revalidatePath("/account");
-  redirect("/admin/lunch-periods?current=1");
+  return { success: true };
 }

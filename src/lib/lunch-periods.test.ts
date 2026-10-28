@@ -104,6 +104,20 @@ describe("lunch period admin presentation", () => {
       new URL("../components/admin/lunch-periods/current-lunch-period-summary.tsx", import.meta.url),
       "utf8",
     );
+    const appendSource = readFileSync(
+      new URL(
+        "../components/admin/lunch-periods/append-lunch-period-card.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const tableSource = readFileSync(
+      new URL(
+        "../components/admin/lunch-periods/lunch-periods-table.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    );
 
     assert.match(pageSource, /CurrentLunchPeriodSummary/);
     assert.match(pageSource, /DailyLunchSubsidySetting/);
@@ -111,6 +125,10 @@ describe("lunch period admin presentation", () => {
     assert.match(pageSource, /LunchPeriodsTable/);
     assert.match(summarySource, /admin\/financials\/export\?periodId=/);
     assert.match(summarySource, /Export to Excel/);
+    assert.match(appendSource, /mutationAction=\{createNextLunchPeriod\}/);
+    assert.match(tableSource, /mutationAction=\{updateLunchPeriodLabel\}/);
+    assert.match(tableSource, /mutationAction=\{updateLatestLunchPeriodEndDate\}/);
+    assert.match(tableSource, /mutationAction=\{setCurrentLunchPeriod\}/);
   });
 });
 
@@ -180,18 +198,18 @@ describe("order-date membership", () => {
 });
 
 describe("lunch period capabilities", () => {
-  it("allows Accounts, Admin, and Owner to manage lunch periods", () => {
+  it("allows only permanent Accounts to manage lunch periods", () => {
     assert.equal(canManageLunchPeriods("accounts"), true);
-    assert.equal(canManageLunchPeriods("admin"), true);
-    assert.equal(canManageLunchPeriods("owner"), true);
+    assert.equal(canManageLunchPeriods("admin"), false);
+    assert.equal(canManageLunchPeriods("owner"), false);
     assert.equal(canManageLunchPeriods("hr"), false);
     assert.equal(canManageLunchPeriods("staff"), false);
   });
 
-  it("allows Accounts, Admin, and Owner export placeholders only", () => {
+  it("allows only permanent Accounts to export lunch period summaries", () => {
     assert.equal(canExportLunchPeriodSummaries("accounts"), true);
-    assert.equal(canExportLunchPeriodSummaries("admin"), true);
-    assert.equal(canExportLunchPeriodSummaries("owner"), true);
+    assert.equal(canExportLunchPeriodSummaries("admin"), false);
+    assert.equal(canExportLunchPeriodSummaries("owner"), false);
     assert.equal(canExportLunchPeriodSummaries("hr"), false);
     assert.equal(canExportLunchPeriodSummaries("staff"), false);
   });

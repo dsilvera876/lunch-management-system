@@ -3,7 +3,7 @@ import path from "node:path";
 
 export default defineConfig({
   testDir: path.join(__dirname),
-  testMatch: /(toast-provider|user-activity-reporter)\.spec\.ts/,
+  testMatch: /(toast-provider|user-activity-reporter|lunch-period-actions)\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   reporter: "list",

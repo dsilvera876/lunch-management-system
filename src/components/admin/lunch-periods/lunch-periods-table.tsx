@@ -21,6 +21,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { SUPPORT_MODE_DISABLED_HINT } from "@/components/app-shell/support-mode-context";
+import { LunchPeriodMutationForm } from "@/components/admin/lunch-periods/lunch-periods-workspace";
+import {
+  LUNCH_PERIOD_CURRENT_SUCCESS,
+  LUNCH_PERIOD_UPDATED_SUCCESS,
+} from "@/lib/lunch-period-action-feedback";
 
 type Props = {
   periods: LunchPeriod[];
@@ -129,10 +134,12 @@ function PeriodTableRow({
         <td colSpan={6} className="px-3 py-4">
           <div className="space-y-4">
             <p className="text-sm font-semibold text-slate-900">Edit {period.label}</p>
-            <form
-              action={updateLunchPeriodLabel}
+            <LunchPeriodMutationForm
+              mutationAction={updateLunchPeriodLabel}
+              successMessage={LUNCH_PERIOD_UPDATED_SUCCESS}
+              focusAfterSuccessId={`edit-lunch-period-${period.id}`}
               className="grid gap-3 md:grid-cols-2"
-              onSubmit={() => onCancel()}
+              onSuccess={onCancel}
             >
               <input type="hidden" name="periodId" value={period.id} />
               <FormField label="Label" htmlFor={`edit-label-${period.id}`}>
@@ -149,13 +156,15 @@ function PeriodTableRow({
                   Save label
                 </Button>
               </div>
-            </form>
+            </LunchPeriodMutationForm>
 
             {latest ? (
-              <form
-                action={updateLatestLunchPeriodEndDate}
+              <LunchPeriodMutationForm
+                mutationAction={updateLatestLunchPeriodEndDate}
+                successMessage={LUNCH_PERIOD_UPDATED_SUCCESS}
+                focusAfterSuccessId={`edit-lunch-period-${period.id}`}
                 className="grid gap-3 md:grid-cols-2"
-                onSubmit={() => onCancel()}
+                onSuccess={onCancel}
               >
                 <input type="hidden" name="periodId" value={period.id} />
                 <div>
@@ -182,7 +191,7 @@ function PeriodTableRow({
                     Cancel
                   </Button>
                 </div>
-              </form>
+              </LunchPeriodMutationForm>
             ) : (
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={onCancel}>
@@ -192,12 +201,17 @@ function PeriodTableRow({
             )}
 
             {!period.is_current ? (
-              <form action={setCurrentLunchPeriod}>
+              <LunchPeriodMutationForm
+                mutationAction={setCurrentLunchPeriod}
+                successMessage={LUNCH_PERIOD_CURRENT_SUCCESS}
+                focusAfterSuccessId={`edit-lunch-period-${period.id}`}
+                onSuccess={onCancel}
+              >
                 <input type="hidden" name="periodId" value={period.id} />
                 <Button type="submit" variant="secondary">
                   Make current
                 </Button>
-              </form>
+              </LunchPeriodMutationForm>
             ) : null}
           </div>
         </td>
@@ -207,7 +221,15 @@ function PeriodTableRow({
 
   return (
     <tr className="border-b border-border/60 last:border-b-0">
-      <td className="px-3 py-2.5 font-medium text-slate-900">{period.label}</td>
+      <td className="px-3 py-2.5 font-medium text-slate-900">
+        <span
+          id={`lunch-period-${period.id}-focus-target`}
+          tabIndex={-1}
+          className="rounded focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        >
+          {period.label}
+        </span>
+      </td>
       <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">
         {formatLunchPeriodAdminDate(period.start_date)}
       </td>
@@ -221,16 +243,27 @@ function PeriodTableRow({
       {readOnly ? null : (
         <td className="px-3 py-2.5 text-right">
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="ghost" className="min-h-8 px-2 text-sm" onClick={onEdit}>
+            <Button
+              id={`edit-lunch-period-${period.id}`}
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-2 text-sm"
+              onClick={onEdit}
+            >
               Edit
             </Button>
             {!period.is_current ? (
-              <form action={setCurrentLunchPeriod} className="inline">
+              <LunchPeriodMutationForm
+                mutationAction={setCurrentLunchPeriod}
+                successMessage={LUNCH_PERIOD_CURRENT_SUCCESS}
+                focusAfterSuccessId={`lunch-period-${period.id}-focus-target`}
+                className="inline"
+              >
                 <input type="hidden" name="periodId" value={period.id} />
                 <Button type="submit" variant="secondary" className="min-h-8 px-3 text-sm">
                   Make current
                 </Button>
-              </form>
+              </LunchPeriodMutationForm>
             ) : null}
           </div>
         </td>

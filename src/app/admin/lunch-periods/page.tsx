@@ -13,21 +13,17 @@ import { canExportLunchPeriodSummaries, canUpdateDailyLunchSubsidy } from "@/lib
 import { createClient } from "@/lib/supabase/server";
 import { DailyLunchSubsidySetting } from "@/components/daily-lunch-subsidy-control";
 import { PageHeader } from "@/components/ui/page-header";
-import { Alert } from "@/components/ui/alert";
 import { LunchPeriodInfoCallout } from "@/components/admin/lunch-periods/lunch-period-info-callout";
 import { CurrentLunchPeriodSummary } from "@/components/admin/lunch-periods/current-lunch-period-summary";
 import { AppendLunchPeriodCard } from "@/components/admin/lunch-periods/append-lunch-period-card";
 import { LunchPeriodsTable } from "@/components/admin/lunch-periods/lunch-periods-table";
+import { LunchPeriodsWorkspace } from "@/components/admin/lunch-periods/lunch-periods-workspace";
 import { pageMetadata } from "@/lib/page-titles";
 
 export const metadata = pageMetadata("adminLunchPeriods");
 
 type Props = {
   searchParams: Promise<{
-    error?: string;
-    created?: string;
-    updated?: string;
-    current?: string;
     "subsidy-updated"?: string;
     "subsidy-error"?: string;
   }>;
@@ -54,44 +50,13 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
   const isFirstPeriod = periods.length === 0;
 
   return (
-    <>
+    <LunchPeriodsWorkspace>
       <PageHeader
         title="Lunch Periods"
         description="Configure contiguous payroll-aligned lunch periods. Membership uses order date, not delivery date."
       />
 
       <LunchPeriodInfoCallout />
-
-      {params.created ? (
-        <Alert variant="success" className="mb-6">
-          Lunch period created successfully.
-        </Alert>
-      ) : null}
-
-      {params.updated ? (
-        <Alert variant="success" className="mb-6">
-          Lunch period updated successfully.
-        </Alert>
-      ) : null}
-
-      {params.current ? (
-        <Alert variant="success" className="mb-6">
-          Current lunch period updated successfully.
-        </Alert>
-      ) : null}
-
-      {params.error === "invalid-range" ? (
-        <Alert variant="error" className="mb-6">
-          Enter a valid label and date range. Periods must remain contiguous with no gaps or
-          overlaps.
-        </Alert>
-      ) : null}
-
-      {params.error && params.error !== "invalid-range" ? (
-        <Alert variant="error" className="mb-6">
-          Unable to complete that lunch period action.
-        </Alert>
-      ) : null}
 
       <div className="mb-6 space-y-4">
         <CurrentLunchPeriodSummary
@@ -117,6 +82,6 @@ export default async function LunchPeriodsPage({ searchParams }: Props) {
         )}
         <LunchPeriodsTable periods={periods} readOnly={supportReadOnly} />
       </div>
-    </>
+    </LunchPeriodsWorkspace>
   );
 }

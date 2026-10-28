@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
+import { LunchPeriodMutationForm } from "@/components/admin/lunch-periods/lunch-periods-workspace";
+import { LUNCH_PERIOD_CREATED_SUCCESS } from "@/lib/lunch-period-action-feedback";
 
 type Props = {
   isFirstPeriod: boolean;
@@ -18,11 +20,22 @@ export function AppendLunchPeriodCard({ isFirstPeriod, nextStartDate }: Props) {
   if (isFirstPeriod) {
     return (
       <Card padding="md" className="h-full shadow-sm">
-        <SectionHeader
-          title="Create first period"
-          description="Choose the start and end dates for the first payroll period."
-        />
-        <form action={createFirstLunchPeriod} className="space-y-4">
+        <div
+          id="create-first-lunch-period-heading"
+          tabIndex={-1}
+          className="rounded-lg focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        >
+          <SectionHeader
+            title="Create first period"
+            description="Choose the start and end dates for the first payroll period."
+          />
+        </div>
+        <LunchPeriodMutationForm
+          mutationAction={createFirstLunchPeriod}
+          successMessage={LUNCH_PERIOD_CREATED_SUCCESS}
+          focusAfterSuccessId="append-lunch-period-focus-target"
+          className="space-y-4"
+        >
           <FormField label="Label *" htmlFor="label">
             <input
               id="label"
@@ -41,14 +54,18 @@ export function AppendLunchPeriodCard({ isFirstPeriod, nextStartDate }: Props) {
           <Button type="submit" variant="primary" className="w-full sm:w-auto">
             Create first period
           </Button>
-        </form>
+        </LunchPeriodMutationForm>
       </Card>
     );
   }
 
   return (
     <Card padding="md" className="h-full shadow-sm">
-      <div className="mb-4 flex gap-3">
+      <div
+        id="append-lunch-period-focus-target"
+        tabIndex={-1}
+        className="mb-4 flex gap-3 rounded-lg focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      >
         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <IconPlus size={22} aria-hidden />
         </span>
@@ -70,7 +87,12 @@ export function AppendLunchPeriodCard({ isFirstPeriod, nextStartDate }: Props) {
         </div>
       ) : null}
 
-      <form action={createNextLunchPeriod} className="mt-4 space-y-4">
+      <LunchPeriodMutationForm
+        mutationAction={createNextLunchPeriod}
+        successMessage={LUNCH_PERIOD_CREATED_SUCCESS}
+        focusAfterSuccessId="append-lunch-period-focus-target"
+        className="mt-4 space-y-4"
+      >
         <input type="hidden" name="derivedStartDate" value={nextStartDate ?? ""} />
         <FormField label="Label *" htmlFor="next-label">
           <input
@@ -93,7 +115,7 @@ export function AppendLunchPeriodCard({ isFirstPeriod, nextStartDate }: Props) {
         <Button type="submit" variant="primary" className="w-full sm:w-auto">
           Append next period
         </Button>
-      </form>
+      </LunchPeriodMutationForm>
     </Card>
   );
 }
